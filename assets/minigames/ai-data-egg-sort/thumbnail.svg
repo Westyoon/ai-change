@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">AIDS 인지알 데사알 분류 placeholder thumbnail</title>
+  <desc id="desc">Two eggs above labeled sorting boxes and the AIDS department code</desc>
+  <rect width="640" height="360" rx="28" fill="#2a1d3d"/>
+  <rect x="36" y="42" width="178" height="88" rx="22" fill="#845ef7"/>
+  <text x="125" y="99" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="46" font-weight="800">AIDS</text>
+  <ellipse cx="326" cy="111" rx="42" ry="56" fill="#ffe066"/>
+  <ellipse cx="430" cy="111" rx="42" ry="56" fill="#74c0fc"/>
+  <path d="M326 167v42M430 167v42" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M256 206h140l-12 92H268z" fill="#f59f00"/>
+  <path d="M360 206h140l-12 92H372z" fill="#228be6"/>
+  <text x="326" y="262" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24" font-weight="700">인지알</text>
+  <text x="430" y="262" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24" font-weight="700">데사알</text>
+  <text x="48" y="330" fill="#ffffff" font-family="system-ui, sans-serif" font-size="28" font-weight="750">인지알·데사알 분류</text>
+</svg>

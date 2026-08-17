@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
+  <title id="title">ai-change placeholder logo</title>
+  <desc id="desc">Rounded pixel shapes surrounding the words ai-change</desc>
+  <rect width="640" height="240" rx="32" fill="#17153f"/>
+  <rect x="32" y="32" width="176" height="176" rx="28" fill="#7c5cff"/>
+  <rect x="64" y="64" width="48" height="48" rx="8" fill="#ffffff"/>
+  <rect x="128" y="64" width="48" height="48" rx="8" fill="#54e1c1"/>
+  <rect x="64" y="128" width="112" height="48" rx="8" fill="#ffcc66"/>
+  <text x="240" y="116" fill="#ffffff" font-family="system-ui, sans-serif" font-size="60" font-weight="800">ai-change</text>
+  <text x="243" y="158" fill="#b9b4e8" font-family="system-ui, sans-serif" font-size="22" letter-spacing="4">SCAFFOLD</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">CSE Code Heart placeholder thumbnail</title>
+  <desc id="desc">A heart made of code brackets and the CSE department code</desc>
+  <rect width="640" height="360" rx="28" fill="#241332"/>
+  <circle cx="122" cy="114" r="70" fill="#e64980"/>
+  <text x="122" y="133" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="45" font-weight="800">CSE</text>
+  <path d="M390 244c-17-18-99-71-99-132 0-36 27-62 62-62 21 0 39 10 51 28 12-18 30-28 51-28 35 0 62 26 62 62 0 61-82 114-99 132z" fill="#ff6b9d"/>
+  <text x="404" y="165" text-anchor="middle" fill="#ffffff" font-family="monospace" font-size="62" font-weight="800">&lt;/&gt;</text>
+  <text x="48" y="286" fill="#ffffff" font-family="system-ui, sans-serif" font-size="38" font-weight="750">Code Heart: Unlock!</text>
+  <text x="50" y="323" fill="#faa2c1" font-family="system-ui, sans-serif" font-size="20">PLACEHOLDER</text>
+</svg>

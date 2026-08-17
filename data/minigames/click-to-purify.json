@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "gameId": "cyber-click-to-purify",
+  "implementationStatus": "SCAFFOLD",
+  "goal": "악성코드 유형을 확인하고 올바른 타이밍에 위협을 정화합니다.",
+  "controls": {
+    "pc": ["마우스 클릭 또는 Space로 정화"],
+    "mobile": ["화면을 터치해 정화"]
+  }
+}

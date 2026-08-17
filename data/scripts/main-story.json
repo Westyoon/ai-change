@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "implementationStatus": "SCAFFOLD",
+  "scripts": [
+    {
+      "id": "main-story-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "안내",
+          "portraitAssetId": null,
+          "text": "인공지능대학 축제 맵에 오신 것을 환영합니다. 학과 NPC를 만나 미니게임을 확인해 보세요."
+        }
+      ],
+      "nextAction": {
+        "type": "returnToMap"
+      }
+    }
+  ]
+}

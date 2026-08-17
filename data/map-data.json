@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "implementationStatus": "SCAFFOLD",
+  "maps": [
+    {
+      "id": "festival-main-map",
+      "worldSize": {
+        "width": 1024,
+        "height": 640
+      },
+      "startPosition": {
+        "x": 512,
+        "y": 560
+      },
+      "collisionLayers": ["bounds", "buildings", "decorations"],
+      "obstacles": [],
+      "npcs": [
+        {
+          "id": "npc-ai",
+          "departmentCode": "AI",
+          "x": 240,
+          "y": 220,
+          "interactionRadius": 64,
+          "firstScript": "ai-npc-first",
+          "revisitScript": "ai-npc-revisit",
+          "miniGameId": "ai-ball-classification",
+          "completionRule": {
+            "type": "MINIGAME_CLEAR",
+            "target": "ai-ball-classification"
+          }
+        },
+        {
+          "id": "npc-ds",
+          "departmentCode": "DS",
+          "x": 500,
+          "y": 200,
+          "interactionRadius": 64,
+          "firstScript": "ds-npc-first",
+          "revisitScript": "ds-npc-revisit",
+          "miniGameId": "data-number-baseball",
+          "completionRule": {
+            "type": "MINIGAME_CLEAR",
+            "target": "data-number-baseball"
+          }
+        },
+        {
+          "id": "npc-cse",
+          "departmentCode": "CSE",
+          "x": 780,
+          "y": 220,
+          "interactionRadius": 64,
+          "firstScript": "cse-npc-first",
+          "revisitScript": "cse-npc-revisit",
+          "miniGameId": "computer-code-heart",
+          "completionRule": {
+            "type": "MINIGAME_CLEAR",
+            "target": "computer-code-heart"
+          }
+        },
+        {
+          "id": "npc-cs",
+          "departmentCode": "CS",
+          "x": 360,
+          "y": 430,
+          "interactionRadius": 64,
+          "firstScript": "cs-npc-first",
+          "revisitScript": "cs-npc-revisit",
+          "miniGameId": "cyber-click-to-purify",
+          "completionRule": {
+            "type": "MINIGAME_CLEAR",
+            "target": "cyber-click-to-purify"
+          }
+        },
+        {
+          "id": "npc-aids",
+          "departmentCode": "AIDS",
+          "x": 660,
+          "y": 430,
+          "interactionRadius": 64,
+          "firstScript": "aids-npc-first",
+          "revisitScript": "aids-npc-revisit",
+          "miniGameId": "ai-data-egg-sort",
+          "completionRule": {
+            "type": "MINIGAME_CLEAR",
+            "target": "ai-data-egg-sort"
+          }
+        }
+      ]
+    }
+  ]
+}

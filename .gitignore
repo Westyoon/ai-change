@@ -1,1 +1,6 @@
 /docs/기능명세서.md
+node_modules/
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "departments": [
+    {
+      "code": "AI",
+      "slug": "ai",
+      "displayName": "인공지능학부",
+      "shortName": "인공지능"
+    },
+    {
+      "code": "DS",
+      "slug": "ds",
+      "displayName": "데이터사이언스전공",
+      "shortName": "데이터사이언스"
+    },
+    {
+      "code": "CSE",
+      "slug": "cse",
+      "displayName": "컴퓨터공학과",
+      "shortName": "컴공"
+    },
+    {
+      "code": "CS",
+      "slug": "cs",
+      "displayName": "사이버보안학과",
+      "shortName": "사이버보안"
+    },
+    {
+      "code": "AIDS",
+      "slug": "aids",
+      "displayName": "인공지능데이터사이언스학부",
+      "shortName": "인데부"
+    }
+  ]
+}

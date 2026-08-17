@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "implementationStatus": "SCAFFOLD",
+  "scripts": [
+    {
+      "id": "data-number-baseball-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "데이터사이언스", "portraitAssetId": null, "text": "숫자 야구를 완료했습니다."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "data-number-baseball-fail",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "데이터사이언스", "portraitAssetId": null, "text": "결과를 확인하고 다시 도전해 보세요."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "cyber-click-to-purify-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "사이버보안", "portraitAssetId": null, "text": "위협 정화를 완료했습니다."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "cyber-click-to-purify-fail",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "사이버보안", "portraitAssetId": null, "text": "결과를 확인하고 다시 도전해 보세요."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "computer-code-heart-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "컴공", "portraitAssetId": null, "text": "Code Heart를 완료했습니다."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "computer-code-heart-fail",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "컴공", "portraitAssetId": null, "text": "결과를 확인하고 다시 도전해 보세요."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "ai-ball-classification-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "인공지능", "portraitAssetId": null, "text": "공 분류를 완료했습니다."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "ai-ball-classification-fail",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "인공지능", "portraitAssetId": null, "text": "결과를 확인하고 다시 도전해 보세요."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "ai-data-egg-sort-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "인데부", "portraitAssetId": null, "text": "알 분류를 완료했습니다."}],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "ai-data-egg-sort-fail",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [{"speaker": "인데부", "portraitAssetId": null, "text": "결과를 확인하고 다시 도전해 보세요."}],
+      "nextAction": {"type": "returnToMap"}
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">CS CLICK to PURIFY placeholder thumbnail</title>
+  <desc id="desc">A shield, cursor, and the CS department code</desc>
+  <rect width="640" height="360" rx="28" fill="#071b26"/>
+  <path d="M140 48 244 88v78c0 69-43 119-104 148C79 285 36 235 36 166V88z" fill="#12b886"/>
+  <path d="m140 88 62 24v54c0 43-24 78-62 101-38-23-62-58-62-101v-54z" fill="#d3f9d8"/>
+  <text x="140" y="188" text-anchor="middle" fill="#087f5b" font-family="system-ui, sans-serif" font-size="52" font-weight="800">CS</text>
+  <path d="m300 78 72 162 26-58 61 61 35-35-61-61 59-27z" fill="#ffffff" stroke="#20c997" stroke-width="8" stroke-linejoin="round"/>
+  <text x="300" y="286" fill="#ffffff" font-family="system-ui, sans-serif" font-size="35" font-weight="750">CLICK to PURIFY</text>
+  <text x="302" y="323" fill="#96f2d7" font-family="system-ui, sans-serif" font-size="20">PLACEHOLDER</text>
+</svg>

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "gameId": "ai-ball-classification",
+  "implementationStatus": "SCAFFOLD",
+  "goal": "목표 이미지와 일치하는 공만 분류함에 담습니다.",
+  "controls": {
+    "pc": ["Space 또는 화면 버튼으로 뚜껑 열기·닫기"],
+    "mobile": ["OPEN·CLOSE 버튼을 터치"]
+  }
+}

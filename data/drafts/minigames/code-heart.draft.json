@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "gameId": "computer-code-heart",
+  "implementationStatus": "DECISION_DRAFT",
+  "runtimeReferenced": false,
+  "decisions": [
+    {
+      "decisionId": "D-06",
+      "key": "ordersRecipesClearScoreAndRetryPolicy",
+      "status": "TBD",
+      "value": null
+    }
+  ]
+}

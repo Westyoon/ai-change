@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "implementationStatus": "SCAFFOLD",
+  "scripts": [
+    {
+      "id": "ai-npc-first",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "text": "AI 미니게임을 소개할게요. 목표 이미지를 보고 공을 분류해 보세요."
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "ai-ball-classification"
+      }
+    },
+    {
+      "id": "ai-npc-revisit",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "text": "AI Ball Classification Game을 다시 확인해 볼까요?"
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "ai-ball-classification"
+      }
+    },
+    {
+      "id": "ds-npc-first",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "text": "데이터를 관찰하고 숫자 패턴을 추론하는 미니게임을 만나 보세요."
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "data-number-baseball"
+      }
+    },
+    {
+      "id": "ds-npc-revisit",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "text": "숫자 야구를 다시 확인해 볼까요?"
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "data-number-baseball"
+      }
+    },
+    {
+      "id": "cse-npc-first",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "컴공",
+          "portraitAssetId": null,
+          "text": "개발 재료를 순서대로 조합하는 Code Heart를 소개할게요."
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "computer-code-heart"
+      }
+    },
+    {
+      "id": "cse-npc-revisit",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "컴공",
+          "portraitAssetId": null,
+          "text": "Code Heart: Unlock!을 다시 확인해 볼까요?"
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "computer-code-heart"
+      }
+    },
+    {
+      "id": "cs-npc-first",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "text": "위협을 살펴보고 알맞은 순간에 정화하는 미니게임을 만나 보세요."
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "cyber-click-to-purify"
+      }
+    },
+    {
+      "id": "cs-npc-revisit",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "text": "CLICK to PURIFY를 다시 확인해 볼까요?"
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "cyber-click-to-purify"
+      }
+    },
+    {
+      "id": "aids-npc-first",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "인데부",
+          "portraitAssetId": null,
+          "text": "인지알과 데사알을 알맞은 상자로 분류해 보세요."
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "ai-data-egg-sort"
+      }
+    },
+    {
+      "id": "aids-npc-revisit",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "인데부",
+          "portraitAssetId": null,
+          "text": "인지알·데사알 분류 게임을 다시 확인해 볼까요?"
+        }
+      ],
+      "nextAction": {
+        "type": "openMiniGame",
+        "target": "ai-data-egg-sort"
+      }
+    },
+    {
+      "id": "data-number-baseball-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "text": "서로 다른 숫자로 이루어진 정답을 추론하세요."
+        }
+      ],
+      "nextAction": {
+        "type": "none"
+      }
+    },
+    {
+      "id": "cyber-click-to-purify-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "text": "악성코드를 확인하고 올바른 타이밍에 정화하세요."
+        }
+      ],
+      "nextAction": {
+        "type": "none"
+      }
+    },
+    {
+      "id": "computer-code-heart-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "컴공",
+          "portraitAssetId": null,
+          "text": "주문에 맞춰 개발 재료를 올바른 순서로 조합하세요."
+        }
+      ],
+      "nextAction": {
+        "type": "none"
+      }
+    },
+    {
+      "id": "ai-ball-classification-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "text": "목표 이미지와 일치하는 공만 분류함에 담으세요."
+        }
+      ],
+      "nextAction": {
+        "type": "none"
+      }
+    },
+    {
+      "id": "ai-data-egg-sort-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "인데부",
+          "portraitAssetId": null,
+          "text": "떨어지는 인지알과 데사알을 알맞은 상자로 보내세요."
+        }
+      ],
+      "nextAction": {
+        "type": "none"
+      }
+    }
+  ]
+}

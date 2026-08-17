@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "gameId": "data-number-baseball",
+  "implementationStatus": "DECISION_DRAFT",
+  "runtimeReferenced": false,
+  "decisions": [
+    {
+      "decisionId": "D-08",
+      "key": "balanceRetryAndRecordPolicy",
+      "status": "TBD",
+      "value": null
+    }
+  ]
+}

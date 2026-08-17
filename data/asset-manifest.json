@@ -1,0 +1,167 @@
+{
+  "contentVersion": 1,
+  "assets": [
+    {
+      "id": "departments-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/departments.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-001"
+    },
+    {
+      "id": "minigames-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/minigames.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-002"
+    },
+    {
+      "id": "battles-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/battles.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-003"
+    },
+    {
+      "id": "map-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/map-data.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-004"
+    },
+    {
+      "id": "main-story-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/scripts/main-story.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-005"
+    },
+    {
+      "id": "npc-dialogues-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/scripts/npc-dialogues.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-006"
+    },
+    {
+      "id": "minigame-outros-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/scripts/minigame-outros.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-007"
+    },
+    {
+      "id": "app-logo",
+      "group": "common",
+      "type": "image",
+      "src": "./assets/images/app-logo.svg",
+      "required": true,
+      "alt": "ai-change 임시 로고",
+      "sourceRef": "ASSET-COMMON-001"
+    },
+    {
+      "id": "number-baseball-config",
+      "group": "data-number-baseball",
+      "type": "json",
+      "src": "./data/minigames/number-baseball.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-DS-001"
+    },
+    {
+      "id": "number-baseball-thumbnail",
+      "group": "data-number-baseball",
+      "type": "image",
+      "src": "./assets/minigames/number-baseball/thumbnail.svg",
+      "required": true,
+      "alt": "DS 숫자 야구 미니게임 임시 미리보기",
+      "sourceRef": "ASSET-DS-001"
+    },
+    {
+      "id": "click-to-purify-config",
+      "group": "cyber-click-to-purify",
+      "type": "json",
+      "src": "./data/minigames/click-to-purify.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-CS-001"
+    },
+    {
+      "id": "click-to-purify-thumbnail",
+      "group": "cyber-click-to-purify",
+      "type": "image",
+      "src": "./assets/minigames/click-to-purify/thumbnail.svg",
+      "required": true,
+      "alt": "CS CLICK to PURIFY 미니게임 임시 미리보기",
+      "sourceRef": "ASSET-CS-001"
+    },
+    {
+      "id": "code-heart-config",
+      "group": "computer-code-heart",
+      "type": "json",
+      "src": "./data/minigames/code-heart.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-CSE-001"
+    },
+    {
+      "id": "code-heart-thumbnail",
+      "group": "computer-code-heart",
+      "type": "image",
+      "src": "./assets/minigames/code-heart/thumbnail.svg",
+      "required": true,
+      "alt": "CSE Code Heart 미니게임 임시 미리보기",
+      "sourceRef": "ASSET-CSE-001"
+    },
+    {
+      "id": "ai-ball-classification-config",
+      "group": "ai-ball-classification",
+      "type": "json",
+      "src": "./data/minigames/ai-ball-classification.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-AI-001"
+    },
+    {
+      "id": "ai-ball-classification-thumbnail",
+      "group": "ai-ball-classification",
+      "type": "image",
+      "src": "./assets/minigames/ai-ball-classification/thumbnail.svg",
+      "required": true,
+      "alt": "AI Ball Classification 미니게임 임시 미리보기",
+      "sourceRef": "ASSET-AI-001"
+    },
+    {
+      "id": "ai-data-egg-sort-config",
+      "group": "ai-data-egg-sort",
+      "type": "json",
+      "src": "./data/minigames/ai-data-egg-sort.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-AIDS-001"
+    },
+    {
+      "id": "ai-data-egg-sort-thumbnail",
+      "group": "ai-data-egg-sort",
+      "type": "image",
+      "src": "./assets/minigames/ai-data-egg-sort/thumbnail.svg",
+      "required": true,
+      "alt": "AIDS 인지알·데사알 분류 미니게임 임시 미리보기",
+      "sourceRef": "ASSET-AIDS-001"
+    }
+  ]
+}

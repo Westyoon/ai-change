@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "gameId": "ai-ball-classification",
+  "implementationStatus": "DECISION_DRAFT",
+  "runtimeReferenced": false,
+  "decisions": [
+    {
+      "decisionId": "D-07",
+      "key": "timingSpeedScoreAndRetryPolicy",
+      "status": "TBD",
+      "value": null
+    }
+  ]
+}
