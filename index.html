@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Code Heart: Unlock!</title>
+  <link rel="stylesheet" href="css/common.css" />
+  <link rel="stylesheet" href="css/minigames.css" />
+</head>
+<body>
+  <!-- 미니게임 씬 컨테이너 -->
+  <div id="game-root"></div>
+
+  <script type="module">
+    import CodeHeartMiniGame from './js/minigames/code-heart/index.js';
+
+    async function launch() {
+      const res = await fetch('./data/minigames/code-heart.json');
+      const config = await res.json();
+
+      const game = new CodeHeartMiniGame({
+        container: document.getElementById('game-root'),
+        eventBus: {
+          emit: (event, payload) => console.log('[EventBus]', event, payload)
+        }
+      });
+
+      await game.init(config);
+      game.start();
+    }
+
+    launch();
+  </script>
+</body>
+</html>
