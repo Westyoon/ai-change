@@ -29,7 +29,7 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
         if (egg.done) continue;
 
         if (egg.phase === 'falling') {
-            stepFalling(egg, dt, config, fieldW);
+            stepFalling(egg, dt, config, fieldW, fieldH);
 
             if (egg.target === 'box') {
                 if (egg.y + eggR >= fieldH) {
@@ -46,11 +46,24 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
                 const surfaceY = plat.y - config.physics.surfaceOffset;
                 if (egg.y + eggR >= surfaceY) {
                     egg.y = surfaceY - eggR;
-                    egg.vy = 0;
-                    egg.vx = 0;
-                    egg.phase = 'rolling';
-                    egg.platform = plat;
-                    egg.rollTime = 0;
+                    const dxAtLanding = egg.x - plat.x;
+
+                    if (Math.abs(dxAtLanding) > config.physics.platformHalfLen) {
+                        egg.vy = 0;
+                        egg.platform = plat;
+                        finalizeRelease(state, egg, dxAtLanding >= 0 ? 'right' : 'left', config);
+                    } else {
+                        egg.vy = 0;
+                        egg.vx *= config.physics.landingInertiaKeep;
+                        const margin = Math.max(config.physics.platformHalfLen - Math.abs(dxAtLanding), 2);
+                        const maxSafeSpeed = Math.sqrt(2 * config.physics.rollAccel * margin) * 0.85;
+                        if (Math.abs(egg.vx) > maxSafeSpeed) {
+                            egg.vx = Math.sign(egg.vx) * maxSafeSpeed;
+                        }
+                        egg.phase = 'rolling';
+                        egg.platform = plat;
+                        egg.rollTime = 0;
+                    }
                 }
             }
         } else {

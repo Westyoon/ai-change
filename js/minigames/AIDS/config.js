@@ -14,9 +14,9 @@ export const DEFAULT_CONFIG = Object.freeze({
     initialTilt: 'left',
 
     spawnIntervals: [
-        { maxElapsedSec: 10, intervalMs: 3500 },
-        { maxElapsedSec: 25, intervalMs: 2500 },
-        { maxElapsedSec: null, intervalMs: 1500 },
+        { maxElapsedSec: 10, intervalMs: 4500 },
+        { maxElapsedSec: 25, intervalMs: 3500 },
+        { maxElapsedSec: null, intervalMs: 2500 },
     ],
 
     eggTypeProbability: Object.freeze({ in: 0.5, de: 0.5 }),
@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG = Object.freeze({
         Object.freeze({
             yPct: 36,
             lanes: Object.freeze([
-                Object.freeze({ lane: 'left', xPct: 18 }),
+                Object.freeze({ lane: 'left', xPct: 26 }),
                 Object.freeze({ lane: 'right', xPct: 74 }),
             ]),
         }),
@@ -52,7 +52,10 @@ export const DEFAULT_CONFIG = Object.freeze({
         maxRollTimeSec: 2.5,
         eggRadius: 20,
         steer: 2.4,
+        fallSteerAccel: 600,
         platformJitterPct: 3,
+        landingInertiaKeep: 0.3,
+        maxFallSteerSpeed: 320,
     }),
 });
 
