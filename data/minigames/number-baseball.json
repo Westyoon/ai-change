@@ -1,0 +1,16 @@
+{
+  "id": "data-number-baseball",
+  "rules": {
+    "digitRange": [0, 9],
+    "answerLength": 3,
+    "allowDuplicate": false,
+    "maxEpochs": 9,
+    "clearCondition": "3 Fit"
+  },
+  "balance": {
+    "allowLeadingZero": "TBD",
+    "deleteAction": "TBD",
+    "timeLimit": "TBD",
+    "retryPenalty": "TBD"
+  }
+}
