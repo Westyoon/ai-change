@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "gameId": "ai-data-egg-sort",
+  "implementationStatus": "SCAFFOLD",
+  "goal": "떨어지는 인지알과 데사알을 알맞은 상자로 분류합니다.",
+  "controls": {
+    "pc": ["왼쪽·오른쪽 방향키 또는 A·D로 발판 조작"],
+    "mobile": ["왼쪽·오른쪽 버튼을 터치해 발판 조작"]
+  }
+}

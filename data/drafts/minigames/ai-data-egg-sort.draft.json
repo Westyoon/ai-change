@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "gameId": "ai-data-egg-sort",
+  "implementationStatus": "DECISION_DRAFT",
+  "runtimeReferenced": false,
+  "decisions": [
+    {
+      "decisionId": "D-09",
+      "key": "spawnPhysicsTerminalPriorityRetryAndRecordPolicy",
+      "status": "TBD",
+      "value": null
+    }
+  ]
+}
