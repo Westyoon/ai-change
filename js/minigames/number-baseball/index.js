@@ -1,16 +1,14 @@
 export function createMiniGame(context) {
-  // 객체 선언
   let state = {
-    answer: [],           // 중복 없는 3자리 정답 배열
-    currentInput: [],     // 사용자의 현재 입력 배열
-    history: [],          // 과거 입력 및 판정 결과 누적
-    epoch: 0,             // 현재 시도 횟수
-    maxEpochs: 9,         // 최대 시도 횟수
-    phase: "INPUT",       // 현재 상태 (예: READY, INPUT, RESOLVING, COMPLETED 등)
-    inputLocked: false    // 입력 잠금 여부 (판정 애니메이션 중 중복 입력 방지 등)
+    answer: [],
+    currentInput: [],
+    history: [],
+    epoch: 0,
+    maxEpochs: 9,
+    phase: "INPUT",
+    inputLocked: false
   };
 
-  // DOM 요소를 참조하기 위한 객체 추가
   const dom = {
     epochText: null,
     progressBar: null,
@@ -20,44 +18,29 @@ export function createMiniGame(context) {
     actionButtons: null
   };
 
-  // --- 추가된 로직 함수 시작 --- //
-
-  // 화면의 입력 슬롯을 현재 상태(state.currentInput)와 동기화하는 함수
   function updateInputSlots() {
     dom.inputSlots.forEach((slot, index) => {
-      // currentInput에 값이 있으면 표시, 없으면 빈 문자열
       slot.textContent = state.currentInput[index] !== undefined ? state.currentInput[index] : "";
     });
   }
 
-  // 숫자 키패드 클릭 시 실행되는 함수
   function handleNumberInput(num) {
     if (state.inputLocked || state.phase !== "INPUT") return;
-    
-    // 3자리가 다 찼으면 더 이상 입력받지 않음
     if (state.currentInput.length >= 3) return;
-    
-    // 중복된 숫자 입력 방지
-    if (state.currentInput.includes(num)) {
-      console.log("이미 입력한 숫자입니다!"); // 실제 기기에서는 Toast나 애니메이션으로 처리 가능
-      return;
-    }
+    if (state.currentInput.includes(num)) return;
     
     state.currentInput.push(num);
     updateInputSlots();
   }
 
-  // 지우기 버튼 클릭 시 실행되는 함수
   function handleDelete() {
     if (state.inputLocked || state.phase !== "INPUT") return;
-    
     if (state.currentInput.length > 0) {
       state.currentInput.pop();
       updateInputSlots();
     }
   }
 
-  // 중복 없는 3자리 정답을 생성하는 함수
   function generateAnswer() {
     const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     const result = [];
@@ -68,7 +51,110 @@ export function createMiniGame(context) {
     return result;
   }
 
-  // --- 추가된 로직 함수 끝 --- //
+  // --- 🌟 새롭게 추가/수정된 검증 및 종료 로직 시작 --- //
+
+  // 히스토리를 화면에 그려주는 함수
+  function appendHistoryUI(record) {
+    const row = document.createElement("div");
+    row.className = "nb-history-row";
+    // MVP 테스트용 인라인 스타일 (추후 CSS 파일로 분리 가능)
+    row.style.display = "flex";
+    row.style.gap = "15px";
+    row.style.marginBottom = "5px";
+    row.style.padding = "5px";
+    row.style.borderBottom = "1px solid #555";
+
+    const guessText = document.createElement("span");
+    guessText.style.fontWeight = "bold";
+    guessText.style.color = "#0ff"; // 네온 블루 느낌
+    guessText.textContent = `[ ${record.guess.join(" ")} ]`;
+    
+    const resultText = document.createElement("span");
+    resultText.innerHTML = `<span style="color:#0f0">${record.fit} Fit</span> / 
+                            <span style="color:#ff0">${record.shift} Shift</span> / 
+                            <span style="color:#f0f">${record.outlier} Outlier</span>`;
+    
+    row.appendChild(guessText);
+    row.appendChild(resultText);
+    
+    dom.historyContainer.appendChild(row);
+    // 스크롤 맨 아래로 이동
+    dom.historyContainer.scrollTop = dom.historyContainer.scrollHeight;
+  }
+
+  // 게임 종료 처리 함수
+  function endGame(status, fit, shift, outlier) {
+    state.phase = status;
+    state.inputLocked = true;
+    
+    if (status === "FAIL") {
+      alert(`게임 오버! 정답은 ${state.answer.join("")} 였습니다.`);
+    } else {
+      alert(`클리어! ${state.epoch}번 만에 맞혔습니다.`);
+    }
+
+    // 개발 계획서에 명시된 MiniGameResult 스키마에 맞춰 상위 라우터로 결과 반환[cite: 1]
+    if (context && context.onComplete) {
+      context.onComplete({
+        miniGameId: "data-number-baseball",
+        status: status,
+        score: null,
+        durationMs: 0, // 실제로는 performance.now()로 계산 필요
+        failureReason: status === "FAIL" ? "MAX_EPOCH_REACHED" : null,
+        metrics: {
+          epochsUsed: state.epoch,
+          fit: fit,
+          shift: shift,
+          outlier: outlier
+        }
+      });
+    }
+  }
+
+  // 검증(제출) 버튼 클릭 시 실행되는 함수
+  function handleSubmit() {
+    console.log("검증 버튼 클릭됨! 현재 상태:", state.phase, "입력된 숫자:", state.currentInput);
+
+    if (state.inputLocked || state.phase !== "INPUT") return;
+    
+    // 3자리 미만이면 알림을 띄우고 종료 (Epoch 미차감)
+    if (state.currentInput.length < 3) {
+      alert("숫자 3자리를 모두 채워주세요!");
+      return;
+    }
+
+    // 1. 상태 업데이트
+    state.epoch++;
+    dom.epochText.textContent = `EPOCH ${state.epoch}/9`;
+
+    // 2. Fit, Shift, Outlier 판정 로직
+    const guess = state.currentInput;
+    const answer = state.answer;
+    
+    const fit = guess.filter((digit, index) => digit === answer[index]).length;
+    const shift = guess.filter(
+      (digit, index) => digit !== answer[index] && answer.includes(digit)
+    ).length;
+    const outlier = 3 - fit - shift;
+
+    // 3. 기록(History) 업데이트
+    const record = { guess: [...guess], fit, shift, outlier };
+    state.history.push(record);
+    appendHistoryUI(record);
+
+    // 4. 승패 및 게임 진행 조건 체크
+    if (fit === 3) {
+      endGame("CLEAR", fit, shift, outlier);
+    } else if (state.epoch >= state.maxEpochs) {
+      endGame("FAIL", fit, shift, outlier);
+    } else {
+      // 다음 턴을 위해 입력 초기화
+      state.currentInput = [];
+      updateInputSlots();
+    }
+  }
+
+  // --- 🌟 검증 및 종료 로직 끝 --- //
 
   // 메서드 정의
 
@@ -110,6 +196,9 @@ export function createMiniGame(context) {
     // 중앙: 과거 입력을 누적할 히스토리 영역
     dom.historyContainer = document.createElement("div");
     dom.historyContainer.className = "nb-history";
+    // 스크롤이 가능하도록 임시 높이 지정
+    dom.historyContainer.style.height = "150px"; 
+    dom.historyContainer.style.overflowY = "auto";
 
     // 하단: 0~9 키패드, 버튼
     const controls = document.createElement("div");
@@ -138,6 +227,8 @@ export function createMiniGame(context) {
     const submitBtn = document.createElement("button");
     submitBtn.className = "nb-btn-submit";
     submitBtn.textContent = "검증";
+    // 이벤트 리스너 연결 (검증)
+    submitBtn.addEventListener("click", handleSubmit);
 
     dom.actionButtons.appendChild(deleteBtn);
     dom.actionButtons.appendChild(submitBtn);
