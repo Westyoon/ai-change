@@ -8,26 +8,51 @@ export function boxTargetX(config, dir, fieldW) {
     return (fieldW * pct) / 100;
 }
 
-// 낙하 중 위치 갱신
-export function stepFalling(egg, dt, config, fieldW) {
+export function stepFalling(egg, dt, config, fieldW, fieldH) {
     const p = config.physics;
 
     let steerX = null;
+    let surfaceY = null;
     if (egg.target === 'platform' && egg.targetPlatform) {
         steerX = egg.targetPlatform.x;
+        surfaceY = egg.targetPlatform.y - p.surfaceOffset;
     } else if (egg.target === 'box') {
         steerX = boxTargetX(config, egg.finalDir, fieldW);
-    }
-    if (steerX !== null) {
-        egg.vx += (steerX - egg.x) * p.steer * dt;
+        surfaceY = fieldH;
     }
 
     egg.vy += p.gravity * dt;
+
+    if (steerX !== null && surfaceY !== null) {
+        const remainingHeight = Math.max(surfaceY - egg.y, 0);
+        let timeToLand;
+        if (p.gravity > 0) {
+            const discriminant = Math.max(egg.vy * egg.vy + 2 * p.gravity * remainingHeight, 0);
+            timeToLand = (-egg.vy + Math.sqrt(discriminant)) / p.gravity;
+        } else {
+            timeToLand = egg.vy > 0 ? remainingHeight / egg.vy : 0.1;
+        }
+
+        if (timeToLand > 0.02) {
+            const desiredVx = Math.max(
+                -p.maxFallSteerSpeed,
+                Math.min(p.maxFallSteerSpeed, (steerX - egg.x) / timeToLand)
+            );
+            const maxDelta = p.fallSteerAccel * dt;
+            const diff = desiredVx - egg.vx;
+            egg.vx += Math.max(-maxDelta, Math.min(maxDelta, diff));
+        } else {
+            const target = steerX - egg.x >= 0 ? p.maxFallSteerSpeed : -p.maxFallSteerSpeed;
+            const maxDelta = p.fallSteerAccel * dt;
+            const diff = target - egg.vx;
+            egg.vx += Math.max(-maxDelta, Math.min(maxDelta, diff));
+        }
+    }
+
     egg.x += egg.vx * dt;
     egg.y += egg.vy * dt;
 }
 
-// 발판 구르는 중 위치 갱신
 export function stepRolling(egg, dt, config, tilt) {
     const p = config.physics;
 
