@@ -2,7 +2,7 @@
 
 ## 1. 현재 구현 상태
 
-이 문서는 `contentVersion=1` 개발 스캐폴드 기준입니다. 공통 화면, 학과 데이터, 맵·대화 연결과 5개 미니게임 진입 구조를 확인할 수 있으며, 미니게임의 최종 밸런스·점수·기록 정책은 아직 확정되지 않았습니다.
+이 문서는 `contentVersion=1` 통합 개발본 기준입니다. 공통 화면, 학과 데이터, 맵·대화 연결과 기능 브랜치에서 합쳐진 미니게임을 확인할 수 있습니다. DS·CSE·AIDS는 MVP, CS는 프로토타입, AI는 lifecycle 스캐폴드 상태이며 최종 밸런스·점수·기록 정책은 아직 확정되지 않았습니다.
 
 현재 맵은 자유 이동 구현 전이므로 학과 NPC 카드를 클릭·터치하거나 키보드로 선택합니다. 방향키·WASD·가상 패드 이동은 다음 map 구현 단계의 계약으로만 남아 있습니다.
 
@@ -81,15 +81,15 @@ Battle 메뉴의 실제 콘텐츠는 MVP 스캐폴드에 포함되지 않으며 
 
 ## 6. 미니게임별 조작
 
-현재 설정 파일의 `implementationStatus`는 모두 `SCAFFOLD`입니다. 아래 조작 계약은 유지하되 최종 규칙과 밸런스는 후속 결정에 따라 추가됩니다.
+설정 파일의 `implementationStatus`는 실제 통합 수준에 따라 `MVP`, `PROTOTYPE`, `SCAFFOLD`로 구분합니다. 아래 조작 계약은 유지하되 `data/drafts/`의 미확정 규칙과 밸런스는 후속 결정에 따라 바뀔 수 있습니다.
 
-| 코드 | 미니게임 | PC | 모바일 |
-| --- | --- | --- | --- |
-| `DS` | 숫자 야구 | 숫자 키·화면 키패드 입력, `Backspace` 삭제, `Enter` 제출 | 화면 키패드, 지우기·제출 버튼 |
-| `CS` | CLICK to PURIFY | 마우스 클릭 또는 `Space`로 정화 | 화면 터치로 정화 |
-| `CSE` | Code Heart: Unlock! | 마우스로 재료·초기화·제출 선택 | 해당 버튼 터치 |
-| `AI` | AI Ball Classification Game | `Space` 또는 화면 버튼으로 OPEN·CLOSE 전환 | OPEN·CLOSE 버튼 터치 |
-| `AIDS` | 인지알·데사알 분류 게임 | 방향키 또는 `A`·`D`로 발판 조작 | 왼쪽·오른쪽 버튼 터치 |
+| 코드 | 미니게임 | 상태 | PC | 모바일 |
+| --- | --- | --- | --- | --- |
+| `DS` | 숫자 야구 | MVP | 숫자 키·화면 키패드 입력, `Backspace` 삭제, `Enter` 제출 | 화면 키패드, 지우기·제출 버튼 |
+| `CS` | CLICK to PURIFY | Prototype | 마우스 클릭 또는 `Space`로 정화 | 화면 터치로 정화 |
+| `CSE` | Code Heart: Unlock! | MVP | 마우스로 재료·초기화·제출 선택 | 해당 버튼 터치 |
+| `AI` | AI Ball Classification Game | Scaffold | 개발용 CLEAR·FAIL 버튼 선택 | 개발용 CLEAR·FAIL 버튼 터치 |
+| `AIDS` | 인지알·데사알 분류 게임 | MVP | 방향키 또는 `A`·`D`로 발판 조작 | 왼쪽·오른쪽 버튼 터치 |
 
 ## 7. 로컬 데이터
 

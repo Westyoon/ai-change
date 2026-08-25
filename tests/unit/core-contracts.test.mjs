@@ -74,7 +74,7 @@ test("InputManager maps Escape to pause and preserves native button activation",
 
   handlers.get("keydown")({
     code: "Escape",
-    target: { closest: () => null },
+    target: { closest: () => ({ tagName: "BUTTON" }) },
     preventDefault: () => { prevented = true; },
   });
   assert.equal(DEFAULT_KEY_BINDINGS.Escape, INPUT_ACTIONS.PAUSE);

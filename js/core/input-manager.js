@@ -146,7 +146,11 @@ export class InputManager {
 
   #handleKeyDown(event) {
     const action = this.bindings[event.code];
-    if (!this.enabled || !action || this.#usesNativeKeyboardActivation(event.target)) {
+    if (
+      !this.enabled ||
+      !action ||
+      (action !== INPUT_ACTIONS.PAUSE && this.#usesNativeKeyboardActivation(event.target))
+    ) {
       return;
     }
     if (this.preventDefault) {
@@ -162,7 +166,10 @@ export class InputManager {
 
   #handleKeyUp(event) {
     const action = this.bindings[event.code];
-    if (!action || this.#usesNativeKeyboardActivation(event.target)) {
+    if (
+      !action ||
+      (action !== INPUT_ACTIONS.PAUSE && this.#usesNativeKeyboardActivation(event.target))
+    ) {
       return;
     }
     if (this.preventDefault) {

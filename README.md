@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 저장소는 [AI_CHANGE_PLAN.md](./docs/AI_CHANGE_PLAN.md)의 Step 1~4를 시작할 수 있도록 만든 **개발 스캐폴드**입니다. 5개 미니게임의 실제 규칙과 최종 아트는 아직 구현되지 않았으며, 화면 전환·데이터 참조·공통 lifecycle을 먼저 검증할 수 있습니다.
+현재 `dev` 통합본에는 공통 화면 전환·데이터·lifecycle 스캐폴딩과 각 기능 브랜치의 구현이 함께 들어 있습니다. DS·CSE·AIDS 미니게임은 MVP, CS 미니게임은 검토 중인 규칙을 적용한 프로토타입이며, AI 미니게임은 공통 계약 확인용 스캐폴드 상태입니다. 최종 아트와 `data/drafts/`에 남은 밸런스 결정은 아직 확정되지 않았습니다.
 
 ## 학과 코드
 
@@ -51,7 +51,7 @@ Loading
   → 학과 NPC Map
   → NPC Dialogue
   → Mini Game Intro
-  → 학과별 Lifecycle Scaffold
+  → 학과별 Mini Game
   → CLEAR / FAIL Result
   → Retry / Map / Menu
 ```
@@ -60,13 +60,13 @@ Main Menu에서는 게임 방법, 설정, Battle Coming Soon 경로도 확인할
 
 ## 미니게임 모듈
 
-| 학과 코드 | Stable ID | 스캐폴드 모듈 |
-| --- | --- | --- |
-| `DS` | `data-number-baseball` | 숫자 야구 |
-| `CS` | `cyber-click-to-purify` | CLICK to PURIFY |
-| `CSE` | `computer-code-heart` | Code Heart: Unlock! |
-| `AI` | `ai-ball-classification` | AI Ball Classification Game |
-| `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 |
+| 학과 코드 | Stable ID | 미니게임 | 상태 |
+| --- | --- | --- | --- |
+| `DS` | `data-number-baseball` | 숫자 야구 | MVP |
+| `CS` | `cyber-click-to-purify` | CLICK to PURIFY | Prototype |
+| `CSE` | `computer-code-heart` | Code Heart: Unlock! | MVP |
+| `AI` | `ai-ball-classification` | AI Ball Classification Game | Scaffold |
+| `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 | MVP |
 
 각 모듈은 아래 공통 API를 노출합니다.
 
@@ -77,10 +77,11 @@ createMiniGame(context)
   ├── pause(reason)
   ├── resume()
   ├── restart({ attemptId })
-  └── destroy()
+  ├── destroy()
+  └── getState()
 ```
 
-현재 모듈 안의 `CLEAR 테스트`와 `FAIL 테스트` 버튼은 공통 result·retry·save 연결을 확인하는 개발 전용 UI입니다.
+모든 모듈은 시도 ID별 1회 완료, 중단 가능한 초기화, 일시정지·재개, 재시작, 중복 파기를 동일한 호스트 계약으로 처리합니다. AI 스캐폴드의 `개발용 CLEAR`와 `개발용 FAIL` 버튼 및 각 모듈의 `completeForDevelopment`는 result·retry·save 연결을 검증하기 위한 개발 전용 경로입니다.
 
 ## 주요 구조
 
@@ -98,7 +99,7 @@ data/
   departments.json    학과 코드 SSOT
   minigames.json      5개 stable registry entry
   scripts/            intro·NPC·outro data
-  minigames/          runtime scaffold config
+  minigames/          runtime minigame config
   drafts/             미확정 결정값, production 비참조
 assets/               자체 제작 placeholder SVG
 scripts/              개발 서버·validation·smoke 도구
@@ -122,6 +123,7 @@ docs/                 계획·기획·실행·리소스 문서
 - [실행 및 조작 방법](./docs/execution-and-controls.md)
 - [리소스 출처 목록](./docs/asset-sources.md)
 - [Git 브랜치 규칙](./docs/GIT_BRANCH_RULE.md)
+- [브랜치 통합 기록](./History.md)
 
 ## 아직 구현하지 않은 범위
 

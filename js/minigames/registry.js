@@ -1,9 +1,9 @@
 const MODULE_LOADERS = Object.freeze({
-  "data-number-baseball": () => import("./number-baseball/index.js"),
-  "cyber-click-to-purify": () => import("./click-to-purify/index.js"),
-  "computer-code-heart": () => import("./code-heart/index.js"),
-  "ai-ball-classification": () => import("./ai-ball-classification/index.js"),
-  "ai-data-egg-sort": () => import("./ai-data-egg-sort/index.js"),
+  "data-number-baseball": () => import("./DS/index.js"),
+  "cyber-click-to-purify": () => import("./CS/index.js"),
+  "computer-code-heart": () => import("./CSE/index.js"),
+  "ai-ball-classification": () => import("./AI/index.js"),
+  "ai-data-egg-sort": () => import("./AIDS/index.js"),
 });
 
 export function hasMiniGameModule(moduleKey) {

@@ -37,6 +37,12 @@ export function createMiniGameIntroScene(context) {
         .filter(Boolean)
         .join(" ");
       const objective = config?.goal ?? config?.objective ?? config?.scaffold?.objective ?? "실제 게임 목표는 후속 구현 단계에서 연결됩니다.";
+      const implementationStatus = config?.implementationStatus ?? (game.scaffold ? "SCAFFOLD" : "MVP");
+      const statusDescription = {
+        MVP: "통합된 게임 규칙을 플레이할 수 있습니다.",
+        PROTOTYPE: "검토 중인 규칙을 적용한 프로토타입입니다.",
+        SCAFFOLD: "공통 lifecycle 확인용 스캐폴드입니다.",
+      }[implementationStatus] ?? "개발 중인 미니게임입니다.";
 
       const scene = createScene({
         className: "scene--panel",
@@ -47,7 +53,7 @@ export function createMiniGameIntroScene(context) {
       if (thumbnail instanceof HTMLImageElement) {
         const image = thumbnail.cloneNode(true);
         image.className = "minigame-thumbnail";
-        image.alt = thumbnail.alt || `${game.title} 스캐폴드 미리보기`;
+        image.alt = thumbnail.alt || `${game.title} 미리보기`;
         image.width = 640;
         image.height = 360;
         scene.append(image);
@@ -67,10 +73,17 @@ export function createMiniGameIntroScene(context) {
       }
 
       scene.append(
-        createElement("p", { className: "status-badge", text: "SCAFFOLD · 게임 규칙 구현 전" }),
+        createElement("p", {
+          className: "status-badge",
+          text: `${implementationStatus} · ${statusDescription}`,
+        }),
         columns,
         createElement("div", { className: "button-row" }, [
-          createButton("스캐폴드 실행", () => context.router.navigate("minigame", { miniGameId }), "primary"),
+          createButton(
+            game.scaffold ? "스캐폴드 실행" : "미니게임 실행",
+            () => context.router.navigate("minigame", { miniGameId }),
+            "primary",
+          ),
           createButton("맵으로", () => context.router.navigate("map"), "ghost"),
         ]),
       );

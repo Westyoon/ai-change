@@ -1,7 +1,7 @@
 export const DEFAULT_CONFIG = Object.freeze({
     schemaVersion: 1,
     gameId: 'ai-data-egg-sort',
-    implementationStatus: 'SCAFFOLD',
+    implementationStatus: 'MVP',
     goal: '떨어지는 인지알과 데사알을 판별해 올바른 상자로 분류합니다.',
     controls: Object.freeze({
         pc: Object.freeze(['왼쪽·오른쪽 방향키 또는 A·D로 발판 조작']),

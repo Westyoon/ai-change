@@ -1,10 +1,20 @@
 {
   "schemaVersion": 1,
   "gameId": "cyber-click-to-purify",
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "PROTOTYPE",
   "goal": "악성코드 유형을 확인하고 올바른 타이밍에 위협을 정화합니다.",
   "controls": {
     "pc": ["마우스 클릭 또는 Space로 정화"],
-    "mobile": ["화면을 터치해 정화"]
-  }
+    "mobile": ["PURIFY 버튼을 터치해 정화"]
+  },
+  "totalWaves": 6,
+  "spawnIntervalMs": 1300,
+  "approachDurationMs": 1400,
+  "perfectWindowMs": 200,
+  "goodWindowMs": 500,
+  "trojanRevealLeadMs": 500,
+  "missLimit": 3,
+  "timeLimitMs": 18000,
+  "tickIntervalMs": 50,
+  "prototypeDecisions": ["D-04", "D-05"]
 }

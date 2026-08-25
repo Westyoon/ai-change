@@ -4,7 +4,7 @@
   "implementationStatus": "SCAFFOLD",
   "goal": "목표 이미지와 일치하는 공만 분류함에 담습니다.",
   "controls": {
-    "pc": ["Space 또는 화면 버튼으로 뚜껑 열기·닫기"],
-    "mobile": ["OPEN·CLOSE 버튼을 터치"]
+    "pc": ["개발용 CLEAR·FAIL 버튼으로 공통 결과 흐름 확인"],
+    "mobile": ["개발용 CLEAR·FAIL 버튼을 터치"]
   }
 }

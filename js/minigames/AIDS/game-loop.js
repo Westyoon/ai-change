@@ -82,7 +82,7 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
     const timeLeft = Math.max(0, config.totalTimeSec - elapsedSec);
     updateTimerDisplay(refs.timerEl, timeLeft, config.warningThresholdSec);
 
-    if (timeLeft <= 0) return { terminal: 'CLEAR' };
     if (state.life <= 0) return { terminal: 'FAIL' };
+    if (timeLeft <= 0) return { terminal: 'CLEAR' };
     return { terminal: null };
 }

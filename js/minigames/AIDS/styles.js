@@ -1,5 +1,13 @@
 const STYLE_ID = 'aids-egg-sort-styles';
 
+function removeNode(node) {
+    if (typeof node?.remove === 'function') {
+        node.remove();
+        return;
+    }
+    node?.parentNode?.removeChild?.(node);
+}
+
 const CSS = `
 .aids-root{
   position:relative; width:100%; height:100%;
@@ -96,14 +104,32 @@ const CSS = `
 
 export function injectStyles(uiRoot) {
     const doc = uiRoot?.ownerDocument ?? globalThis.document;
-    if (!doc || doc.getElementById(STYLE_ID)) return;
+    if (
+        !doc ||
+        typeof doc.createElement !== 'function' ||
+        typeof doc.getElementById !== 'function'
+    ) {
+        return null;
+    }
+    if (doc.getElementById(STYLE_ID)) return null;
+    const head = doc.head ?? doc.querySelector?.('head');
+    if (typeof head?.appendChild !== 'function' && typeof head?.append !== 'function') {
+        return null;
+    }
     const style = doc.createElement('style');
     style.id = STYLE_ID;
     style.textContent = CSS;
-    doc.head.appendChild(style);
+    if (typeof head.appendChild === 'function') head.appendChild(style);
+    else head.append(style);
+    return style;
 }
 
-export function removeStyles(uiRoot) {
+export function removeStyles(uiRoot, injectedStyle) {
+    if (arguments.length > 1) {
+        removeNode(injectedStyle);
+        return;
+    }
     const doc = uiRoot?.ownerDocument ?? globalThis.document;
-    doc?.getElementById(STYLE_ID)?.remove();
+    if (typeof doc?.getElementById !== 'function') return;
+    removeNode(doc.getElementById(STYLE_ID));
 }

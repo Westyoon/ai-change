@@ -1,10 +1,66 @@
 {
   "schemaVersion": 1,
   "gameId": "ai-data-egg-sort",
-  "implementationStatus": "SCAFFOLD",
-  "goal": "떨어지는 인지알과 데사알을 알맞은 상자로 분류합니다.",
+  "implementationStatus": "MVP",
+  "goal": "떨어지는 인지알과 데사알을 판별해 올바른 상자로 분류합니다.",
   "controls": {
     "pc": ["왼쪽·오른쪽 방향키 또는 A·D로 발판 조작"],
     "mobile": ["왼쪽·오른쪽 버튼을 터치해 발판 조작"]
+  },
+  "totalTimeSec": 45,
+  "initialLives": 5,
+  "warningThresholdSec": 10,
+  "initialTilt": "left",
+  "spawnIntervals": [
+    { "maxElapsedSec": 10, "intervalMs": 4500 },
+    { "maxElapsedSec": 25, "intervalMs": 3500 },
+    { "maxElapsedSec": null, "intervalMs": 2500 }
+  ],
+  "eggTypeProbability": {
+    "in": 0.5,
+    "de": 0.5
+  },
+  "boxes": {
+    "leftPct": 22,
+    "rightPct": 78
+  },
+  "platformRows": [
+    {
+      "yPct": 15,
+      "lanes": [{ "lane": "center", "xPct": 50 }]
+    },
+    {
+      "yPct": 36,
+      "lanes": [
+        { "lane": "left", "xPct": 26 },
+        { "lane": "right", "xPct": 74 }
+      ]
+    },
+    {
+      "yPct": 57,
+      "lanes": [
+        { "lane": "left", "xPct": 26 },
+        { "lane": "right", "xPct": 74 }
+      ]
+    },
+    {
+      "yPct": 78,
+      "lanes": [{ "lane": "center", "xPct": 50 }]
+    }
+  ],
+  "physics": {
+    "gravity": 500,
+    "rollAccel": 70,
+    "maxRollSpeed": 150,
+    "tiltAngleDeg": 16,
+    "surfaceOffset": 9,
+    "platformHalfLen": 40,
+    "maxRollTimeSec": 2.5,
+    "eggRadius": 20,
+    "steer": 2.4,
+    "fallSteerAccel": 600,
+    "platformJitterPct": 3,
+    "landingInertiaKeep": 0.3,
+    "maxFallSteerSpeed": 320
   }
 }

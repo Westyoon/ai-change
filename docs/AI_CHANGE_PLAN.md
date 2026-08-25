@@ -563,11 +563,11 @@ ai-change/
 
 | Mini game ID | 학과·전공 | Module directory |
 | --- | --- | --- |
-| `data-number-baseball` | 데이터사이언스전공 | `js/minigames/number-baseball/` |
-| `cyber-click-to-purify` | 사이버보안학과 | `js/minigames/click-to-purify/` |
-| `computer-code-heart` | 컴퓨터공학과 | `js/minigames/code-heart/` |
-| `ai-ball-classification` | 인공지능학부 | `js/minigames/ai-ball-classification/` |
-| `ai-data-egg-sort` | 인공지능데이터사이언스학부 | `js/minigames/ai-data-egg-sort/` |
+| `data-number-baseball` | 데이터사이언스전공 | `js/minigames/DS/` |
+| `cyber-click-to-purify` | 사이버보안학과 | `js/minigames/CS/` |
+| `computer-code-heart` | 컴퓨터공학과 | `js/minigames/CSE/` |
+| `ai-ball-classification` | 인공지능학부 | `js/minigames/AI/` |
+| `ai-data-egg-sort` | 인공지능데이터사이언스학부 | `js/minigames/AIDS/` |
 
 ID는 save data와 dialogue `nextAction`에서 참조하므로 배포 이후 이름을 바꾸지 않습니다. 표시 이름은 data에서 변경할 수 있지만 ID는 stable identifier로 유지합니다.
 
@@ -671,7 +671,7 @@ runtime state는 memory에만 존재하며 scene 전환의 single source of trut
 | `status` | `published`, `locked`, `coming-soon` 중 하나 |
 | `unlockCondition` | `locked`일 때 필요한 data 기반 조건, 그 외에는 `null` |
 
-`registry.js`는 `data-number-baseball: () => import("./number-baseball/index.js")`처럼 module key를 실제 relative import에 mapping합니다. JSON의 임의 문자열을 바로 `import()`하지 않습니다. Registry를 읽을 때 잘못된 항목 하나 때문에 전체 app이 멈추지 않도록 해당 game만 disabled 처리하고 error detail을 개발 console과 사용자 안내에 분리합니다.
+`registry.js`는 `data-number-baseball: () => import("./DS/index.js")`처럼 module key를 실제 relative import에 mapping합니다. JSON의 임의 문자열을 바로 `import()`하지 않습니다. Registry를 읽을 때 잘못된 항목 하나 때문에 전체 app이 멈추지 않도록 해당 game만 disabled 처리하고 error detail을 개발 console과 사용자 안내에 분리합니다.
 
 ### 7.3.1 Asset manifest schema
 
@@ -2806,7 +2806,7 @@ Story intro부터 map 탐색, NPC 대화, mini game intro 진입까지의 공통
 
 ### 산출물
 
-- `js/minigames/number-baseball/index.js`
+- `js/minigames/DS/index.js`
 - `data/minigames/number-baseball.json`
 - game UI style과 asset
 - 판정·validation test
@@ -2843,7 +2843,7 @@ Story intro부터 map 탐색, NPC 대화, mini game intro 진입까지의 공통
 
 ### 산출물
 
-- `js/minigames/click-to-purify/index.js`
+- `js/minigames/CS/index.js`
 - `data/minigames/click-to-purify.json`
 - malware geometry 또는 final asset
 - timing·wave·type-specific test
@@ -2878,7 +2878,7 @@ data-driven order·recipe와 순서 있는 ingredient 조합, customer·timer �
 
 ### 산출물
 
-- `js/minigames/code-heart/index.js`
+- `js/minigames/CSE/index.js`
 - `data/minigames/code-heart.json`
 - ingredient·order data
 - recipe matching·timeout test
@@ -2913,7 +2913,7 @@ data-driven order·recipe와 순서 있는 ingredient 조합, customer·timer �
 
 ### 산출물
 
-- `js/minigames/ai-ball-classification/index.js`
+- `js/minigames/AI/index.js`
 - `data/minigames/ai-ball-classification.json`
 - target·ball·bin·lid asset
 - queue·collision·terminal state test
@@ -2947,7 +2947,7 @@ data-driven order·recipe와 순서 있는 ingredient 조합, customer·timer �
 
 ### 산출물
 
-- `js/minigames/ai-data-egg-sort/index.js`
+- `js/minigames/AIDS/index.js`
 - `data/minigames/ai-data-egg-sort.json`
 - egg·platform·box asset
 - timer·spawn·collision test

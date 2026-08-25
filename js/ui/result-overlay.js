@@ -1,5 +1,43 @@
 import { createButton, createElement } from "../scenes/scene-utils.js";
 
+const METRIC_LABELS = Object.freeze({
+  epochsUsed: "사용 Epoch",
+  fit: "Fit",
+  shift: "Shift",
+  outlier: "Outlier",
+  answer: "정답",
+  wavesResolved: "처리한 Wave",
+  purification: "정화도",
+  perfectCount: "PERFECT",
+  goodCount: "GOOD",
+  missCount: "MISS",
+  ordersCompleted: "완료 주문",
+  ordersFailed: "실패 주문",
+  buildErrorCount: "빌드 오류",
+  remainingTimeMs: "남은 시간",
+  correctCount: "정답",
+  wrongCount: "오답",
+  lostCount: "이탈",
+  remainingLives: "남은 생명",
+  targetCollected: "목표 수집",
+  targetMissed: "목표 누락",
+  wrongCollected: "오분류",
+  ballsResolved: "처리한 공",
+});
+
+function formatMetric(key, value) {
+  if (key.endsWith("TimeMs") && Number.isFinite(value)) {
+    return `${(value / 1000).toFixed(1)}초`;
+  }
+  if (key === "purification" && Number.isFinite(value)) {
+    return `${value}%`;
+  }
+  if (Array.isArray(value) && value.every((item) => ["number", "string"].includes(typeof item))) {
+    return value.join("");
+  }
+  return String(value);
+}
+
 export function createResultOverlay({
   result,
   departmentCode,
@@ -33,20 +71,37 @@ export function createResultOverlay({
     dataset: { status: result.status },
   });
   const title = createElement("h2", {
-    text: result.status === "CLEAR" ? "스캐폴드 성공 흐름" : "스캐폴드 실패 흐름",
+    text: result.status === "CLEAR" ? "미니게임 클리어" : "미니게임 실패",
     attributes: { id: "result-title" },
   });
   const copy = createElement("p", {
     className: "muted",
     text: outroText ?? (
       result.status === "CLEAR"
-        ? "공통 CLEAR 결과 계약과 저장 연결을 확인했습니다. 실제 게임 규칙은 다음 구현 단계에서 추가합니다."
-        : "공통 FAIL 결과 계약과 재도전 흐름을 확인했습니다. 현재는 개발용 판정 버튼입니다."
+        ? "학과 미니게임을 성공적으로 완료했습니다."
+        : "이번 도전은 완료하지 못했습니다. 다시 도전하거나 맵으로 돌아갈 수 있습니다."
     ),
   });
   const meta = createElement("p", {
-    text: `학과 ${departmentCode ?? "-"} · ${Math.round(result.durationMs)}ms`,
+    text: `학과 ${departmentCode ?? "-"} · 플레이 ${(result.durationMs / 1000).toFixed(1)}초`,
   });
+  const metrics = createElement("dl", { className: "result-metrics" });
+  const metricEntries = [
+    ...(result.score === null ? [] : [["score", result.score]]),
+    ...Object.entries(result.metrics ?? {}).filter(
+      ([key, value]) =>
+        key !== "history" &&
+        value !== null &&
+        value !== undefined &&
+        (["number", "string", "boolean"].includes(typeof value) || Array.isArray(value)),
+    ),
+  ];
+  for (const [key, value] of metricEntries) {
+    metrics.append(
+      createElement("dt", { text: key === "score" ? "점수" : METRIC_LABELS[key] ?? key }),
+      createElement("dd", { text: formatMetric(key, value) }),
+    );
+  }
   let actionLocked = false;
   let actions;
   const runOnce = (action) => () => {
@@ -84,7 +139,9 @@ export function createResultOverlay({
   };
   backdrop.addEventListener("keydown", handleKeyDown);
 
-  card.append(title, copy, meta, actions);
+  card.append(title, copy, meta);
+  if (metricEntries.length > 0) card.append(metrics);
+  card.append(actions);
   backdrop.append(card);
   const focusFrame = requestAnimationFrame(() => retryButton.focus());
 

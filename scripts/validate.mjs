@@ -12,31 +12,31 @@ export const EXPECTED_GAMES = Object.freeze({
     department: "인공지능학부",
     departmentCode: "AI",
     configPath: "data/minigames/ai-ball-classification.json",
-    modulePath: "ai-ball-classification/index.js"
+    modulePath: "AI/index.js"
   }),
   "data-number-baseball": Object.freeze({
     department: "데이터사이언스전공",
     departmentCode: "DS",
     configPath: "data/minigames/number-baseball.json",
-    modulePath: "number-baseball/index.js"
+    modulePath: "DS/index.js"
   }),
   "computer-code-heart": Object.freeze({
     department: "컴퓨터공학과",
     departmentCode: "CSE",
     configPath: "data/minigames/code-heart.json",
-    modulePath: "code-heart/index.js"
+    modulePath: "CSE/index.js"
   }),
   "cyber-click-to-purify": Object.freeze({
     department: "사이버보안학과",
     departmentCode: "CS",
     configPath: "data/minigames/click-to-purify.json",
-    modulePath: "click-to-purify/index.js"
+    modulePath: "CS/index.js"
   }),
   "ai-data-egg-sort": Object.freeze({
     department: "인공지능데이터사이언스학부",
     departmentCode: "AIDS",
     configPath: "data/minigames/ai-data-egg-sort.json",
-    modulePath: "ai-data-egg-sort/index.js"
+    modulePath: "AIDS/index.js"
   })
 });
 
@@ -75,11 +75,11 @@ export const REQUIRED_FILES = Object.freeze([
   "js/scenes/scene-utils.js",
   "js/ui/result-overlay.js",
   "js/minigames/registry.js",
-  "js/minigames/number-baseball/index.js",
-  "js/minigames/click-to-purify/index.js",
-  "js/minigames/code-heart/index.js",
-  "js/minigames/ai-ball-classification/index.js",
-  "js/minigames/ai-data-egg-sort/index.js",
+  "js/minigames/DS/index.js",
+  "js/minigames/CS/index.js",
+  "js/minigames/CSE/index.js",
+  "js/minigames/AI/index.js",
+  "js/minigames/AIDS/index.js",
   "data/app-config.json",
   "data/asset-manifest.json",
   "data/minigames.json",

@@ -4,14 +4,14 @@ import { DEFAULT_CONFIG } from '../config.js';
 function createFakeInputManager() {
     const listeners = new Set();
     function dispatch(action, phase) {
-        listeners.forEach((cb) => cb({ action, phase }));
+        listeners.forEach((callback) => callback({ action, phase }));
     }
     window.addEventListener('keydown', (event) => {
         if (event.repeat) return;
         if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
-            dispatch('SELECT_LEFT', 'press');
+            dispatch('MOVE_LEFT', 'press');
         } else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
-            dispatch('SELECT_RIGHT', 'press');
+            dispatch('MOVE_RIGHT', 'press');
         }
     });
     return {
@@ -31,7 +31,6 @@ const destroyBtn = document.getElementById('destroy-btn');
 
 function log(label, payload) {
     logEl.textContent = `${label}\n${JSON.stringify(payload, null, 2)}`;
-    // eslint-disable-next-line no-console
     console.log(label, payload);
 }
 
@@ -44,7 +43,7 @@ function nextAttemptId() {
 const context = {
     canvas: null,
     uiRoot,
-    input: createFakeInputManager(), // 방향키·A/D 지원 (진짜 InputManager 연결 전 로컬 테스트용)
+    input: createFakeInputManager(),
     clock: { now: () => performance.now() },
     assets: {},
     audio: {},

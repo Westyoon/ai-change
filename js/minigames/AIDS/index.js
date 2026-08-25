@@ -34,6 +34,22 @@ function requireAttemptId(attemptId) {
   }
 }
 
+function defaultNow() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function toggleClass(element, className, force) {
+  if (typeof element?.classList?.toggle === 'function') {
+    element.classList.toggle(className, force);
+    return;
+  }
+  if (!element || typeof element.className !== 'string') return;
+  const classes = new Set(element.className.split(/\s+/u).filter(Boolean));
+  if (force) classes.add(className);
+  else classes.delete(className);
+  element.className = [...classes].join(' ');
+}
+
 export function createMiniGame(context = {}) {
   const inputLock = new InputLock();
   const injectedClock = context.clock;
@@ -44,9 +60,27 @@ export function createMiniGame(context = {}) {
         now: typeof injectedClock?.now === 'function' ? injectedClock.now : undefined,
       });
 
+  const requestFrame =
+    typeof context.requestAnimationFrame === 'function'
+      ? (callback) => context.requestAnimationFrame(callback)
+      : typeof globalThis.requestAnimationFrame === 'function'
+        ? (callback) => globalThis.requestAnimationFrame(callback)
+        : (callback) => {
+          const handle = globalThis.setTimeout?.(() => callback(defaultNow()), 16) ?? null;
+          handle?.unref?.();
+          return handle;
+        };
+  const cancelFrame =
+    typeof context.cancelAnimationFrame === 'function'
+      ? (handle) => context.cancelAnimationFrame(handle)
+      : typeof globalThis.cancelAnimationFrame === 'function'
+        ? (handle) => globalThis.cancelAnimationFrame(handle)
+        : (handle) => globalThis.clearTimeout?.(handle);
+
   const removers = [];
   let config = null;
   let refs = null;
+  let injectedStyle = null;
   let gameState = null;
   let rafId = null;
   let lifecycleState = 'CREATED';
@@ -55,8 +89,20 @@ export function createMiniGame(context = {}) {
   let disposed = false;
 
   function addListener(target, type, listener) {
-    target?.addEventListener?.(type, listener);
+    if (typeof target?.addEventListener !== 'function') return;
+    target.addEventListener(type, listener);
     removers.push(() => target?.removeEventListener?.(type, listener));
+  }
+
+  function cancelScheduledFrame() {
+    if (rafId === null) return;
+    cancelFrame(rafId);
+    rafId = null;
+  }
+
+  function scheduleFrame() {
+    if (lifecycleState !== 'RUNNING' || !refs?.supportsGameplay) return;
+    rafId = requestFrame(runLoop) ?? null;
   }
 
   function createFreshGameState() {
@@ -74,8 +120,8 @@ export function createMiniGame(context = {}) {
   }
 
   function updateTiltButtons() {
-    refs.btnLeft.classList.toggle('aids-active', gameState.tilt === 'left');
-    refs.btnRight.classList.toggle('aids-active', gameState.tilt === 'right');
+    toggleClass(refs?.btnLeft, 'aids-active', gameState?.tilt === 'left');
+    toggleClass(refs?.btnRight, 'aids-active', gameState?.tilt === 'right');
   }
 
   function handleTilt(dir) {
@@ -85,19 +131,20 @@ export function createMiniGame(context = {}) {
   }
 
   function bindControls() {
+    if (!refs?.supportsGameplay) return;
     const press = (dir) => (event) => {
-      event.preventDefault();
+      event?.preventDefault?.();
       handleTilt(dir);
     };
     // 모바일
-    addListener(refs.btnLeft, 'pointerdown', press('left'));
-    addListener(refs.btnRight, 'pointerdown', press('right'));
+    addListener(refs.btnLeft, 'click', press('left'));
+    addListener(refs.btnRight, 'click', press('right'));
 
-    // PC: InputManager SELECT_LEFT/SELECT_RIGHT action을 구독
+    // PC: scaffold InputManager의 공통 이동 action을 미니게임 좌우 선택으로 사용
     const unsubscribeInput = context.input?.onAction?.((event) => {
       if (event?.phase !== 'press') return;
-      if (event.action === INPUT_ACTIONS?.SELECT_LEFT) handleTilt('left');
-      else if (event.action === INPUT_ACTIONS?.SELECT_RIGHT) handleTilt('right');
+      if (event.action === INPUT_ACTIONS.MOVE_LEFT) handleTilt('left');
+      else if (event.action === INPUT_ACTIONS.MOVE_RIGHT) handleTilt('right');
     });
     if (typeof unsubscribeInput === 'function') {
       removers.push(unsubscribeInput);
@@ -105,7 +152,16 @@ export function createMiniGame(context = {}) {
   }
 
   function resetForAttempt() {
+    for (const egg of gameState?.eggs ?? []) {
+      egg.el?.remove?.();
+    }
+    for (const node of refs?.root?.querySelectorAll?.(
+      '.aids-egg, .aids-miss-marker, .aids-float-text',
+    ) ?? []) {
+      node.remove?.();
+    }
     gameState = createFreshGameState();
+    if (!refs?.supportsGameplay) return;
     buildHearts(refs.heartsEl, config.initialLives);
     updateHearts(refs.heartsEl, gameState.life);
     layoutPlatforms(refs, config, gameState);
@@ -114,13 +170,19 @@ export function createMiniGame(context = {}) {
 
   function runLoop(ts) {
     if (lifecycleState !== 'RUNNING') return;
-    const elapsedMs = typeof clock.getElapsedMs === 'function' ? clock.getElapsedMs() : ts;
-    const result = stepFrame({ state: gameState, config, refs, elapsedMs });
-    if (result.terminal) {
-      complete(result.terminal, currentAttemptId);
+    rafId = null;
+    try {
+      const elapsedMs = typeof clock.getElapsedMs === 'function' ? clock.getElapsedMs() : ts;
+      const result = stepFrame({ state: gameState, config, refs, elapsedMs });
+      if (result.terminal) {
+        complete(result.terminal, currentAttemptId);
+        return;
+      }
+    } catch (error) {
+      failAttempt(error, currentAttemptId);
       return;
     }
-    rafId = requestAnimationFrame(runLoop);
+    scheduleFrame();
   }
 
   function beginAttempt(attemptId) {
@@ -135,7 +197,26 @@ export function createMiniGame(context = {}) {
       clock.reset?.();
     }
     lifecycleState = 'RUNNING';
-    rafId = requestAnimationFrame(runLoop);
+    scheduleFrame();
+  }
+
+  function failAttempt(error, attemptId = currentAttemptId) {
+    if (
+      disposed ||
+      terminal ||
+      attemptId == null ||
+      attemptId !== currentAttemptId ||
+      (lifecycleState !== 'RUNNING' && lifecycleState !== 'PAUSED')
+    ) {
+      return false;
+    }
+    terminal = true;
+    lifecycleState = 'ERROR';
+    inputLock.lock('TERMINAL');
+    cancelScheduledFrame();
+    clock.stop?.();
+    context.onError?.(attemptId, error);
+    return true;
   }
 
   function complete(status, attemptId = currentAttemptId) {
@@ -155,10 +236,7 @@ export function createMiniGame(context = {}) {
     terminal = true;
     lifecycleState = 'RESOLVING';
     inputLock.lock('TERMINAL');
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
+    cancelScheduledFrame();
     clock.stop?.();
 
     let candidate;
@@ -209,11 +287,27 @@ export function createMiniGame(context = {}) {
       await Promise.resolve();
       throwIfUnavailable(signal, () => disposed);
 
-      injectStyles(context.uiRoot);
-      refs = buildGameDom(context.uiRoot, config);
-      bindControls();
-
-      lifecycleState = 'READY';
+      try {
+        injectedStyle = injectStyles(context.uiRoot);
+        refs = buildGameDom(context.uiRoot, config);
+        throwIfUnavailable(signal, () => disposed);
+        bindControls();
+        lifecycleState = 'READY';
+      } catch (error) {
+        for (const remove of removers.splice(0)) {
+          try {
+            remove();
+          } catch {
+            // Initialization cleanup is best-effort; preserve the original error.
+          }
+        }
+        refs?.root?.remove?.();
+        refs = null;
+        removeStyles(context.uiRoot, injectedStyle);
+        injectedStyle = null;
+        if (!disposed) lifecycleState = 'ERROR';
+        throw error;
+      }
     },
 
     start({ attemptId } = {}) {
@@ -228,10 +322,7 @@ export function createMiniGame(context = {}) {
         return false;
       }
       inputLock.lock(reason);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      cancelScheduledFrame();
       clock.pause?.(reason);
       lifecycleState = 'PAUSED';
       return true;
@@ -244,7 +335,7 @@ export function createMiniGame(context = {}) {
       inputLock.clear();
       clock.resume?.();
       lifecycleState = 'RUNNING';
-      rafId = requestAnimationFrame(runLoop);
+      scheduleFrame();
       return true;
     },
 
@@ -261,17 +352,26 @@ export function createMiniGame(context = {}) {
       terminal = true;
       currentAttemptId = null;
       inputLock.clear();
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      cancelScheduledFrame();
       clock.stop?.();
-      for (const remove of removers.splice(0)) remove();
+      for (const remove of removers.splice(0)) {
+        try {
+          remove();
+        } catch {
+          // Keep destroy idempotent even when a host listener rejects cleanup.
+        }
+      }
       refs?.root?.remove?.();
-      removeStyles(context.uiRoot);
+      removeStyles(context.uiRoot, injectedStyle);
+      injectedStyle = null;
       refs = null;
       gameState = null;
       lifecycleState = 'DESTROYED';
+    },
+
+    // Dependency-free contract tests use this seam; production UI never calls it.
+    completeForDevelopment(status, attemptId) {
+      return complete(status, attemptId);
     },
 
     getState() {

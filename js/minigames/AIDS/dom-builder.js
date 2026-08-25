@@ -1,5 +1,28 @@
 import { DEFINITION } from './definition.js';
 
+function appendChildren(parent, ...children) {
+    if (typeof parent?.append === 'function') {
+        parent.append(...children);
+        return;
+    }
+    if (typeof parent?.appendChild === 'function') {
+        for (const child of children) parent.appendChild(child);
+    }
+}
+
+function setAttribute(element, name, value) {
+    element?.setAttribute?.(name, String(value));
+}
+
+function supportsGameplayDom(element) {
+    return Boolean(
+        element &&
+        element.style &&
+        typeof element.appendChild === 'function' &&
+        typeof element.classList?.toggle === 'function'
+    );
+}
+
 export function buildGameDom(uiRoot, config) {
     const doc = uiRoot?.ownerDocument ?? globalThis.document;
     if (!uiRoot?.append || !doc?.createElement) {
@@ -8,10 +31,18 @@ export function buildGameDom(uiRoot, config) {
 
     const root = doc.createElement('div');
     root.className = 'aids-root';
-    root.dataset.miniGameId = DEFINITION.id;
-    root.setAttribute('role', 'region');
-    root.setAttribute('aria-label', `${DEFINITION.department} ${DEFINITION.title}`);
+    if (root.dataset) root.dataset.miniGameId = DEFINITION.id;
+    setAttribute(root, 'role', 'region');
+    setAttribute(root, 'aria-label', `${DEFINITION.department} ${DEFINITION.title}`);
     root.title = config.goal ?? DEFINITION.goal;
+
+    // The dependency-free lifecycle tests intentionally provide only a tiny
+    // element contract. Mount one removable root there without starting the
+    // visual simulation; real browsers continue through the full DOM path.
+    if (!supportsGameplayDom(root)) {
+        appendChildren(uiRoot, root);
+        return { root, supportsGameplay: false };
+    }
 
     const topbar = doc.createElement('div');
     topbar.className = 'aids-topbar';
@@ -20,29 +51,37 @@ export function buildGameDom(uiRoot, config) {
     timerEl.textContent = String(config.totalTimeSec);
     const heartsEl = doc.createElement('div');
     heartsEl.className = 'aids-hearts';
-    topbar.append(timerEl, heartsEl);
+    appendChildren(topbar, timerEl, heartsEl);
 
     const pipeRow = doc.createElement('div');
     pipeRow.className = 'aids-pipe-row';
     const pipe = doc.createElement('div');
     pipe.className = 'aids-pipe';
-    pipeRow.append(pipe);
+    appendChildren(pipeRow, pipe);
 
     const field = doc.createElement('div');
     field.className = 'aids-field';
     const platformsContainer = doc.createElement('div');
     platformsContainer.className = 'aids-platforms';
-    field.append(platformsContainer);
+    appendChildren(field, platformsContainer);
 
     const boxes = doc.createElement('div');
     boxes.className = 'aids-boxes';
     const boxLeft = doc.createElement('div');
     boxLeft.className = 'aids-box aids-box-left';
-    boxLeft.innerHTML = '<div class="aids-box-dot"></div>인지';
+    const boxLeftDot = doc.createElement('div');
+    boxLeftDot.className = 'aids-box-dot';
+    const boxLeftLabel = doc.createElement('span');
+    boxLeftLabel.textContent = '인지';
+    appendChildren(boxLeft, boxLeftDot, boxLeftLabel);
     const boxRight = doc.createElement('div');
     boxRight.className = 'aids-box aids-box-right';
-    boxRight.innerHTML = '<div class="aids-box-dot"></div>데사';
-    boxes.append(boxLeft, boxRight);
+    const boxRightDot = doc.createElement('div');
+    boxRightDot.className = 'aids-box-dot';
+    const boxRightLabel = doc.createElement('span');
+    boxRightLabel.textContent = '데사';
+    appendChildren(boxRight, boxRightDot, boxRightLabel);
+    appendChildren(boxes, boxLeft, boxRight);
 
     const controls = doc.createElement('div');
     controls.className = 'aids-controls';
@@ -57,13 +96,14 @@ export function buildGameDom(uiRoot, config) {
     btnRight.className = 'aids-ctrl-btn aids-ctrl-right';
     btnRight.textContent = '오른쪽 ▶';
     if (controlHint) btnRight.title = controlHint;
-    controls.append(btnLeft, btnRight);
+    appendChildren(controls, btnLeft, btnRight);
 
-    root.append(topbar, pipeRow, field, boxes, controls);
-    uiRoot.append(root);
+    appendChildren(root, topbar, pipeRow, field, boxes, controls);
+    appendChildren(uiRoot, root);
 
     return {
         root,
+        supportsGameplay: true,
         field,
         platformsContainer,
         boxLeft,

@@ -16,7 +16,7 @@
       "recordPolicy": null,
       "status": "published",
       "unlockCondition": null,
-      "scaffold": true
+      "scaffold": false
     },
     {
       "id": "cyber-click-to-purify",
@@ -33,7 +33,7 @@
       "recordPolicy": null,
       "status": "published",
       "unlockCondition": null,
-      "scaffold": true
+      "scaffold": false
     },
     {
       "id": "computer-code-heart",
@@ -50,7 +50,7 @@
       "recordPolicy": null,
       "status": "published",
       "unlockCondition": null,
-      "scaffold": true
+      "scaffold": false
     },
     {
       "id": "ai-ball-classification",
@@ -84,7 +84,7 @@
       "recordPolicy": null,
       "status": "published",
       "unlockCondition": null,
-      "scaffold": true
+      "scaffold": false
     }
   ]
 }

@@ -9,7 +9,7 @@ function attemptId(miniGameId) {
   return `${miniGameId}:${suffix}`;
 }
 
-function finalizeCandidate({ miniGameId, id, startedAt, candidate }) {
+function finalizeCandidate({ miniGameId, id, durationMs, candidate }) {
   const validation = validateMiniGameCandidate(candidate);
   if (!validation.valid) {
     throw new Error(`MiniGameCandidateResult 오류: ${validation.errors.join(" / ")}`);
@@ -22,10 +22,23 @@ function finalizeCandidate({ miniGameId, id, startedAt, candidate }) {
     miniGameId,
     status: candidate.status,
     score: candidate.score ?? null,
-    durationMs: Math.max(0, performance.now() - startedAt),
+    durationMs: Math.max(0, durationMs),
     failureReason: candidate.failureReason ?? null,
     metrics: candidate.metrics ?? {},
     reward: candidate.reward ?? null,
+  });
+}
+
+function finalizeHostResult({ miniGameId, id, status, durationMs, failureReason = null }) {
+  return Object.freeze({
+    sessionId: id,
+    miniGameId,
+    status,
+    score: null,
+    durationMs: Math.max(0, durationMs),
+    failureReason,
+    metrics: Object.freeze({}),
+    reward: null,
   });
 }
 
@@ -35,11 +48,14 @@ export function createMiniGameScene(context) {
   let startedAt = 0;
   let terminal = false;
   let destroyed = false;
-  let paused = false;
+  const pauseReasons = new Set();
+  let pauseStartedAt = null;
+  let accumulatedPauseMs = 0;
   let overlay = null;
   let leaseHeld = false;
   let miniGameId = null;
   let unsubscribeInput = null;
+  let unsubscribeVisibility = null;
   let restartInProgress = false;
 
   return {
@@ -60,19 +76,74 @@ export function createMiniGameScene(context) {
       const frame = createElement("section", { className: "scene minigame-frame" });
       const title = createElement("strong", { text: `${game.departmentCode} · ${game.title}` });
       let pauseButton;
+      const activeDurationMs = () => {
+        const currentPauseMs =
+          pauseStartedAt === null ? 0 : Math.max(0, performance.now() - pauseStartedAt);
+        return Math.max(0, performance.now() - startedAt - accumulatedPauseMs - currentPauseMs);
+      };
+      const updatePauseButton = () => {
+        pauseButton.textContent = pauseReasons.has("MANUAL") ? "재개" : "일시정지";
+      };
+      const requestPause = (reason) => {
+        if (!instance || terminal || pauseReasons.has(reason)) return false;
+        const wasRunning = pauseReasons.size === 0;
+        pauseReasons.add(reason);
+        if (wasRunning) {
+          const accepted = instance.pause?.(reason);
+          if (accepted === false) {
+            pauseReasons.delete(reason);
+            return false;
+          }
+          pauseStartedAt = performance.now();
+        }
+        updatePauseButton();
+        return true;
+      };
+      const releasePause = (reason) => {
+        if (!instance || terminal || !pauseReasons.has(reason)) return false;
+        pauseReasons.delete(reason);
+        if (pauseReasons.size === 0) {
+          const accepted = instance.resume?.();
+          if (accepted === false) {
+            pauseReasons.add(reason);
+            return false;
+          }
+          if (pauseStartedAt !== null) {
+            accumulatedPauseMs += Math.max(0, performance.now() - pauseStartedAt);
+            pauseStartedAt = null;
+          }
+        }
+        updatePauseButton();
+        return true;
+      };
       const togglePause = () => {
         if (!instance || terminal) return;
-        paused = !paused;
-        if (paused) instance.pause?.("MANUAL");
-        else instance.resume?.();
-        pauseButton.textContent = paused ? "재개" : "일시정지";
-        showToast(context, paused ? "게임을 일시정지했습니다." : "게임을 재개했습니다.");
+        const manuallyPaused = pauseReasons.has("MANUAL");
+        const changed = manuallyPaused ? releasePause("MANUAL") : requestPause("MANUAL");
+        if (!changed) return;
+        showToast(
+          context,
+          manuallyPaused ? "게임을 재개했습니다." : "게임을 일시정지했습니다.",
+        );
       };
       pauseButton = createButton("일시정지", togglePause, "ghost");
       unsubscribeInput = context.services.input.onAction?.((event) => {
         if (event.action === INPUT_ACTIONS.PAUSE && event.phase === "press") togglePause();
       });
-      const quitButton = createButton("맵으로", () => context.router.navigate("map"), "ghost");
+      const quitButton = createButton("맵으로", () => {
+        if (!terminal && currentAttemptId) {
+          terminal = true;
+          const result = finalizeHostResult({
+            miniGameId,
+            id: currentAttemptId,
+            status: "QUIT",
+            durationMs: activeDurationMs(),
+          });
+          context.state.lastResult = result;
+          context.services.save?.applyResult?.(miniGameId, result);
+        }
+        void context.router.navigate("map");
+      }, "ghost");
       const toolbar = createElement("header", { className: "minigame-toolbar" }, [
         title,
         createElement("div", { className: "button-row" }, [pauseButton, quitButton]),
@@ -94,14 +165,23 @@ export function createMiniGameScene(context) {
       const onComplete = async (callbackAttemptId, candidate) => {
         if (destroyed || terminal || callbackAttemptId !== currentAttemptId) return;
         terminal = true;
-        const result = finalizeCandidate({ miniGameId, id: currentAttemptId, startedAt, candidate });
+        const result = finalizeCandidate({
+          miniGameId,
+          id: currentAttemptId,
+          durationMs: activeDurationMs(),
+          candidate,
+        });
         context.state.lastResult = result;
-        const completedNpcIds = result.status === "CLEAR"
+        const persistsProgress =
+          game.scaffold !== true && config?.implementationStatus !== "PROTOTYPE";
+        const completedNpcIds = result.status === "CLEAR" && persistsProgress
           ? (findMap(context)?.npcs ?? [])
               .filter((npc) => npc.miniGameId === miniGameId && npc.completionRule?.type === "MINIGAME_CLEAR")
               .map((npc) => npc.id)
           : [];
-        context.services.save?.applyResult?.(miniGameId, result, { completedNpcIds });
+        if (persistsProgress) {
+          context.services.save?.applyResult?.(miniGameId, result, { completedNpcIds });
+        }
         const outroScriptId = result.status === "CLEAR" ? game.clearOutroScript : game.failOutroScript;
         const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
         overlay = createResultOverlay({
@@ -114,12 +194,15 @@ export function createMiniGameScene(context) {
             overlay?.destroy();
             overlay = null;
             terminal = false;
-            paused = false;
-            pauseButton.textContent = "일시정지";
+            pauseReasons.clear();
+            pauseStartedAt = null;
+            accumulatedPauseMs = 0;
+            updatePauseButton();
             currentAttemptId = attemptId(miniGameId);
             startedAt = performance.now();
             try {
               instance.restart?.({ attemptId: currentAttemptId });
+              if (globalThis.document?.hidden) requestPause("VISIBILITY");
               requestAnimationFrame(() => uiRoot.querySelector("button, [tabindex]:not([tabindex='-1'])")?.focus());
             } finally {
               restartInProgress = false;
@@ -135,9 +218,19 @@ export function createMiniGameScene(context) {
       const onError = (callbackAttemptId, error) => {
         if (destroyed || terminal || callbackAttemptId !== currentAttemptId) return;
         terminal = true;
+        const failureReason = error?.code ?? "MINIGAME_RUNTIME_ERROR";
+        const result = finalizeHostResult({
+          miniGameId,
+          id: currentAttemptId,
+          status: "ERROR",
+          durationMs: activeDurationMs(),
+          failureReason,
+        });
+        context.state.lastResult = result;
+        context.services.save?.applyResult?.(miniGameId, result);
         void context.router.navigate("error", {
-          code: error?.code ?? "MINIGAME_RUNTIME_ERROR",
-          message: error?.userMessage ?? "미니게임 스캐폴드를 계속 실행할 수 없습니다.",
+          code: failureReason,
+          message: error?.userMessage ?? "미니게임을 계속 실행할 수 없습니다.",
           detail: error instanceof Error ? error.message : undefined,
           retryScene: error?.recoverable === false ? "map" : "minigame",
           retryParams: { miniGameId },
@@ -160,6 +253,17 @@ export function createMiniGameScene(context) {
       currentAttemptId = attemptId(miniGameId);
       startedAt = performance.now();
       instance.start({ attemptId: currentAttemptId });
+      const documentRef = globalThis.document;
+      if (typeof documentRef?.addEventListener === "function") {
+        const handleVisibilityChange = () => {
+          if (documentRef.hidden) requestPause("VISIBILITY");
+          else releasePause("VISIBILITY");
+        };
+        documentRef.addEventListener("visibilitychange", handleVisibilityChange);
+        unsubscribeVisibility = () =>
+          documentRef.removeEventListener("visibilitychange", handleVisibilityChange);
+        if (documentRef.hidden) requestPause("VISIBILITY");
+      }
     },
 
     unmount() {
@@ -170,6 +274,8 @@ export function createMiniGameScene(context) {
       instance = null;
       unsubscribeInput?.();
       unsubscribeInput = null;
+      unsubscribeVisibility?.();
+      unsubscribeVisibility = null;
       if (leaseHeld && miniGameId) {
         const game = findMiniGame(context, miniGameId);
         context.services.assets.releaseGroup?.(game?.assetGroup);
