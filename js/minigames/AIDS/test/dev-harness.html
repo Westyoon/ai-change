@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>[dev] ai-data-egg-sort harness</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #2A2536;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .stage {
+            width: 390px;
+            height: 740px;
+            background: #17131F;
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #ui-root {
+            width: 100%;
+            height: 100%;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 260px;
+        }
+
+        button {
+            padding: 10px 14px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        pre {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-size: 12px;
+            max-width: 360px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="stage">
+        <div id="ui-root"></div>
+    </div>
+    <div class="panel">
+        <h3>ai-data-egg-sort dev harness</h3>
+        <p>실제 scene/router 없이 createMiniGame(context) lifecycle만 직접 구동합니다.</p>
+        <p style="font-size:12px;opacity:.8;">키보드: ← → 또는 A / D 로 발판 조작 (마우스로 게임 화면 아무 곳이나 클릭 후 시도)</p>
+        <button id="pause-btn">pause('MANUAL')</button>
+        <button id="resume-btn">resume()</button>
+        <button id="restart-btn" disabled>restart() (완료 후 활성화)</button>
+        <button id="destroy-btn">destroy()</button>
+        <pre id="log">대기 중...</pre>
+    </div>
+
+    <script type="module" src="./dev-harness.js"></script>
+</body>
+
+</html>
