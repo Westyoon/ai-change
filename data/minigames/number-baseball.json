@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "gameId": "data-number-baseball",
+  "implementationStatus": "SCAFFOLD",
+  "goal": "서로 다른 숫자로 이루어진 정답을 제한된 시도 안에 추론합니다.",
+  "controls": {
+    "pc": ["숫자 키 또는 화면 키패드로 입력", "Backspace로 지우기", "Enter로 제출"],
+    "mobile": ["화면 키패드로 입력", "지우기 버튼으로 삭제", "제출 버튼으로 제출"]
+  }
+}

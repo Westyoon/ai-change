@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "gameId": "cyber-click-to-purify",
+  "implementationStatus": "DECISION_DRAFT",
+  "runtimeReferenced": false,
+  "decisions": [
+    {
+      "decisionId": "D-04",
+      "key": "purificationFormulaTimingAndRecordPolicy",
+      "status": "TBD",
+      "value": null
+    },
+    {
+      "decisionId": "D-05",
+      "key": "concurrencyLockAndRetryPolicy",
+      "status": "TBD",
+      "value": null
+    }
+  ]
+}

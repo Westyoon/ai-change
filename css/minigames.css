@@ -1,0 +1,172 @@
+.minigame-frame {
+  display: grid;
+  grid-template-rows: auto minmax(320px, 1fr);
+  gap: 14px;
+  width: 100%;
+  min-height: min(680px, calc(100dvh - 110px));
+}
+
+.minigame-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.minigame-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  border: 3px solid var(--line);
+  border-radius: 20px;
+  background: #0c1223;
+  box-shadow: var(--shadow);
+}
+
+.minigame-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.minigame-ui-root {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-height: 380px;
+  padding: clamp(18px, 4vw, 42px);
+}
+
+.scaffold-game,
+.minigame-scaffold {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  width: min(640px, 100%);
+  padding: clamp(20px, 5vw, 46px);
+  border: 2px dashed var(--line);
+  border-radius: 18px;
+  background: rgb(18 25 45 / 92%);
+  text-align: center;
+}
+
+.scaffold-game__code,
+.minigame-scaffold__department {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border: 4px solid var(--accent);
+  border-radius: 22px;
+  color: var(--accent);
+  font-size: 1.7rem;
+  font-weight: 1000;
+  box-shadow: 8px 8px 0 rgb(120 240 193 / 18%);
+}
+
+.minigame-scaffold__department {
+  display: grid;
+  place-items: center;
+}
+
+.minigame-scaffold__department-name,
+.minigame-scaffold__goal,
+.minigame-scaffold__notice,
+.minigame-scaffold__state {
+  margin: 0;
+}
+
+.minigame-scaffold__department-name,
+.minigame-scaffold__notice {
+  color: var(--muted);
+}
+
+.minigame-scaffold__debug-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.minigame-scaffold__debug-controls button {
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--surface-strong);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.minigame-scaffold__debug-controls button:first-child {
+  border-color: var(--accent);
+}
+
+.minigame-scaffold__debug-controls button:last-child {
+  border-color: var(--danger);
+}
+
+.minigame-scaffold__debug-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.minigame-thumbnail {
+  display: block;
+  width: min(640px, 100%);
+  height: auto;
+  margin: 24px auto;
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  image-rendering: pixelated;
+}
+
+.result-backdrop {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(3 6 13 / 78%);
+  backdrop-filter: blur(6px);
+}
+
+.result-card {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 3px solid var(--accent);
+  border-radius: 18px;
+  background: #141d34;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.result-card[data-status="FAIL"] {
+  border-color: var(--danger);
+}
+
+.control-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 1.2rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+@media (max-width: 680px) {
+  .minigame-frame {
+    min-height: calc(100dvh - 92px);
+  }
+
+  .minigame-stage,
+  .minigame-ui-root {
+    min-height: 430px;
+  }
+}

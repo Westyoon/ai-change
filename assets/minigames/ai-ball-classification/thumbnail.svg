@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">AI Ball Classification placeholder thumbnail</title>
+  <desc id="desc">Colored balls moving toward a classification bin and the AI department code</desc>
+  <rect width="640" height="360" rx="28" fill="#10243e"/>
+  <circle cx="104" cy="102" r="64" fill="#4dabf7"/>
+  <text x="104" y="122" text-anchor="middle" fill="#082032" font-family="system-ui, sans-serif" font-size="56" font-weight="800">AI</text>
+  <path d="M180 188h328" stroke="#91a7ff" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="242" cy="188" r="30" fill="#ffd43b"/>
+  <circle cx="326" cy="188" r="30" fill="#ff6b6b"/>
+  <circle cx="410" cy="188" r="30" fill="#69db7c"/>
+  <path d="M500 148h94l-12 134h-70z" fill="#748ffc"/>
+  <path d="M490 142h114" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  <text x="48" y="292" fill="#ffffff" font-family="system-ui, sans-serif" font-size="34" font-weight="750">AI Ball Classification</text>
+  <text x="50" y="327" fill="#a5d8ff" font-family="system-ui, sans-serif" font-size="20">PLACEHOLDER</text>
+</svg>

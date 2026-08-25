@@ -1,0 +1,73 @@
+@media (max-width: 720px) {
+  .app-shell {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  .top-bar {
+    min-height: 42px;
+  }
+
+  .build-badge {
+    font-size: 0.65rem;
+  }
+
+  .scene {
+    padding: 24px 14px 32px;
+  }
+
+  .scene--panel {
+    margin: 12px 0;
+    padding: 24px 18px;
+  }
+
+  .menu-grid,
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-card,
+  .info-card {
+    min-height: 120px;
+  }
+
+  .settings-row {
+    grid-template-columns: 1fr 48px;
+  }
+
+  .settings-row label {
+    grid-column: 1 / -1;
+  }
+
+  .button-row {
+    align-items: stretch;
+  }
+
+  .button-row .button {
+    flex: 1 1 150px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .top-bar {
+    min-height: 36px;
+  }
+
+  .scene--centered {
+    min-height: auto;
+    align-content: start;
+  }
+
+  .scene h1 {
+    font-size: clamp(2rem, 9vh, 3.2rem);
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .menu-card {
+    min-height: 110px;
+    padding: 16px;
+  }
+}

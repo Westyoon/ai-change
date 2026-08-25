@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "appId": "ai-change",
+  "contentVersion": 1,
+  "storageChannel": "development",
+  "publicBasePath": "./",
+  "initialScene": "loading",
+  "mainMapId": "festival-main-map",
+  "defaultLocale": "ko-KR",
+  "audio": {
+    "masterVolume": 1,
+    "bgmVolume": 0.7,
+    "sfxVolume": 0.8
+  },
+  "features": {
+    "story": true,
+    "localSave": true,
+    "battleContent": false
+  }
+}

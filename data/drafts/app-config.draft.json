@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "appId": "ai-change",
+  "implementationStatus": "DECISION_DRAFT",
+  "runtimeReferenced": false,
+  "decisions": [
+    {
+      "decisionId": "D-01",
+      "key": "publicTitleAndLogo",
+      "status": "TBD",
+      "value": null
+    },
+    {
+      "decisionId": "D-10",
+      "key": "audioDefaultsAndPolicy",
+      "status": "TBD",
+      "value": null
+    },
+    {
+      "decisionId": "D-12",
+      "key": "productionHostingAndPublicBasePath",
+      "status": "TBD",
+      "value": null
+    }
+  ]
+}

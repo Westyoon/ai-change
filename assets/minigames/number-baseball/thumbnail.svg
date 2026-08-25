@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">DS 숫자 야구 placeholder thumbnail</title>
+  <desc id="desc">Three numbered tiles and the DS department code</desc>
+  <rect width="640" height="360" rx="28" fill="#16213e"/>
+  <circle cx="118" cy="126" r="70" fill="#4263eb"/>
+  <text x="118" y="145" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="54" font-weight="800">DS</text>
+  <g font-family="system-ui, sans-serif" font-size="48" font-weight="700" text-anchor="middle">
+    <rect x="236" y="78" width="92" height="92" rx="16" fill="#f8f9fa"/><text x="282" y="141" fill="#16213e">1</text>
+    <rect x="344" y="78" width="92" height="92" rx="16" fill="#74c0fc"/><text x="390" y="141" fill="#16213e">2</text>
+    <rect x="452" y="78" width="92" height="92" rx="16" fill="#ffd43b"/><text x="498" y="141" fill="#16213e">3</text>
+  </g>
+  <text x="48" y="274" fill="#ffffff" font-family="system-ui, sans-serif" font-size="38" font-weight="750">숫자 야구</text>
+  <text x="50" y="314" fill="#a5d8ff" font-family="system-ui, sans-serif" font-size="22">PLACEHOLDER</text>
+</svg>
