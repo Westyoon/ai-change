@@ -1,10 +1,87 @@
 {
   "schemaVersion": 1,
   "gameId": "computer-code-heart",
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "MVP",
   "goal": "주문에 맞는 개발 재료를 올바른 순서로 조합해 하트를 완성합니다.",
   "controls": {
     "pc": ["마우스로 재료 선택", "초기화 또는 제출 버튼 선택"],
     "mobile": ["재료와 초기화·제출 버튼을 터치"]
+  },
+  "title": "Code Heart: Unlock!",
+  "description": "4가지 개발 요소를 조합하여 타락한 코드를 정화하는 빌드 게임",
+  "categories": [
+    { "id": "lang", "name": "프로그래밍 언어" },
+    { "id": "engine", "name": "프레임워크/엔진" },
+    { "id": "lib", "name": "라이브러리" },
+    { "id": "tool", "name": "도구" }
+  ],
+  "items": [
+    { "id": "cpp", "category": "lang", "name": "C++" },
+    { "id": "python", "category": "lang", "name": "Python" },
+    { "id": "java", "category": "lang", "name": "Java" },
+    { "id": "fastapi", "category": "engine", "name": "FastAPI" },
+    { "id": "spring", "category": "engine", "name": "Spring" },
+    { "id": "unity", "category": "engine", "name": "Unity" },
+    { "id": "directx", "category": "lib", "name": "DirectX" },
+    { "id": "pytorch", "category": "lib", "name": "PyTorch" },
+    { "id": "mysql", "category": "lib", "name": "MySQL" },
+    { "id": "git", "category": "tool", "name": "Git" },
+    { "id": "docker", "category": "tool", "name": "Docker" },
+    { "id": "api", "category": "tool", "name": "REST API" }
+  ],
+  "recipes": [
+    {
+      "orderId": "order_01",
+      "customerTitle": "타락한 아무",
+      "targetProgram": "3D 액션 게임",
+      "dialogue": "멋진 3D 그래픽의 게임을 빌드하고 싶었는데 코드가 꼬였어!",
+      "expected": {
+        "lang": "cpp",
+        "engine": "unity",
+        "lib": "directx",
+        "tool": "git"
+      }
+    },
+    {
+      "orderId": "order_02",
+      "customerTitle": "수호알 쿠스쿠스",
+      "targetProgram": "지능형 AI 챗봇",
+      "dialogue": "자연어를 분석하는 AI 서버를 배포하고 싶어!",
+      "expected": {
+        "lang": "python",
+        "engine": "fastapi",
+        "lib": "pytorch",
+        "tool": "docker"
+      }
+    },
+    {
+      "orderId": "order_03",
+      "customerTitle": "꿈을 잃은 학생",
+      "targetProgram": "웹 쇼핑몰",
+      "dialogue": "안전하게 결제되는 백엔드 서비스를 완성해줘!",
+      "expected": {
+        "lang": "java",
+        "engine": "spring",
+        "lib": "mysql",
+        "tool": "api"
+      }
+    },
+    {
+      "orderId": "order_04",
+      "customerTitle": "타락한 다이아",
+      "targetProgram": "데이터 파이프라인",
+      "dialogue": "대용량 데이터를 정제하는 자동화 파이프라인을 복구해줘!",
+      "expected": {
+        "lang": "python",
+        "engine": "spring",
+        "lib": "mysql",
+        "tool": "git"
+      }
+    }
+  ],
+  "balance": {
+    "gameDurationSec": 60,
+    "scorePerClear": 100,
+    "penaltySec": 5
   }
 }
