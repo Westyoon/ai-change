@@ -359,11 +359,6 @@ export class AIBallClassificationModule {
 
     // 6. 상단 중앙 Target 안내 카드
     this.renderTargetPreview();
-
-    // 7. 3초 카운트다운 오버레이
-    if (this.countdownTimer > 0 && this.status === 'PLAYING') {
-      this.renderCountdownOverlay();
-    }
   }
 
   /** 💡 중앙 상단 Target 안내 카드 (크기 확대 및 상단 배치) */
