@@ -5,10 +5,9 @@ export class AIBallClassificationModule {
     this.config = configData.config;
     this.uiText = configData.uiText;
 
-    // 위치/크기 기본값 (resize 시 재계산)
-    this.trackY = 200;
+    this.trackY = 280;
     this.binX = 320;
-    this.binY = 280;
+    this.binY = 360;
     this.binWidth = 80;
     this.binHeight = 90;
 
@@ -16,65 +15,55 @@ export class AIBallClassificationModule {
     this.isLoaded = false;
     this.isPaused = false;
 
-    // Delta Time 및 스폰 타이머용 변수 추가
     this.lastTime = 0;
     this.spawnTimer = 0;
+    this.countdownTimer = 3.0;
 
-    // 이벤트 바인딩 참조 보관 (destroy용)
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handleResize = this.handleResize.bind(this);
 
     this.resetState();
   }
 
-  /**
-   * 모듈 초기화 및 에셋 지연 로딩
-   * @param {Function} onComplete - 미니게임 완료 시 호출할 콜백 함수
-   */
   async init(onComplete) {
     this.onCompleteContract = onComplete;
     await this.loadAssets();
     this.recalculateLayout();
 
-    // 글로벌 이벤트 등록 (탭 비활성화 pause, 리사이즈)
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     window.addEventListener('resize', this.handleResize);
 
     this.render();
   }
 
-  /** 게임 시작 */
   start() {
     this.resetState();
     this.status = 'PLAYING';
     this.startTime = Date.now();
-    this.lastTime = performance.now(); // 시간 측정 기준 초기화
+    this.lastTime = performance.now();
+    this.countdownTimer = 3.0;
     this.startLoop();
   }
 
-  /** 일시 정지 (규칙 14) */
   pause() {
     if (this.status !== 'PLAYING' || this.isPaused) return;
     this.isPaused = true;
     this.stopLoop();
   }
 
-  /** 재개 */
   resume() {
     if (!this.isPaused) return;
     this.isPaused = false;
-    this.lastTime = performance.now(); // Pause 해제 시 시간 튀는 현상 방지
+    this.lastTime = performance.now();
     this.startLoop();
   }
 
-  /** 재시작 */
   restart() {
     this.stopLoop();
     this.resetState();
     this.start();
   }
 
-  /** 리소스 및 이벤트 해제 */
   destroy() {
     this.stopLoop();
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
@@ -83,14 +72,12 @@ export class AIBallClassificationModule {
     this.ballQueue = [];
   }
 
-  /** 결과 처리 및 상위 Scene 반환 (규칙 10) */
   onComplete(isSuccess) {
     this.stopLoop();
     this.status = isSuccess ? 'CLEAR' : 'FAIL';
 
     const playTimeMs = Date.now() - (this.startTime || Date.now());
 
-    // 공통 result object 데이터 규약
     const resultObj = {
       gameId: 'ai-ball-classification',
       success: isSuccess,
@@ -107,10 +94,6 @@ export class AIBallClassificationModule {
       this.onCompleteContract(resultObj);
     }
   }
-
-  // ==========================================
-  // 2. 에셋 및 반응형 / 예외 처리 (규칙 12, 13, 14)
-  // ==========================================
 
   async loadAssets() {
     const loadImage = (src) => new Promise((resolve) => {
@@ -134,13 +117,10 @@ export class AIBallClassificationModule {
   }
 
   handleVisibilityChange() {
-    if (document.hidden) {
-      this.pause();
-    }
+    if (document.hidden) this.pause();
   }
 
   handleResize() {
-    // 진행 상태를 초기화하지 않고 위치 좌표 및 Canvas 크기만 재배치 (규칙 13)
     this.recalculateLayout();
     this.render();
   }
@@ -148,46 +128,37 @@ export class AIBallClassificationModule {
   recalculateLayout() {
     if (!this.canvas) return;
 
-  // 1. 화면에 실제 표시되는 CSS 픽셀 크기를 가져옴
-  const rect = this.canvas.getBoundingClientRect();
-  
-  // 2. 캔버스의 내부 해상도(width/height)를 실제 화면 크기와 1:1로 맞춤
-  if (rect.width > 0 && rect.height > 0) {
-    this.canvas.width = rect.width;
-    this.canvas.height = rect.height;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      this.canvas.width = rect.width;
+      this.canvas.height = rect.height;
+    }
+
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    // 💡 레일 및 분류통 위치 하향 조정 (기존 h * 0.45 ➔ h * 0.6)
+    this.trackY = h * 0.6;
+    this.binX = w * 0.65;
+    this.binY = h * 0.72;
+    this.binWidth = w * 0.2;
+    this.binHeight = h * 0.22;
   }
-
-  const w = this.canvas.width;
-  const h = this.canvas.height;
-
-  // 3. 레이아웃 재계산
-  this.trackY = h * 0.45;
-  this.binX = w * 0.65;
-  this.binY = h * 0.6;
-  this.binWidth = w * 0.2;
-  this.binHeight = h * 0.3;
-  }
-
-  // ==========================================
-  // 3. 로직 및 렌더링
-  // ==========================================
 
   resetState() {
     this.status = 'READY';
     this.lidState = this.config.initialLidState || 'CLOSED';
     this.collectedTargets = 0;
-
-    const progressEl = document.getElementById('progress-text');
-    if (progressEl) progressEl.textContent = '0';
-
     this.failReason = '';
     this.activeBalls = [];
     this.ballQueue = [];
     this.animFrameId = null;
     this.isPaused = false;
     this.spawnTimer = 0;
+    this.countdownTimer = 3.0;
 
     this.generateQueue();
+    this.updateScoreUI();
   }
 
   generateQueue() {
@@ -213,20 +184,18 @@ export class AIBallClassificationModule {
   }
 
   toggleLid() {
-    if (this.status !== 'PLAYING' || this.isPaused) return;
+    if (this.status !== 'PLAYING' || this.isPaused || this.countdownTimer > 0) return;
     this.lidState = this.lidState === 'CLOSED' ? 'OPEN' : 'CLOSED';
   }
 
   startLoop() {
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
-    
+
     const loop = (currentTime) => {
       if (!this.isPaused) {
-        // Delta Time 계산 (초 단위)
         const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
 
-        // 델타 타임이 이상 수치로 튈 경우(탭 전환 등) 최대 0.1초로 제한
         const safeDeltaTime = Math.min(deltaTime, 0.1);
 
         if (!isNaN(safeDeltaTime) && safeDeltaTime > 0) {
@@ -239,7 +208,7 @@ export class AIBallClassificationModule {
         this.animFrameId = requestAnimationFrame(loop);
       }
     };
-    
+
     this.animFrameId = requestAnimationFrame(loop);
   }
 
@@ -248,21 +217,40 @@ export class AIBallClassificationModule {
     this.animFrameId = null;
   }
 
+  updateScoreUI() {
+    const progressEl = document.getElementById('progress-text');
+    if (progressEl) {
+      progressEl.textContent = this.collectedTargets;
+    }
+  }
+
   update(dt) {
     if (this.status !== 'PLAYING' || this.isPaused) return;
+
+    if (this.countdownTimer > 0) {
+      this.countdownTimer -= dt;
+      return;
+    }
 
     const w = this.canvas.width;
     const h = this.canvas.height;
 
-    // 1. 공 스폰 로직 (프레임 단위 대신 시간 초 단위 기준)
-    const spawnIntervalSeconds = 0.8;
+    // 1. 공 이동 속도 설정
+    const horizontalSpeed = w * 0.8; 
+    const fallSpeed = h * 2;
+
+    // 💡 2. 화면 전체(너비 w)를 지나가는 데 걸리는 시간 계산
+    // 화면 전체 이동 시간 = w / horizontalSpeed = 1 / 0.55 ≈ 1.81초
+    // 화면에 2개 정도 유지되도록 스폰 간격을 이동 시간의 1/2 수준으로 설정 (약 0.9초)
+    const travelTime = w / horizontalSpeed; 
+    const spawnIntervalSeconds = travelTime / 2;
+
     this.spawnTimer += dt;
 
+    // 스폰 속도 조절만으로 자연스럽게 화면에 2개 배치
     if (this.spawnTimer >= spawnIntervalSeconds && this.ballQueue.length > 0) {
       this.spawnTimer = 0;
       const nextBall = this.ballQueue.shift();
-
-      // 공 크기: 캔버스 너비의 3% (반지름)
       const radiusPx = w * 0.035;
 
       this.activeBalls.push({
@@ -274,23 +262,17 @@ export class AIBallClassificationModule {
       });
     }
 
-    // 2. 공 이동 및 판정 로직
-    const horizontalSpeed = w * 0.7; // 초당 픽셀 이동
-    const fallSpeed = h * 2; // 1초당 캔버스 높이의 50% 속도로 낙하
-
+    // 3. 이동 및 판정 로직
     for (let i = this.activeBalls.length - 1; i >= 0; i--) {
       const ball = this.activeBalls[i];
 
-      // [A] 떨어지는 상태
       if (ball.falling) {
         ball.y += fallSpeed * dt;
 
         if (ball.y > this.binY + 40) {
           if (ball.isTarget) {
             this.collectedTargets++;
-
-            const progressEl = document.getElementById('progress-text');
-            if (progressEl) progressEl.textContent = this.collectedTargets;
+            this.updateScoreUI();
 
             if (this.collectedTargets >= this.config.targetCount) {
               this.onComplete(true);
@@ -304,7 +286,6 @@ export class AIBallClassificationModule {
         continue;
       }
 
-      // [B] 레일 위에서 우측 이동
       ball.x += horizontalSpeed * dt;
 
       const inBinZone = ball.x >= this.binX + 15 && ball.x <= this.binX + this.binWidth - 15;
@@ -312,7 +293,6 @@ export class AIBallClassificationModule {
         ball.falling = true;
       }
 
-      // 레일을 지나쳤을 때
       if (ball.x > this.binX + this.binWidth + 20) {
         if (ball.isTarget) {
           this.failReason = this.uiText.failReasons.MISSED_TARGET;
@@ -348,7 +328,7 @@ export class AIBallClassificationModule {
     }
     this.ctx.restore();
 
-    // 4. 공
+    // 4. 공 렌더링
     for (const ball of this.activeBalls) {
       this.ctx.save();
       this.ctx.beginPath();
@@ -374,5 +354,90 @@ export class AIBallClassificationModule {
       }
       this.ctx.restore();
     }
+
+    // 💡 5. Canvas 내부 텍스트 완전 제거 (외부 수집 UI만 사용)
+
+    // 6. 상단 중앙 Target 안내 카드
+    this.renderTargetPreview();
+
+    // 7. 3초 카운트다운 오버레이
+    if (this.countdownTimer > 0 && this.status === 'PLAYING') {
+      this.renderCountdownOverlay();
+    }
+  }
+
+  /** 💡 중앙 상단 Target 안내 카드 (크기 확대 및 상단 배치) */
+  renderTargetPreview() {
+    const w = this.canvas.width;
+    const centerX = w / 2;
+    const startY = 15;
+
+    // 💡 이미지 박스 크기 확대 (기존 0.08 ➔ 0.16)
+    const maxBoxSize = Math.min(w * 0.16, 110);
+    const targetImg = this.assets.targetImages[0];
+
+    this.ctx.save();
+
+    const panelWidth = Math.max(maxBoxSize + 40, 150);
+    const panelHeight = maxBoxSize + 35;
+
+    // 배경 카드
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    this.ctx.beginPath();
+    this.ctx.roundRect(
+      centerX - panelWidth / 2,
+      startY,
+      panelWidth,
+      panelHeight,
+      12
+    );
+    this.ctx.fill();
+
+    // TARGET 텍스트
+    this.ctx.fillStyle = '#a29bfe';
+    this.ctx.font = 'bold 13px sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('TARGET', centerX, startY + 18);
+
+    // 이미지 렌더링
+    if (targetImg && targetImg.complete && targetImg.naturalWidth > 0) {
+      const imgWidth = targetImg.naturalWidth;
+      const imgHeight = targetImg.naturalHeight;
+      const scale = Math.min(maxBoxSize / imgWidth, maxBoxSize / imgHeight);
+
+      const drawWidth = imgWidth * scale;
+      const drawHeight = imgHeight * scale;
+
+      const drawX = centerX - drawWidth / 2;
+      const drawY = startY + 25 + (maxBoxSize - drawHeight) / 2;
+
+      this.ctx.drawImage(targetImg, drawX, drawY, drawWidth, drawHeight);
+    } else {
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = '12px sans-serif';
+      this.ctx.fillText('Loading...', centerX, startY + 45);
+    }
+
+    this.ctx.restore();
+  }
+
+  /** 💡 화면 중앙 3, 2, 1 카운트다운 표시 */
+  renderCountdownOverlay() {
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    const countNum = Math.ceil(this.countdownTimer);
+
+    this.ctx.save();
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    this.ctx.fillRect(0, 0, w, h);
+
+    this.ctx.fillStyle = '#ffeaa7';
+    this.ctx.font = 'bold 64px sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(`${countNum}`, w / 2, h / 2);
+
+    this.ctx.restore();
   }
 }
