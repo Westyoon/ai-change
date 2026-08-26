@@ -1,0 +1,39 @@
+<!-- dev/test.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<style>
+  body { background: #05070c; color: #eee; font-family: monospace; display: flex; gap: 20px; padding: 20px; }
+  canvas { background: #0a0d14; border: 1px solid #333; border-radius: 8px; }
+  #panel { width: 200px; }
+  button { margin-bottom: 6px; padding: 8px; width: 100%; cursor: pointer; }
+</style>
+</head>
+<body>
+  <canvas id="game-canvas" width="480" height="480"></canvas>
+  <div id="panel">
+    <button id="btn-init">init()</button>
+    <button id="btn-start">start()</button>
+    <div id="ui-root"></div>
+  </div>
+
+  <script type="module">
+    // 우리가 만든 게임 함수 가져오기
+    import { createMiniGame } from "../js/minigames/CS/index.js";
+    // 설정 파일 가져오기
+    import config from "../data/minigames/click-to-purify.json" with { type: "json" };
+
+    const game = createMiniGame({
+      canvas: document.getElementById("game-canvas"), // 그림 그릴 캔버스
+      uiRoot: document.getElementById("ui-root"),      // HUD 넣을 자리
+      onComplete(result) {
+        alert("게임 종료: " + JSON.stringify(result)); // 게임 끝나면 결과 팝업으로 보여줌
+      },
+    });
+
+    document.getElementById("btn-init").onclick = () => game.init(config);
+    document.getElementById("btn-start").onclick = () => game.start();
+  </script>
+</body>
+</html>

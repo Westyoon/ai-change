@@ -2,7 +2,7 @@
     "perfectWindowMs": 200,
     "goodWindowMs": 500,
 
-    "approachDurationMs": 3000,
+    "approachDurationMs": 3000, 
 
     "totalWaves": 14,
     "learningWaveCount": 4,
@@ -14,5 +14,6 @@
     "ransomMinCount": 1,
     "ransomMaxCount": 2,
 
-    "missLimit": 3
+    "missLimit": 3,
+    "ransomLockMs": 1500
 }
