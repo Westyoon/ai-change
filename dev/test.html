@@ -69,7 +69,7 @@
 
   <script type="module">
     import { createMiniGame } from "../js/minigames/CS/index.js";
-    import config from "../data/minigames/click-to-purify.json" with { type: "json" };
+    const config = await fetch("../data/minigames/click-to-purify.json").then((r) => r.json());
 
     const game = createMiniGame({
       canvas: document.getElementById("game-canvas"),
