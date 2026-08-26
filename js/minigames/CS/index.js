@@ -197,8 +197,8 @@ export function createMiniGame(context) {
         reward: null, // 보상 체계는 메인 앱 쪽에서 결정 (TBD)
       };
 
-      console.log("게임 종료:", result);
-      if (context.onComplete) context.onComplete(result);
+      console.log("게임 종료:", miniGameResult);
+      if (context.onComplete) context.onComplete(miniGameResult);
     }
   }
 

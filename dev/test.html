@@ -62,6 +62,15 @@
   <div id="stage">
     <canvas id="game-canvas" width="480" height="480"></canvas>
   </div>
+
+  <div id="result-modal" style="display:none; position:fixed; inset:0; background:rgba(5,7,12,0.75); align-items:center; justify-content:center; z-index:11;">
+    <div id="result-box" style="background:rgba(20,24,31,0.95); border:2px solid #37e6ff; border-radius:10px; padding:24px; max-width:320px; text-align:center; font-size:14px;">
+      <h2 id="result-title" style="margin:0 0 10px;"></h2>
+      <p id="result-detail" style="margin:0 0 16px; color:#ccc;"></p>
+      <button id="btn-restart" style="width:100%; padding:12px; font:bold 14px monospace; color:#fff; background:#3a3f4a; border:2px solid #37e6ff; border-radius:6px; cursor:pointer;">RESTART</button>
+    </div>
+  </div>        
+
   <div id="panel">
     <button id="btn-start" style="display:none;">START</button>
     <div id="ui-root"></div>
@@ -75,7 +84,18 @@
       canvas: document.getElementById("game-canvas"),
       uiRoot: document.getElementById("ui-root"),
       onComplete(result) {
-        alert("게임 종료: " + JSON.stringify(result));
+        const titleEl = document.getElementById("result-title");
+        const detailEl = document.getElementById("result-detail");
+
+        if (result.status === "CLEAR") {
+          titleEl.textContent = "🎉 정화 성공!";
+          detailEl.textContent = `정화도: ${result.score}%`;
+        } else {
+          titleEl.textContent = "💥 방어 실패";
+          detailEl.textContent = `MISS ${result.metrics.missCount}회로 시스템이 뚫렸습니다`;
+        }
+
+        document.getElementById("result-modal").style.display = "flex";
       },
     });
 
@@ -87,6 +107,10 @@
     };
 
     document.getElementById("btn-start").onclick = () => game.start();
+    document.getElementById("btn-restart").onclick = () => {
+      document.getElementById("result-modal").style.display = "none";
+      game.restart();
+    };    
   </script>
 </body>
 </html>
