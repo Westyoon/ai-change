@@ -1,0 +1,18 @@
+{
+    "perfectWindowMs": 200,
+    "goodWindowMs": 500,
+
+    "approachDurationMs": 3000,
+
+    "totalWaves": 14,
+    "learningWaveCount": 4,
+    "learningOrder": ["TROJAN", "WORM", "RANSOM", "SPYWARE"],
+    "learningIntervalMs": 3500,
+
+    "mixedIntervalStartMs": 3200,
+    "mixedIntervalEndMs": 1800,
+    "ransomMinCount": 1,
+    "ransomMaxCount": 2,
+
+    "missLimit": 3
+}
