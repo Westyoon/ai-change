@@ -93,6 +93,7 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  touch-action: manipulation;
 }
 
 .btn-lid.closed {
@@ -148,6 +149,7 @@ body {
   border-radius: 10px;
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+  touch-action: manipulation;
 }
 
 #countdown-text {
