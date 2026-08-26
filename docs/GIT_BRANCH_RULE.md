@@ -1,7 +1,5 @@
 # Git Branch Naming & Management Guidelines — Web Game Team
 
-
-
 이 문서는 게임팀 레포지토리에서 사용하는 **Git 브랜치·커밋 메시지 규칙과 협업 원칙**을 정의한다.
 
 본 프로젝트는 PC와 모바일에서 모두 실행되는 **반응형 웹게임** 개발을 전제로 한다.
