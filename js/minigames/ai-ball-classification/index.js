@@ -16,6 +16,10 @@ export class AIBallClassificationModule {
     this.isLoaded = false;
     this.isPaused = false;
 
+    // Delta Time 및 스폰 타이머용 변수 추가
+    this.lastTime = 0;
+    this.spawnTimer = 0;
+
     // 이벤트 바인딩 참조 보관 (destroy용)
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handleResize = this.handleResize.bind(this);
@@ -44,6 +48,7 @@ export class AIBallClassificationModule {
     this.resetState();
     this.status = 'PLAYING';
     this.startTime = Date.now();
+    this.lastTime = performance.now(); // 시간 측정 기준 초기화
     this.startLoop();
   }
 
@@ -58,6 +63,7 @@ export class AIBallClassificationModule {
   resume() {
     if (!this.isPaused) return;
     this.isPaused = false;
+    this.lastTime = performance.now(); // Pause 해제 시 시간 튀는 현상 방지
     this.startLoop();
   }
 
@@ -141,14 +147,25 @@ export class AIBallClassificationModule {
 
   recalculateLayout() {
     if (!this.canvas) return;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
 
-    this.trackY = h * 0.45;
-    this.binX = w * 0.65;
-    this.binY = h * 0.6;
-    this.binWidth = w * 0.2;
-    this.binHeight = h * 0.3;
+  // 1. 화면에 실제 표시되는 CSS 픽셀 크기를 가져옴
+  const rect = this.canvas.getBoundingClientRect();
+  
+  // 2. 캔버스의 내부 해상도(width/height)를 실제 화면 크기와 1:1로 맞춤
+  if (rect.width > 0 && rect.height > 0) {
+    this.canvas.width = rect.width;
+    this.canvas.height = rect.height;
+  }
+
+  const w = this.canvas.width;
+  const h = this.canvas.height;
+
+  // 3. 레이아웃 재계산
+  this.trackY = h * 0.45;
+  this.binX = w * 0.65;
+  this.binY = h * 0.6;
+  this.binWidth = w * 0.2;
+  this.binHeight = h * 0.3;
   }
 
   // ==========================================
@@ -162,13 +179,13 @@ export class AIBallClassificationModule {
 
     const progressEl = document.getElementById('progress-text');
     if (progressEl) progressEl.textContent = '0';
-    
+
     this.failReason = '';
     this.activeBalls = [];
     this.ballQueue = [];
-    this.frameCount = 0;
     this.animFrameId = null;
     this.isPaused = false;
+    this.spawnTimer = 0;
 
     this.generateQueue();
   }
@@ -202,15 +219,27 @@ export class AIBallClassificationModule {
 
   startLoop() {
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
-    const loop = () => {
+    
+    const loop = (currentTime) => {
       if (!this.isPaused) {
-        this.update();
+        // Delta Time 계산 (초 단위)
+        const deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+
+        // 델타 타임이 이상 수치로 튈 경우(탭 전환 등) 최대 0.1초로 제한
+        const safeDeltaTime = Math.min(deltaTime, 0.1);
+
+        if (!isNaN(safeDeltaTime) && safeDeltaTime > 0) {
+          this.update(safeDeltaTime);
+        }
         this.render();
       }
+
       if (this.status === 'PLAYING') {
         this.animFrameId = requestAnimationFrame(loop);
       }
     };
+    
     this.animFrameId = requestAnimationFrame(loop);
   }
 
@@ -219,27 +248,43 @@ export class AIBallClassificationModule {
     this.animFrameId = null;
   }
 
-  update() {
+  update(dt) {
     if (this.status !== 'PLAYING' || this.isPaused) return;
 
-    this.frameCount++;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
 
-    if (this.frameCount % this.config.spawnIntervalFrames === 0 && this.ballQueue.length > 0) {
+    // 1. 공 스폰 로직 (프레임 단위 대신 시간 초 단위 기준)
+    const spawnIntervalSeconds = 0.8;
+    this.spawnTimer += dt;
+
+    if (this.spawnTimer >= spawnIntervalSeconds && this.ballQueue.length > 0) {
+      this.spawnTimer = 0;
       const nextBall = this.ballQueue.shift();
+
+      // 공 크기: 캔버스 너비의 3% (반지름)
+      const radiusPx = w * 0.035;
+
       this.activeBalls.push({
         ...nextBall,
-        x: -20,
-        y: this.trackY - 20,
-        radius: 20,
+        x: -radiusPx,
+        y: this.trackY - radiusPx,
+        radius: radiusPx,
         falling: false
       });
     }
 
+    // 2. 공 이동 및 판정 로직
+    const horizontalSpeed = w * 0.7; // 초당 픽셀 이동
+    const fallSpeed = h * 2; // 1초당 캔버스 높이의 50% 속도로 낙하
+
     for (let i = this.activeBalls.length - 1; i >= 0; i--) {
       const ball = this.activeBalls[i];
 
+      // [A] 떨어지는 상태
       if (ball.falling) {
-        ball.y += 6;
+        ball.y += fallSpeed * dt;
+
         if (ball.y > this.binY + 40) {
           if (ball.isTarget) {
             this.collectedTargets++;
@@ -259,13 +304,15 @@ export class AIBallClassificationModule {
         continue;
       }
 
-      ball.x += this.config.ballSpeed;
+      // [B] 레일 위에서 우측 이동
+      ball.x += horizontalSpeed * dt;
 
       const inBinZone = ball.x >= this.binX + 15 && ball.x <= this.binX + this.binWidth - 15;
       if (inBinZone && this.lidState === 'OPEN') {
         ball.falling = true;
       }
 
+      // 레일을 지나쳤을 때
       if (ball.x > this.binX + this.binWidth + 20) {
         if (ball.isTarget) {
           this.failReason = this.uiText.failReasons.MISSED_TARGET;
