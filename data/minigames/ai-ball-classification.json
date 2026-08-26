@@ -1,0 +1,34 @@
+{
+  "gameId": "ai-ball-classification",
+  "config": {
+    "targetClass": "DATA_BALL",
+    "targetCount": 5,
+    "nonTargetCount": 25,
+    "countdownSeconds": 3,
+    "ballSpeed": 3,
+    "spawnIntervalFrames": 90,
+    "initialLidState": "CLOSED",
+    "targetImageUrls": [
+      "./assets/images/sample.png"
+    ],
+    "nonTargetImageUrls": [
+      "./assets/images/sample.png",
+      "./assets/images/sample.png"
+    ]
+  },
+  "uiText": {
+    "title": "AI 공 분류 게임",
+    "ruleExplanation": "굴러오는 공 중 상단 목표와 같은 [DATA 공]만 뚜껑을 열어 통에 담으세요!",
+    "startButton": "게임 시작",
+    "lidOpen": "OPEN (뚜껑 열림)",
+    "lidClose": "CLOSE (뚜껑 닫힘)",
+    "clearTitle": "SUCCESS!",
+    "clearButton": "수호알 획득하기",
+    "failTitle": "GAME OVER",
+    "failButton": "처음부터 다시하기",
+    "failReasons": {
+      "WRONG_BALL": "오답 공이 통에 들어갔습니다!",
+      "MISSED_TARGET": "정답 공을 놓쳤습니다!"
+    }
+  }
+}

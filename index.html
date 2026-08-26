@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>AI Ball Classification</title>
+    <link rel="stylesheet" href="./css/ai-ball-classification.css">
+</head>
+<body>
+  <div id="game-container">
+    <!-- 규칙 설명 오버레이 -->
+    <div id="overlay-rules" class="overlay">
+      <h2>AI 공 분류 게임</h2>
+      <p id="rule-text">굴러오는 공 중 목표 공만 뚜껑을 열어 분류통에 담으세요!</p>
+      <button id="btn-start-game" class="btn-primary" type="button">게임 시작</button>
+    </div>
+
+    <!-- 3초 카운트다운 오버레이 -->
+    <div id="overlay-countdown" class="overlay hidden">
+      <div class="countdown-card">
+        <h3 style="margin-bottom: 20px;">수집할 공 이미지</h3>
+        <div class="target-preview-box">
+          <img id="countdown-target-img" src="./assets/images/sample.png" alt="목표 공 이미지" />
+        </div>
+        <div id="countdown-text">3</div>
+      </div>
+    </div>
+
+    <!-- 결과 팝업 오버레이 -->
+    <div id="overlay-result" class="overlay hidden">
+      <h2 id="result-title">SUCCESS!</h2>
+      <p id="result-reason"></p>
+      <button id="btn-result-action" class="btn-primary" type="button">수호알 획득하기</button>
+    </div>
+
+    <!-- 상단 UI -->
+    <header class="top-area">
+      <div class="target-box">
+        <span>목표:</span>
+        <span class="target-badge">DATA 공 (보라색)</span>
+      </div>
+      <div class="progress-box">
+        수집: <span id="progress-text">0</span> / 5
+      </div>
+    </header>
+
+    <!-- 게임 그래픽 Canvas -->
+    <canvas id="game-canvas" width="480" height="460"></canvas>
+
+    <!-- 하단 조작 UI -->
+    <footer class="bottom-area">
+      <div class="control-info">
+        분류통 뚜껑 조작
+      </div>
+      <button id="btn-toggle-lid" class="btn-lid closed" type="button">CLOSE (뚜껑 닫힘)</button>
+    </footer>
+  </div>
+
+  <script type="module" src="./js/minigames/ai-ball-classification/index.js"></script>
+</body>
+</html>

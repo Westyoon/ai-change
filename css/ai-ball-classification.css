@@ -1,0 +1,157 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  background-color: #1a1a24;
+  color: #ffffff;
+  font-family: 'Pretendard', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+#game-container {
+  position: relative;
+  width: 480px;
+  height: 640px;
+  background-color: #262837;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header UI */
+.top-area {
+  height: 60px;
+  background-color: #1f202d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 2px solid #34374c;
+}
+
+.target-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.target-badge {
+  background: #6c5ce7;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.progress-box {
+  font-size: 16px;
+  font-weight: bold;
+  color: #00cec9;
+}
+
+/* Canvas Canvas Screen */
+#game-canvas {
+  width: 100%;
+  height: 460px;
+  background: #20222f;
+  display: block;
+}
+
+/* Bottom Controls */
+.bottom-area {
+  height: 120px;
+  background-color: #1f202d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  border-top: 2px solid #34374c;
+}
+
+.control-info {
+  font-size: 13px;
+  color: #a0a5b5;
+}
+
+.btn-lid {
+  width: 180px;
+  height: 60px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.btn-lid.closed {
+  background-color: #ff7675;
+  color: white;
+}
+
+.btn-lid.open {
+  background-color: #55efc4;
+  color: #2d3436;
+}
+
+.btn-lid:active {
+  transform: translateY(2px);
+}
+
+/* Overlays */
+.overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 16, 25, 0.92);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+  padding: 30px;
+  text-align: center;
+}
+
+.hidden { display: none !important; }
+
+.overlay h2 {
+  font-size: 28px;
+  margin-bottom: 12px;
+  color: #a29bfe;
+}
+
+.overlay p {
+  font-size: 15px;
+  color: #dfe6e9;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.btn-primary {
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+}
+
+#countdown-text {
+  font-size: 90px;
+  color: #00cec9;
+  font-weight: 900;
+}
