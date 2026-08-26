@@ -3,7 +3,7 @@
 export function judgeTiming(now, targetAt, config){
     const errorMs = Math.abs(now - targetAt); // 오차(항상 양수로)
 
-    if(errorMs <= config.perfectwindowMs) return "PERFECT"; // 오차 0.2초 이내
+    if(errorMs <= config.perfectWindowMs) return "PERFECT"; // 오차 0.2초 이내
     if(errorMs <= config.goodWindowMs) return "GOOD"; // 오차 0.5초 이내
     return "MISS"; // 그보다 크면 실패
 }
@@ -13,7 +13,7 @@ export function judgeTiming(now, targetAt, config){
 // totalWaves: 전체 웨이브 수 (부모, 100%를 채우는 기준)
 export function calculatePurification(PerfectCount, goodCount, totalWaves){
     const perfectScore = PerfectCount * 1; // PERFECT는 1점씩
-    const goodScore = goodCount * 0.5; // GOOD은 0.5점씩
+    const goodScore = goodCount * 0.7; // GOOD은 0.7점씩
     const earned = perfectScore + goodScore; // 얻은 점수 합
 
     const purification = (earned / totalWaves) * 100; // 전체 대비 퍼센트로 환산
@@ -29,6 +29,8 @@ export function pickTarget(threats, now) {
     const candidates = threats.filter(
         (t) => !t.resolved && isClickable(t) // 이미 판정됐거나 클릭 불가능한 건 후보에서 제외
     );
+
+    if (candidates.length === 0) return null;
 
     // 목표 시각(targetAt)이 지금과 가장 가까운 위협을 선택
     return candidates.reduce((closest, current) => {

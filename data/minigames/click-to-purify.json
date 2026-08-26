@@ -2,18 +2,20 @@
     "perfectWindowMs": 200,
     "goodWindowMs": 500,
 
-    "approachDurationMs": 3000, 
+    "approachDurationMs": 1400, 
 
-    "totalWaves": 14,
+    "totalWaves": 22,
     "learningWaveCount": 4,
     "learningOrder": ["TROJAN", "WORM", "RANSOM", "SPYWARE"],
-    "learningIntervalMs": 3500,
+    "learningIntervalMs": 2600,
 
-    "mixedIntervalStartMs": 3200,
-    "mixedIntervalEndMs": 1800,
-    "ransomMinCount": 1,
-    "ransomMaxCount": 2,
+    "mixedIntervalStartMs": 1300,
+    "mixedIntervalEndMs": 750,
+    "ransomMinCount": 2,
+    "ransomMaxCount": 3,
 
     "missLimit": 3,
+    "clickIgnoreMs": 900,
+    "learningApproachDurationMs": 1800,
     "ransomLockMs": 1500
 }

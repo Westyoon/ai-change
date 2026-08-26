@@ -8,10 +8,10 @@ export function buildWavePlan(config){
     let cursor = 0; // 다음 웨이브가 등장할 시각을 누적해서 계산하는 함수
 
     // 학습 구간: config.learningOrder 순서대로 1종씩 고정 등장
-    for(let i = 0; i < config.learningWaveCount; i+=1){
-        const type = config.learningOrder[i]; // i번째 순서의 악성코드 타입
-        plan.push({type, spawnAtMs: cursor}); // 웨이브 계획에 추가
-        cursor += config.learningIntervalMs; // 다음 등장 시각 = 지금 + 간격
+    for (let i = 0; i < config.learningWaveCount; i += 1) {
+        const type = config.learningOrder[i];
+        plan.push({ type, spawnAtMs: cursor, approachDurationMs: config.learningApproachDurationMs }); // 학습 구간은 느린 속도
+        cursor += config.learningIntervalMs;
     }
 
     // 혼합 구간: 나머지 10웨이브
@@ -19,7 +19,7 @@ export function buildWavePlan(config){
     const mixedTypes = buildMixedTypeSequence(mixedCount, config); 
 
     for(let i = 0; i < mixedCount; i+=1){
-        plan.push({type: mixedTypes[i], spawnAtMs: cursor});
+        plan.push({ type: mixedTypes[i], spawnAtMs: cursor, approachDurationMs: config.approachDurationMs }); // 혼합 구간은 기본 속도
 
         // 진행률(0~1)에 따라 간격을 점점 줄임 (처음엔 느리게, 끝은 빠르게)
         const progress = i / (mixedCount - 1);
