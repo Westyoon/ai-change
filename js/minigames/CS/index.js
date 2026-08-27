@@ -1,4 +1,5 @@
 import { INPUT_ACTIONS } from "../../core/input-manager.js";
+import { InputLock } from "../shared/input-lock.js";
 import { MiniGameClock } from "../shared/minigame-clock.js";
 import { buildMiniGameCandidate } from "../shared/result-builder.js";
 import {
@@ -7,24 +8,21 @@ import {
   pickTarget,
   resolveTerminalState,
 } from "./judge.js";
-import { createThreat } from "./malware.js";
-import { createRunState, STATE, transitionState } from "./state.js";
+import {
+  createThreat,
+  createWormChildren,
+  updateThreatPresentation,
+} from "./malware.js";
+import { buildWavePlan, estimateWavePlanEndMs } from "./wave.js";
 
-const THREAT_TYPES = Object.freeze(["TROJAN", "WORM", "RANSOM", "SPYWARE"]);
-
-// These values make the imported core loop playable, but remain prototype
-// defaults until the team's D-04/D-05 balance decisions are approved.
-const PROTOTYPE_DEFAULTS = Object.freeze({
-  totalWaves: 6,
-  spawnIntervalMs: 1_300,
-  approachDurationMs: 1_400,
-  perfectWindowMs: 200,
-  goodWindowMs: 500,
-  trojanRevealLeadMs: 500,
-  missLimit: 3,
-  timeLimitMs: 18_000,
-  tickIntervalMs: 50,
+const MINI_GAME_ID = "cyber-click-to-purify";
+const TYPE_COLORS = Object.freeze({
+  TROJAN: "#ff8c37",
+  WORM: "#2ed477",
+  RANSOM: "#a85cff",
+  SPYWARE: "#75a7ca",
 });
+const DISGUISE_COLOR = "#697386";
 
 function createAbortError() {
   if (typeof DOMException === "function") {
@@ -50,123 +48,44 @@ function finiteAtLeast(value, minimum, fallback) {
   return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
 }
 
-function firstFinite(...values) {
-  return values.find((value) => Number.isFinite(value));
-}
-
-function normalizeConfig(source = {}) {
-  const balance = source.balance && typeof source.balance === "object" ? source.balance : {};
-  const perfectWindowMs = finiteAtLeast(
-    firstFinite(
-      source.perfectWindowMs,
-      source.perfectwindowMs,
-      balance.perfectWindowMs,
-      balance.perfectwindowMs,
-    ),
-    0,
-    PROTOTYPE_DEFAULTS.perfectWindowMs,
-  );
-  const goodWindowMs = Math.max(
-    perfectWindowMs,
-    finiteAtLeast(
-      firstFinite(source.goodWindowMs, balance.goodWindowMs),
-      0,
-      PROTOTYPE_DEFAULTS.goodWindowMs,
-    ),
-  );
-  const timeLimitFromSeconds = firstFinite(source.timeLimitSec, balance.timeLimitSec);
-  const configuredTimeLimitMs = firstFinite(
-    source.timeLimitMs,
-    source.totalTimeLimitMs,
-    balance.timeLimitMs,
-    balance.totalTimeLimitMs,
-    Number.isFinite(timeLimitFromSeconds) ? timeLimitFromSeconds * 1_000 : undefined,
-  );
-
-  return Object.freeze({
-    totalWaves: Math.floor(
-      finiteAtLeast(
-        firstFinite(source.totalWaves, balance.totalWaves),
-        1,
-        PROTOTYPE_DEFAULTS.totalWaves,
-      ),
-    ),
-    spawnIntervalMs: finiteAtLeast(
-      firstFinite(source.spawnIntervalMs, balance.spawnIntervalMs),
-      100,
-      PROTOTYPE_DEFAULTS.spawnIntervalMs,
-    ),
-    approachDurationMs: finiteAtLeast(
-      firstFinite(source.approachDurationMs, balance.approachDurationMs),
-      0,
-      PROTOTYPE_DEFAULTS.approachDurationMs,
-    ),
-    perfectWindowMs,
-    goodWindowMs,
-    trojanRevealLeadMs: finiteAtLeast(
-      firstFinite(source.trojanRevealLeadMs, balance.trojanRevealLeadMs),
-      0,
-      PROTOTYPE_DEFAULTS.trojanRevealLeadMs,
-    ),
-    missLimit: Math.floor(
-      finiteAtLeast(
-        firstFinite(source.missLimit, balance.missLimit),
-        1,
-        PROTOTYPE_DEFAULTS.missLimit,
-      ),
-    ),
-    timeLimitMs: finiteAtLeast(
-      configuredTimeLimitMs,
-      1_000,
-      PROTOTYPE_DEFAULTS.timeLimitMs,
-    ),
-    tickIntervalMs: finiteAtLeast(
-      firstFinite(source.tickIntervalMs, balance.tickIntervalMs),
-      16,
-      PROTOTYPE_DEFAULTS.tickIntervalMs,
-    ),
-  });
-}
-
-function emptyUi() {
-  return {
-    root: null,
-    stateLabel: null,
-    progressLabel: null,
-    threatLabel: null,
-    feedbackLabel: null,
-    actionButton: null,
-  };
-}
-
-// Build by retaining direct element references. This works in browsers and in
-// the dependency-free FakeElement used by the common lifecycle contract test.
 function buildUi(uiRoot) {
-  const documentRef = uiRoot?.ownerDocument;
-  if (!uiRoot?.append || !documentRef?.createElement) return emptyUi();
+  const documentRef = uiRoot?.ownerDocument ?? globalThis.document;
+  if (!uiRoot?.append || !documentRef?.createElement) {
+    return {
+      root: null,
+      stateLabel: null,
+      progressLabel: null,
+      feedback: null,
+      actionButton: null,
+      lockLabel: null,
+    };
+  }
 
   const root = documentRef.createElement("section");
-  root.className = "click-to-purify";
-  root.dataset.miniGameId = "cyber-click-to-purify";
+  root.className = "click-to-purify click-to-purify--mvp";
+  root.dataset.miniGameId = MINI_GAME_ID;
   root.setAttribute("role", "region");
-  root.setAttribute("aria-label", "CLICK to PURIFY prototype");
+  root.setAttribute("aria-label", "CLICK to PURIFY");
 
-  const title = documentRef.createElement("h2");
-  title.textContent = "CLICK to PURIFY";
+  const hud = documentRef.createElement("div");
+  hud.className = "click-to-purify__hud";
 
-  const prototypeNotice = documentRef.createElement("p");
-  prototypeNotice.className = "click-to-purify__notice";
-  prototypeNotice.textContent = "Prototype timing rules - balance is subject to team decisions.";
+  const heading = documentRef.createElement("h2");
+  heading.textContent = "CLICK to PURIFY";
 
   const stateLabel = documentRef.createElement("p");
   stateLabel.className = "click-to-purify__state";
-  stateLabel.setAttribute("aria-live", "polite");
 
   const progressLabel = documentRef.createElement("p");
   progressLabel.className = "click-to-purify__progress";
+  progressLabel.setAttribute("aria-live", "polite");
 
-  const threatLabel = documentRef.createElement("p");
-  threatLabel.className = "click-to-purify__threat";
+  const lockLabel = documentRef.createElement("p");
+  lockLabel.className = "click-to-purify__lock";
+
+  const feedback = documentRef.createElement("p");
+  feedback.className = "click-to-purify__feedback";
+  feedback.setAttribute("aria-live", "polite");
 
   const actionButton = documentRef.createElement("button");
   actionButton.type = "button";
@@ -174,106 +93,149 @@ function buildUi(uiRoot) {
   actionButton.textContent = "PURIFY";
   actionButton.disabled = true;
 
-  const feedbackLabel = documentRef.createElement("p");
-  feedbackLabel.className = "click-to-purify__feedback";
-  feedbackLabel.setAttribute("aria-live", "assertive");
-
-  root.append(
-    title,
-    prototypeNotice,
-    stateLabel,
-    progressLabel,
-    threatLabel,
-    actionButton,
-    feedbackLabel,
-  );
+  hud.append(heading, stateLabel, progressLabel, lockLabel);
+  root.append(hud, feedback, actionButton);
   uiRoot.append(root);
+  return { root, stateLabel, progressLabel, feedback, actionButton, lockLabel };
+}
 
-  return { root, stateLabel, progressLabel, threatLabel, feedbackLabel, actionButton };
+function requestFrame(callback) {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    return globalThis.requestAnimationFrame(callback);
+  }
+  return globalThis.setTimeout?.(() => callback(globalThis.performance?.now?.() ?? Date.now()), 16);
+}
+
+function cancelFrame(handle) {
+  if (handle == null) return;
+  if (typeof globalThis.cancelAnimationFrame === "function") {
+    globalThis.cancelAnimationFrame(handle);
+  } else {
+    globalThis.clearTimeout?.(handle);
+  }
 }
 
 export function createMiniGame(context = {}) {
-  const injectedNow = context.clock?.now;
+  const inputLock = new InputLock();
   const clock = new MiniGameClock({
-    now: typeof injectedNow === "function" ? injectedNow : undefined,
+    now: typeof context.clock?.now === "function" ? context.clock.now : undefined,
   });
   const removers = [];
-  let lifecycleState = STATE.CREATED;
-  let runState = createRunState();
-  let config = PROTOTYPE_DEFAULTS;
-  let ui = emptyUi();
+  const canvas = context.canvas ?? null;
+  const canvasContext = canvas?.getContext?.("2d") ?? null;
+
+  let config = null;
+  let ui = buildUi(null);
+  let lifecycleState = "CREATED";
   let currentAttemptId = null;
   let terminal = false;
   let disposed = false;
-  let loopHandle = null;
-
-  function setLifecycleState(nextState) {
-    lifecycleState = transitionState(lifecycleState, nextState);
-    render();
-  }
-
-  function emit(eventName, payload = {}) {
-    context.events?.emit?.(eventName, payload);
-  }
+  let frameHandle = null;
+  let wavePlan = [];
+  let nextWaveIndex = 0;
+  let activeThreats = [];
+  let perfectCount = 0;
+  let goodCount = 0;
+  let missCount = 0;
+  let splitChildMissCount = 0;
+  let inputLockedUntilMs = 0;
+  let coreFlashUntilMs = 0;
+  let lastJudgement = "READY";
+  let judgementEffects = [];
 
   function addListener(target, type, listener) {
     target?.addEventListener?.(type, listener);
     removers.push(() => target?.removeEventListener?.(type, listener));
   }
 
-  function stopLoop() {
-    if (loopHandle != null) {
-      globalThis.clearInterval?.(loopHandle);
-      loopHandle = null;
-    }
+  function setState(nextState) {
+    lifecycleState = nextState;
+    if (ui.stateLabel) ui.stateLabel.textContent = `상태: ${nextState}`;
+    updateHud();
   }
 
-  function metrics() {
-    return {
-      wavesResolved: runState.wavesResolved,
-      purification: runState.purification,
-      perfectCount: runState.perfectCount,
-      goodCount: runState.goodCount,
-      missCount: runState.missCount,
-    };
+  function purification() {
+    return calculatePurification(perfectCount, goodCount, wavePlan.length);
   }
 
-  function render() {
-    if (ui.stateLabel) ui.stateLabel.textContent = `State: ${lifecycleState}`;
+  function updateHud(elapsedMs = clock.getElapsedMs()) {
     if (ui.progressLabel) {
-      ui.progressLabel.textContent = `Waves ${runState.wavesResolved}/${config.totalWaves} | Purification ${runState.purification}% | Miss ${runState.missCount}/${config.missLimit}`;
+      ui.progressLabel.textContent =
+        `정화도 ${purification()}% · ${nextWaveIndex}/${wavePlan.length} WAVE · MISS ${missCount}/${config?.missLimit ?? 3}`;
     }
-    if (ui.feedbackLabel) ui.feedbackLabel.textContent = runState.lastJudgement;
-    if (ui.actionButton) ui.actionButton.disabled = lifecycleState !== STATE.RUNNING || terminal;
-
-    if (!ui.threatLabel) return;
-    const elapsedMs = clock.getElapsedMs();
-    const unresolved = runState.activeThreats.filter((threat) => !threat.resolved);
-    if (unresolved.length === 0) {
-      ui.threatLabel.textContent = runState.wavesSpawned < config.totalWaves
-        ? "Scanning for the next threat..."
-        : "All prototype waves resolved.";
-      return;
+    const ransomLocked = elapsedMs < inputLockedUntilMs;
+    if (ui.lockLabel) {
+      ui.lockLabel.textContent = ransomLocked
+        ? `🔒 RANSOM LOCK ${(Math.max(0, inputLockedUntilMs - elapsedMs) / 1000).toFixed(1)}초`
+        : "";
     }
-
-    const target = unresolved.reduce((closest, threat) => {
-      if (!closest) return threat;
-      return Math.abs(threat.targetAt - elapsedMs) < Math.abs(closest.targetAt - elapsedMs)
-        ? threat
-        : closest;
-    }, null);
-    const timing = Math.round(target.targetAt - elapsedMs);
-    const visibility = target.type === "TROJAN" && !target.revealed ? "DISGUISED" : "VISIBLE";
-    ui.threatLabel.textContent = `${target.type} | ${visibility} | target ${timing >= 0 ? "+" : ""}${timing}ms`;
+    if (ui.feedback) ui.feedback.textContent = lastJudgement;
+    if (ui.actionButton) {
+      ui.actionButton.disabled = lifecycleState !== "RUNNING" || inputLock.locked || ransomLocked;
+    }
   }
 
-  function complete(status, attemptId = currentAttemptId, failureReason) {
+  function resetRunState() {
+    wavePlan = buildWavePlan(config);
+    nextWaveIndex = 0;
+    activeThreats = [];
+    perfectCount = 0;
+    goodCount = 0;
+    missCount = 0;
+    splitChildMissCount = 0;
+    inputLockedUntilMs = 0;
+    coreFlashUntilMs = 0;
+    lastJudgement = "코어를 향해 오는 위협을 판정 링에서 정화하세요.";
+    judgementEffects = [];
+    inputLock.clear();
+  }
+
+  function addEffect(text, elapsedMs, color = "#ffe17a") {
+    judgementEffects.push({ text, startedAt: elapsedMs, durationMs: 700, color });
+  }
+
+  function spawnDueWaves(elapsedMs) {
+    while (nextWaveIndex < wavePlan.length && wavePlan[nextWaveIndex].spawnAtMs <= elapsedMs) {
+      const wave = wavePlan[nextWaveIndex];
+      const angle = Math.random() * Math.PI * 2;
+      activeThreats.push(createThreat(wave.type, wave.spawnAtMs, config, {
+        angle,
+        approachDurationMs: wave.approachDurationMs,
+      }));
+      nextWaveIndex += 1;
+    }
+  }
+
+  function missThreat(threat, elapsedMs) {
+    if (!threat || threat.resolved) return;
+    threat.resolved = true;
+    if (threat.isSplitChild) splitChildMissCount += 1;
+    else missCount += 1;
+    lastJudgement = threat.isSplitChild ? "분열체가 코어에 충돌했습니다." : `MISS · ${threat.type}`;
+    addEffect("MISS!", elapsedMs, "#ff647c");
+    coreFlashUntilMs = elapsedMs + 260;
+
+    if (threat.type === "WORM" && !threat.isSplitChild) {
+      activeThreats.push(...createWormChildren(threat, elapsedMs + 180, config));
+      lastJudgement = "MISS · WORM이 두 개의 분열체로 나뉘었습니다.";
+    }
+    if (threat.type === "RANSOM") {
+      inputLockedUntilMs = Math.max(
+        inputLockedUntilMs,
+        elapsedMs + finiteAtLeast(config.ransomLockMs, 0, 1_500),
+      );
+      inputLock.lock("RANSOM");
+      lastJudgement = "MISS · RANSOM이 정화 입력을 잠갔습니다.";
+    }
+  }
+
+  function finish(status, failureReason = null, attemptId = currentAttemptId) {
     if (
       disposed ||
       terminal ||
       attemptId == null ||
       attemptId !== currentAttemptId ||
-      (lifecycleState !== STATE.RUNNING && lifecycleState !== STATE.PAUSED)
+      (lifecycleState !== "RUNNING" && lifecycleState !== "PAUSED")
     ) {
       return false;
     }
@@ -282,240 +244,298 @@ export function createMiniGame(context = {}) {
     }
 
     terminal = true;
-    stopLoop();
+    cancelFrame(frameHandle);
+    frameHandle = null;
+    inputLock.lock("TERMINAL");
     clock.stop();
-    setLifecycleState(STATE.RESOLVING);
+    setState("RESOLVING");
 
-    let candidate;
     try {
-      candidate = buildMiniGameCandidate({
+      const candidate = buildMiniGameCandidate({
         status,
-        score: null,
-        failureReason: status === "FAIL" ? failureReason ?? "CORE_COMPROMISED" : null,
-        metrics: metrics(),
+        score: purification(),
+        failureReason: status === "FAIL" ? failureReason ?? "MISS_LIMIT" : null,
+        metrics: {
+          perfectCount,
+          goodCount,
+          missCount,
+          splitChildMissCount,
+          totalWaves: wavePlan.length,
+          spawnedWaves: nextWaveIndex,
+          purification: purification(),
+        },
         reward: null,
       });
+      setState("COMPLETED");
+      context.onComplete?.(attemptId, candidate);
     } catch (error) {
-      setLifecycleState(STATE.ERROR);
+      setState("ERROR");
       context.onError?.(attemptId, error);
-      return true;
     }
-
-    setLifecycleState(STATE.COMPLETED);
-    runState.lastJudgement = status === "CLEAR" ? "PROTOTYPE CLEAR" : "PROTOTYPE FAIL";
-    render();
-    context.onComplete?.(attemptId, candidate);
     return true;
   }
 
-  function runtimeError(error) {
-    if (disposed || terminal) return;
-    terminal = true;
-    stopLoop();
-    clock.stop();
-    if (lifecycleState === STATE.RUNNING || lifecycleState === STATE.PAUSED) {
-      setLifecycleState(STATE.ERROR);
-    }
-    context.onError?.(currentAttemptId, error);
-  }
-
-  function resolveThreat(threat, judgement) {
-    if (!threat || threat.resolved || terminal) return;
-    threat.resolved = true;
-    runState.wavesResolved += 1;
-    if (judgement === "PERFECT") runState.perfectCount += 1;
-    else if (judgement === "GOOD") runState.goodCount += 1;
-    else runState.missCount += 1;
-
-    runState.purification = calculatePurification(
-      runState.perfectCount,
-      runState.goodCount,
-      config.totalWaves,
-    );
-    runState.lastJudgement = judgement;
-    runState.activeThreats = runState.activeThreats.filter((item) => !item.resolved);
-    emit(`OnJudge${judgement[0]}${judgement.slice(1).toLowerCase()}`, {
-      threatId: threat.id,
-      type: threat.type,
-      judgement,
-    });
-  }
-
-  function addLooseMiss(message) {
-    runState.missCount += 1;
-    runState.lastJudgement = message;
-    emit("OnJudgeMiss", { threatId: null, type: null, judgement: "MISS" });
-  }
-
-  function evaluateTerminal(elapsedMs) {
-    const terminalResult = resolveTerminalState({
-      missCount: runState.missCount,
-      allWavesSpawned: runState.wavesSpawned >= config.totalWaves,
-      activeThreats: runState.activeThreats,
-      purification: runState.purification,
+  function evaluateTerminal() {
+    const unresolved = activeThreats.filter((threat) => !threat.resolved);
+    const result = resolveTerminalState({
+      missCount,
+      allWavesSpawned: nextWaveIndex >= wavePlan.length,
+      activeThreats: unresolved,
+      purification: purification(),
       config,
     });
-    if (terminalResult) {
-      emit(terminalResult.status === "CLEAR" ? "OnGameClear" : "OnGameOver", metrics());
-      complete(terminalResult.status, currentAttemptId, terminalResult.failureReason);
-      return true;
-    }
-    if (elapsedMs >= config.timeLimitMs) {
-      emit("OnGameOver", metrics());
-      complete("FAIL", currentAttemptId, "TIME_LIMIT");
-      return true;
-    }
-    return false;
+    if (result) finish(result.status, result.failureReason);
   }
 
-  function spawnThreat(elapsedMs) {
-    const type = THREAT_TYPES[runState.wavesSpawned % THREAT_TYPES.length];
-    const threat = createThreat(type, elapsedMs, config);
-    runState.activeThreats.push(threat);
-    runState.wavesSpawned += 1;
-    runState.nextSpawnAt = elapsedMs + config.spawnIntervalMs;
-    emit("OnWaveSpawn", { wave: runState.wavesSpawned, threatId: threat.id, type });
-  }
+  function update(elapsedMs) {
+    if (lifecycleState !== "RUNNING" || terminal) return;
+    spawnDueWaves(elapsedMs);
 
-  function tick() {
-    if (disposed || terminal || lifecycleState !== STATE.RUNNING) return;
-    const elapsedMs = clock.getElapsedMs();
-
-    if (runState.wavesSpawned < config.totalWaves && elapsedMs >= runState.nextSpawnAt) {
-      spawnThreat(elapsedMs);
+    if (inputLockedUntilMs > 0 && elapsedMs >= inputLockedUntilMs) {
+      inputLockedUntilMs = 0;
+      inputLock.unlock("RANSOM");
+      lastJudgement = "RANSOM LOCK 해제";
     }
 
-    for (const threat of runState.activeThreats) {
-      if (
-        threat.type === "TROJAN" &&
-        !threat.revealed &&
-        elapsedMs >= threat.targetAt - config.trojanRevealLeadMs
-      ) {
-        threat.revealed = true;
-        emit("OnTrojanReveal", { threatId: threat.id });
+    for (const threat of activeThreats) {
+      if (threat.resolved || elapsedMs < threat.spawnedAt) continue;
+      updateThreatPresentation(threat, elapsedMs, config);
+      if (elapsedMs > threat.targetAt + finiteAtLeast(config.goodWindowMs, 0, 500)) {
+        missThreat(threat, elapsedMs);
       }
     }
-
-    const expiredThreats = runState.activeThreats.filter(
-      (threat) => !threat.resolved && elapsedMs > threat.targetAt + config.goodWindowMs,
+    activeThreats = activeThreats.filter((threat) => !threat.resolved);
+    judgementEffects = judgementEffects.filter(
+      (effect) => elapsedMs - effect.startedAt < effect.durationMs,
     );
-    for (const threat of expiredThreats) {
-      resolveThreat(threat, "MISS");
-      if (runState.missCount >= config.missLimit) break;
-    }
 
-    if (!evaluateTerminal(elapsedMs)) render();
+    const hardEndMs = estimateWavePlanEndMs(wavePlan, config.goodWindowMs) +
+      finiteAtLeast(config.completionGraceMs, 0, 1_000);
+    if (elapsedMs > hardEndMs && nextWaveIndex >= wavePlan.length) {
+      for (const threat of activeThreats) missThreat(threat, elapsedMs);
+      activeThreats = activeThreats.filter((threat) => !threat.resolved);
+    }
+    updateHud(elapsedMs);
+    evaluateTerminal();
   }
 
-  function startLoop() {
-    stopLoop();
-    try {
-      tick();
-      if (!terminal && lifecycleState === STATE.RUNNING) {
-        loopHandle = globalThis.setInterval?.(() => {
-          try {
-            tick();
-          } catch (error) {
-            runtimeError(error);
-          }
-        }, config.tickIntervalMs) ?? null;
-      }
-    } catch (error) {
-      runtimeError(error);
-    }
-  }
-
-  function handlePurify() {
-    if (disposed || terminal || lifecycleState !== STATE.RUNNING) return false;
+  function purify() {
+    if (lifecycleState !== "RUNNING" || terminal || inputLock.locked) return false;
     const elapsedMs = clock.getElapsedMs();
-    const target = pickTarget(runState.activeThreats, elapsedMs);
+    const target = pickTarget(activeThreats, elapsedMs);
     if (!target) {
-      const hasDisguisedTrojan = runState.activeThreats.some(
-        (threat) => !threat.resolved && threat.type === "TROJAN" && !threat.revealed,
-      );
-      if (hasDisguisedTrojan) {
-        runState.lastJudgement = "NO-OP: TROJAN DISGUISED";
-      } else {
-        addLooseMiss("MISS: NO TARGET");
-      }
-    } else {
-      resolveThreat(target, judgeTiming(elapsedMs, target.targetAt, config));
+      lastJudgement = "판정 가능한 위협이 없습니다.";
+      updateHud(elapsedMs);
+      return false;
     }
-    if (!evaluateTerminal(elapsedMs)) render();
+
+    const judgement = judgeTiming(elapsedMs, target.targetAt, config);
+    const errorMs = Math.abs(elapsedMs - target.targetAt);
+    if (judgement === "MISS" && errorMs > finiteAtLeast(config.clickIgnoreMs, 0, 900)) {
+      lastJudgement = "타이밍이 너무 멉니다.";
+      updateHud(elapsedMs);
+      return false;
+    }
+
+    if (judgement === "MISS") {
+      missThreat(target, elapsedMs);
+    } else {
+      target.resolved = true;
+      if (!target.isSplitChild) {
+        if (judgement === "PERFECT") perfectCount += 1;
+        else goodCount += 1;
+      }
+      lastJudgement = target.isSplitChild
+        ? `분열체 제거 · ${judgement}`
+        : `${judgement} · ${target.type}`;
+      addEffect(`${judgement}!`, elapsedMs, judgement === "PERFECT" ? "#74fff2" : "#ffe17a");
+    }
+    activeThreats = activeThreats.filter((threat) => !threat.resolved);
+    updateHud(elapsedMs);
+    evaluateTerminal();
     return true;
   }
 
-  function resetAttempt() {
-    runState = createRunState();
-    terminal = false;
-    render();
+  function render(elapsedMs) {
+    if (!canvasContext || !canvas) return;
+    const width = Math.max(1, Number(canvas.width) || 960);
+    const height = Math.max(1, Number(canvas.height) || 540);
+    const unit = Math.min(width, height);
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const coreRadius = unit * 0.075;
+    const ringRadius = unit * 0.19;
+    const startRadius = unit * 0.46;
+
+    canvasContext.clearRect(0, 0, width, height);
+    const background = canvasContext.createRadialGradient?.(
+      centerX,
+      centerY,
+      0,
+      centerX,
+      centerY,
+      unit * 0.7,
+    );
+    if (background) {
+      background.addColorStop(0, "#161c39");
+      background.addColorStop(1, "#050811");
+      canvasContext.fillStyle = background;
+    } else {
+      canvasContext.fillStyle = "#050811";
+    }
+    canvasContext.fillRect(0, 0, width, height);
+
+    canvasContext.strokeStyle = "rgba(116,255,242,.75)";
+    canvasContext.lineWidth = Math.max(2, unit * 0.005);
+    canvasContext.beginPath();
+    canvasContext.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
+    canvasContext.stroke();
+
+    canvasContext.fillStyle = elapsedMs < coreFlashUntilMs ? "#ff405e" : "#3b5ef5";
+    canvasContext.beginPath();
+    canvasContext.arc(centerX, centerY, coreRadius, 0, Math.PI * 2);
+    canvasContext.fill();
+    canvasContext.fillStyle = "#fff";
+    canvasContext.font = `bold ${Math.max(12, unit * 0.026)}px monospace`;
+    canvasContext.textAlign = "center";
+    canvasContext.textBaseline = "middle";
+    canvasContext.fillText("CORE", centerX, centerY);
+
+    for (const threat of activeThreats) {
+      if (elapsedMs < threat.spawnedAt) continue;
+      const duration = Math.max(1, threat.targetAt - threat.spawnedAt);
+      const progress = Math.min(1.25, Math.max(0, (elapsedMs - threat.spawnedAt) / duration));
+      const radius = startRadius + (ringRadius - startRadius) * progress;
+      const x = centerX + Math.cos(threat.angle) * radius;
+      const y = centerY + Math.sin(threat.angle) * radius;
+      const bodyRadius = Math.max(10, unit * (threat.isSplitChild ? 0.018 : 0.025));
+      const color = threat.type === "TROJAN" && !threat.revealed
+        ? DISGUISE_COLOR
+        : TYPE_COLORS[threat.type] ?? "#fff";
+
+      canvasContext.globalAlpha = threat.type === "SPYWARE" ? threat.opacity : 1;
+      canvasContext.fillStyle = color;
+      canvasContext.beginPath();
+      canvasContext.arc(x, y, bodyRadius, 0, Math.PI * 2);
+      canvasContext.fill();
+      canvasContext.globalAlpha = 1;
+
+      if (Math.abs(elapsedMs - threat.targetAt) <= finiteAtLeast(config.goodWindowMs, 0, 500)) {
+        canvasContext.strokeStyle = "#ff526e";
+        canvasContext.lineWidth = 2;
+        canvasContext.beginPath();
+        canvasContext.arc(x, y, bodyRadius * 1.55, 0, Math.PI * 2);
+        canvasContext.stroke();
+      }
+
+      canvasContext.fillStyle = "#fff";
+      canvasContext.font = `bold ${Math.max(9, unit * 0.018)}px monospace`;
+      canvasContext.fillText(threat.isSplitChild ? "WORM·SPLIT" : threat.type, x, y - bodyRadius * 2);
+    }
+
+    for (const effect of judgementEffects) {
+      const progress = Math.min(1, (elapsedMs - effect.startedAt) / effect.durationMs);
+      canvasContext.globalAlpha = 1 - progress;
+      canvasContext.fillStyle = effect.color;
+      canvasContext.font = `bold ${Math.max(18, unit * 0.045)}px monospace`;
+      canvasContext.fillText(effect.text, centerX, centerY - ringRadius - progress * 30);
+      canvasContext.globalAlpha = 1;
+    }
+
+    if (elapsedMs < inputLockedUntilMs) {
+      canvasContext.fillStyle = "rgba(7,8,18,.62)";
+      canvasContext.fillRect(0, 0, width, height);
+      canvasContext.fillStyle = "#f1c0ff";
+      canvasContext.font = `bold ${Math.max(22, unit * 0.06)}px monospace`;
+      canvasContext.fillText("🔒 RANSOM LOCK", centerX, centerY);
+    }
+  }
+
+  function frame() {
+    frameHandle = null;
+    if (disposed || terminal || lifecycleState !== "RUNNING") return;
+    const elapsedMs = clock.getElapsedMs();
+    update(elapsedMs);
+    render(elapsedMs);
+    if (!terminal && lifecycleState === "RUNNING") frameHandle = requestFrame(frame);
   }
 
   function beginAttempt(attemptId) {
     requireAttemptId(attemptId);
+    cancelFrame(frameHandle);
+    frameHandle = null;
     currentAttemptId = attemptId;
-    resetAttempt();
+    terminal = false;
+    resetRunState();
     clock.start();
-    setLifecycleState(STATE.RUNNING);
-    startLoop();
+    setState("RUNNING");
+    update(0);
+    render(0);
+    if (canvasContext) frameHandle = requestFrame(frame);
   }
 
   return Object.freeze({
     async init(nextConfig = {}, { signal } = {}) {
-      if (disposed || lifecycleState !== STATE.CREATED) {
+      if (disposed || lifecycleState !== "CREATED") {
         throw new Error(`Cannot initialize CLICK to PURIFY from state ${lifecycleState}.`);
       }
+      setState("INITIALIZING");
+      throwIfUnavailable(signal, () => disposed);
       if (!nextConfig || typeof nextConfig !== "object" || Array.isArray(nextConfig)) {
         throw new TypeError("CLICK to PURIFY config must be an object.");
       }
+      config = nextConfig;
+      buildWavePlan(config);
 
-      setLifecycleState(STATE.INITIALIZING);
-      throwIfUnavailable(signal, () => disposed);
-      config = normalizeConfig(nextConfig);
-
-      // Keep an asynchronous boundary so route cancellation can win safely.
       await Promise.resolve();
       throwIfUnavailable(signal, () => disposed);
 
       ui = buildUi(context.uiRoot);
-      addListener(ui.actionButton, "click", handlePurify);
+      addListener(ui.actionButton, "click", purify);
+      addListener(canvas, "pointerdown", purify);
       const unsubscribeInput = context.input?.onAction?.((event) => {
         if (
           event?.phase === "press" &&
           (event.action === INPUT_ACTIONS.CONFIRM || event.action === INPUT_ACTIONS.INTERACT)
         ) {
-          handlePurify();
+          purify();
         }
       });
       if (typeof unsubscribeInput === "function") removers.push(unsubscribeInput);
-      setLifecycleState(STATE.READY);
+      setState("READY");
     },
 
     start({ attemptId } = {}) {
-      if (disposed || lifecycleState !== STATE.READY) {
+      if (disposed || lifecycleState !== "READY") {
         throw new Error(`Cannot start CLICK to PURIFY from state ${lifecycleState}.`);
       }
       beginAttempt(attemptId);
     },
 
     pause(reason = "SYSTEM") {
-      if (disposed || lifecycleState !== STATE.RUNNING) return false;
-      stopLoop();
+      if (disposed || lifecycleState !== "RUNNING" || terminal) return false;
+      cancelFrame(frameHandle);
+      frameHandle = null;
+      inputLock.lock(reason);
       clock.pause(reason);
-      setLifecycleState(STATE.PAUSED);
+      setState("PAUSED");
       return true;
     },
 
     resume() {
-      if (disposed || lifecycleState !== STATE.PAUSED) return false;
+      if (disposed || lifecycleState !== "PAUSED" || terminal) return false;
       clock.resume();
-      setLifecycleState(STATE.RUNNING);
-      startLoop();
+      inputLock.clear();
+      const elapsedMs = clock.getElapsedMs();
+      if (elapsedMs < inputLockedUntilMs) inputLock.lock("RANSOM");
+      setState("RUNNING");
+      render(elapsedMs);
+      if (canvasContext) frameHandle = requestFrame(frame);
       return true;
     },
 
     restart({ attemptId } = {}) {
-      if (disposed || lifecycleState !== STATE.COMPLETED) {
+      if (disposed || lifecycleState !== "COMPLETED") {
         throw new Error(`Cannot restart CLICK to PURIFY from state ${lifecycleState}.`);
       }
       beginAttempt(attemptId);
@@ -525,21 +545,24 @@ export function createMiniGame(context = {}) {
       if (disposed) return;
       disposed = true;
       terminal = true;
-      currentAttemptId = null;
-      stopLoop();
+      cancelFrame(frameHandle);
+      frameHandle = null;
       clock.stop();
+      inputLock.clear();
+      currentAttemptId = null;
+      activeThreats = [];
+      judgementEffects = [];
       for (const remove of removers.splice(0)) remove();
       ui.root?.remove?.();
-      ui = emptyUi();
-      runState.activeThreats = [];
-      lifecycleState = transitionState(lifecycleState, STATE.DESTROYED);
+      ui = buildUi(null);
+      lifecycleState = "DESTROYED";
     },
 
     completeForDevelopment(status, attemptId) {
-      return complete(
+      return finish(
         status,
+        status === "FAIL" ? "DEVELOPMENT_FAIL" : null,
         attemptId,
-        status === "FAIL" ? "CORE_COMPROMISED" : null,
       );
     },
 
@@ -550,9 +573,15 @@ export function createMiniGame(context = {}) {
         terminal,
         disposed,
         elapsedMs: clock.getElapsedMs(),
-        wavesSpawned: runState.wavesSpawned,
-        activeThreatCount: runState.activeThreats.length,
-        ...metrics(),
+        waveCount: wavePlan.length,
+        spawnedWaves: nextWaveIndex,
+        activeThreatCount: activeThreats.length,
+        perfectCount,
+        goodCount,
+        missCount,
+        splitChildMissCount,
+        purification: purification(),
+        inputLockedUntilMs,
       });
     },
   });

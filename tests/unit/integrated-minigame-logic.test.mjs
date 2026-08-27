@@ -6,11 +6,19 @@ import {
   pickTarget,
   resolveTerminalState,
 } from "../../js/minigames/CS/judge.js";
-import { createThreat } from "../../js/minigames/CS/malware.js";
+import {
+  createThreat,
+  createWormChildren,
+  updateThreatPresentation,
+} from "../../js/minigames/CS/malware.js";
+import {
+  buildWavePlan,
+  estimateWavePlanEndMs,
+} from "../../js/minigames/CS/wave.js";
 import { spawnIntervalFor, stepFrame } from "../../js/minigames/AIDS/game-loop.js";
 import { stepFalling } from "../../js/minigames/AIDS/physics.js";
 
-test("CS prototype timing and purification preserve the integrated branch boundaries", () => {
+test("CS MVP timing and purification preserve the approved integrated boundaries", () => {
   const config = { perfectWindowMs: 200, goodWindowMs: 500 };
 
   assert.equal(judgeTiming(1_200, 1_000, config), "PERFECT");
@@ -19,6 +27,54 @@ test("CS prototype timing and purification preserve the integrated branch bounda
   assert.equal(judgeTiming(1_200, 1_000, { perfectwindowMs: 200, goodWindowMs: 500 }), "PERFECT");
   assert.equal(calculatePurification(2, 2, 4), 75);
   assert.equal(calculatePurification(2, 2, 0), 0);
+});
+
+test("CS MVP builds all 22 waves with the learning order and late ransomware slots", () => {
+  const config = {
+    totalWaves: 22,
+    learningWaveCount: 4,
+    learningOrder: ["TROJAN", "WORM", "RANSOM", "SPYWARE"],
+    learningIntervalMs: 2_600,
+    learningApproachDurationMs: 1_800,
+    mixedIntervalStartMs: 1_300,
+    mixedIntervalEndMs: 750,
+    approachDurationMs: 1_400,
+    goodWindowMs: 500,
+    ransomMinCount: 2,
+    ransomMaxCount: 3,
+  };
+  const plan = buildWavePlan(config, { random: () => 0 });
+
+  assert.equal(plan.length, 22);
+  assert.deepEqual(plan.slice(0, 4).map((wave) => wave.type), config.learningOrder);
+  assert.ok(plan.slice(4).every((wave, index, mixed) =>
+    index === 0 || wave.spawnAtMs > mixed[index - 1].spawnAtMs));
+  const mixedRansomIndexes = plan
+    .map((wave, index) => ({ wave, index }))
+    .filter(({ wave, index }) => index >= 4 && wave.type === "RANSOM")
+    .map(({ index }) => index);
+  assert.equal(mixedRansomIndexes.length, 2);
+  assert.ok(mixedRansomIndexes.every((index) => index >= 13));
+  assert.ok(estimateWavePlanEndMs(plan, config.goodWindowMs) > 18_000);
+});
+
+test("CS malware effects reveal trojans, fade in spyware, and split worms once", () => {
+  const config = { approachDurationMs: 1_000, trojanRevealLeadMs: 400 };
+  const trojan = createThreat("TROJAN", 0, config);
+  const spyware = createThreat("SPYWARE", 0, config);
+  const worm = createThreat("WORM", 0, config, { angle: 1 });
+
+  updateThreatPresentation(trojan, 599, config);
+  assert.equal(trojan.revealed, false);
+  updateThreatPresentation(trojan, 600, config);
+  assert.equal(trojan.revealed, true);
+  updateThreatPresentation(spyware, 500, config);
+  assert.ok(spyware.opacity > 0.12 && spyware.opacity < 0.8);
+
+  const children = createWormChildren(worm, 1_000, config);
+  assert.equal(children.length, 2);
+  assert.ok(children.every((child) => child.isSplitChild && child.splitDepth === 1));
+  assert.deepEqual(createWormChildren(children[0], 2_000, config), []);
 });
 
 test("CS target selection handles empty and disguised candidates and keeps miss priority", () => {

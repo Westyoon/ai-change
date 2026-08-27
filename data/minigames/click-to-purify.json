@@ -1,20 +1,30 @@
 {
   "schemaVersion": 1,
   "gameId": "cyber-click-to-purify",
-  "implementationStatus": "PROTOTYPE",
+  "implementationStatus": "MVP",
   "goal": "악성코드 유형을 확인하고 올바른 타이밍에 위협을 정화합니다.",
   "controls": {
     "pc": ["마우스 클릭 또는 Space로 정화"],
     "mobile": ["PURIFY 버튼을 터치해 정화"]
   },
-  "totalWaves": 6,
-  "spawnIntervalMs": 1300,
+  "totalWaves": 22,
+  "learningWaveCount": 4,
+  "learningOrder": ["TROJAN", "WORM", "RANSOM", "SPYWARE"],
+  "learningIntervalMs": 2600,
+  "mixedIntervalStartMs": 1300,
+  "mixedIntervalEndMs": 750,
   "approachDurationMs": 1400,
+  "learningApproachDurationMs": 1800,
   "perfectWindowMs": 200,
   "goodWindowMs": 500,
+  "goodScoreWeight": 0.5,
   "trojanRevealLeadMs": 500,
+  "ransomMinCount": 2,
+  "ransomMaxCount": 3,
+  "ransomLockMs": 1500,
+  "clickIgnoreMs": 900,
   "missLimit": 3,
-  "timeLimitMs": 18000,
   "tickIntervalMs": 50,
-  "prototypeDecisions": ["D-04", "D-05"]
+  "completionGraceMs": 1000,
+  "openBalanceDecisions": ["D-04", "D-05"]
 }

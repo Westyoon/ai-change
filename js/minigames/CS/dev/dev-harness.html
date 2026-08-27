@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CLICK to PURIFY · dev harness</title>
+    <link rel="stylesheet" href="../../../../css/common.css" />
+    <link rel="stylesheet" href="../../../../css/minigames.css" />
+    <style>
+      body { margin: 0; padding: 20px; background: #050811; color: #fff; }
+      main { display: grid; gap: 12px; width: min(960px, 100%); margin: auto; }
+      .minigame-stage { min-height: min(540px, 72dvh); }
+      .harness-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+      .harness-controls button { min-height: 42px; padding: 8px 14px; }
+      #result { margin: 0; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="minigame-stage">
+        <canvas id="game-canvas" class="minigame-canvas" width="960" height="540"></canvas>
+        <div id="ui-root" class="minigame-ui-root"></div>
+      </div>
+      <div class="harness-controls">
+        <button id="pause" type="button">일시정지</button>
+        <button id="restart" type="button" disabled>다시 시작</button>
+      </div>
+      <pre id="result">실행 중</pre>
+    </main>
+    <script type="module">
+      import { createMiniGame } from "../index.js";
+
+      const config = await fetch("../../../../data/minigames/click-to-purify.json").then((response) => response.json());
+      const result = document.querySelector("#result");
+      const pauseButton = document.querySelector("#pause");
+      const restartButton = document.querySelector("#restart");
+      let attemptNumber = 1;
+      let paused = false;
+
+      const game = createMiniGame({
+        canvas: document.querySelector("#game-canvas"),
+        uiRoot: document.querySelector("#ui-root"),
+        clock: { now: () => performance.now() },
+        onComplete(attemptId, candidate) {
+          result.textContent = `${attemptId}\n${JSON.stringify(candidate, null, 2)}`;
+          restartButton.disabled = false;
+        },
+        onError(attemptId, error) {
+          result.textContent = `${attemptId}\n${error.stack ?? error}`;
+        },
+      });
+
+      await game.init(config, { signal: new AbortController().signal });
+      game.start({ attemptId: `cs-dev:${attemptNumber}` });
+
+      pauseButton.addEventListener("click", () => {
+        const changed = paused ? game.resume() : game.pause("MANUAL");
+        if (!changed) return;
+        paused = !paused;
+        pauseButton.textContent = paused ? "재개" : "일시정지";
+      });
+
+      restartButton.addEventListener("click", () => {
+        attemptNumber += 1;
+        paused = false;
+        pauseButton.textContent = "일시정지";
+        restartButton.disabled = true;
+        result.textContent = "실행 중";
+        game.restart({ attemptId: `cs-dev:${attemptNumber}` });
+      });
+    </script>
+  </body>
+</html>
