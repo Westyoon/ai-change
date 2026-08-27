@@ -218,3 +218,39 @@ host는 수동 pause와 탭 비가시성 pause를 독립된 reason으로 관리�
 - 실제 Chrome/Safari와 모바일 기기에서 시각·입력·resize QA
 - AIDS의 짧은 landscape 레이아웃과 resize 시 발판 좌표 재계산, 짧은 HUD animation timeout 정리 여부 확인
 - Battle은 기존 설계대로 Coming Soon 상태 유지
+
+## 2026-08-27 Cloudflare 공개 프리뷰 배포
+
+배포 직전 로컬·원격 브랜치와 열린 PR을 다시 대조했습니다. 현재 `dev`가 보장하는 등록 미니게임은 6종이 아니라 5종이며, DS·CSE·AIDS는 MVP, CS는 PROTOTYPE, AI는 SCAFFOLD입니다. Battle은 빈 데이터·빈 registry·비활성 feature flag인 Coming Soon 상태입니다.
+
+열린 PR #10(`feature/click-to-purify`)은 기존 CS의 후속 구현이고 PR #11(`prototype/ai-minigame`)은 기존 AI의 MVP 후보이므로 어느 것도 6번째 게임은 아닙니다. 두 PR 모두 독립 실행 구조와 현재 host lifecycle의 결과 callback·pause·attempt 계약이 달라 직접 merge/cherry-pick하지 않았습니다. 최신 로직은 공통 계약에 맞춰 수동 재통합하고 별도 회귀 테스트를 통과시킨 뒤 배포해야 합니다.
+
+공개 배포에는 Cloudflare Workers Static Assets를 사용했습니다.
+
+- `scripts/build.mjs`: `index.html`, `assets/`, `css/`, `data/`, `js/`의 런타임 파일만 `dist/`에 복사
+- 제외 대상: draft JSON, `data/drafts/`, `js/**/dev/`, Markdown, 저장소 문서·테스트·도구 파일
+- `dist/_headers`: CSP, MIME sniffing 차단, frame 차단, referrer·browser permission 정책 적용
+- `wrangler.jsonc`: production·staging 정적 자산 환경 분리, 존재하지 않는 URL은 404 유지
+- `scripts/smoke-dist.mjs`: 실제 산출물의 manifest 자산과 비공개 경로 404를 검사
+- `dist/`, `.wrangler/`: Git 추적과 소스 validator 대상에서 제외
+
+릴리스 검증 결과:
+
+- `npm run validate`: 113개 소스 파일, 21개 JSON 문서 통과
+- `npm test`: 30/30 통과
+- 로컬 소스 HTTP smoke: 28/28 통과
+- `dist` release HTTP smoke: 34/34 통과
+- Cloudflare upload: runtime asset 79개 성공
+- 공개 URL: `https://ai-change-games.deciduous-rainstorm.workers.dev`
+- Cloudflare Version ID: `94ace7be-6811-49a6-898a-c4b1a20c8e54`
+- 원격 확인: `/`, config·manifest·SVG는 200과 정확한 MIME; `/docs/...`, `/package.json`, 임의 누락 경로는 404; CSP와 `nosniff` 헤더 적용 확인
+
+이번 배포는 Cloudflare 임시 계정의 공개 프리뷰입니다. 영구 운영 배포로 전환하려면 임시 계정을 제한 시간 안에 Cloudflare 계정으로 귀속하거나 기존 계정으로 로그인해야 합니다. 운영 공개 전에는 6번째 게임의 실제 소스 확인, PR #10·#11의 수동 재통합, 실제 브라우저·모바일 조작 QA, `development` 저장 채널과 개발용 badge 문구 정리가 남아 있습니다.
+
+### 임시 계정 재발급
+
+첫 임시 계정의 60분 귀속 기한이 지난 뒤 동일한 릴리스 검사를 다시 통과하고 새 임시 계정으로 재배포했습니다.
+
+- 재배포 공개 URL: `https://ai-change-games.alpine-salute.workers.dev`
+- 재배포 Cloudflare Version ID: `f1cb8914-d0a4-4f12-ac54-87b0af34516f`
+- 재검증: 30/30 테스트, 소스 HTTP 28/28, `dist` HTTP 34/34, 원격 HTTP 200·CSP·`nosniff` 확인

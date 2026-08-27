@@ -20,7 +20,20 @@ async function assertResponse(baseUrl, pathname, expectedType, expectedStatus = 
   }
 }
 
-export async function runSmokeTest({ rootDirectory = root } = {}) {
+function expectedAssetType(pathname) {
+  const extension = path.extname(pathname).toLowerCase();
+  return new Map([
+    [".css", "text/css"],
+    [".html", "text/html"],
+    [".js", "text/javascript"],
+    [".json", "application/json"],
+    [".png", "image/png"],
+    [".svg", "image/svg+xml"],
+    [".webp", "image/webp"],
+  ]).get(extension);
+}
+
+export async function runSmokeTest({ rootDirectory = root, forbiddenPaths = [] } = {}) {
   const manifestPath = path.join(rootDirectory, "data", "asset-manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const indexHtml = await readFile(path.join(rootDirectory, "index.html"), "utf8");
@@ -28,12 +41,9 @@ export async function runSmokeTest({ rootDirectory = root } = {}) {
     .map((match) => new URL(match[1], "http://localhost/").pathname);
   const modulePaths = [...indexHtml.matchAll(/<script\b(?=[^>]*\btype=["']module["'])[^>]*\bsrc=["']([^"']+)["'][^>]*>/giu)]
     .map((match) => new URL(match[1], "http://localhost/").pathname);
-  const svgAsset = unwrapAssets(manifest)?.find(
-    (asset) => asset?.type === "image" && typeof asset.src === "string" && /\.svg(?:$|[?#])/iu.test(asset.src)
-  );
-
-  if (!svgAsset) {
-    throw new Error("asset-manifest.json must expose at least one SVG image for the smoke test");
+  const manifestAssets = unwrapAssets(manifest);
+  if (!Array.isArray(manifestAssets) || manifestAssets.length === 0) {
+    throw new Error("asset-manifest.json must expose at least one runtime asset for the smoke test");
   }
 
   const server = createStaticServer({ rootDirectory });
@@ -47,7 +57,6 @@ export async function runSmokeTest({ rootDirectory = root } = {}) {
   let checks = 0;
 
   try {
-    const svgPath = svgAsset.src.replace(/^\.\//u, "/");
     await assertResponse(baseUrl, "/", "text/html");
     checks += 1;
     for (const stylePath of stylePaths) {
@@ -62,10 +71,23 @@ export async function runSmokeTest({ rootDirectory = root } = {}) {
     checks += 1;
     await assertResponse(baseUrl, "/data/asset-manifest.json", "application/json");
     checks += 1;
-    await assertResponse(baseUrl, svgPath, "image/svg+xml");
-    checks += 1;
+    for (const asset of manifestAssets) {
+      if (typeof asset?.src !== "string") {
+        throw new Error(`Manifest asset ${asset?.id ?? "<unknown>"} has no src`);
+      }
+      const assetUrl = new URL(asset.src, baseUrl);
+      if (assetUrl.origin !== baseUrl.origin) {
+        throw new Error(`Manifest asset ${asset.id} must stay on the deployment origin`);
+      }
+      await assertResponse(baseUrl, assetUrl.pathname, expectedAssetType(assetUrl.pathname));
+      checks += 1;
+    }
     await assertResponse(baseUrl, "/__ai_change_missing__.json", "text/plain", 404);
     checks += 1;
+    for (const forbiddenPath of forbiddenPaths) {
+      await assertResponse(baseUrl, forbiddenPath, "text/plain", 404);
+      checks += 1;
+    }
   } finally {
     if (typeof server.closeAllConnections === "function") {
       server.closeAllConnections();

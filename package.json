@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "check:release": "npm run check && npm run build && npm run smoke:dist",
+    "cf:deploy:production": "npm run check:release && npx --yes wrangler@4.127.0 deploy --env=",
+    "cf:deploy:staging": "npm run check:release && npx --yes wrangler@4.127.0 deploy --env staging",
+    "cf:deploy:temporary": "npm run check:release && npx --yes wrangler@4.127.0 deploy --temporary --env=",
+    "cf:dev": "npm run build && npx --yes wrangler@4.127.0 dev",
     "dev": "node scripts/serve.mjs",
     "validate": "node scripts/validate.mjs",
     "test": "node --test",
     "smoke": "node scripts/smoke.mjs",
+    "smoke:dist": "node scripts/smoke-dist.mjs",
     "check": "npm run validate && npm test && npm run smoke"
   }
 }

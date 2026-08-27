@@ -97,7 +97,7 @@ export const REQUIRED_FILES = Object.freeze([
 ]);
 
 const RUNTIME_TEXT_EXTENSIONS = new Set([".css", ".html", ".js", ".json", ".mjs"]);
-const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", "releases"]);
+const SKIPPED_DIRECTORIES = new Set([".git", ".wrangler", "dist", "node_modules", "releases"]);
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const REQUIRED_NPM_SCRIPTS = Object.freeze({
   dev: "node scripts/serve.mjs",
