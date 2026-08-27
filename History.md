@@ -283,3 +283,13 @@ AI의 `assets/images/sample.png`는 asset manifest에 `ASSET-AI-002`로 등록�
 - source HTTP·MIME smoke: 30/30 통과
 - production build: `dist/` runtime 파일 83개 생성
 - release HTTP·보안 경로 smoke: 36/36 통과
+
+### Cloudflare 프리뷰 갱신
+
+- 기존 임시 프리뷰 `https://ai-change-games.alpine-salute.workers.dev`에 최신 runtime asset을 재배포했습니다.
+- Cloudflare Version ID: `c9974780-3af3-47ca-a8bd-c57aa9599173`
+- AI CSS·PNG·module, AI/CS config와 registry를 포함한 변경 asset 14개를 업로드했습니다.
+- 원격에서 HTML, CSS, PNG, JS, JSON의 HTTP 200과 정확한 MIME을 확인했습니다.
+- 원격 config에서 게임 5종·전 항목 `scaffold=false`, AI `MVP`·5/25 공, CS `MVP`·22 wave를 확인했습니다.
+- CSP와 `X-Content-Type-Options: nosniff`를 확인했고 `History.md`, `package.json`, 임의 누락 경로는 HTTP 404였습니다.
+- 작업 세션에 연결 가능한 브라우저가 없어 클릭·반응형 시각 QA는 실행하지 못했으며 실제 Chrome·Safari 기기 QA는 후속 확인 대상으로 남깁니다.
