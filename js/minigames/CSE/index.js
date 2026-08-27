@@ -1,8 +1,11 @@
 import { buildMiniGameCandidate } from '../shared/result-builder.js';
+import { attachFixedFrameScaler } from '../shared/fixed-frame-scaler.js';
 
 const GAME_ID = 'computer-code-heart';
 const FAILURE_REASON = 'TIME_LIMIT';
 const SLOT_IDS = Object.freeze(['lang', 'engine', 'lib', 'tool']);
+const LOGICAL_FRAME_WIDTH = 440;
+const LOGICAL_FRAME_HEIGHT = 920;
 
 function createAbortError() {
   if (typeof DOMException === 'function') {
@@ -91,6 +94,7 @@ export function createMiniGame(context = {}) {
   let terminal = false;
   let disposed = false;
   let originalUiRootClassName = '';
+  let detachFrameScaler = () => {};
 
   function addListener(target, type, listener) {
     target?.addEventListener?.(type, listener);
@@ -106,10 +110,14 @@ export function createMiniGame(context = {}) {
     }
   }
 
-  function setFeedback(message, status = '') {
+  function setFeedback(message, status = '', shake = false) {
     if (!ui?.feedback) return;
     ui.feedback.textContent = message;
     ui.feedback.className = `ch-feedback${status ? ` ${status}` : ''}`;
+    if (shake) {
+      void ui.feedback.offsetWidth;
+      ui.feedback.className += ' ch-shake';
+    }
   }
 
   function updateSlots() {
@@ -168,7 +176,7 @@ export function createMiniGame(context = {}) {
   function evaluateBuild() {
     if (lifecycleState !== 'RUNNING') return;
     if (!SLOT_IDS.every((id) => slots[id])) {
-      setFeedback('4개의 슬롯을 모두 채운 뒤 UNLOCK을 눌러 주세요.', 'error');
+      setFeedback('⚠️ 4개 슬롯을 모두 채운 뒤 UNLOCK을 누르세요!', 'error', true);
       return;
     }
 
@@ -178,13 +186,17 @@ export function createMiniGame(context = {}) {
       ordersFailed += 1;
       buildErrorCount += 1;
       penaltyMs += Number(config.balance?.penaltySec ?? 5) * 1000;
-      setFeedback(`구성이 일치하지 않습니다. (-${config.balance?.penaltySec ?? 5}초)`, 'error');
+      setFeedback(
+        `✖ [빌드 에러] 구성 불일치! (-${config.balance?.penaltySec ?? 5}초 페널티)`,
+        'error',
+        true,
+      );
       return;
     }
 
     clearedCount += 1;
     score += Number(config.balance?.scorePerClear ?? 100);
-    setFeedback(`[정화 성공] ${currentOrder.targetProgram} 빌드 완료!`, 'success');
+    setFeedback(`✔ [정화 성공] ${currentOrder.targetProgram} 빌드 완료!`, 'success');
     resetSlots();
 
     if (orderQueue.length === 0 || clearedCount >= config.recipes.length) {
@@ -317,7 +329,6 @@ export function createMiniGame(context = {}) {
     const orderBubble = createElement(documentRef, 'div', { className: 'ch-order-bubble' });
     const recipeButton = createElement(documentRef, 'button', {
       className: 'ch-btn-recipe-trigger',
-      text: '📖 레시피',
       attributes: {
         type: 'button',
         'aria-label': '레시피북 열기',
@@ -325,6 +336,10 @@ export function createMiniGame(context = {}) {
         'aria-controls': 'code-heart-recipe-dialog',
       },
     });
+    recipeButton.append(
+      createElement(documentRef, 'span', { className: 'ch-book-icon', text: '📖' }),
+      createElement(documentRef, 'span', { className: 'ch-book-text', text: '레시피' }),
+    );
     counter.append(customerUnit, orderBubble, recipeButton);
 
     const workspace = createElement(documentRef, 'section', { className: 'ch-workspace' });
@@ -361,15 +376,19 @@ export function createMiniGame(context = {}) {
         attributes: { type: 'button' },
       });
       button.dataset.itemId = item.id;
+      button.dataset.cat = item.category;
       addListener(button, 'click', () => selectIngredient(item.id));
       materialsGrid.append(button);
       buttons.push(button);
     }
     const unlockButton = createElement(documentRef, 'button', {
       className: 'ch-btn-unlock',
-      text: '★ UNLOCK · git push',
       attributes: { type: 'button' },
     });
+    unlockButton.append(
+      createElement(documentRef, 'span', { text: '★ UNLOCK' }),
+      createElement(documentRef, 'small', { text: 'git push' }),
+    );
     addListener(unlockButton, 'click', evaluateBuild);
     addListener(resetButton, 'click', () => {
       if (lifecycleState === 'RUNNING') resetSlots();
@@ -388,15 +407,25 @@ export function createMiniGame(context = {}) {
     const recipePanel = createElement(documentRef, 'div', { className: 'ch-modal-card' });
     const recipeTitle = createElement(documentRef, 'h3', {
       className: 'ch-modal-title',
-      text: '레시피',
+      text: '📖 개발 레시피북',
       attributes: { id: 'code-heart-recipe-title' },
     });
     const recipeList = createElement(documentRef, 'div', { className: 'ch-recipe-list' });
     for (const recipe of config.recipes) {
-      const row = createElement(documentRef, 'p', {
+      const row = createElement(documentRef, 'div', {
         className: 'ch-recipe-row',
-        text: `${recipe.targetProgram} · ${SLOT_IDS.map((id) => recipe.expected[id]).join(' / ')}`,
       });
+      row.append(
+        createElement(documentRef, 'strong', { text: `★ [ ${recipe.targetProgram} ]` }),
+        createElement(documentRef, 'span', {
+          className: 'ch-recipe-detail',
+          text: `언어: ${recipe.expected.lang} | 엔진: ${recipe.expected.engine}`,
+        }),
+        createElement(documentRef, 'span', {
+          className: 'ch-recipe-detail',
+          text: `라이브러리: ${recipe.expected.lib} | 도구: ${recipe.expected.tool}`,
+        }),
+      );
       recipeList.append(row);
     }
     const closeRecipeButton = createElement(documentRef, 'button', {
@@ -437,9 +466,15 @@ export function createMiniGame(context = {}) {
     tray.append(materialsGrid, unlockButton);
     buttons.push(unlockButton, closeRecipeButton);
     root.append(header, counter, workspace, feedback, tray, recipeBackdrop);
-    context.uiRoot.append(root);
+    const viewport = createElement(documentRef, 'div', {
+      className: 'cse-fixed-frame-viewport',
+      attributes: { 'aria-label': 'Code Heart 고정 화면' },
+    });
+    viewport.append(root);
+    context.uiRoot.append(viewport);
 
     ui = {
+      mount: viewport,
       root,
       timer,
       customerName,
@@ -449,6 +484,15 @@ export function createMiniGame(context = {}) {
       buttons,
       setRecipeOpen,
     };
+    detachFrameScaler = attachFixedFrameScaler({
+      container: context.uiRoot,
+      viewport,
+      frame: root,
+      logicalWidth: LOGICAL_FRAME_WIDTH,
+      logicalHeight: LOGICAL_FRAME_HEIGHT,
+      fitHeight: false,
+      maxScale: 1,
+    });
   }
 
   return Object.freeze({
@@ -468,6 +512,8 @@ export function createMiniGame(context = {}) {
         setInteractive(false);
         lifecycleState = 'READY';
       } catch (error) {
+        detachFrameScaler();
+        detachFrameScaler = () => {};
         for (const remove of removers.splice(0)) {
           try {
             remove();
@@ -475,7 +521,7 @@ export function createMiniGame(context = {}) {
             // Preserve the initialization failure while cleaning up best-effort.
           }
         }
-        ui?.root?.remove?.();
+        ui?.mount?.remove?.();
         ui = null;
         if (context.uiRoot) context.uiRoot.className = originalUiRootClassName;
         lifecycleState = 'ERROR';
@@ -525,6 +571,8 @@ export function createMiniGame(context = {}) {
       terminal = true;
       currentAttemptId = null;
       stopFrame();
+      detachFrameScaler();
+      detachFrameScaler = () => {};
       for (const remove of removers.splice(0)) {
         try {
           remove();
@@ -532,7 +580,7 @@ export function createMiniGame(context = {}) {
           // A host listener must not make destroy non-idempotent.
         }
       }
-      ui?.root?.remove?.();
+      ui?.mount?.remove?.();
       ui = null;
       if (context.uiRoot) {
         context.uiRoot.className = originalUiRootClassName;

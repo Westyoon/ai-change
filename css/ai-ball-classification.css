@@ -139,7 +139,7 @@
 .ai-ball-classification .btn-lid,
 .ai-ball-classification > .ai-ball-classification__lid {
   width: 37.5%;
-  height: 50%;
+  height: max(44px, 50%);
   min-height: 0;
   align-self: center;
   border: 0;
@@ -192,8 +192,57 @@
   inset: 0;
 }
 
+.ai-ball-classification .rules-overlay {
+  position: absolute;
+  z-index: 21;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--ai-frame-width) / 16);
+  background: rgb(15 16 25 / 92%);
+  text-align: center;
+}
+
+.ai-ball-classification .rules-overlay.hidden,
 .ai-ball-classification .countdown-overlay.hidden {
   display: none;
+}
+
+.ai-ball-classification .rules-overlay h2 {
+  margin: 0 0 calc(var(--ai-frame-width) / 40);
+  color: #a29bfe;
+  font-size: clamp(1.1rem, calc(var(--ai-frame-width) / 17.1), 1.75rem);
+}
+
+.ai-ball-classification .rules-overlay p {
+  max-width: 90%;
+  margin: 0 0 calc(var(--ai-frame-width) / 20);
+  color: #dfe6e9;
+  font-size: clamp(0.68rem, calc(var(--ai-frame-width) / 32), 0.9375rem);
+  line-height: 1.5;
+}
+
+.ai-ball-classification .btn-primary {
+  min-height: 44px;
+  padding: calc(var(--ai-frame-width) / 34.3) calc(var(--ai-frame-width) / 17.1);
+  border: 0;
+  border-radius: calc(var(--ai-frame-width) / 48);
+  background: #6c5ce7;
+  box-shadow: 0 calc(var(--ai-frame-width) / 120) calc(var(--ai-frame-width) / 32) rgb(108 92 231 / 40%);
+  color: #fff;
+  font: inherit;
+  font-size: clamp(0.72rem, calc(var(--ai-frame-width) / 30), 1rem);
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.ai-ball-classification .btn-primary:focus-visible {
+  outline: max(2px, calc(var(--ai-frame-width) / 160)) solid #fff;
+  outline-offset: max(2px, calc(var(--ai-frame-width) / 160));
 }
 
 .ai-ball-classification .countdown-card,
@@ -262,4 +311,19 @@
   .ai-ball-classification > .ai-ball-classification__lid {
     transition: none;
   }
+}
+
+.result-card[data-mini-game-id="ai-ball-classification"] {
+  border-color: #a29bfe;
+  background: #1f202d;
+  color: #fff;
+}
+
+.result-card[data-mini-game-id="ai-ball-classification"] h2 {
+  color: #a29bfe;
+}
+
+.result-card[data-mini-game-id="ai-ball-classification"] .button--primary {
+  background: #6c5ce7;
+  box-shadow: 0 4px 15px rgb(108 92 231 / 40%);
 }

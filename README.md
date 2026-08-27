@@ -69,6 +69,8 @@ Main Menu에서는 게임 방법, 설정, Battle Coming Soon 경로도 확인할
 | `AI` | `ai-ball-classification` | AI Ball Classification Game | MVP | 목표 공 5개·방해 공 25개 분류 |
 | `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 | MVP | 발판 이동·알 분류·생명 관리 |
 
+통합 화면은 기능 브랜치의 고유 UI를 공통 카드로 다시 그리지 않습니다. AI `480×640`, CS `480×480` Canvas+패널, CSE `440×920`, AIDS `390×740`의 원본 논리 배치와 색·문구를 유지하고, 공통 stage에서는 바깥 프레임의 축소·나란히/세로 배치·스크롤만 담당합니다.
+
 각 모듈은 아래 공통 API를 노출합니다.
 
 ```text

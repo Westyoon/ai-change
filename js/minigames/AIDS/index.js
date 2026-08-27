@@ -2,10 +2,15 @@ import { INPUT_ACTIONS } from '../../core/input-manager.js';
 import { InputLock } from '../shared/input-lock.js';
 import { MiniGameClock } from '../shared/minigame-clock.js';
 import { buildMiniGameCandidate } from '../shared/result-builder.js';
+import { attachFixedFrameScaler } from '../shared/fixed-frame-scaler.js';
 import { DEFINITION } from './definition.js';
 import { mergeConfig, validateConfig } from './config.js';
 import { injectStyles, removeStyles } from './styles.js';
-import { buildGameDom } from './dom-builder.js';
+import {
+  AIDS_LOGICAL_HEIGHT,
+  AIDS_LOGICAL_WIDTH,
+  buildGameDom,
+} from './dom-builder.js';
 import { buildHearts, updateHearts } from './hud.js';
 import { layoutPlatforms, setTilt } from './platforms.js';
 import { stepFrame } from './game-loop.js';
@@ -50,6 +55,14 @@ function toggleClass(element, className, force) {
   element.className = [...classes].join(' ');
 }
 
+function hasClass(element, className) {
+  if (typeof element?.classList?.contains === 'function') {
+    return element.classList.contains(className);
+  }
+  return typeof element?.className === 'string'
+    && element.className.split(/\s+/u).includes(className);
+}
+
 export function createMiniGame(context = {}) {
   const inputLock = new InputLock();
   const injectedClock = context.clock;
@@ -87,6 +100,7 @@ export function createMiniGame(context = {}) {
   let currentAttemptId = null;
   let terminal = false;
   let disposed = false;
+  let hostLayoutClassAdded = false;
 
   function addListener(target, type, listener) {
     if (typeof target?.addEventListener !== 'function') return;
@@ -103,6 +117,23 @@ export function createMiniGame(context = {}) {
   function scheduleFrame() {
     if (lifecycleState !== 'RUNNING' || !refs?.supportsGameplay) return;
     rafId = requestFrame(runLoop) ?? null;
+  }
+
+  function enableHostLayout() {
+    if (!context.uiRoot || hasClass(context.uiRoot, 'aids-ui-root')) return;
+    toggleClass(context.uiRoot, 'aids-ui-root', true);
+    hostLayoutClassAdded = true;
+  }
+
+  function restoreHostLayout() {
+    if (!hostLayoutClassAdded) return;
+    toggleClass(context.uiRoot, 'aids-ui-root', false);
+    hostLayoutClassAdded = false;
+  }
+
+  function removeMountedDom() {
+    const mountNode = refs?.viewport ?? refs?.root;
+    mountNode?.remove?.();
   }
 
   function createFreshGameState() {
@@ -288,9 +319,21 @@ export function createMiniGame(context = {}) {
       throwIfUnavailable(signal, () => disposed);
 
       try {
+        enableHostLayout();
         injectedStyle = injectStyles(context.uiRoot);
         refs = buildGameDom(context.uiRoot, config);
         throwIfUnavailable(signal, () => disposed);
+        if (refs.supportsGameplay) {
+          removers.push(attachFixedFrameScaler({
+            container: context.uiRoot,
+            viewport: refs.viewport,
+            frame: refs.frame,
+            logicalWidth: AIDS_LOGICAL_WIDTH,
+            logicalHeight: AIDS_LOGICAL_HEIGHT,
+            fitHeight: true,
+            maxScale: 1,
+          }));
+        }
         bindControls();
         lifecycleState = 'READY';
       } catch (error) {
@@ -301,10 +344,11 @@ export function createMiniGame(context = {}) {
             // Initialization cleanup is best-effort; preserve the original error.
           }
         }
-        refs?.root?.remove?.();
+        removeMountedDom();
         refs = null;
         removeStyles(context.uiRoot, injectedStyle);
         injectedStyle = null;
+        restoreHostLayout();
         if (!disposed) lifecycleState = 'ERROR';
         throw error;
       }
@@ -361,9 +405,10 @@ export function createMiniGame(context = {}) {
           // Keep destroy idempotent even when a host listener rejects cleanup.
         }
       }
-      refs?.root?.remove?.();
+      removeMountedDom();
       removeStyles(context.uiRoot, injectedStyle);
       injectedStyle = null;
+      restoreHostLayout();
       refs = null;
       gameState = null;
       lifecycleState = 'DESTROYED';

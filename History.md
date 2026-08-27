@@ -336,3 +336,47 @@ Git 이력을 다시 대조한 결과 `origin/prototype/ai-minigame@ebfda86`는 
 - Cloudflare preview: `https://ai-change-games.towering-hisser.workers.dev`
 - Cloudflare Version ID: `f90ee9df-d8e6-4ba1-b197-da7cce8d74fa`
 - 원격 root·AI module·CSS·config의 HTTP `200`, CSP·`nosniff`, 원본 class·Canvas 크기·생성 간격·동일 sample asset 설정을 확인했습니다.
+
+## 2026-08-28 전체 브랜치 원본 UI 재감사와 반응형 크기 조정
+
+사용자 피드백에 따라 통합본을 다시 공통 디자인으로 바꾸지 않고, 각 기능 브랜치가 만든 프론트·색·문구·Canvas 효과와 내부 좌표를 기준으로 복원했습니다. 2026-08-28 재수행한 `git fetch --all --prune` 기준으로 scaffold `cf17764`, DS `d2be19c`, CS `02d63d5`와 이전 core-loop `724481a`, CSE `e3f94f4`, AI `ebfda86`, AIDS `1abc737`와 balance `1ece42c`는 모두 이미 `dev`의 조상입니다. 새 브랜치를 빠뜨린 문제가 아니라 이전 host 이관 과정에서 일부 원본 표현을 단순화하거나 다시 그린 것이 차이의 원인이었습니다.
+
+이번 수정 원칙은 다음과 같습니다.
+
+- 게임 내부의 논리 크기·물리 좌표·색·마크업·문구를 원본 기준으로 유지합니다.
+- PC·태블릿·모바일 대응은 내부 요소를 다시 배치하지 않고, 바깥 viewport 축소·데스크톱 나란히 배치·모바일 세로 배치·필요한 세로 스크롤로 처리합니다.
+- 공통 host의 attempt ID, pause/resume, 1회 완료, save, 오류 처리, Retry/Map/Menu 결과 이동과 idempotent cleanup은 유지합니다.
+- Battle·보스·6번째 미니게임 등 원본 브랜치에 없는 콘텐츠는 추가하지 않았습니다. 등록 게임은 계속 5종입니다.
+
+### 게임별 반영 내용
+
+| 게임 | 원본 유지·복원 | 크기 처리 |
+| --- | --- | --- |
+| AI Ball Classification | 원본 규칙 overlay와 `게임 시작`, 3초 목표 확인, `480×460` Canvas, 상·하단 HUD, 보라/민트/빨강 palette, OPEN/CLOSE 문구, SUCCESS/GAME OVER 결과 문구 | 원본 `480×640` 비율을 stage의 폭·높이에 맞춰 비례 축소하고 실제 버튼은 최소 44px을 유지 |
+| CLICK to PURIFY | 원본 `✕ → 패널 START → 실제 시작` 2단계, CORE·판정 ring·십자선·4종 threat label, WORM 분열, RANSOM 잠금, SPYWARE 0.1→0.6, impact/flash와 판정 text, CLICK HUD, 성공·실패 결과 문구 | PC는 `480×480` Canvas와 최대 `300px` 패널을 나란히, 폭 600px 이하는 세로로 배치; bitmap 480×480은 변경하지 않음 |
+| Code Heart | `data-cat` 4색 재료, 레시피 book icon/text, UNLOCK span/small, 상세 recipe row, 원본 빌드 오류·성공 문구와 shake 복원 | `440×920` 고정 논리 frame을 폭 기준으로만 축소하고 긴 화면은 host 안에서 세로 스크롤 |
+| 숫자 야구 | history의 Fit 초록·Shift 노랑·Outlier 분홍 분리 표시와 원본 정답/시도 횟수 결과 문구 복원 | 기존 반응형 keypad layout 유지 |
+| 인지알·데사알 | 원본 알·발판·상자·HUD·버튼과 물리값 유지, 최신 balance 브랜치의 timer/life 동시 종료 시 CLEAR 우선순위 복원 | `390×740` 고정 논리 frame 전체를 contain 방식으로만 축소해 물리 좌표와 DOM 좌표를 일치시킴 |
+
+CS의 GOOD 가중치는 최신 기능 브랜치의 `0.7`을 config와 판정 함수에 연결했습니다. WORM 부모가 놓쳐 생성된 두 분열체도 원본처럼 각각 일반 MISS에 포함하며 별도 `splitChildMissCount`도 결과 metric에 남깁니다. AI와 CS의 규칙 화면 대기 시간은 플레이 시간에 포함하지 않도록 `hasInternalStartGate`와 attempt 단위 `onGameplayStart` 경계를 추가했습니다. 내부 START 뒤에만 host 시간이 시작되고 retry에서도 같은 규칙을 적용합니다.
+
+공통 결과창은 게임별 `resultPresentation`을 읽어 원본 제목·설명·RESTART 문구를 표시합니다. AI·CS·Code Heart는 원본 색으로 범위를 제한해 꾸미고, 숫자 야구는 배열 정답을 쉼표 없이 원래 숫자열로 표시합니다. 실제 보상 지급 기능이 아직 없으므로 AI 성공 버튼은 동작을 과장하는 `수호알 획득하기` 대신 실제 동작인 `맵으로 돌아가기`로 명확히 했습니다. 모든 AI 결과 metric에는 사용자용 한글 label을 추가했고, 짧은 모바일 화면에서는 결과 card 자체가 스크롤됩니다.
+
+### 스캐폴딩·공통 코드 변경
+
+- `js/minigames/shared/fixed-frame-scaler.js`: 논리 frame은 고정하고 바깥 viewport와 CSS transform만 resize하는 공통 helper 추가
+- `js/ui/result-overlay.js`: game ID scope, 게임별 결과 문구, metric interpolation과 배열 join 지원
+- `js/scenes/minigame-scene.js`: 내부 START gate가 있는 게임의 안내 대기 시간을 `durationMs`에서 제외
+- `css/click-to-purify.css`: CS 원본 화면만 담당하는 전용 scoped stylesheet 추가
+- `css/minigames.css`: CSE 고정 frame, DS 결과 색, Code Heart 결과 card와 짧은 결과 화면 scroll 보완
+- `README.md`, `docs/execution-and-controls.md`: 원본 frame 정책과 실제 START/CLICK 조작으로 갱신
+
+### 검증 결과
+
+- source validation: 127개 파일·21개 JSON 문서 통과
+- Node 단위·계약·원본 충실도 회귀 테스트: 58/58 통과
+- source HTTP·MIME smoke: 31/31 통과
+- production build: `dist/` runtime 파일 85개 생성
+- release HTTP·보안 경로 smoke: 37/37 통과
+- 로컬 서버 `http://127.0.0.1:3000/`: 새 CS·AI stylesheet HTTP 200, 정확한 CSS MIME과 데스크톱/모바일 rule 제공 확인
+- 자동 브라우저 인스턴스가 이 작업 세션에 연결되지 않아 실제 screenshot·pointer 조작 QA는 수행하지 못했습니다. 따라서 Chrome/Safari 실제 기기의 시각 확인은 별도 수동 QA 항목으로 남깁니다.

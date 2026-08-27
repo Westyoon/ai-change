@@ -134,12 +134,15 @@
   display: grid;
   place-items: center;
   padding: 18px;
+  overflow: auto;
   background: rgb(3 6 13 / 78%);
   backdrop-filter: blur(6px);
 }
 
 .result-card {
   width: min(520px, 100%);
+  max-height: 100%;
+  overflow: auto;
   padding: 28px;
   border: 3px solid var(--accent);
   border-radius: 18px;
@@ -752,17 +755,118 @@
     }
   }
 
-/* Integrated host sizing: keep the prototype layout scrollable inside the shared stage. */
+/* Integrated host sizing: scale the original 440 × 920 frame by width and scroll vertically. */
 .minigame-ui-root.cse-ui-root {
-  align-items: start;
+  position: absolute;
+  inset: 0;
+  align-content: start;
+  justify-items: center;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: clamp(10px, 2vw, 20px);
+  padding: 0;
+  scrollbar-gutter: stable;
+}
+
+.cse-ui-root .cse-fixed-frame-viewport {
+  align-self: start;
+  justify-self: center;
+  margin: 0 auto;
 }
 
 .cse-ui-root .code-heart-game {
-  height: auto;
-  min-height: 100%;
+  width: 440px;
+  max-width: none;
+  height: 920px;
+  min-height: 920px;
   max-height: none;
+  margin: 0;
+  padding: 20px 18px;
+  gap: 14px;
+  border: 3px solid #ffd1dc;
+  border-radius: 28px;
+  box-shadow: 0 16px 44px rgba(255, 64, 129, 0.2);
+}
+
+.cse-ui-root .code-heart-game .ch-counter-scene {
+  min-height: 175px;
+  padding: 18px 16px 14px;
+  gap: 14px;
+}
+
+.cse-ui-root .code-heart-game .ch-person-silhouette {
+  width: 80px;
+  height: 98px;
+}
+
+.cse-ui-root .code-heart-game .ch-sil-head {
+  width: 34px;
+  height: 34px;
+}
+
+.cse-ui-root .code-heart-game .ch-sil-body {
+  width: 66px;
+  height: 44px;
+}
+
+.cse-ui-root .code-heart-game .ch-btn-recipe-trigger {
+  top: 10px;
+  right: 12px;
+  width: 60px;
+  height: 30px;
+}
+
+.cse-ui-root .code-heart-game .ch-tray-section {
+  height: 210px;
+}
+
+.cse-ui-root .code-heart-game .ch-materials-grid {
+  gap: 6px;
+}
+
+.cse-ui-root .code-heart-game .ch-btn-material {
+  font-size: 12px;
+}
+
+.cse-ui-root .code-heart-game .ch-btn-unlock {
+  width: 90px;
+  font-size: 12.5px;
+}
+
+.code-heart-game .ch-recipe-detail {
+  display: block;
+}
+
+.result-card[data-mini-game-id="computer-code-heart"] {
+  border-color: #ff4081;
+  border-radius: 22px;
+  background: #fff;
+  color: #333;
+}
+
+.result-card[data-mini-game-id="computer-code-heart"] h2 {
+  padding-bottom: 6px;
+  border-bottom: 2px solid #fce4ec;
+  color: #c62828;
+}
+
+.result-card[data-mini-game-id="computer-code-heart"][data-status="CLEAR"] h2 {
+  color: #2e7d32;
+}
+
+.result-card[data-mini-game-id="computer-code-heart"] .muted,
+.result-card[data-mini-game-id="computer-code-heart"] .result-metrics dt {
+  color: #555;
+}
+
+.result-card[data-mini-game-id="computer-code-heart"] .result-metrics dd {
+  color: #333;
+}
+
+.result-card[data-mini-game-id="computer-code-heart"] .button--primary {
+  border-color: #ff4081;
+  background: linear-gradient(135deg, #ff4081, #d81b60);
+  color: #fff;
 }
 
 /* DS · Number Baseball */
@@ -845,7 +949,25 @@
 }
 
 .nb-history-result {
-  color: #ffe17a;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+}
+
+.nb-history-fit {
+  color: #0f0;
+}
+
+.nb-history-shift {
+  color: #ff0;
+}
+
+.nb-history-outlier {
+  color: #f0f;
+}
+
+.nb-history-separator {
+  color: #d7dbea;
 }
 
 .nb-feedback {

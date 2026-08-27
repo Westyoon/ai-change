@@ -83,10 +83,12 @@ Battle 메뉴는 `battles=[]`, `features.battleContent=false`인 현재 설정�
 | 코드 | 미니게임 | 상태 | PC | 모바일 |
 | --- | --- | --- | --- | --- |
 | `DS` | 숫자 야구 | MVP | 숫자 키·화면 키패드 입력, `Backspace` 삭제, `Enter` 제출 | 화면 키패드, 지우기·제출 버튼 |
-| `CS` | CLICK to PURIFY · 22 wave | MVP | 대상 클릭, `Space` 또는 `PURIFY` 버튼으로 정화 | 대상 또는 `PURIFY` 버튼 터치 |
+| `CS` | CLICK to PURIFY · 22 wave | MVP | 설명창의 `✕` → `START` 후 `Space` 또는 `CLICK` 버튼으로 정화 | 설명창의 `✕` → `START` 후 `CLICK` 버튼 터치 |
 | `CSE` | Code Heart: Unlock! | MVP | 마우스로 재료·초기화·제출 선택 | 해당 버튼 터치 |
-| `AI` | AI Ball Classification · 목표 5/방해 25 | MVP | `Space` 또는 `OPEN·CLOSE` 버튼으로 분류통 뚜껑 전환 | `OPEN·CLOSE` 버튼 터치 |
+| `AI` | AI Ball Classification · 목표 5/방해 25 | MVP | `게임 시작`과 3초 확인 후 `Space` 또는 `OPEN·CLOSE` 버튼으로 분류통 뚜껑 전환 | `게임 시작`과 3초 확인 후 `OPEN·CLOSE` 버튼 터치 |
 | `AIDS` | 인지알·데사알 분류 게임 | MVP | 방향키 또는 `A`·`D`로 발판 조작 | 왼쪽·오른쪽 버튼 터치 |
+
+CS는 원본의 `480×480` Canvas와 최대 `300px` 조작 패널을 PC에서 나란히 표시하고, 폭 `600px` 이하에서는 위아래로 배치합니다. CSE는 원본 `440×920`, AIDS는 원본 `390×740` 논리 좌표를 유지한 채 바깥 프레임만 화면 폭에 맞춰 줄입니다. CSE의 긴 세로 화면은 내부를 작게 찌그러뜨리지 않고 스크롤해서 확인합니다.
 
 ## 7. 로컬 데이터
 

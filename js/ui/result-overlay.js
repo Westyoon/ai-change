@@ -20,9 +20,13 @@ const METRIC_LABELS = Object.freeze({
   lostCount: "이탈",
   remainingLives: "남은 생명",
   targetCollected: "목표 수집",
+  collectedTargets: "목표 수집",
+  totalTargetCount: "전체 목표",
   targetMissed: "목표 누락",
   wrongCollected: "오분류",
   ballsResolved: "처리한 공",
+  nonTargetsPassed: "통과시킨 방해 공",
+  totalBallCount: "전체 공",
 });
 
 function formatMetric(key, value) {
@@ -38,15 +42,53 @@ function formatMetric(key, value) {
   return String(value);
 }
 
+function interpolateResultText(template, result) {
+  if (typeof template !== "string") return null;
+  const values = {
+    status: result.status,
+    score: result.score,
+    failureReason: result.failureReason,
+    ...(result.metrics ?? {}),
+  };
+  return template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/gu, (match, key) => {
+    const value = values[key];
+    if (value === undefined || value === null) return match;
+    return Array.isArray(value) ? value.join("") : String(value);
+  });
+}
+
+export function resolveResultPresentation({ result, outroText, presentation } = {}) {
+  const statusKey = result?.status === "CLEAR" ? "clear" : "fail";
+  const statusPresentation = presentation?.[statusKey] ?? {};
+  const reasonDescription = statusPresentation.reasonDescriptions?.[result?.failureReason];
+  const fallbackDescription = result?.status === "CLEAR"
+    ? "학과 미니게임을 성공적으로 완료했습니다."
+    : "이번 도전은 완료하지 못했습니다. 다시 도전하거나 맵으로 돌아갈 수 있습니다.";
+  return Object.freeze({
+    title: interpolateResultText(statusPresentation.title, result)
+      ?? (result?.status === "CLEAR" ? "미니게임 클리어" : "미니게임 실패"),
+    description: interpolateResultText(reasonDescription, result)
+      ?? interpolateResultText(statusPresentation.description, result)
+      ?? outroText
+      ?? fallbackDescription,
+    retryLabel: statusPresentation.retryLabel ?? "다시 하기",
+    mapLabel: statusPresentation.mapLabel ?? "맵으로",
+    menuLabel: statusPresentation.menuLabel ?? "메뉴로",
+  });
+}
+
 export function createResultOverlay({
   result,
   departmentCode,
   outroText,
+  presentation,
+  miniGameId,
   onRetry,
   onMap,
   onMenu,
   backgroundElements = [],
 }) {
+  const resolvedPresentation = resolveResultPresentation({ result, outroText, presentation });
   const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const backgroundState = backgroundElements.filter(Boolean).map((element) => ({
     element,
@@ -68,19 +110,18 @@ export function createResultOverlay({
   });
   const card = createElement("section", {
     className: "result-card",
-    dataset: { status: result.status },
+    dataset: {
+      status: result.status,
+      ...(miniGameId ? { miniGameId } : {}),
+    },
   });
   const title = createElement("h2", {
-    text: result.status === "CLEAR" ? "미니게임 클리어" : "미니게임 실패",
+    text: resolvedPresentation.title,
     attributes: { id: "result-title" },
   });
   const copy = createElement("p", {
     className: "muted",
-    text: outroText ?? (
-      result.status === "CLEAR"
-        ? "학과 미니게임을 성공적으로 완료했습니다."
-        : "이번 도전은 완료하지 못했습니다. 다시 도전하거나 맵으로 돌아갈 수 있습니다."
-    ),
+    text: resolvedPresentation.description,
   });
   const meta = createElement("p", {
     text: `학과 ${departmentCode ?? "-"} · 플레이 ${(result.durationMs / 1000).toFixed(1)}초`,
@@ -110,9 +151,9 @@ export function createResultOverlay({
     for (const button of actions.querySelectorAll("button")) button.disabled = true;
     action?.();
   };
-  const retryButton = createButton("다시 하기", runOnce(onRetry), "primary");
-  const mapButton = createButton("맵으로", runOnce(onMap));
-  const menuButton = createButton("메뉴로", runOnce(onMenu), "ghost");
+  const retryButton = createButton(resolvedPresentation.retryLabel, runOnce(onRetry), "primary");
+  const mapButton = createButton(resolvedPresentation.mapLabel, runOnce(onMap));
+  const menuButton = createButton(resolvedPresentation.menuLabel, runOnce(onMenu), "ghost");
   actions = createElement("div", { className: "button-row" }, [retryButton, mapButton, menuButton]);
 
   const handleKeyDown = (event) => {

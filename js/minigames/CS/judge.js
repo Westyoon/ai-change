@@ -20,10 +20,16 @@ export function judgeTiming(now, targetAt, config = {}) {
   return "MISS";
 }
 
-export function calculatePurification(perfectCount, goodCount, totalWaves) {
+export function calculatePurification(
+  perfectCount,
+  goodCount,
+  totalWaves,
+  goodScoreWeight = 0.7,
+) {
   const denominator = Number.isFinite(totalWaves) ? Math.floor(totalWaves) : 0;
   if (denominator <= 0) return 0;
-  const earned = nonNegativeNumber(perfectCount, 0) + nonNegativeNumber(goodCount, 0) * 0.5;
+  const goodWeight = nonNegativeNumber(goodScoreWeight, 0.7);
+  const earned = nonNegativeNumber(perfectCount, 0) + nonNegativeNumber(goodCount, 0) * goodWeight;
   return Math.min(100, Math.max(0, Math.round((earned / denominator) * 100)));
 }
 

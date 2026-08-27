@@ -7,6 +7,18 @@
     "pc": ["숫자 키 또는 화면 키패드로 입력", "Backspace로 지우기", "Enter로 제출"],
     "mobile": ["화면 키패드로 입력", "지우기 버튼으로 삭제", "제출 버튼으로 제출"]
   },
+  "resultPresentation": {
+    "clear": {
+      "title": "정답!",
+      "description": "{epochsUsed}번 만에 맞혔습니다.",
+      "retryLabel": "다시 풀기"
+    },
+    "fail": {
+      "title": "게임 종료!",
+      "description": "정답은 {answer} 이었습니다.",
+      "retryLabel": "다시 도전하기"
+    }
+  },
   "rules": {
     "digitRange": [0, 9],
     "answerLength": 3,

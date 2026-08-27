@@ -288,6 +288,8 @@ test("AI mounts the prototype shell and restores the shared host shell on destro
     "target-box",
     "target-badge",
     "progress-box",
+    "rules-overlay",
+    "btn-primary",
     "countdown-card",
     "target-preview-box",
     "bottom-area",
@@ -303,4 +305,44 @@ test("AI mounts the prototype shell and restores the shared host shell on destro
   assert.equal(canvas.className, "minigame-canvas");
   assert.equal(stage.className, "minigame-stage");
   assert.equal(uiRoot.className, "minigame-ui-root");
+});
+
+test("AI keeps the prototype start overlay before beginning its single countdown", async () => {
+  const module = await loadMiniGameModule("ai-ball-classification");
+  const configs = await loadGameConfigs();
+  const uiRoot = createFakeUiRoot();
+  const gameplayStarts = [];
+  let now = 0;
+  const instance = module.createMiniGame({
+    uiRoot,
+    clock: { now: () => now },
+    onGameplayStart(attemptId) {
+      gameplayStarts.push(attemptId);
+    },
+  });
+
+  await instance.init(configs.get("ai-ball-classification"));
+  instance.start({ attemptId: "ai-ball-classification:start-overlay" });
+  assert.equal(instance.getState().awaitingStart, true);
+  assert.equal(instance.getState().countdownRemaining, 3);
+  assert.deepEqual(gameplayStarts, []);
+  now = 5_000;
+  assert.equal(instance.getState().elapsedMs, 0);
+
+  const startButton = findByClass(uiRoot, "btn-primary");
+  const rulesOverlay = findByClass(uiRoot, "rules-overlay");
+  const lidButton = findByClass(uiRoot, "btn-lid");
+  assert.ok(startButton);
+  assert.equal(rulesOverlay.attributes.get("role"), "dialog");
+  assert.equal(rulesOverlay.attributes.get("aria-modal"), "true");
+  assert.equal(lidButton.attributes.get("aria-pressed"), "false");
+  startButton.dispatchEvent("click");
+  assert.equal(instance.getState().awaitingStart, false);
+  assert.equal(instance.getState().countdownRemaining, 3);
+  assert.deepEqual(gameplayStarts, ["ai-ball-classification:start-overlay"]);
+  now = 6_000;
+  assert.equal(instance.getState().elapsedMs, 1_000);
+  startButton.dispatchEvent("click");
+  assert.equal(gameplayStarts.length, 1);
+  instance.destroy();
 });

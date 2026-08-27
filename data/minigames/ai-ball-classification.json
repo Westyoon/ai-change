@@ -16,6 +16,23 @@
   "initialLidState": "CLOSED",
   "targetAssetId": "ai-ball-classification-sample",
   "nonTargetAssetId": "ai-ball-classification-sample",
+  "resultPresentation": {
+    "clear": {
+      "title": "SUCCESS!",
+      "description": "목표 공을 모두 수집했습니다!",
+      "retryLabel": "한 번 더 플레이하기",
+      "mapLabel": "맵으로 돌아가기"
+    },
+    "fail": {
+      "title": "GAME OVER",
+      "description": "틀린 공을 담았거나 목표 공을 놓쳤습니다.",
+      "reasonDescriptions": {
+        "WRONG_BALL": "오답 공이 통에 들어갔습니다!",
+        "MISSED_TARGET": "정답 공을 놓쳤습니다!"
+      },
+      "retryLabel": "처음부터 다시하기"
+    }
+  },
   "uiText": {
     "title": "AI 공 분류 게임",
     "ruleExplanation": "굴러오는 공 중 상단 목표와 같은 [DATA 공]만 뚜껑을 열어 통에 담으세요!",

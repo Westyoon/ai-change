@@ -1,5 +1,8 @@
 import { DEFINITION } from './definition.js';
 
+export const AIDS_LOGICAL_WIDTH = 390;
+export const AIDS_LOGICAL_HEIGHT = 740;
+
 function appendChildren(parent, ...children) {
     if (typeof parent?.append === 'function') {
         parent.append(...children);
@@ -98,12 +101,21 @@ export function buildGameDom(uiRoot, config) {
     if (controlHint) btnRight.title = controlHint;
     appendChildren(controls, btnLeft, btnRight);
 
+    const viewport = doc.createElement('div');
+    viewport.className = 'aids-frame-viewport';
+    const frame = doc.createElement('div');
+    frame.className = 'aids-logical-frame';
+
     appendChildren(root, topbar, pipeRow, field, boxes, controls);
-    appendChildren(uiRoot, root);
+    appendChildren(frame, root);
+    appendChildren(viewport, frame);
+    appendChildren(uiRoot, viewport);
 
     return {
         root,
         supportsGameplay: true,
+        viewport,
+        frame,
         field,
         platformsContainer,
         boxLeft,

@@ -9,6 +9,17 @@ function removeNode(node) {
 }
 
 const CSS = `
+.aids-ui-root{
+  width:100%; height:100%; min-width:0; min-height:0; padding:0;
+  overflow:hidden; display:grid; place-items:center;
+}
+.aids-ui-root > .aids-frame-viewport{
+  position:relative; min-width:0; min-height:0; overflow:hidden;
+}
+.aids-logical-frame{
+  position:absolute; width:390px; height:740px; overflow:hidden;
+  transform-origin:top left;
+}
 .aids-root{
   position:relative; width:100%; height:100%;
   display:flex; flex-direction:column;

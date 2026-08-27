@@ -25,7 +25,8 @@ test("CS MVP timing and purification preserve the approved integrated boundaries
   assert.equal(judgeTiming(1_500, 1_000, config), "GOOD");
   assert.equal(judgeTiming(1_501, 1_000, config), "MISS");
   assert.equal(judgeTiming(1_200, 1_000, { perfectwindowMs: 200, goodWindowMs: 500 }), "PERFECT");
-  assert.equal(calculatePurification(2, 2, 4), 75);
+  assert.equal(calculatePurification(2, 2, 4), 85);
+  assert.equal(calculatePurification(2, 2, 4, 0.5), 75);
   assert.equal(calculatePurification(2, 2, 0), 0);
 });
 
@@ -69,7 +70,7 @@ test("CS malware effects reveal trojans, fade in spyware, and split worms once",
   updateThreatPresentation(trojan, 600, config);
   assert.equal(trojan.revealed, true);
   updateThreatPresentation(spyware, 500, config);
-  assert.ok(spyware.opacity > 0.12 && spyware.opacity < 0.8);
+  assert.equal(spyware.opacity, 0.35);
 
   const children = createWormChildren(worm, 1_000, config);
   assert.equal(children.length, 2);
@@ -141,7 +142,7 @@ test("AIDS time-to-go guidance accelerates toward a platform without exceeding i
   assert.ok(egg.vx <= config.physics.maxFallSteerSpeed);
 });
 
-test("AIDS life depletion wins when life and timer expire on the same frame", () => {
+test("AIDS latest balance keeps timer clear priority when life and timer expire together", () => {
   const state = {
     life: 0,
     eggs: [],
@@ -162,5 +163,5 @@ test("AIDS life depletion wins when life and timer expire on the same frame", ()
     physics: { eggRadius: 20 },
   };
 
-  assert.deepEqual(stepFrame({ state, config, refs, elapsedMs: 0 }), { terminal: "FAIL" });
+  assert.deepEqual(stepFrame({ state, config, refs, elapsedMs: 0 }), { terminal: "CLEAR" });
 });

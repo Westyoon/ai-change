@@ -13,6 +13,8 @@ const MINI_GAME_ID = "ai-ball-classification";
 const PROTOTYPE_CANVAS_WIDTH = 480;
 const PROTOTYPE_CANVAS_HEIGHT = 460;
 
+export const hasInternalStartGate = true;
+
 function createAbortError() {
   if (typeof DOMException === "function") {
     return new DOMException("AI Ball Classification initialization was aborted.", "AbortError");
@@ -54,6 +56,8 @@ function emptyUi() {
     root: null,
     progress: null,
     progressTotal: null,
+    rulesOverlay: null,
+    startButton: null,
     countdownOverlay: null,
     countdownText: null,
     countdownImage: null,
@@ -62,7 +66,7 @@ function emptyUi() {
   };
 }
 
-function buildUi(uiRoot) {
+function buildUi(uiRoot, config) {
   const documentRef = uiRoot?.ownerDocument ?? globalThis.document;
   if (!uiRoot?.append || !documentRef?.createElement) return emptyUi();
 
@@ -96,6 +100,23 @@ function buildUi(uiRoot) {
   progressTotal.textContent = "5";
   progressBox.append(progressLabel, progress, progressDivider, progressTotal);
   topArea.append(targetBox, progressBox);
+
+  const rulesOverlay = documentRef.createElement("div");
+  rulesOverlay.className = "overlay rules-overlay";
+  rulesOverlay.setAttribute("role", "dialog");
+  rulesOverlay.setAttribute("aria-modal", "true");
+  rulesOverlay.setAttribute("aria-labelledby", "ai-ball-rules-title");
+  const rulesTitle = documentRef.createElement("h2");
+  rulesTitle.id = "ai-ball-rules-title";
+  rulesTitle.textContent = config?.uiText?.title ?? "AI 공 분류 게임";
+  const rulesText = documentRef.createElement("p");
+  rulesText.textContent = config?.uiText?.ruleExplanation
+    ?? "굴러오는 공 중 목표 공만 뚜껑을 열어 분류통에 담으세요!";
+  const startButton = documentRef.createElement("button");
+  startButton.type = "button";
+  startButton.className = "btn-primary";
+  startButton.textContent = config?.uiText?.startButton ?? "게임 시작";
+  rulesOverlay.append(rulesTitle, rulesText, startButton);
 
   const countdownOverlay = documentRef.createElement("div");
   countdownOverlay.className = "overlay countdown-overlay hidden";
@@ -131,12 +152,14 @@ function buildUi(uiRoot) {
   lidButton.disabled = true;
   bottomArea.append(controlInfo, lidButton);
 
-  root.append(topArea, countdownOverlay, status, bottomArea);
+  root.append(rulesOverlay, countdownOverlay, topArea, status, bottomArea);
   uiRoot.append(root);
   return {
     root,
     progress,
     progressTotal,
+    rulesOverlay,
+    startButton,
     countdownOverlay,
     countdownText,
     countdownImage,
@@ -196,6 +219,7 @@ export function createMiniGame(context = {}) {
   let frameHandle = null;
   let lastElapsedMs = 0;
   let countdownRemaining = 0;
+  let awaitingStart = true;
   let spawnAccumulator = 0;
   let ballQueue = [];
   let activeBalls = [];
@@ -235,29 +259,42 @@ export function createMiniGame(context = {}) {
   }
 
   function updateUi() {
-    if (ui.progress) ui.progress.textContent = String(collectedTargets);
-    if (ui.progressTotal) ui.progressTotal.textContent = String(config?.targetCount ?? 5);
+    const setText = (element, value) => {
+      if (element && element.textContent !== value) element.textContent = value;
+    };
+    setText(ui.progress, String(collectedTargets));
+    setText(ui.progressTotal, String(config?.targetCount ?? 5));
     if (ui.countdownText) {
-      ui.countdownText.textContent = countdownRemaining > 0
+      setText(ui.countdownText, countdownRemaining > 0
         ? String(Math.max(1, Math.ceil(countdownRemaining)))
-        : "";
+        : "");
+    }
+    if (ui.rulesOverlay) {
+      const showingRules = (lifecycleState === "RUNNING" || lifecycleState === "PAUSED")
+        && awaitingStart;
+      ui.rulesOverlay.className = showingRules ? "overlay rules-overlay" : "overlay rules-overlay hidden";
+      ui.rulesOverlay.setAttribute("aria-hidden", showingRules ? "false" : "true");
+    }
+    if (ui.startButton) {
+      ui.startButton.disabled = lifecycleState !== "RUNNING" || !awaitingStart || inputLock.locked;
     }
     if (ui.countdownOverlay) {
-      const countingDown = lifecycleState === "RUNNING" && countdownRemaining > 0;
+      const countingDown = lifecycleState === "RUNNING" && !awaitingStart && countdownRemaining > 0;
       ui.countdownOverlay.className = countingDown
         ? "overlay countdown-overlay"
         : "overlay countdown-overlay hidden";
       ui.countdownOverlay.setAttribute("aria-hidden", countingDown ? "false" : "true");
     }
-    if (ui.status) ui.status.textContent = feedbackText;
+    setText(ui.status, feedbackText);
     if (ui.lidButton) {
       const isOpen = lidState === "OPEN";
-      ui.lidButton.textContent = isOpen
+      setText(ui.lidButton, isOpen
         ? config?.uiText?.lidOpen ?? "OPEN (뚜껑 열림)"
-        : config?.uiText?.lidClose ?? "CLOSE (뚜껑 닫힘)";
+        : config?.uiText?.lidClose ?? "CLOSE (뚜껑 닫힘)");
       ui.lidButton.className = `btn-lid ${isOpen ? "open" : "closed"}`;
+      ui.lidButton.setAttribute("aria-pressed", isOpen ? "true" : "false");
       ui.lidButton.disabled =
-        lifecycleState !== "RUNNING" || inputLock.locked || countdownRemaining > 0;
+        lifecycleState !== "RUNNING" || inputLock.locked || awaitingStart || countdownRemaining > 0;
     }
   }
 
@@ -282,6 +319,7 @@ export function createMiniGame(context = {}) {
     });
     activeBalls = [];
     lidState = config.initialLidState === "OPEN" ? "OPEN" : "CLOSED";
+    awaitingStart = true;
     countdownRemaining = finiteAtLeast(config.countdownSeconds, 0, 3);
     spawnAccumulator = 0;
     collectedTargets = 0;
@@ -382,11 +420,30 @@ export function createMiniGame(context = {}) {
   }
 
   function toggleLid() {
-    if (lifecycleState !== "RUNNING" || terminal || inputLock.locked || countdownRemaining > 0) {
+    if (
+      lifecycleState !== "RUNNING"
+      || terminal
+      || inputLock.locked
+      || awaitingStart
+      || countdownRemaining > 0
+    ) {
       return false;
     }
     lidState = lidState === "CLOSED" ? "OPEN" : "CLOSED";
     feedbackText = lidState === "OPEN" ? "분류통을 열었습니다." : "분류통을 닫았습니다.";
+    updateUi();
+    return true;
+  }
+
+  function beginCountdown() {
+    if (lifecycleState !== "RUNNING" || terminal || inputLock.locked || !awaitingStart) {
+      return false;
+    }
+    awaitingStart = false;
+    clock.resume("START_GATE");
+    lastElapsedMs = clock.getElapsedMs();
+    feedbackText = "목표 공을 확인하세요.";
+    context.onGameplayStart?.(currentAttemptId);
     updateUi();
     return true;
   }
@@ -442,6 +499,10 @@ export function createMiniGame(context = {}) {
 
   function update(deltaSeconds) {
     if (lifecycleState !== "RUNNING" || terminal) return;
+    if (awaitingStart) {
+      updateUi();
+      return;
+    }
     if (countdownRemaining > 0) {
       countdownRemaining = Math.max(0, countdownRemaining - deltaSeconds);
       if (countdownRemaining === 0) feedbackText = "분류 시작!";
@@ -600,7 +661,9 @@ export function createMiniGame(context = {}) {
     terminal = false;
     resetRunState();
     clock.start();
+    clock.pause("START_GATE");
     setState("RUNNING");
+    ui.startButton?.focus?.();
     try {
       render();
       if (canvasContext) frameHandle = requestFrame(frame);
@@ -629,11 +692,14 @@ export function createMiniGame(context = {}) {
       await Promise.resolve();
       throwIfUnavailable(signal, () => disposed);
       applyPrototypeShell();
-      ui = buildUi(context.uiRoot);
+      ui = buildUi(context.uiRoot, config);
       setPreviewImage();
+      addListener(ui.startButton, "click", beginCountdown);
       addListener(ui.lidButton, "click", toggleLid);
       const unsubscribeInput = context.input?.onAction?.((event) => {
-        if (event?.phase === "press" && event.action === INPUT_ACTIONS.CONFIRM) toggleLid();
+        if (event?.phase !== "press" || event.action !== INPUT_ACTIONS.CONFIRM) return;
+        if (awaitingStart) beginCountdown();
+        else toggleLid();
       });
       if (typeof unsubscribeInput === "function") removers.push(unsubscribeInput);
       setState("READY");
@@ -659,6 +725,7 @@ export function createMiniGame(context = {}) {
     resume() {
       if (disposed || lifecycleState !== "PAUSED" || terminal) return false;
       clock.resume();
+      if (awaitingStart) clock.pause("START_GATE");
       inputLock.clear();
       lastElapsedMs = clock.getElapsedMs();
       setState("RUNNING");
@@ -708,6 +775,7 @@ export function createMiniGame(context = {}) {
         elapsedMs: clock.getElapsedMs(),
         lidState,
         countdownRemaining,
+        awaitingStart,
         queuedBalls: ballQueue.length,
         activeBalls: activeBalls.length,
         collectedTargets,

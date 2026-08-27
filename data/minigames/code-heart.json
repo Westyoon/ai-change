@@ -9,6 +9,18 @@
   },
   "title": "Code Heart: Unlock!",
   "description": "4가지 개발 요소를 조합하여 타락한 코드를 정화하는 빌드 게임",
+  "resultPresentation": {
+    "clear": {
+      "title": "💖 OPEN HEART! 정화 완료 💖",
+      "description": "모든 코드를 완벽하게 빌드하여 정화했습니다!",
+      "retryLabel": "한 번 더 플레이하기"
+    },
+    "fail": {
+      "title": "✖ BUILD FAILED: 시간 초과 ✖",
+      "description": "코드가 심하게 꼬여 정화하지 못했습니다.",
+      "retryLabel": "다시 도전하기"
+    }
+  },
   "categories": [
     { "id": "lang", "name": "프로그래밍 언어" },
     { "id": "engine", "name": "프레임워크/엔진" },

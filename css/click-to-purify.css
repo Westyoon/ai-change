@@ -1,0 +1,286 @@
+/* CS · CLICK to PURIFY prototype fidelity layer */
+.minigame-stage.click-to-purify-stage {
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 480px) minmax(220px, 300px);
+  grid-template-rows: auto;
+  gap: 20px;
+  align-content: center;
+  align-items: center;
+  justify-content: center;
+  min-height: 522px;
+  padding: 20px;
+  overflow: auto;
+  background: #05070c;
+  color: #eee;
+  font-family: monospace;
+}
+
+.click-to-purify-stage,
+.click-to-purify-stage * {
+  box-sizing: border-box;
+}
+
+.click-to-purify-stage > .minigame-canvas.click-to-purify-canvas {
+  position: relative;
+  inset: auto;
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  max-height: none;
+  aspect-ratio: 1 / 1;
+  justify-self: end;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #0a0d14;
+  image-rendering: auto;
+}
+
+.click-to-purify-stage > .minigame-ui-root.click-to-purify-ui-root {
+  position: static;
+  inset: auto;
+  z-index: 2;
+  display: block;
+  width: min(300px, 100%);
+  min-height: 0;
+  padding: 0;
+  align-self: center;
+  justify-self: start;
+}
+
+.click-to-purify-ui-root .click-to-purify {
+  position: static;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #eee;
+  font-family: monospace;
+  text-align: left;
+}
+
+.click-to-purify-ui-root .ctp-gauge-shell {
+  position: relative;
+  height: 18px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid #556;
+  border-radius: 4px;
+  background: #222;
+}
+
+.click-to-purify-ui-root .ctp-gauge {
+  width: 0;
+  height: 100%;
+  background: #37e6ff;
+  transition: width 120ms linear;
+}
+
+.click-to-purify-ui-root .ctp-gauge-label {
+  position: absolute;
+  top: 1px;
+  right: 6px;
+  color: #fff;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.click-to-purify-ui-root .ctp-miss {
+  margin-bottom: 8px;
+  color: #e6483c;
+  font: 12px monospace;
+}
+
+.click-to-purify-ui-root .ctp-click-btn,
+.click-to-purify-ui-root .ctp-start-btn {
+  width: 100%;
+  margin: 0;
+  padding: 14px;
+  border: 2px solid #37e6ff;
+  border-radius: 6px;
+  background: #3a3f4a;
+  color: #fff;
+  font: bold 16px monospace;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.click-to-purify-ui-root .ctp-start-btn {
+  margin-bottom: 6px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.click-to-purify-ui-root .ctp-start-btn[hidden] {
+  display: none;
+}
+
+.click-to-purify-ui-root .ctp-click-btn:focus-visible,
+.click-to-purify-ui-root .ctp-start-btn:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.click-to-purify-ui-root .ctp-click-btn:active:not(:disabled),
+.click-to-purify-ui-root .ctp-start-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.click-to-purify-ui-root .ctp-click-btn:disabled,
+.click-to-purify-ui-root .ctp-start-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.click-to-purify-stage .click-to-purify__intro {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: auto;
+  background: rgb(5 7 12 / 60%);
+}
+
+.click-to-purify-stage .click-to-purify__intro[hidden] {
+  display: none;
+}
+
+.click-to-purify-stage .click-to-purify__intro-box {
+  position: relative;
+  width: min(340px, 100%);
+  max-height: 100%;
+  padding: 20px;
+  overflow: auto;
+  border: 2px solid #37e6ff;
+  border-radius: 10px;
+  background: rgb(20 24 31 / 95%);
+  color: #eee;
+  font: 13px monospace;
+  box-shadow: 0 12px 42px rgb(0 0 0 / 42%);
+}
+
+.click-to-purify-stage .click-to-purify__intro-box h2 {
+  margin: 0 0 10px;
+  color: #eee;
+  font: bold 16px monospace;
+  letter-spacing: normal;
+}
+
+.click-to-purify-stage .ctp-intro-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #37e6ff;
+  border-radius: 4px;
+  background: #3a3f4a;
+  color: #fff;
+  font: 14px monospace;
+  cursor: pointer;
+}
+
+.click-to-purify-stage .ctp-intro-close:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.click-to-purify-stage .ctp-intro-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.click-to-purify-stage .intro-rule {
+  margin: 4px 0;
+}
+
+.click-to-purify-stage .intro-legend {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.click-to-purify-stage .intro-legend li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.click-to-purify-stage .intro-dot {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.click-to-purify-stage .intro-dot--trojan {
+  background: #ff8c37;
+}
+
+.click-to-purify-stage .intro-dot--worm {
+  background: #2e8b57;
+}
+
+.click-to-purify-stage .intro-dot--ransom {
+  background: #8b3fd1;
+}
+
+.click-to-purify-stage .intro-dot--spyware {
+  background: #5a7a9c;
+}
+
+.result-card[data-mini-game-id="cyber-click-to-purify"] {
+  width: min(320px, 100%);
+  border: 2px solid #37e6ff;
+  border-radius: 10px;
+  background: rgb(20 24 31 / 97%);
+  color: #eee;
+  font-family: monospace;
+}
+
+.result-card[data-mini-game-id="cyber-click-to-purify"] .button--primary {
+  border-color: #37e6ff;
+  background: #3a3f4a;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .minigame-stage.click-to-purify-stage {
+    grid-template-columns: minmax(0, 480px);
+    grid-template-rows: auto auto;
+    gap: 12px;
+    align-content: start;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .click-to-purify-stage > .minigame-canvas.click-to-purify-canvas,
+  .click-to-purify-stage > .minigame-ui-root.click-to-purify-ui-root {
+    justify-self: center;
+  }
+
+  .click-to-purify-stage > .minigame-ui-root.click-to-purify-ui-root {
+    width: min(300px, 100%);
+  }
+}
+
+@media (max-width: 360px), (max-height: 520px) {
+  .click-to-purify-stage .click-to-purify__intro {
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .click-to-purify-stage .click-to-purify__intro-box {
+    padding: 14px;
+    font-size: 12px;
+  }
+}

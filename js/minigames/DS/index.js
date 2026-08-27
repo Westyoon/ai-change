@@ -204,7 +204,28 @@ export function createMiniGame(context = {}) {
 
     const resultText = documentRef.createElement("span");
     resultText.className = "nb-history-result";
-    resultText.textContent = `${record.fit} Fit / ${record.shift} Shift / ${record.outlier} Outlier`;
+    const fitText = documentRef.createElement("span");
+    fitText.className = "nb-history-fit";
+    fitText.textContent = `${record.fit} Fit`;
+    const firstSeparator = documentRef.createElement("span");
+    firstSeparator.className = "nb-history-separator";
+    firstSeparator.textContent = " / ";
+    const shiftText = documentRef.createElement("span");
+    shiftText.className = "nb-history-shift";
+    shiftText.textContent = `${record.shift} Shift`;
+    const secondSeparator = documentRef.createElement("span");
+    secondSeparator.className = "nb-history-separator";
+    secondSeparator.textContent = " / ";
+    const outlierText = documentRef.createElement("span");
+    outlierText.className = "nb-history-outlier";
+    outlierText.textContent = `${record.outlier} Outlier`;
+    resultText.append(
+      fitText,
+      firstSeparator,
+      shiftText,
+      secondSeparator,
+      outlierText,
+    );
 
     row.append(guessText, resultText);
     dom.historyContainer.append(row);

@@ -45,7 +45,7 @@ function finalizeHostResult({ miniGameId, id, status, durationMs, failureReason 
 export function createMiniGameScene(context) {
   let instance = null;
   let currentAttemptId = null;
-  let startedAt = 0;
+  let startedAt = null;
   let terminal = false;
   let destroyed = false;
   const pauseReasons = new Set();
@@ -77,6 +77,7 @@ export function createMiniGameScene(context) {
       const title = createElement("strong", { text: `${game.departmentCode} · ${game.title}` });
       let pauseButton;
       const activeDurationMs = () => {
+        if (startedAt === null) return 0;
         const currentPauseMs =
           pauseStartedAt === null ? 0 : Math.max(0, performance.now() - pauseStartedAt);
         return Math.max(0, performance.now() - startedAt - accumulatedPauseMs - currentPauseMs);
@@ -186,8 +187,10 @@ export function createMiniGameScene(context) {
         const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
         overlay = createResultOverlay({
           result,
+          miniGameId,
           departmentCode: game.departmentCode,
           outroText,
+          presentation: config?.resultPresentation,
           onRetry: () => {
             if (restartInProgress || destroyed) return;
             restartInProgress = true;
@@ -199,7 +202,7 @@ export function createMiniGameScene(context) {
             accumulatedPauseMs = 0;
             updatePauseButton();
             currentAttemptId = attemptId(miniGameId);
-            startedAt = performance.now();
+            startedAt = module.hasInternalStartGate === true ? null : performance.now();
             try {
               instance.restart?.({ attemptId: currentAttemptId });
               if (globalThis.document?.hidden) requestPause("VISIBILITY");
@@ -237,6 +240,21 @@ export function createMiniGameScene(context) {
         });
       };
 
+      const onGameplayStart = (callbackAttemptId) => {
+        if (
+          destroyed
+          || terminal
+          || callbackAttemptId !== currentAttemptId
+          || startedAt !== null
+        ) {
+          return false;
+        }
+        startedAt = performance.now();
+        accumulatedPauseMs = 0;
+        pauseStartedAt = null;
+        return true;
+      };
+
       instance = module.createMiniGame({
         canvas,
         uiRoot,
@@ -245,13 +263,14 @@ export function createMiniGameScene(context) {
         assets: context.services.assets,
         audio: context.services.audio,
         events: context.services.events,
+        onGameplayStart,
         onComplete,
         onError,
       });
       await instance.init(config, { signal });
       if (signal.aborted) return;
       currentAttemptId = attemptId(miniGameId);
-      startedAt = performance.now();
+      startedAt = module.hasInternalStartGate === true ? null : performance.now();
       instance.start({ attemptId: currentAttemptId });
       const documentRef = globalThis.document;
       if (typeof documentRef?.addEventListener === "function") {
