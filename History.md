@@ -407,3 +407,13 @@ CS의 GOOD 가중치는 최신 기능 브랜치의 `0.7`을 config와 판정 함
 - 대표 주소의 root·공통 CSS·app·학과 데이터·게임 5종 module 등 핵심 runtime 파일 10개는 로컬 `dist/`와 원격 응답의 SHA-256이 모두 일치
 
 기본 `wrangler.jsonc`는 Pages의 `ai-change` 프로젝트와 `dist/` output을 가리키도록 전환했습니다. `npm run cf:deploy:production`은 전체 release 검사를 통과한 뒤 `dev`를 production으로 배포하고, staging은 별도 branch alias로 분리합니다. 기존 Workers Static Assets 구성은 `wrangler.worker.jsonc`로 옮겨 프리뷰·이전 배포 경로를 잃지 않게 했습니다. 자동 브라우저가 연결되지 않은 환경이므로 실제 pointer·touch 시각 QA는 남아 있지만, 공개 대표 주소와 핵심 runtime 경로의 외부 HTTPS 응답은 확인했습니다.
+
+## 2026-08-28 CSE 레시피 모달 조작 불능 수정
+
+CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은 배포 누락이나 module 오류가 아니라 레시피 모달의 숨김 상태와 CSS 표시 규칙의 충돌이었습니다. CSE module은 모달의 `hidden` property를 `true`로 설정했지만 `.ch-modal-backdrop`의 `display: flex`가 이를 덮을 수 있었고, 기존 `display: none !important` 규칙은 원본 prototype의 `.hidden` class에만 적용돼 있었습니다. 그 결과 레시피 backdrop이 `z-index: 100`으로 게임을 덮고 닫은 뒤에도 남아 재료 선택과 UNLOCK 조작을 막을 수 있었습니다.
+
+- `.code-heart-game .ch-modal-backdrop[hidden]`에 `display: none !important`를 적용해 원본 UI·크기·색·배치를 바꾸지 않고 표시 상태만 바로잡았습니다.
+- CSE fidelity 검사에 시작 시 숨김, 레시피 열기, 닫기, `[hidden]` CSS 계약을 추가해 같은 회귀를 고정했습니다.
+- 배포 source·`dist/`·기존 원격 CSE JS/CSS/JSON/thumbnail의 SHA-256과 HTTP·MIME을 비교해 배포 파일 누락이 아님을 확인했습니다.
+- 전체 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, production build 85개 파일, release smoke 37/37 통과
+- 자동 브라우저가 연결되지 않아 실제 pointer·touch 캡처는 수행하지 못했으며, 배포 후 대표 주소의 수정 CSS와 CSE runtime 응답을 별도로 확인합니다.

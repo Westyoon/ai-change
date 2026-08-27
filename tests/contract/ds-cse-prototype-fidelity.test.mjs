@@ -166,6 +166,7 @@ test("CSE mounts the original 440x920 frame with width-only scaling and cleans i
 
 test("CSE restores prototype material, recipe, button, and shake markup without an internal result modal", async () => {
   const config = await readJson("../../data/minigames/code-heart.json");
+  const stylesheet = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
   const { observers, uiRoot } = createFakeEnvironment();
   let nextFrameId = 0;
   const instance = createCseMiniGame({
@@ -192,6 +193,13 @@ test("CSE restores prototype material, recipe, button, and shake markup without 
   assert.deepEqual(unlockButton.children.map((child) => child.tagName), ["SPAN", "SMALL"]);
   assert.deepEqual(unlockButton.children.map((child) => child.textContent), ["★ UNLOCK", "git push"]);
 
+  const recipeBackdrop = findByClass(uiRoot, "ch-modal-backdrop");
+  const closeRecipeButton = findByClass(uiRoot, "ch-btn-close");
+  assert.equal(recipeBackdrop.hidden, true);
+  assert.match(
+    stylesheet,
+    /\.code-heart-game\s+\.ch-modal-backdrop\[hidden\]\s*\{[^}]*display:\s*none\s*!important/u,
+  );
   assert.equal(findByClass(uiRoot, "ch-modal-title")?.textContent, "📖 개발 레시피북");
   const recipeRows = findAllByClass(uiRoot, "ch-recipe-row");
   assert.equal(recipeRows.length, 4);
@@ -202,6 +210,10 @@ test("CSE restores prototype material, recipe, button, and shake markup without 
   assert.equal(findByClass(uiRoot, "ch-result-card"), null);
 
   instance.start({ attemptId: "cse:fidelity" });
+  recipeButton.dispatchEvent("click");
+  assert.equal(recipeBackdrop.hidden, false);
+  closeRecipeButton.dispatchEvent("click");
+  assert.equal(recipeBackdrop.hidden, true);
   for (const itemId of ["cpp", "fastapi", "mysql", "docker"]) {
     materials.find((button) => button.dataset.itemId === itemId).dispatchEvent("click");
   }

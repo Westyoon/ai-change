@@ -561,6 +561,10 @@
     padding: 16px;
     z-index: 100;
   }
+
+  .code-heart-game .ch-modal-backdrop[hidden] {
+    display: none !important;
+  }
   
   .code-heart-game .ch-modal-card {
     background: #ffffff;
