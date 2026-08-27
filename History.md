@@ -331,3 +331,8 @@ Git 이력을 다시 대조한 결과 `origin/prototype/ai-minigame@ebfda86`는 
 통합 웹앱에서 필요한 공통 host 계약만 유지했습니다. `createMiniGame` 생명주기, attempt 식별, pause·resume, 공통 result 반환, 오류·cleanup 처리는 기존 host에 연결하고, AI 스타일은 다른 scene과 미니게임에 영향을 주지 않도록 범위를 AI root 아래로 제한했습니다. 독립 실행용 root entry나 AI 전용 결과 popup을 되살리는 대신, 게임 고유 화면·Canvas 렌더링·물리·문구는 원본 브랜치에 충실하게 복원했습니다.
 
 검증 결과는 runtime 파일 `120개`와 JSON 문서 `21개` 검증, 전체 단위·계약 테스트 `44/44`, source HTTP smoke `30건`, production build `83개` 파일, dist HTTP smoke `36건` 모두 통과했습니다. 또한 AI 전용 계약 테스트로 원본 shell class와 `480×460` Canvas가 mount되고 destroy 시 공통 host class·`960×540` 크기로 되돌아오는 과정까지 고정했습니다.
+
+- 구현 커밋: `79c6d2e` (`fix: restore AI prototype visuals and mechanics`)
+- Cloudflare preview: `https://ai-change-games.towering-hisser.workers.dev`
+- Cloudflare Version ID: `f90ee9df-d8e6-4ba1-b197-da7cce8d74fa`
+- 원격 root·AI module·CSS·config의 HTTP `200`, CSP·`nosniff`, 원본 class·Canvas 크기·생성 간격·동일 sample asset 설정을 확인했습니다.
