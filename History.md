@@ -380,3 +380,15 @@ CS의 GOOD 가중치는 최신 기능 브랜치의 `0.7`을 config와 판정 함
 - release HTTP·보안 경로 smoke: 37/37 통과
 - 로컬 서버 `http://127.0.0.1:3000/`: 새 CS·AI stylesheet HTTP 200, 정확한 CSS MIME과 데스크톱/모바일 rule 제공 확인
 - 자동 브라우저 인스턴스가 이 작업 세션에 연결되지 않아 실제 screenshot·pointer 조작 QA는 수행하지 못했습니다. 따라서 Chrome/Safari 실제 기기의 시각 확인은 별도 수동 QA 항목으로 남깁니다.
+
+### Cloudflare 프리뷰 재배포
+
+- 구현 커밋: `5217439` (`fix: preserve original minigame layouts responsively`)
+- 공개 URL: `https://ai-change-games.towering-hisser.workers.dev`
+- Cloudflare Version ID: `17a2a77c-409f-4a17-8b8c-f43dba07d861`
+- 변경 runtime asset 21개를 업로드했고 기존 asset 64개를 재사용했습니다.
+- 원격 root·CS/AI CSS·CS/AI/CSE/AIDS module·공통 scaler·CS/AI config는 HTTP 200과 정확한 MIME을 반환했습니다.
+- root와 핵심 CSS·JS·JSON 8개는 로컬 `dist/`와 원격 응답의 SHA-256이 모두 일치했습니다.
+- 원격 AI config의 목표 5개·방해 25개·`맵으로 돌아가기`, CS config의 GOOD 가중치 0.7을 확인했습니다.
+- CSP, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`를 확인했고 `History.md`, `package.json`, 임의 누락 경로는 HTTP 404였습니다.
+- 이번 URL은 Cloudflare 임시 계정 프리뷰이므로 영구 운영 전 계정 귀속 또는 정식 Cloudflare 계정 배포가 필요합니다.
