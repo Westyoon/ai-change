@@ -7,11 +7,11 @@ export function createHowToScene(context) {
         className: "scene--panel",
         eyebrow: "HOW TO PLAY",
         title: "게임 방법",
-        description: "현재 단계는 화면·데이터·모듈 계약을 확인하는 스캐폴드입니다.",
+        description: "맵의 학과 카드를 선택하면 해당 미니게임이 바로 시작됩니다.",
       });
       const common = createElement("section", { className: "info-card" }, [
         createElement("strong", { text: "공통 조작" }),
-        createElement("span", { text: "PC: 방향키/WASD, Enter·Space, Esc · 모바일: 화면 버튼과 터치" }),
+        createElement("span", { text: "PC: Tab으로 학과 카드 선택, Enter·Space로 실행, Esc로 일시정지 · 모바일: 학과 카드와 화면 버튼 터치" }),
       ]);
       const grid = createElement("div", { className: "card-grid" }, [common]);
 

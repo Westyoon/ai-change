@@ -293,3 +293,25 @@ AI의 `assets/images/sample.png`는 asset manifest에 `ASSET-AI-002`로 등록�
 - 원격 config에서 게임 5종·전 항목 `scaffold=false`, AI `MVP`·5/25 공, CS `MVP`·22 wave를 확인했습니다.
 - CSP와 `X-Content-Type-Options: nosniff`를 확인했고 `History.md`, `package.json`, 임의 누락 경로는 HTTP 404였습니다.
 - 작업 세션에 연결 가능한 브라우저가 없어 클릭·반응형 시각 QA는 실행하지 못했으며 실제 Chrome·Safari 기기 QA는 후속 확인 대상으로 남깁니다.
+
+## 2026-08-28 맵 학과 카드의 미니게임 직접 실행
+
+사용자 결정에 따라 기본 Story 진입 흐름을 `인트로 → 학과별 맵 → 학과 카드 → 미니게임`으로 단축했습니다. `js/scenes/map-scene.js`의 학과 카드가 더 이상 `dialogue`와 `minigame-intro`를 순서대로 열지 않고, 각 NPC에 등록된 stable `miniGameId`를 사용해 `minigame` scene으로 직접 이동합니다.
+
+- AI, DS, CSE, CS, AIDS 카드 5개 모두 `data/map-data.json`의 기존 `miniGameId` 연결을 그대로 사용합니다.
+- 카드의 제목·설명·접근성 이름을 NPC 대화가 아니라 미니게임 바로 실행 기준으로 바꿨습니다.
+- 같은 카드 또는 서로 다른 카드를 빠르게 연속 선택해도 첫 navigation만 처리하는 scene 단위 guard를 추가했습니다.
+- native button의 클릭·Enter·Space·모바일 터치 경로는 그대로 유지합니다.
+- NPC 대화와 미니게임 상세 안내 route·스크립트·asset loading 코드는 선택형 콘텐츠와 게임 방법 화면에서 재사용할 수 있도록 삭제하지 않았습니다.
+- Story intro, 게임 방법, README, 실행 문서와 통합 계획의 기본 흐름 설명을 현재 동작과 맞췄습니다.
+
+검증 결과:
+
+- source validation: 120개 파일·21개 JSON 문서 통과
+- Node test: 41/41 통과(5개 직접 route 매핑, 누락 ID 방어, 연속 선택 1회 처리 포함)
+- source HTTP·MIME smoke: 30/30 통과
+- production build: runtime 파일 83개
+- release smoke: 36/36 통과
+- Cloudflare preview: `https://ai-change-games.dot-pluto.workers.dev`
+- Cloudflare Version ID: `fcb9608d-a028-47a8-98b9-8e3f85493a79`
+- 원격 module에서 직접 `minigame` route, `dialogue` 우회, 카드 click 연결과 CSP·`nosniff`를 확인했습니다.

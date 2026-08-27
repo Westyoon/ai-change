@@ -48,13 +48,14 @@ npm run check
 Loading
   → Main Menu
   → Story Intro
-  → 학과 NPC Map
-  → NPC Dialogue
-  → Mini Game Intro
+  → 학과별 Mini Game Map
+  → 학과 카드 선택
   → 학과별 Mini Game
   → CLEAR / FAIL Result
   → Retry / Map / Menu
 ```
+
+맵의 학과 카드는 기본 흐름에서 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 기존 NPC 대화와 미니게임 안내 route·데이터는 별도 콘텐츠에서 다시 사용할 수 있도록 유지합니다.
 
 Main Menu에서는 게임 방법, 설정, Battle Coming Soon 경로도 확인할 수 있습니다.
 
