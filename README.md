@@ -120,6 +120,7 @@ docs/                 계획·기획·실행·리소스 문서
 
 - [통합 개발 계획](./docs/AI_CHANGE_PLAN.md)
 - [기획안](./docs/기획안.md)
+- [사후게임(Battle) 기획안](./docs/사후게임_기획안.md)
 - [실행 및 조작 방법](./docs/execution-and-controls.md)
 - [리소스 출처 목록](./docs/asset-sources.md)
 - [Git 브랜치 규칙](./docs/GIT_BRANCH_RULE.md)
