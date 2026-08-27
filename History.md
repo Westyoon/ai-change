@@ -416,4 +416,6 @@ CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은
 - CSE fidelity 검사에 시작 시 숨김, 레시피 열기, 닫기, `[hidden]` CSS 계약을 추가해 같은 회귀를 고정했습니다.
 - 배포 source·`dist/`·기존 원격 CSE JS/CSS/JSON/thumbnail의 SHA-256과 HTTP·MIME을 비교해 배포 파일 누락이 아님을 확인했습니다.
 - 전체 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, production build 85개 파일, release smoke 37/37 통과
-- 자동 브라우저가 연결되지 않아 실제 pointer·touch 캡처는 수행하지 못했으며, 배포 후 대표 주소의 수정 CSS와 CSE runtime 응답을 별도로 확인합니다.
+- Production deployment: `https://b5a718fd.ai-change.pages.dev/` (source `98ad465`)
+- 대표 주소 `https://ai-change.pages.dev/`의 원격 CSS에서 `[hidden]` 보정 규칙을 확인했고 CSE CSS·JS·JSON의 SHA-256이 로컬 `dist/`와 모두 일치했습니다.
+- 자동 브라우저가 연결되지 않아 실제 pointer·touch 캡처는 수행하지 못했습니다. CSE 정답 4개 주문은 DOM 상호작용 검사에서 `CLEAR`, 400점, 완료 callback 1회를 확인했습니다.
