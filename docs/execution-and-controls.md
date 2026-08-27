@@ -2,7 +2,7 @@
 
 ## 1. 현재 구현 상태
 
-이 문서는 `contentVersion=1` 통합 개발본 기준입니다. 공통 화면, 학과 데이터, 맵·대화 연결과 기능 브랜치에서 합쳐진 미니게임을 확인할 수 있습니다. DS·CSE·AIDS는 MVP, CS는 프로토타입, AI는 lifecycle 스캐폴드 상태이며 최종 밸런스·점수·기록 정책은 아직 확정되지 않았습니다.
+이 문서는 `contentVersion=1` 통합 개발본 기준입니다. 공통 화면, 학과 데이터, 맵·대화 연결과 기능 브랜치에서 합쳐진 미니게임을 확인할 수 있습니다. DS·CS·CSE·AI·AIDS 5종은 모두 MVP이며 최종 밸런스·점수·기록 정책은 아직 확정되지 않았습니다.
 
 현재 맵은 자유 이동 구현 전이므로 학과 NPC 카드를 클릭·터치하거나 키보드로 선택합니다. 방향키·WASD·가상 패드 이동은 다음 map 구현 단계의 계약으로만 남아 있습니다.
 
@@ -64,7 +64,7 @@ npm run check
   → 맵 복귀
 ```
 
-Battle 메뉴의 실제 콘텐츠는 MVP 스캐폴드에 포함되지 않으며 Coming Soon 화면으로 연결됩니다.
+Battle 메뉴는 `battles=[]`, `features.battleContent=false`인 현재 설정에 따라 Coming Soon 화면으로 연결됩니다.
 
 ## 5. 공통 조작
 
@@ -86,9 +86,9 @@ Battle 메뉴의 실제 콘텐츠는 MVP 스캐폴드에 포함되지 않으며 
 | 코드 | 미니게임 | 상태 | PC | 모바일 |
 | --- | --- | --- | --- | --- |
 | `DS` | 숫자 야구 | MVP | 숫자 키·화면 키패드 입력, `Backspace` 삭제, `Enter` 제출 | 화면 키패드, 지우기·제출 버튼 |
-| `CS` | CLICK to PURIFY | Prototype | 마우스 클릭 또는 `Space`로 정화 | 화면 터치로 정화 |
+| `CS` | CLICK to PURIFY · 22 wave | MVP | 대상 클릭, `Space` 또는 `PURIFY` 버튼으로 정화 | 대상 또는 `PURIFY` 버튼 터치 |
 | `CSE` | Code Heart: Unlock! | MVP | 마우스로 재료·초기화·제출 선택 | 해당 버튼 터치 |
-| `AI` | AI Ball Classification Game | Scaffold | 개발용 CLEAR·FAIL 버튼 선택 | 개발용 CLEAR·FAIL 버튼 터치 |
+| `AI` | AI Ball Classification · 목표 5/방해 25 | MVP | `Space` 또는 `OPEN·CLOSE` 버튼으로 분류통 뚜껑 전환 | `OPEN·CLOSE` 버튼 터치 |
 | `AIDS` | 인지알·데사알 분류 게임 | MVP | 방향키 또는 `A`·`D`로 발판 조작 | 왼쪽·오른쪽 버튼 터치 |
 
 ## 7. 로컬 데이터
@@ -107,4 +107,4 @@ Battle 메뉴의 실제 콘텐츠는 MVP 스캐폴드에 포함되지 않으며 
 | 콘텐츠 버전 불일치 | 강력 새로고침 후 HTML·app config·manifest가 모두 version 1인지 확인 |
 | 키 입력이 동작하지 않음 | 대화·설정·결과 modal을 먼저 닫고 게임 영역에 focus |
 | 모바일 버튼이 보이지 않음 | 브라우저 기기 모드 또는 실제 터치 기기에서 다시 확인 |
-| Battle 진입 시 Coming Soon | 현재 정상적인 MVP 스캐폴드 동작 |
+| Battle 진입 시 Coming Soon | published Battle이 없고 `battleContent` flag가 꺼진 현재 정상 동작 |

@@ -12,7 +12,7 @@ async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
 }
 
-test("runtime config validator accepts the checked-in scaffold data graph", async () => {
+test("runtime config validator accepts the checked-in runtime data graph", async () => {
   const [appConfig, departments, minigames, manifest, mapData, ...scripts] = await Promise.all([
     readJson("../../data/app-config.json"),
     readJson("../../data/departments.json"),

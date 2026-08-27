@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 `dev` 통합본에는 공통 화면 전환·데이터·lifecycle 스캐폴딩과 각 기능 브랜치의 구현이 함께 들어 있습니다. DS·CSE·AIDS 미니게임은 MVP, CS 미니게임은 검토 중인 규칙을 적용한 프로토타입이며, AI 미니게임은 공통 계약 확인용 스캐폴드 상태입니다. 최종 아트와 `data/drafts/`에 남은 밸런스 결정은 아직 확정되지 않았습니다.
+현재 `dev` 통합본에는 공통 화면 전환·데이터·lifecycle 스캐폴딩과 각 기능 브랜치의 최신 구현이 함께 들어 있습니다. DS·CS·CSE·AI·AIDS 미니게임 5종은 모두 플레이 가능한 MVP이며, 최종 아트와 `data/drafts/`에 남은 밸런스 결정은 아직 확정되지 않았습니다.
 
 ## 학과 코드
 
@@ -60,13 +60,13 @@ Main Menu에서는 게임 방법, 설정, Battle Coming Soon 경로도 확인할
 
 ## 미니게임 모듈
 
-| 학과 코드 | Stable ID | 미니게임 | 상태 |
-| --- | --- | --- | --- |
-| `DS` | `data-number-baseball` | 숫자 야구 | MVP |
-| `CS` | `cyber-click-to-purify` | CLICK to PURIFY | Prototype |
-| `CSE` | `computer-code-heart` | Code Heart: Unlock! | MVP |
-| `AI` | `ai-ball-classification` | AI Ball Classification Game | Scaffold |
-| `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 | MVP |
+| 학과 코드 | Stable ID | 미니게임 | 상태 | 현재 MVP 핵심 규칙 |
+| --- | --- | --- | --- | --- |
+| `DS` | `data-number-baseball` | 숫자 야구 | MVP | 3자리 추론·Epoch 제한 |
+| `CS` | `cyber-click-to-purify` | CLICK to PURIFY | MVP | 학습 4 + 혼합 18, 총 22 wave |
+| `CSE` | `computer-code-heart` | Code Heart: Unlock! | MVP | 범주별 재료 조합·제출 |
+| `AI` | `ai-ball-classification` | AI Ball Classification Game | MVP | 목표 공 5개·방해 공 25개 분류 |
+| `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 | MVP | 발판 이동·알 분류·생명 관리 |
 
 각 모듈은 아래 공통 API를 노출합니다.
 
@@ -81,7 +81,7 @@ createMiniGame(context)
   └── getState()
 ```
 
-모든 모듈은 시도 ID별 1회 완료, 중단 가능한 초기화, 일시정지·재개, 재시작, 중복 파기를 동일한 호스트 계약으로 처리합니다. AI 스캐폴드의 `개발용 CLEAR`와 `개발용 FAIL` 버튼 및 각 모듈의 `completeForDevelopment`는 result·retry·save 연결을 검증하기 위한 개발 전용 경로입니다.
+모든 모듈은 시도 ID별 1회 완료, 중단 가능한 초기화, 일시정지·재개, 재시작, 중복 파기를 동일한 호스트 계약으로 처리합니다. 각 모듈의 `completeForDevelopment`는 자동화 테스트에서 result·retry·save 연결을 검증하기 위한 개발 전용 seam이며 실제 플레이 UI에는 노출되지 않습니다.
 
 ## 주요 구조
 
@@ -101,7 +101,7 @@ data/
   scripts/            intro·NPC·outro data
   minigames/          runtime minigame config
   drafts/             미확정 결정값, production 비참조
-assets/               자체 제작 placeholder SVG
+assets/               자체 제작 placeholder SVG와 AI 기능 브랜치 PNG sample
 scripts/              개발 서버·validation·smoke 도구
 tests/                unit·contract·integration test
 docs/                 계획·기획·실행·리소스 문서
@@ -115,6 +115,7 @@ docs/                 계획·기획·실행·리소스 문서
 - dialogue와 label은 HTML 문자열이 아니라 text node로 출력합니다.
 - 모든 핵심 흐름은 키보드·마우스·터치 환경을 고려합니다.
 - 외부 리소스를 추가하면 `docs/asset-sources.md`를 함께 갱신합니다.
+- AI PNG sample은 원본·사용 권한을 확인하거나 최종 아트로 교체한 뒤 production에 사용합니다.
 
 ## 문서
 

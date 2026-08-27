@@ -254,3 +254,32 @@ host는 수동 pause와 탭 비가시성 pause를 독립된 reason으로 관리�
 - 재배포 공개 URL: `https://ai-change-games.alpine-salute.workers.dev`
 - 재배포 Cloudflare Version ID: `f1cb8914-d0a4-4f12-ac54-87b0af34516f`
 - 재검증: 30/30 테스트, 소스 HTTP 28/28, `dist` HTTP 34/34, 원격 HTTP 200·CSP·`nosniff` 확인
+
+## 2026-08-28 최신 CS·AI 브랜치 통합
+
+이 절은 위의 2026-08-27 배포 이후 상태 변경을 기록하며, 당시의 CS Prototype·AI Scaffold 및 PR 미통합 상태를 대체합니다. 원격 브랜치 이력을 다시 감사한 결과, `dev`에 실제로 반영되지 않은 최신 tip은 CS의 `origin/feature/click-to-purify@02d63d5`(PR #10)와 AI의 `origin/prototype/ai-minigame@ebfda86`(PR #11)뿐이었습니다. 기존 문서에서 언급한 6번째 게임은 집계 오류이며, 실제 고유 미니게임은 5종입니다.
+
+| 영역 | 확인한 최신 tip | 이번 처리 |
+| --- | --- | --- |
+| 공통 scaffold | `cf17764` | 이미 `dev` 조상이라 중복 병합하지 않음 |
+| DS | `d2be19c` | 이미 `dev` 조상, 기존 MVP 유지 |
+| CS | `02d63d5` | `cc54b6a` 2-parent merge로 최신 MVP 통합 |
+| CSE | `e3f94f4` | 이미 `dev` 조상, 기존 MVP 유지 |
+| AI | `ebfda86` | `57e0a5c` 2-parent merge로 최신 MVP 통합 |
+| AIDS | `1abc737`, balance `1ece42c` | 모두 `dev` 조상, 최신 balance 포함 MVP 유지 |
+
+CS는 true merge 커밋 `cc54b6a`로 통합했습니다. 충돌 해결 시 `dev`의 공통 host lifecycle, attempt, pause, result 계약을 유지하면서 기능 브랜치의 22개 wave(learning 4개 + mixed 18개), malware별 효과, Canvas 표현과 입력 처리를 반영했습니다. 개발용 harness는 production 산출물에서 제외했고, `implementationStatus`는 `MVP`로 올렸습니다.
+
+AI는 true merge 커밋 `57e0a5c`로 통합했습니다. 루트 `index.html`은 기존 통합 shell을 유지하고 AI 전용 CSS 링크만 추가했으며, 중복 standalone entry와 dependency-free 저장소 계약에 맞지 않는 `package-lock.json`은 제외했습니다. 기능 코드는 공통 `createMiniGame` adapter로 이관해 target 5개와 non-target 25개, 3초 countdown, Space/버튼 조작, Canvas 표현을 반영했습니다. 실패 사유는 `WRONG_BALL`과 `MISSED_TARGET`으로 안정화했고, result once, error 처리와 cleanup도 공통 계약에 맞췄습니다. `implementationStatus`는 `MVP`입니다.
+
+AI의 `assets/images/sample.png`는 asset manifest에 `ASSET-AI-002`로 등록했습니다. 다만 원본 출처와 라이선스가 기록되어 있지 않으므로 production 사용 전 권리를 확인하거나 출처가 명확한 자산으로 교체해야 합니다.
+
+현재 등록된 5종은 모두 `MVP`이고 `scaffold`는 모두 `false`입니다. Battle은 `battles=[]`, feature flag `false`인 `Coming Soon` 상태를 유지합니다.
+
+최종 `npm run check:release` 검증 결과는 다음과 같습니다.
+
+- source validation: 119개 파일·21개 JSON 문서 통과
+- Node test: 38/38 통과
+- source HTTP·MIME smoke: 30/30 통과
+- production build: `dist/` runtime 파일 83개 생성
+- release HTTP·보안 경로 smoke: 36/36 통과

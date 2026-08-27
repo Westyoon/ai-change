@@ -111,6 +111,20 @@ test("registry exposes exactly five static loader keys and rejects unknown keys"
   await assert.rejects(() => loadMiniGameModule("../../../arbitrary-module"), /not registered/u);
 });
 
+test("all five registered mini-games are integrated MVPs rather than scaffolds", async () => {
+  const [registryDocument, configs] = await Promise.all([
+    readJson("../../data/minigames.json"),
+    loadGameConfigs(),
+  ]);
+
+  assert.equal(registryDocument.minigames.length, 5);
+  assert.ok(registryDocument.minigames.every((game) => game.scaffold === false));
+  assert.deepEqual(
+    [...configs.entries()].map(([gameId, config]) => [gameId, config.implementationStatus]),
+    EXPECTED_MODULE_KEYS.map((gameId) => [gameId, "MVP"]),
+  );
+});
+
 test("the independent empty Battle registry keeps MVP content in Coming Soon state", async () => {
   assert.deepEqual(listBattleModuleKeys(), []);
   assert.equal(hasBattleModule("future-battle"), false);

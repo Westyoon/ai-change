@@ -36,7 +36,7 @@
 - 모바일의 `crypto.randomUUID()`와 JSON import 호환 문제를 수정하고 `feature/click-to-purify` PR #10으로 다시 제출했습니다.
 - 최종 기능 tip은 `61a3070`, 문서 보정까지 포함한 branch tip은 `02d63d5`입니다.
 
-## 2026-08-27 (최신 MVP 재통합)
+## 2026-08-28 (최신 MVP 재통합)
 
 - `origin/feature/click-to-purify` 전체 이력을 merge commit으로 `dev`에 포함했습니다. 이 merge에는 최신 core-loop, `main`의 최초 merge와 revert, 재적용 이력이 모두 들어 있습니다.
 - 기능 브랜치의 독립 harness용 API를 그대로 덮지 않고, 기존 `dev`의 attempt ID·AbortSignal·pause clock·결과 candidate·중복 완료 차단 계약을 기준으로 화면과 게임 규칙을 이식했습니다.
