@@ -146,6 +146,15 @@
       "sourceRef": "ASSET-AI-001"
     },
     {
+      "id": "ai-ball-classification-sample",
+      "group": "ai-ball-classification",
+      "type": "image",
+      "src": "./assets/images/sample.png",
+      "required": true,
+      "alt": "AI Ball Classification 목표 공 샘플 이미지",
+      "sourceRef": "ASSET-AI-002"
+    },
+    {
       "id": "ai-data-egg-sort-config",
       "group": "ai-data-egg-sort",
       "type": "json",

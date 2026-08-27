@@ -2,7 +2,7 @@
 
 ## 1. 기록 기준
 
-`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 현재 등록된 이미지 6개는 외부 에셋이 아니라 코드로 직접 작성한 SVG placeholder이며, JSON 콘텐츠는 프로젝트 기획 문서를 바탕으로 작성한 개발 스캐폴드입니다.
+`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 현재 등록된 이미지 중 6개는 코드로 직접 작성한 SVG placeholder이고, AI 기능 브랜치가 제공한 PNG sample 1개는 별도 확인 대상으로 기록합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
 
 최종 이미지·음원·폰트로 교체할 때는 실제 파일명, 종류, 제작자, 원본 URL, 라이선스, 수정 내용, 사용 위치를 확인한 뒤 이 문서와 manifest를 함께 갱신해야 합니다.
 
@@ -32,13 +32,14 @@
 | `ASSET-CS-001` | `assets/minigames/click-to-purify/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 방패·커서와 `CS` 코드로 신규 작성 | CS 미니게임 썸네일 |
 | `ASSET-CSE-001` | `assets/minigames/code-heart/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 코드 기호·하트와 `CSE` 코드로 신규 작성 | CSE 미니게임 썸네일 |
 | `ASSET-AI-001` | `assets/minigames/ai-ball-classification/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 공·분류함과 `AI` 코드로 신규 작성 | AI 미니게임 썸네일 |
+| `ASSET-AI-002` | `assets/images/sample.png` | PNG placeholder | AI 기능 브랜치 PR #11 기여 파일 | 별도 원본 URL 미기재 | 라이선스·최종 사용 권한 확인 필요 | 회색 sample 이미지를 목표 공 texture로만 사용, 방해 공은 색상 fallback | AI Ball Classification 목표 미리보기·목표 공 |
 | `ASSET-AIDS-001` | `assets/minigames/ai-data-egg-sort/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 알·상자와 `AIDS` 코드로 신규 작성 | AIDS 미니게임 썸네일 |
 
 SVG 파일은 외부 이미지나 로고를 복제하지 않았으며, 단순 도형과 텍스트만으로 생성했습니다. 최종 디자인 자산이 제공되면 사용자에게 노출되는 placeholder를 교체합니다.
 
 ## 4. 외부 리소스 현황
 
-현재 manifest에는 외부 이미지, 음원, 폰트, 아이콘이 등록되어 있지 않습니다. 이후 외부 리소스를 추가할 때는 아래 항목을 모두 작성한 뒤 사용합니다.
+현재 manifest에는 출처가 확인된 외부 이미지, 음원, 폰트, 아이콘이 등록되어 있지 않습니다. `ASSET-AI-002`는 기능 브랜치가 제공한 placeholder로 원본과 권한이 문서화되지 않았으므로 최종 production 아트로 간주하지 않습니다. 이후 외부 리소스를 추가할 때는 아래 항목을 모두 작성한 뒤 사용합니다.
 
 - 원본 파일명과 실제 저장 파일명
 - 리소스 종류

@@ -137,8 +137,8 @@ test("all five modules satisfy init/start/pause/resume/restart/destroy with once
         assert.equal(assertCandidateFieldAllowlist(candidate), true);
         completions.push({ attemptId, candidate });
       },
-      onError(error) {
-        assert.fail(`Unexpected ${moduleKey} error: ${error}`);
+      onError(attemptId, error) {
+        assert.fail(`Unexpected ${moduleKey} error for ${attemptId}: ${error}`);
       }
     });
 
@@ -195,4 +195,42 @@ test("an init aborted at its async boundary never mounts UI and can be destroyed
   instance.destroy();
   instance.destroy();
   assert.equal(instance.getState().state, "DESTROYED");
+});
+
+test("AI canvas failures become one attempt-scoped host error", async () => {
+  const module = await loadMiniGameModule("ai-ball-classification");
+  const configs = await loadGameConfigs();
+  const expectedError = new Error("canvas failed");
+  const errors = [];
+  const instance = module.createMiniGame({
+    canvas: {
+      width: 960,
+      height: 540,
+      getContext() {
+        return {
+          clearRect() {
+            throw expectedError;
+          },
+        };
+      },
+    },
+    uiRoot: createFakeUiRoot(),
+    onComplete() {
+      assert.fail("A canvas failure must not complete the attempt.");
+    },
+    onError(attemptId, error) {
+      errors.push({ attemptId, error });
+    },
+  });
+
+  await instance.init(configs.get("ai-ball-classification"));
+  instance.start({ attemptId: "ai-ball-classification:canvas-error" });
+
+  assert.equal(instance.getState().state, "ERROR");
+  assert.equal(instance.getState().terminal, true);
+  assert.deepEqual(errors, [{
+    attemptId: "ai-ball-classification:canvas-error",
+    error: expectedError,
+  }]);
+  instance.destroy();
 });

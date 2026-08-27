@@ -67,7 +67,7 @@
       "recordPolicy": null,
       "status": "published",
       "unlockCondition": null,
-      "scaffold": true
+      "scaffold": false
     },
     {
       "id": "ai-data-egg-sort",

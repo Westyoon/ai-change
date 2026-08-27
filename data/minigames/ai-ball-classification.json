@@ -1,10 +1,28 @@
 {
   "schemaVersion": 1,
   "gameId": "ai-ball-classification",
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "MVP",
   "goal": "목표 이미지와 일치하는 공만 분류함에 담습니다.",
   "controls": {
-    "pc": ["개발용 CLEAR·FAIL 버튼으로 공통 결과 흐름 확인"],
-    "mobile": ["개발용 CLEAR·FAIL 버튼을 터치"]
+    "pc": ["Space 또는 OPEN·CLOSE 버튼으로 분류통 뚜껑 전환"],
+    "mobile": ["OPEN·CLOSE 버튼을 터치해 분류통 뚜껑 전환"]
+  },
+  "targetClass": "DATA_BALL",
+  "targetCount": 5,
+  "nonTargetCount": 25,
+  "countdownSeconds": 3,
+  "ballSpeed": 0.8,
+  "spawnIntervalSeconds": 0.9,
+  "initialLidState": "CLOSED",
+  "targetAssetId": "ai-ball-classification-sample",
+  "uiText": {
+    "title": "AI 공 분류 게임",
+    "ruleExplanation": "굴러오는 공 중 상단 목표와 같은 DATA 공만 뚜껑을 열어 통에 담으세요!",
+    "lidOpen": "OPEN · 뚜껑 열림",
+    "lidClose": "CLOSE · 뚜껑 닫힘",
+    "failReasons": {
+      "WRONG_BALL": "오답 공이 통에 들어갔습니다!",
+      "MISSED_TARGET": "정답 공을 놓쳤습니다!"
+    }
   }
 }
