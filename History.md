@@ -392,3 +392,18 @@ CS의 GOOD 가중치는 최신 기능 브랜치의 `0.7`을 config와 판정 함
 - 원격 AI config의 목표 5개·방해 25개·`맵으로 돌아가기`, CS config의 GOOD 가중치 0.7을 확인했습니다.
 - CSP, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`를 확인했고 `History.md`, `package.json`, 임의 누락 경로는 HTTP 404였습니다.
 - 이번 URL은 Cloudflare 임시 계정 프리뷰이므로 영구 운영 전 계정 귀속 또는 정식 Cloudflare 계정 배포가 필요합니다.
+
+## 2026-08-28 Cloudflare Pages 무료 고정 대표 주소 배포
+
+매번 다른 임시 Cloudflare 계정으로 Workers Static Assets를 배포하면서 `*.workers.dev`의 계정 subdomain이 바뀌던 문제를 정리했습니다. 정식 Cloudflare 계정을 인증하고 무료 Pages 프로젝트 `ai-change`를 생성해, 앞으로 동일하게 유지되는 production 대표 주소를 확보했습니다.
+
+- 대표 주소: `https://ai-change.pages.dev/`
+- production branch: `dev`
+- 최초 Pages deployment: `https://64c80fb8.ai-change.pages.dev/`
+- Pages 설정 반영 후 production deployment: `https://46b57876.ai-change.pages.dev/`
+- 업로드 산출물: 검증 완료된 `dist/` runtime 파일 85개
+- 배포 전 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, release smoke 37/37 통과
+- 원격 확인: root, `index.html`, 공통 app module, 학과 데이터와 AI·AIDS·CS·CSE·DS 게임 module 모두 HTTPS 200 및 올바른 MIME 반환
+- 대표 주소의 root·공통 CSS·app·학과 데이터·게임 5종 module 등 핵심 runtime 파일 10개는 로컬 `dist/`와 원격 응답의 SHA-256이 모두 일치
+
+기본 `wrangler.jsonc`는 Pages의 `ai-change` 프로젝트와 `dist/` output을 가리키도록 전환했습니다. `npm run cf:deploy:production`은 전체 release 검사를 통과한 뒤 `dev`를 production으로 배포하고, staging은 별도 branch alias로 분리합니다. 기존 Workers Static Assets 구성은 `wrangler.worker.jsonc`로 옮겨 프리뷰·이전 배포 경로를 잃지 않게 했습니다. 자동 브라우저가 연결되지 않은 환경이므로 실제 pointer·touch 시각 QA는 남아 있지만, 공개 대표 주소와 핵심 runtime 경로의 외부 HTTPS 응답은 확인했습니다.

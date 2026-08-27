@@ -1,15 +1,5 @@
 {
-  "name": "ai-change-games",
-  "compatibility_date": "2026-08-27",
-  "workers_dev": true,
-  "assets": {
-    "directory": "./dist",
-    "html_handling": "auto-trailing-slash",
-    "not_found_handling": "none"
-  },
-  "env": {
-    "staging": {
-      "name": "ai-change-games-staging"
-    }
-  }
+  "name": "ai-change",
+  "compatibility_date": "2026-08-28",
+  "pages_build_output_dir": "./dist"
 }

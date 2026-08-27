@@ -28,6 +28,16 @@ npm run dev
 
 기본 주소는 `http://127.0.0.1:4173`이며, 환경 변수 `PORT`가 설정되어 있으면 서버가 출력한 해당 포트를 사용합니다. ES module과 JSON fetch를 사용하므로 `index.html`을 `file://`로 직접 열지 않습니다.
 
+## 공개 주소와 배포
+
+Cloudflare Pages의 무료 고정 대표 주소는 <https://ai-change.pages.dev/>입니다. `dev`의 검증 완료 빌드를 같은 주소에 다시 배포하려면 Cloudflare 계정으로 로그인한 뒤 다음 명령을 실행합니다.
+
+```bash
+npm run cf:deploy:production
+```
+
+이 명령은 전체 source·test·smoke·production build 검사를 먼저 통과한 경우에만 `dist/`를 Pages production branch인 `dev`로 올립니다. `npm run cf:deploy:staging`은 `staging.ai-change.pages.dev` 별칭을 사용하는 별도 preview 배포입니다. 이전 Workers Static Assets 설정은 `wrangler.worker.jsonc`와 `cf:deploy:worker:*` 명령으로 보존하지만 대표 주소 배포에는 사용하지 않습니다.
+
 ## 검증 명령
 
 ```bash
