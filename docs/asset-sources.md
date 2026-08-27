@@ -32,7 +32,7 @@
 | `ASSET-CS-001` | `assets/minigames/click-to-purify/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 방패·커서와 `CS` 코드로 신규 작성 | CS 미니게임 썸네일 |
 | `ASSET-CSE-001` | `assets/minigames/code-heart/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 코드 기호·하트와 `CSE` 코드로 신규 작성 | CSE 미니게임 썸네일 |
 | `ASSET-AI-001` | `assets/minigames/ai-ball-classification/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 공·분류함과 `AI` 코드로 신규 작성 | AI 미니게임 썸네일 |
-| `ASSET-AI-002` | `assets/images/sample.png` | PNG placeholder | AI 기능 브랜치 PR #11 기여 파일 | 별도 원본 URL 미기재 | 라이선스·최종 사용 권한 확인 필요 | 회색 sample 이미지를 목표 공 texture로만 사용, 방해 공은 색상 fallback | AI Ball Classification 목표 미리보기·목표 공 |
+| `ASSET-AI-002` | `assets/images/sample.png` | PNG placeholder | AI 기능 브랜치 PR #11 기여 파일 | 별도 원본 URL 미기재 | 라이선스·최종 사용 권한 확인 필요 | 기능 브랜치 원본과 같이 목표·방해 공 texture에 동일 이미지를 사용 | AI Ball Classification 목표 미리보기·목표 공·방해 공 |
 | `ASSET-AIDS-001` | `assets/minigames/ai-data-egg-sort/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 알·상자와 `AIDS` 코드로 신규 작성 | AIDS 미니게임 썸네일 |
 
 SVG 파일은 외부 이미지나 로고를 복제하지 않았으며, 단순 도형과 텍스트만으로 생성했습니다. 최종 디자인 자산이 제공되면 사용자에게 노출되는 placeholder를 교체합니다.

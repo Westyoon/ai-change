@@ -1,17 +1,20 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   advanceBall,
   classifyBallResolution,
   createBallQueue,
+  getBallMotionProfile,
 } from "../../js/minigames/AI/queue.js";
 
-test("AI ball queue contains exactly five targets and twenty-five distinct distractors", () => {
-  const targetImage = { src: "target.png" };
+test("AI ball queue contains the prototype's five targets and twenty-five distractors using the same sample", () => {
+  const sampleImage = { src: "sample.png" };
   const queue = createBallQueue({
     targetCount: 5,
     nonTargetCount: 25,
-    targetImage,
+    targetImage: sampleImage,
+    nonTargetImage: sampleImage,
     random: () => 0.25,
   });
 
@@ -19,8 +22,19 @@ test("AI ball queue contains exactly five targets and twenty-five distinct distr
   assert.equal(queue.filter((ball) => ball.isTarget).length, 5);
   assert.equal(queue.filter((ball) => !ball.isTarget).length, 25);
   assert.equal(new Set(queue.map((ball) => ball.id)).size, 30);
-  assert.ok(queue.filter((ball) => ball.isTarget).every((ball) => ball.image === targetImage));
-  assert.ok(queue.filter((ball) => !ball.isTarget).every((ball) => ball.image === null));
+  assert.ok(queue.every((ball) => ball.image === sampleImage));
+});
+
+test("AI ball motion matches the prototype's 480 by 460 canvas timing", () => {
+  const motion = getBallMotionProfile(480, 460);
+
+  assert.deepEqual(motion, {
+    horizontalSpeed: 384,
+    fallSpeed: 920,
+    travelTime: 1.25,
+    spawnInterval: 0.625,
+  });
+  assert.ok(Object.isFrozen(motion));
 });
 
 test("AI ball resolution maps capture and pass decisions to stable outcomes", () => {
@@ -69,4 +83,29 @@ test("AI queue validates counts and random source", () => {
     () => createBallQueue({ targetCount: 1, nonTargetCount: 1, random: () => 1 }),
     /exclusive/u,
   );
+});
+
+test("AI runtime config preserves the prototype counts, timing, asset, and UI copy", async () => {
+  const configUrl = new URL("../../data/minigames/ai-ball-classification.json", import.meta.url);
+  const config = JSON.parse(await readFile(configUrl, "utf8"));
+
+  assert.equal(config.targetCount, 5);
+  assert.equal(config.nonTargetCount, 25);
+  assert.equal(config.countdownSeconds, 3);
+  assert.equal(config.ballSpeed, 0.8);
+  assert.equal(config.spawnIntervalSeconds, 0.625);
+  assert.equal(config.initialLidState, "CLOSED");
+  assert.equal(config.targetAssetId, "ai-ball-classification-sample");
+  assert.equal(config.nonTargetAssetId, config.targetAssetId);
+  assert.equal(
+    config.uiText.ruleExplanation,
+    "굴러오는 공 중 상단 목표와 같은 [DATA 공]만 뚜껑을 열어 통에 담으세요!",
+  );
+  assert.equal(config.uiText.startButton, "게임 시작");
+  assert.equal(config.uiText.lidOpen, "OPEN (뚜껑 열림)");
+  assert.equal(config.uiText.lidClose, "CLOSE (뚜껑 닫힘)");
+  assert.equal(config.uiText.clearTitle, "SUCCESS!");
+  assert.equal(config.uiText.clearButton, "수호알 획득하기");
+  assert.equal(config.uiText.failTitle, "GAME OVER");
+  assert.equal(config.uiText.failButton, "처음부터 다시하기");
 });

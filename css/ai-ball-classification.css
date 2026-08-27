@@ -1,172 +1,265 @@
+.minigame-stage.ai-ball-classification-stage {
+  --ai-frame-width: min(480px, 100cqw, 75cqh);
+
+  container-type: size;
+  place-items: center;
+  background: #1a1a24;
+}
+
+.minigame-ui-root.ai-ball-classification-ui-root {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  min-height: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.minigame-canvas.ai-ball-classification-canvas {
+  position: absolute;
+  z-index: 1;
+  top: calc(50% - (var(--ai-frame-width) / 16));
+  left: 50%;
+  width: var(--ai-frame-width);
+  height: calc(var(--ai-frame-width) * 23 / 24);
+  background: #20222f;
+  image-rendering: auto;
+  transform: translate(-50%, -50%);
+}
+
 .ai-ball-classification,
 .ai-ball-classification * {
   box-sizing: border-box;
 }
 
 .ai-ball-classification {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: clamp(12px, 2.5vw, 24px);
+  position: relative;
+  display: grid;
+  grid-template-rows: 9.375% 71.875% 18.75%;
+  width: var(--ai-frame-width);
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: calc(var(--ai-frame-width) / 30);
+  background: linear-gradient(to bottom, #1f202d 0 9.375%, transparent 9.375% 81.25%, #1f202d 81.25% 100%);
+  box-shadow: 0 calc(var(--ai-frame-width) / 48) calc(var(--ai-frame-width) / 16) rgb(0 0 0 / 50%);
   color: #fff;
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   pointer-events: none;
   user-select: none;
 }
 
-.ai-ball-classification__hud {
+.ai-ball-classification > .top-area,
+.ai-ball-classification > .ai-ball-classification__hud {
+  position: relative;
+  z-index: 3;
+  grid-row: 1;
   display: flex;
-  gap: 12px;
-  align-items: stretch;
-  justify-content: space-between;
-}
-
-.ai-ball-classification__target,
-.ai-ball-classification__status {
-  display: flex;
-  gap: 10px;
   align-items: center;
-  min-height: 62px;
-  padding: 9px 13px;
-  border: 1px solid rgb(0 206 201 / 55%);
-  border-radius: 13px;
-  background: rgb(20 22 37 / 86%);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 22%);
-  backdrop-filter: blur(7px);
+  justify-content: space-between;
+  min-width: 0;
+  height: 100%;
+  padding-inline: calc(var(--ai-frame-width) / 24);
+  border-bottom: max(1px, calc(var(--ai-frame-width) / 240)) solid #34374c;
+  background: #1f202d;
 }
 
-.ai-ball-classification__target {
-  color: #c8c2ff;
-  font-size: clamp(0.72rem, 1.8vw, 0.92rem);
-  letter-spacing: 0.08em;
+.ai-ball-classification .target-box,
+.ai-ball-classification .ai-ball-classification__target {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: calc(var(--ai-frame-width) / 48);
+  color: #fff;
+  font-size: clamp(0.62rem, calc(var(--ai-frame-width) / 34.3), 0.875rem);
+  white-space: nowrap;
 }
 
-.ai-ball-classification__target-image {
-  width: 42px;
-  height: 42px;
-  border: 2px solid #a29bfe;
+.ai-ball-classification .target-badge,
+.ai-ball-classification .ai-ball-classification__target > strong {
+  overflow: hidden;
+  max-width: calc(var(--ai-frame-width) * 0.48);
+  padding: calc(var(--ai-frame-width) / 120) calc(var(--ai-frame-width) / 48);
+  border-radius: 999px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: clamp(0.56rem, calc(var(--ai-frame-width) / 40), 0.75rem);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-ball-classification .progress-box,
+.ai-ball-classification .ai-ball-classification__status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25em;
+  color: #00cec9;
+  font-size: clamp(0.66rem, calc(var(--ai-frame-width) / 30), 1rem);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ai-ball-classification .ai-ball-classification__status > span {
+  color: #a0a5b5;
+  font-size: 0.72em;
+  font-weight: 600;
+}
+
+.ai-ball-classification .ai-ball-classification__target-image {
+  width: calc(var(--ai-frame-width) / 12);
+  height: calc(var(--ai-frame-width) / 12);
+  flex: 0 0 auto;
+  border: max(1px, calc(var(--ai-frame-width) / 240)) solid #a29bfe;
   border-radius: 50%;
   background: #6c5ce7;
   object-fit: cover;
 }
 
-.ai-ball-classification__status {
-  flex-direction: column;
-  gap: 3px;
-  align-items: flex-end;
-  justify-content: center;
+.ai-ball-classification > .bottom-area {
+  position: relative;
+  z-index: 3;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding-inline: calc(var(--ai-frame-width) / 20);
+  border-top: max(1px, calc(var(--ai-frame-width) / 240)) solid #34374c;
+  background: #1f202d;
+}
+
+.ai-ball-classification .control-info {
   color: #a0a5b5;
-  font-size: clamp(0.7rem, 1.7vw, 0.86rem);
+  font-size: clamp(0.56rem, calc(var(--ai-frame-width) / 36.9), 0.8125rem);
+  line-height: 1.35;
 }
 
-.ai-ball-classification__status strong {
-  color: #65f4ec;
-  font-size: clamp(0.9rem, 2.1vw, 1.12rem);
-}
-
-.ai-ball-classification__countdown {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  margin: 0;
-  place-items: center;
-  color: #65f4ec;
-  font-size: clamp(4.5rem, 18vw, 9rem);
-  font-weight: 1000;
-  line-height: 1;
-  text-shadow: 0 0 28px rgb(0 206 201 / 70%);
-}
-
-.ai-ball-classification__countdown:empty {
-  display: none;
-}
-
-.ai-ball-classification__feedback {
+.ai-ball-classification .btn-lid,
+.ai-ball-classification > .ai-ball-classification__lid {
+  width: 37.5%;
+  height: 50%;
+  min-height: 0;
   align-self: center;
-  min-height: 1.5em;
-  margin: auto 0 0;
-  padding: 7px 13px;
-  border-radius: 999px;
-  background: rgb(20 22 37 / 80%);
-  color: #f6f7ff;
-  font-size: clamp(0.76rem, 1.9vw, 0.96rem);
-  font-weight: 800;
-  text-align: center;
-  backdrop-filter: blur(6px);
-}
-
-.ai-ball-classification__lid {
-  align-self: center;
-  width: min(360px, 100%);
-  min-height: 58px;
   border: 0;
-  border-radius: 15px;
+  border-radius: calc(var(--ai-frame-width) / 40);
+  box-shadow: 0 calc(var(--ai-frame-width) / 120) calc(var(--ai-frame-width) / 40) rgb(0 0 0 / 30%);
   color: #fff;
   font: inherit;
-  font-weight: 1000;
-  letter-spacing: 0.05em;
+  font-size: clamp(0.62rem, calc(var(--ai-frame-width) / 30), 1rem);
+  font-weight: 800;
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
-  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+  transition: transform 150ms ease, filter 150ms ease, box-shadow 150ms ease;
 }
 
-.ai-ball-classification__lid.is-closed {
-  background: #ff6768;
-  box-shadow: 0 7px 0 #8f323d;
+.ai-ball-classification .btn-lid.closed,
+.ai-ball-classification .btn-lid.is-closed,
+.ai-ball-classification > .ai-ball-classification__lid.is-closed {
+  background: #ff7675;
 }
 
-.ai-ball-classification__lid.is-open {
+.ai-ball-classification .btn-lid.open,
+.ai-ball-classification .btn-lid.is-open,
+.ai-ball-classification > .ai-ball-classification__lid.is-open {
   background: #55efc4;
-  color: #17272a;
-  box-shadow: 0 7px 0 #247c70;
+  color: #2d3436;
 }
 
-.ai-ball-classification__lid:active:not(:disabled) {
-  transform: translateY(4px);
-  box-shadow: 0 3px 0 #26324e;
+.ai-ball-classification .btn-lid:active:not(:disabled),
+.ai-ball-classification > .ai-ball-classification__lid:active:not(:disabled) {
+  transform: translateY(calc(var(--ai-frame-width) / 240));
 }
 
-.ai-ball-classification__lid:focus-visible {
-  outline: 3px solid #fff;
-  outline-offset: 3px;
+.ai-ball-classification .btn-lid:focus-visible,
+.ai-ball-classification > .ai-ball-classification__lid:focus-visible {
+  outline: max(2px, calc(var(--ai-frame-width) / 160)) solid #fff;
+  outline-offset: max(2px, calc(var(--ai-frame-width) / 160));
 }
 
-.ai-ball-classification__lid:disabled {
+.ai-ball-classification .btn-lid:disabled,
+.ai-ball-classification > .ai-ball-classification__lid:disabled {
   cursor: not-allowed;
-  filter: grayscale(0.65);
-  opacity: 0.55;
+  filter: grayscale(0.45);
+  opacity: 0.62;
 }
 
-@media (max-width: 560px), (max-height: 560px) {
-  .ai-ball-classification {
-    gap: 8px;
-    padding: 10px;
-  }
+.ai-ball-classification .countdown-overlay {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+}
 
-  .ai-ball-classification__target,
-  .ai-ball-classification__status {
-    min-height: 50px;
-    padding: 6px 9px;
-  }
+.ai-ball-classification .countdown-overlay.hidden {
+  display: none;
+}
 
-  .ai-ball-classification__target-image {
-    width: 34px;
-    height: 34px;
-  }
+.ai-ball-classification .countdown-card,
+.ai-ball-classification > .ai-ball-classification__countdown {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: calc(var(--ai-frame-width) / 16);
+  background: rgb(15 16 25 / 92%);
+  color: #00cec9;
+  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 5.625rem);
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
 
-  .ai-ball-classification__feedback {
-    padding: 5px 10px;
-  }
+.ai-ball-classification > .ai-ball-classification__countdown:empty,
+.ai-ball-classification .countdown-card[hidden] {
+  display: none;
+}
 
-  .ai-ball-classification__lid {
-    min-height: 50px;
-  }
+.ai-ball-classification .countdown-card h3 {
+  margin: 0 0 calc(var(--ai-frame-width) / 24);
+  color: #dfe6e9;
+  font-size: clamp(0.76rem, calc(var(--ai-frame-width) / 24), 1.25rem);
+}
+
+.ai-ball-classification .target-preview-box {
+  display: grid;
+  width: min(83.333%, 400px);
+  aspect-ratio: 4 / 3;
+  place-items: center;
+}
+
+.ai-ball-classification .target-preview-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ai-ball-classification .countdown-text {
+  color: #00cec9;
+  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 5.625rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.ai-ball-classification .ai-ball-classification-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-ball-classification__lid {
+  .ai-ball-classification .btn-lid,
+  .ai-ball-classification > .ai-ball-classification__lid {
     transition: none;
   }
 }

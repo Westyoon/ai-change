@@ -315,3 +315,19 @@ AI의 `assets/images/sample.png`는 asset manifest에 `ASSET-AI-002`로 등록�
 - Cloudflare preview: `https://ai-change-games.dot-pluto.workers.dev`
 - Cloudflare Version ID: `fcb9608d-a028-47a8-98b9-8e3f85493a79`
 - 원격 module에서 직접 `minigame` route, `dialogue` 우회, 카드 click 연결과 CSP·`nosniff`를 확인했습니다.
+
+## 2026-08-28 AI 원본 충실 복원
+
+Git 이력을 다시 대조한 결과 `origin/prototype/ai-minigame@ebfda86`는 AI 통합 커밋 `57e0a5c`의 실제 두 번째 parent였습니다. 따라서 문제는 브랜치가 병합되지 않은 것이 아니라, 이전 통합 과정에서 기능 코드를 공통 adapter로 옮기며 원본 UI와 실제 물리를 필요 이상으로 다시 작성한 데 있었습니다.
+
+이번에는 해당 브랜치의 플레이 화면과 동작을 기준으로 AI 미니게임을 다시 맞췄습니다.
+
+- 원본의 `480×640` 세로형 구조와 상단 정보·`480×460` Canvas·하단 조작 영역 비율을 복원했습니다.
+- Canvas의 중앙 목표 이미지, 레일, 분류함, 뚜껑, 공의 외곽선과 이미지 표현을 원본 흐름에 맞췄습니다.
+- 목표 공과 방해 공 모두 기능 브랜치가 제공한 `assets/images/sample.png`를 사용하는 원래 표현을 복원했습니다.
+- 시작 countdown, 목표 안내, 진행 문구와 `OPEN`·`CLOSE` 버튼 상태 문구를 원본 기준으로 되돌렸습니다.
+- 원본 코드가 실제로 사용한 가로 속도 `width × 0.8`과 이동 시간의 절반인 생성 간격을 유지했습니다. 기준 폭 `480`에서는 이동 시간이 `1.25초`, 생성 간격이 `0.625초`입니다.
+
+통합 웹앱에서 필요한 공통 host 계약만 유지했습니다. `createMiniGame` 생명주기, attempt 식별, pause·resume, 공통 result 반환, 오류·cleanup 처리는 기존 host에 연결하고, AI 스타일은 다른 scene과 미니게임에 영향을 주지 않도록 범위를 AI root 아래로 제한했습니다. 독립 실행용 root entry나 AI 전용 결과 popup을 되살리는 대신, 게임 고유 화면·Canvas 렌더링·물리·문구는 원본 브랜치에 충실하게 복원했습니다.
+
+검증 결과는 runtime 파일 `120개`와 JSON 문서 `21개` 검증, 전체 단위·계약 테스트 `44/44`, source HTTP smoke `30건`, production build `83개` 파일, dist HTTP smoke `36건` 모두 통과했습니다. 또한 AI 전용 계약 테스트로 원본 shell class와 `480×460` Canvas가 mount되고 destroy 시 공통 host class·`960×540` 크기로 되돌아오는 과정까지 고정했습니다.

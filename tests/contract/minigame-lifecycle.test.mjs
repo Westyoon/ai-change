@@ -80,6 +80,15 @@ function createFakeUiRoot() {
   return new FakeElement("div", ownerDocument);
 }
 
+function findByClass(root, className) {
+  if (root.className.split(/\s+/u).includes(className)) return root;
+  for (const child of root.children) {
+    const match = findByClass(child, className);
+    if (match) return match;
+  }
+  return null;
+}
+
 async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
 }
@@ -247,4 +256,51 @@ test("AI canvas failures become one attempt-scoped host error", async () => {
     error: expectedError,
   }]);
   instance.destroy();
+});
+
+test("AI mounts the prototype shell and restores the shared host shell on destroy", async () => {
+  const module = await loadMiniGameModule("ai-ball-classification");
+  const configs = await loadGameConfigs();
+  const stage = { className: "minigame-stage" };
+  const canvas = {
+    width: 960,
+    height: 540,
+    className: "minigame-canvas",
+    parentElement: stage,
+    getContext() {
+      return {};
+    },
+  };
+  const uiRoot = createFakeUiRoot();
+  uiRoot.className = "minigame-ui-root";
+  const instance = module.createMiniGame({ canvas, uiRoot });
+
+  await instance.init(configs.get("ai-ball-classification"));
+
+  assert.equal(canvas.width, 480);
+  assert.equal(canvas.height, 460);
+  assert.match(canvas.className, /\bai-ball-classification-canvas\b/u);
+  assert.match(stage.className, /\bai-ball-classification-stage\b/u);
+  assert.match(uiRoot.className, /\bai-ball-classification-ui-root\b/u);
+  for (const className of [
+    "ai-ball-classification",
+    "top-area",
+    "target-box",
+    "target-badge",
+    "progress-box",
+    "countdown-card",
+    "target-preview-box",
+    "bottom-area",
+    "control-info",
+    "btn-lid",
+  ]) {
+    assert.ok(findByClass(uiRoot, className), className);
+  }
+
+  instance.destroy();
+  assert.equal(canvas.width, 960);
+  assert.equal(canvas.height, 540);
+  assert.equal(canvas.className, "minigame-canvas");
+  assert.equal(stage.className, "minigame-stage");
+  assert.equal(uiRoot.className, "minigame-ui-root");
 });

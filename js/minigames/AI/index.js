@@ -6,9 +6,12 @@ import {
   advanceBall,
   classifyBallResolution,
   createBallQueue,
+  getBallMotionProfile,
 } from "./queue.js";
 
 const MINI_GAME_ID = "ai-ball-classification";
+const PROTOTYPE_CANVAS_WIDTH = 480;
+const PROTOTYPE_CANVAS_HEIGHT = 460;
 
 function createAbortError() {
   if (typeof DOMException === "function") {
@@ -38,19 +41,30 @@ function integerAtLeast(value, minimum, fallback) {
   return Number.isInteger(value) ? Math.max(minimum, value) : fallback;
 }
 
+function addClassName(target, className) {
+  if (!target) return;
+  const current = typeof target.className === "string" ? target.className : "";
+  const names = new Set(current.split(/\s+/u).filter(Boolean));
+  names.add(className);
+  target.className = [...names].join(" ");
+}
+
+function emptyUi() {
+  return {
+    root: null,
+    progress: null,
+    progressTotal: null,
+    countdownOverlay: null,
+    countdownText: null,
+    countdownImage: null,
+    status: null,
+    lidButton: null,
+  };
+}
+
 function buildUi(uiRoot) {
   const documentRef = uiRoot?.ownerDocument ?? globalThis.document;
-  if (!uiRoot?.append || !documentRef?.createElement) {
-    return {
-      root: null,
-      progress: null,
-      countdown: null,
-      feedback: null,
-      lidButton: null,
-      targetImage: null,
-      state: null,
-    };
-  }
+  if (!uiRoot?.append || !documentRef?.createElement) return emptyUi();
 
   const root = documentRef.createElement("section");
   root.className = "ai-ball-classification";
@@ -58,50 +72,87 @@ function buildUi(uiRoot) {
   root.setAttribute("role", "region");
   root.setAttribute("aria-label", "AI 공 분류 게임");
 
-  const hud = documentRef.createElement("header");
-  hud.className = "ai-ball-classification__hud";
+  const topArea = documentRef.createElement("header");
+  topArea.className = "top-area";
+  const targetBox = documentRef.createElement("div");
+  targetBox.className = "target-box";
+  const targetLabel = documentRef.createElement("span");
+  targetLabel.textContent = "목표:";
+  const targetBadge = documentRef.createElement("span");
+  targetBadge.className = "target-badge";
+  targetBadge.textContent = "DATA 공 (보라색)";
+  targetBox.append(targetLabel, targetBadge);
 
-  const targetCard = documentRef.createElement("div");
-  targetCard.className = "ai-ball-classification__target";
-  const targetLabel = documentRef.createElement("strong");
-  targetLabel.textContent = "TARGET · DATA";
-  const targetImage = documentRef.createElement("img");
-  targetImage.className = "ai-ball-classification__target-image";
-  targetImage.alt = "분류할 목표 공";
-  targetCard.append(targetLabel, targetImage);
-
-  const statusGroup = documentRef.createElement("div");
-  statusGroup.className = "ai-ball-classification__status";
-  const state = documentRef.createElement("span");
-  const progress = documentRef.createElement("strong");
+  const progressBox = documentRef.createElement("div");
+  progressBox.className = "progress-box";
+  const progressLabel = documentRef.createElement("span");
+  progressLabel.textContent = "수집: ";
+  const progress = documentRef.createElement("span");
+  progress.textContent = "0";
   progress.setAttribute("aria-live", "polite");
-  statusGroup.append(state, progress);
-  hud.append(targetCard, statusGroup);
+  const progressDivider = documentRef.createElement("span");
+  progressDivider.textContent = " / ";
+  const progressTotal = documentRef.createElement("span");
+  progressTotal.textContent = "5";
+  progressBox.append(progressLabel, progress, progressDivider, progressTotal);
+  topArea.append(targetBox, progressBox);
 
-  const countdown = documentRef.createElement("p");
-  countdown.className = "ai-ball-classification__countdown";
-  countdown.setAttribute("aria-live", "polite");
+  const countdownOverlay = documentRef.createElement("div");
+  countdownOverlay.className = "overlay countdown-overlay hidden";
+  const countdownCard = documentRef.createElement("div");
+  countdownCard.className = "countdown-card";
+  const countdownHeading = documentRef.createElement("h3");
+  countdownHeading.textContent = "수집할 공 이미지";
+  const targetPreviewBox = documentRef.createElement("div");
+  targetPreviewBox.className = "target-preview-box";
+  const countdownImage = documentRef.createElement("img");
+  countdownImage.className = "countdown-target-img";
+  countdownImage.alt = "목표 공 이미지";
+  targetPreviewBox.append(countdownImage);
+  const countdownText = documentRef.createElement("div");
+  countdownText.className = "countdown-text";
+  countdownText.setAttribute("aria-live", "assertive");
+  countdownCard.append(countdownHeading, targetPreviewBox, countdownText);
+  countdownOverlay.append(countdownCard);
 
-  const feedback = documentRef.createElement("p");
-  feedback.className = "ai-ball-classification__feedback";
-  feedback.setAttribute("aria-live", "polite");
+  const status = documentRef.createElement("p");
+  status.className = "ai-ball-classification-status";
+  status.setAttribute("aria-live", "polite");
 
+  const bottomArea = documentRef.createElement("footer");
+  bottomArea.className = "bottom-area";
+  const controlInfo = documentRef.createElement("div");
+  controlInfo.className = "control-info";
+  controlInfo.textContent = "분류통 뚜껑 조작";
   const lidButton = documentRef.createElement("button");
   lidButton.type = "button";
-  lidButton.className = "ai-ball-classification__lid is-closed";
-  lidButton.textContent = "CLOSE · 뚜껑 닫힘";
+  lidButton.className = "btn-lid closed";
+  lidButton.textContent = "CLOSE (뚜껑 닫힘)";
   lidButton.disabled = true;
+  bottomArea.append(controlInfo, lidButton);
 
-  root.append(hud, countdown, feedback, lidButton);
+  root.append(topArea, countdownOverlay, status, bottomArea);
   uiRoot.append(root);
-  return { root, progress, countdown, feedback, lidButton, targetImage, state };
+  return {
+    root,
+    progress,
+    progressTotal,
+    countdownOverlay,
+    countdownText,
+    countdownImage,
+    status,
+    lidButton,
+  };
 }
 
 function requestFrame(callback) {
   if (typeof globalThis.requestAnimationFrame === "function") {
     return globalThis.requestAnimationFrame(callback);
   }
-  return globalThis.setTimeout?.(() => callback(globalThis.performance?.now?.() ?? Date.now()), 16);
+  return globalThis.setTimeout?.(
+    () => callback(globalThis.performance?.now?.() ?? Date.now()),
+    16,
+  );
 }
 
 function cancelFrame(handle) {
@@ -113,6 +164,12 @@ function cancelFrame(handle) {
   }
 }
 
+function canDrawImage(image) {
+  if (!image || image.complete === false) return false;
+  if (Number.isFinite(image.naturalWidth) && image.naturalWidth <= 0) return false;
+  return true;
+}
+
 export function createMiniGame(context = {}) {
   const inputLock = new InputLock();
   const clock = new MiniGameClock({
@@ -121,9 +178,17 @@ export function createMiniGame(context = {}) {
   const removers = [];
   const canvas = context.canvas ?? null;
   const canvasContext = canvas?.getContext?.("2d") ?? null;
+  const stage = canvas?.parentElement ?? null;
+  const originalCanvasClassName = typeof canvas?.className === "string" ? canvas.className : "";
+  const originalStageClassName = typeof stage?.className === "string" ? stage.className : "";
+  const originalUiRootClassName = typeof context.uiRoot?.className === "string"
+    ? context.uiRoot.className
+    : "";
+  const originalCanvasWidth = canvas?.width;
+  const originalCanvasHeight = canvas?.height;
 
   let config = null;
-  let ui = buildUi(null);
+  let ui = emptyUi();
   let lifecycleState = "CREATED";
   let currentAttemptId = null;
   let terminal = false;
@@ -141,46 +206,79 @@ export function createMiniGame(context = {}) {
   let nonTargetsPassed = 0;
   let ballsResolved = 0;
   let failureReason = null;
-  let targetImage = null;
-  let feedbackText = "목표 공만 분류통에 담으세요.";
+  let sampleImage = null;
+  let feedbackText = "굴러오는 공 중 목표 공만 분류통에 담으세요!";
 
   function addListener(target, type, listener) {
     target?.addEventListener?.(type, listener);
     removers.push(() => target?.removeEventListener?.(type, listener));
   }
 
-  function setState(nextState) {
-    lifecycleState = nextState;
-    if (ui.state) ui.state.textContent = `상태: ${nextState}`;
-    updateUi();
+  function applyPrototypeShell() {
+    addClassName(canvas, "ai-ball-classification-canvas");
+    addClassName(stage, "ai-ball-classification-stage");
+    addClassName(context.uiRoot, "ai-ball-classification-ui-root");
+    if (canvas) {
+      canvas.width = PROTOTYPE_CANVAS_WIDTH;
+      canvas.height = PROTOTYPE_CANVAS_HEIGHT;
+    }
+  }
+
+  function restorePrototypeShell() {
+    if (canvas) {
+      canvas.className = originalCanvasClassName;
+      if (originalCanvasWidth != null) canvas.width = originalCanvasWidth;
+      if (originalCanvasHeight != null) canvas.height = originalCanvasHeight;
+    }
+    if (stage) stage.className = originalStageClassName;
+    if (context.uiRoot) context.uiRoot.className = originalUiRootClassName;
   }
 
   function updateUi() {
-    if (ui.progress) {
-      ui.progress.textContent = `수집 ${collectedTargets}/${config?.targetCount ?? 5}`;
-    }
-    if (ui.countdown) {
-      ui.countdown.textContent = countdownRemaining > 0
+    if (ui.progress) ui.progress.textContent = String(collectedTargets);
+    if (ui.progressTotal) ui.progressTotal.textContent = String(config?.targetCount ?? 5);
+    if (ui.countdownText) {
+      ui.countdownText.textContent = countdownRemaining > 0
         ? String(Math.max(1, Math.ceil(countdownRemaining)))
         : "";
     }
-    if (ui.feedback) ui.feedback.textContent = feedbackText;
+    if (ui.countdownOverlay) {
+      const countingDown = lifecycleState === "RUNNING" && countdownRemaining > 0;
+      ui.countdownOverlay.className = countingDown
+        ? "overlay countdown-overlay"
+        : "overlay countdown-overlay hidden";
+      ui.countdownOverlay.setAttribute("aria-hidden", countingDown ? "false" : "true");
+    }
+    if (ui.status) ui.status.textContent = feedbackText;
     if (ui.lidButton) {
       const isOpen = lidState === "OPEN";
       ui.lidButton.textContent = isOpen
-        ? config?.uiText?.lidOpen ?? "OPEN · 뚜껑 열림"
-        : config?.uiText?.lidClose ?? "CLOSE · 뚜껑 닫힘";
-      ui.lidButton.className = `ai-ball-classification__lid ${isOpen ? "is-open" : "is-closed"}`;
-      ui.lidButton.disabled = lifecycleState !== "RUNNING" || inputLock.locked || countdownRemaining > 0;
+        ? config?.uiText?.lidOpen ?? "OPEN (뚜껑 열림)"
+        : config?.uiText?.lidClose ?? "CLOSE (뚜껑 닫힘)";
+      ui.lidButton.className = `btn-lid ${isOpen ? "open" : "closed"}`;
+      ui.lidButton.disabled =
+        lifecycleState !== "RUNNING" || inputLock.locked || countdownRemaining > 0;
     }
   }
 
+  function setState(nextState) {
+    lifecycleState = nextState;
+    updateUi();
+  }
+
+  function setPreviewImage() {
+    if (!ui.countdownImage) return;
+    if (sampleImage?.src) ui.countdownImage.src = sampleImage.src;
+    else ui.countdownImage.removeAttribute?.("src");
+  }
+
   function resetRunState() {
-    targetImage = context.assets?.get?.(config.targetAssetId) ?? null;
+    sampleImage = context.assets?.get?.(config.targetAssetId) ?? null;
     ballQueue = createBallQueue({
       targetCount: config.targetCount,
       nonTargetCount: config.nonTargetCount,
-      targetImage,
+      targetImage: sampleImage,
+      nonTargetImage: sampleImage,
     });
     activeBalls = [];
     lidState = config.initialLidState === "OPEN" ? "OPEN" : "CLOSED";
@@ -192,13 +290,12 @@ export function createMiniGame(context = {}) {
     nonTargetsPassed = 0;
     ballsResolved = 0;
     failureReason = null;
-    feedbackText = config.uiText?.ruleExplanation ?? "목표 공만 분류통에 담으세요.";
+    feedbackText = config.uiText?.ruleExplanation
+      ?? "굴러오는 공 중 목표 공만 분류통에 담으세요!";
     lastElapsedMs = 0;
     inputLock.clear();
-    if (ui.targetImage) {
-      if (targetImage?.src) ui.targetImage.src = targetImage.src;
-      else ui.targetImage.removeAttribute?.("src");
-    }
+    setPreviewImage();
+    updateUi();
   }
 
   function resultMetrics() {
@@ -215,10 +312,10 @@ export function createMiniGame(context = {}) {
 
   function reportRuntimeError(error) {
     if (
-      disposed ||
-      terminal ||
-      currentAttemptId == null ||
-      (lifecycleState !== "RUNNING" && lifecycleState !== "PAUSED")
+      disposed
+      || terminal
+      || currentAttemptId == null
+      || (lifecycleState !== "RUNNING" && lifecycleState !== "PAUSED")
     ) {
       return false;
     }
@@ -228,6 +325,7 @@ export function createMiniGame(context = {}) {
     frameHandle = null;
     inputLock.lock("TERMINAL");
     clock.stop();
+    feedbackText = "게임을 계속 실행할 수 없습니다.";
     setState("ERROR");
     context.onError?.(currentAttemptId, error);
     return true;
@@ -235,11 +333,11 @@ export function createMiniGame(context = {}) {
 
   function finish(status, reason = null, attemptId = currentAttemptId) {
     if (
-      disposed ||
-      terminal ||
-      attemptId == null ||
-      attemptId !== currentAttemptId ||
-      (lifecycleState !== "RUNNING" && lifecycleState !== "PAUSED")
+      disposed
+      || terminal
+      || attemptId == null
+      || attemptId !== currentAttemptId
+      || (lifecycleState !== "RUNNING" && lifecycleState !== "PAUSED")
     ) {
       return false;
     }
@@ -253,6 +351,7 @@ export function createMiniGame(context = {}) {
     frameHandle = null;
     inputLock.lock("TERMINAL");
     clock.stop();
+    feedbackText = status === "CLEAR" ? "목표 공을 모두 수집했습니다!" : feedbackText;
     setState("RESOLVING");
 
     let candidate;
@@ -277,7 +376,6 @@ export function createMiniGame(context = {}) {
     try {
       context.onComplete?.(attemptId, candidate);
     } catch (error) {
-      // A host callback failure must not be reclassified as a second game result.
       globalThis.console?.error?.("AI Ball Classification host completion callback failed.", error);
     }
     return true;
@@ -287,18 +385,18 @@ export function createMiniGame(context = {}) {
     if (lifecycleState !== "RUNNING" || terminal || inputLock.locked || countdownRemaining > 0) {
       return false;
     }
-    lidState = lidState === "OPEN" ? "CLOSED" : "OPEN";
+    lidState = lidState === "CLOSED" ? "OPEN" : "CLOSED";
     feedbackText = lidState === "OPEN" ? "분류통을 열었습니다." : "분류통을 닫았습니다.";
     updateUi();
     return true;
   }
 
   function spawnBall(width, trackY) {
-    const next = ballQueue.shift();
-    if (!next) return;
-    const radius = Math.min(34, Math.max(14, width * 0.035));
+    const nextBall = ballQueue.shift();
+    if (!nextBall) return;
+    const radius = width * 0.035;
     activeBalls.push({
-      ...next,
+      ...nextBall,
       x: -radius,
       y: trackY - radius,
       radius,
@@ -315,16 +413,31 @@ export function createMiniGame(context = {}) {
       if (collectedTargets >= config.targetCount) finish("CLEAR");
     } else if (resolution === "WRONG_BALL") {
       wrongCollected += 1;
-      feedbackText = config.uiText?.failReasons?.WRONG_BALL ?? "오답 공을 담았습니다.";
+      feedbackText = config.uiText?.failReasons?.WRONG_BALL ?? "오답 공이 통에 들어갔습니다!";
       finish("FAIL", "WRONG_BALL");
     } else if (resolution === "MISSED_TARGET") {
       targetMissed += 1;
-      feedbackText = config.uiText?.failReasons?.MISSED_TARGET ?? "목표 공을 놓쳤습니다.";
+      feedbackText = config.uiText?.failReasons?.MISSED_TARGET ?? "정답 공을 놓쳤습니다!";
       finish("FAIL", "MISSED_TARGET");
     } else {
       nonTargetsPassed += 1;
       feedbackText = "방해 공을 통과시켰습니다.";
     }
+  }
+
+  function layout() {
+    const width = Math.max(1, Number(canvas?.width) || PROTOTYPE_CANVAS_WIDTH);
+    const height = Math.max(1, Number(canvas?.height) || PROTOTYPE_CANVAS_HEIGHT);
+    return {
+      width,
+      height,
+      trackY: height * 0.6,
+      binX: width * 0.65,
+      binY: height * 0.72,
+      binWidth: width * 0.2,
+      binHeight: height * 0.22,
+      ...getBallMotionProfile(width, height),
+    };
   }
 
   function update(deltaSeconds) {
@@ -336,27 +449,18 @@ export function createMiniGame(context = {}) {
       return;
     }
 
-    const width = Math.max(1, Number(canvas?.width) || 960);
-    const height = Math.max(1, Number(canvas?.height) || 540);
-    const trackY = height * 0.58;
-    const binX = width * 0.65;
-    const binY = height * 0.72;
-    const binWidth = width * 0.2;
-    const horizontalSpeed = width * finiteAtLeast(config.ballSpeed, 0.05, 0.8);
-    const fallSpeed = height * 2;
-    const spawnInterval = finiteAtLeast(config.spawnIntervalSeconds, 0.15, 0.9);
-
+    const scene = layout();
     spawnAccumulator += deltaSeconds;
-    while (spawnAccumulator >= spawnInterval && ballQueue.length > 0) {
-      spawnAccumulator -= spawnInterval;
-      spawnBall(width, trackY);
+    if (spawnAccumulator >= scene.spawnInterval && ballQueue.length > 0) {
+      spawnAccumulator = 0;
+      spawnBall(scene.width, scene.trackY);
     }
 
     for (let index = activeBalls.length - 1; index >= 0; index -= 1) {
       const ball = activeBalls[index];
-      advanceBall(ball, deltaSeconds, { horizontalSpeed, fallSpeed });
+      advanceBall(ball, deltaSeconds, scene);
       if (ball.falling) {
-        if (ball.y > binY + 40) {
+        if (ball.y > scene.binY + 40) {
           activeBalls.splice(index, 1);
           resolveBall(ball, true);
           if (terminal) {
@@ -367,9 +471,11 @@ export function createMiniGame(context = {}) {
         continue;
       }
 
-      const inBinZone = ball.x >= binX + 15 && ball.x <= binX + binWidth - 15;
+      const inBinZone =
+        ball.x >= scene.binX + 15
+        && ball.x <= scene.binX + scene.binWidth - 15;
       if (inBinZone && lidState === "OPEN") ball.falling = true;
-      if (ball.x > binX + binWidth + ball.radius) {
+      if (ball.x > scene.binX + scene.binWidth + 20) {
         activeBalls.splice(index, 1);
         resolveBall(ball, false);
         if (terminal) {
@@ -381,49 +487,79 @@ export function createMiniGame(context = {}) {
     updateUi();
   }
 
+  function renderTargetPreview(scene) {
+    const centerX = scene.width / 2;
+    const startY = 15;
+    const maxBoxSize = Math.min(scene.width * 0.16, 110);
+    const panelWidth = Math.max(maxBoxSize + 40, 150);
+    const panelHeight = maxBoxSize + 35;
+    canvasContext.save();
+    canvasContext.fillStyle = "rgba(0, 0, 0, 0.65)";
+    canvasContext.beginPath();
+    if (typeof canvasContext.roundRect === "function") {
+      canvasContext.roundRect(centerX - panelWidth / 2, startY, panelWidth, panelHeight, 12);
+    } else {
+      canvasContext.rect(centerX - panelWidth / 2, startY, panelWidth, panelHeight);
+    }
+    canvasContext.fill();
+    canvasContext.fillStyle = "#a29bfe";
+    canvasContext.font = "bold 13px sans-serif";
+    canvasContext.textAlign = "center";
+    canvasContext.textBaseline = "alphabetic";
+    canvasContext.fillText("TARGET", centerX, startY + 18);
+
+    if (canDrawImage(sampleImage)) {
+      const imageWidth = finiteAtLeast(sampleImage.naturalWidth, 1, maxBoxSize);
+      const imageHeight = finiteAtLeast(sampleImage.naturalHeight, 1, maxBoxSize);
+      const scale = Math.min(maxBoxSize / imageWidth, maxBoxSize / imageHeight);
+      const drawWidth = imageWidth * scale;
+      const drawHeight = imageHeight * scale;
+      canvasContext.drawImage(
+        sampleImage,
+        centerX - drawWidth / 2,
+        startY + 25 + (maxBoxSize - drawHeight) / 2,
+        drawWidth,
+        drawHeight,
+      );
+    } else {
+      canvasContext.fillStyle = "#ffffff";
+      canvasContext.font = "12px sans-serif";
+      canvasContext.fillText("Loading...", centerX, startY + 45);
+    }
+    canvasContext.restore();
+  }
+
   function render() {
     if (!canvasContext || !canvas) return;
-    const width = Math.max(1, Number(canvas.width) || 960);
-    const height = Math.max(1, Number(canvas.height) || 540);
-    const trackY = height * 0.58;
-    const binX = width * 0.65;
-    const binY = height * 0.72;
-    const binWidth = width * 0.2;
-    const binHeight = height * 0.22;
-
-    canvasContext.clearRect(0, 0, width, height);
-    canvasContext.fillStyle = "#20222f";
-    canvasContext.fillRect(0, 0, width, height);
-
+    const scene = layout();
+    canvasContext.clearRect(0, 0, scene.width, scene.height);
     canvasContext.fillStyle = "#3a3d52";
-    canvasContext.fillRect(0, trackY, width, Math.max(8, height * 0.018));
-
+    canvasContext.fillRect(0, scene.trackY, scene.width, 10);
     canvasContext.fillStyle = "#4a4d66";
-    canvasContext.fillRect(binX, binY, binWidth, binHeight);
+    canvasContext.fillRect(scene.binX, scene.binY, scene.binWidth, scene.binHeight);
     canvasContext.strokeStyle = "#00cec9";
-    canvasContext.lineWidth = Math.max(2, width * 0.003);
-    canvasContext.strokeRect(binX, binY, binWidth, binHeight);
-
+    canvasContext.lineWidth = 3;
+    canvasContext.strokeRect(scene.binX, scene.binY, scene.binWidth, scene.binHeight);
+    canvasContext.save();
     if (lidState === "CLOSED") {
       canvasContext.fillStyle = "#ff7675";
-      canvasContext.fillRect(binX - 5, binY - 8, binWidth + 10, 10);
+      canvasContext.fillRect(scene.binX - 5, scene.binY - 8, scene.binWidth + 10, 10);
     } else {
       canvasContext.fillStyle = "#55efc4";
-      canvasContext.fillRect(binX - 5, binY, 10, binHeight - 10);
+      canvasContext.fillRect(scene.binX - 5, scene.binY, 10, scene.binHeight - 10);
     }
+    canvasContext.restore();
 
     for (const ball of activeBalls) {
       canvasContext.save();
       canvasContext.beginPath();
       canvasContext.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       canvasContext.closePath();
-      canvasContext.fillStyle = ball.isTarget ? "#6c5ce7" : "#fdcb6e";
-      canvasContext.fill();
-      canvasContext.lineWidth = 4;
-      canvasContext.strokeStyle = ball.isTarget ? "#c7bfff" : "#5c4812";
+      canvasContext.lineWidth = 3;
+      canvasContext.strokeStyle = ball.isTarget ? "#6c5ce7" : "#fdcb6e";
       canvasContext.stroke();
-      if (ball.isTarget && ball.image) {
-        canvasContext.clip();
+      canvasContext.clip();
+      if (canDrawImage(ball.image)) {
         canvasContext.drawImage(
           ball.image,
           ball.x - ball.radius,
@@ -431,14 +567,13 @@ export function createMiniGame(context = {}) {
           ball.radius * 2,
           ball.radius * 2,
         );
+      } else {
+        canvasContext.fillStyle = ball.isTarget ? "#6c5ce7" : "#fdcb6e";
+        canvasContext.fill();
       }
       canvasContext.restore();
     }
-
-    if (countdownRemaining > 0) {
-      canvasContext.fillStyle = "rgba(12,14,28,.48)";
-      canvasContext.fillRect(0, 0, width, height);
-    }
+    renderTargetPreview(scene);
   }
 
   function frame() {
@@ -493,8 +628,9 @@ export function createMiniGame(context = {}) {
 
       await Promise.resolve();
       throwIfUnavailable(signal, () => disposed);
-
+      applyPrototypeShell();
       ui = buildUi(context.uiRoot);
+      setPreviewImage();
       addListener(ui.lidButton, "click", toggleLid);
       const unsubscribeInput = context.input?.onAction?.((event) => {
         if (event?.phase === "press" && event.action === INPUT_ACTIONS.CONFIRM) toggleLid();
@@ -550,7 +686,8 @@ export function createMiniGame(context = {}) {
       ballQueue = [];
       for (const remove of removers.splice(0)) remove();
       ui.root?.remove?.();
-      ui = buildUi(null);
+      ui = emptyUi();
+      restorePrototypeShell();
       lifecycleState = "DESTROYED";
     },
 

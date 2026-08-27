@@ -11,6 +11,7 @@ export function createBallQueue({
   targetCount,
   nonTargetCount,
   targetImage = null,
+  nonTargetImage = null,
   random = DEFAULT_RANDOM,
 } = {}) {
   positiveInteger(targetCount, "targetCount");
@@ -29,9 +30,7 @@ export function createBallQueue({
     ...Array.from({ length: nonTargetCount }, (_, index) => ({
       id: `non-target-${index}`,
       isTarget: false,
-      // Distractors intentionally never reuse the target image. This keeps the
-      // fallback presentation distinguishable when only one source asset exists.
-      image: null,
+      image: nonTargetImage,
       variant: index,
     })),
   ];
@@ -45,6 +44,27 @@ export function createBallQueue({
     [queue[index], queue[target]] = [queue[target], queue[index]];
   }
   return queue;
+}
+
+export function getBallMotionProfile(width, height) {
+  if (!Number.isFinite(width) || width <= 0) {
+    throw new TypeError("width must be a positive finite number.");
+  }
+  if (!Number.isFinite(height) || height <= 0) {
+    throw new TypeError("height must be a positive finite number.");
+  }
+
+  // Keep the prototype branch's movement exactly: one screen in 1.25 seconds,
+  // with a new ball introduced halfway through that travel time.
+  const horizontalSpeed = width * 0.8;
+  const fallSpeed = height * 2;
+  const travelTime = width / horizontalSpeed;
+  return Object.freeze({
+    horizontalSpeed,
+    fallSpeed,
+    travelTime,
+    spawnInterval: travelTime / 2,
+  });
 }
 
 export function advanceBall(ball, deltaSeconds, { horizontalSpeed, fallSpeed } = {}) {
