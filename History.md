@@ -430,3 +430,5 @@ CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은
 - 분홍 레시피 제목, 보라색 모달 제목, 흰색 닫기 버튼과 원본 크기·간격·마크업은 변경하지 않았습니다.
 - CSE fidelity 검사에 밝은 모달의 어두운 글자색 계약을 추가했습니다.
 - 전체 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, production build 85개 파일, release smoke 37/37 통과
+- Production deployment: `https://4ca5a6d4.ai-change.pages.dev/` (source `040ba07`)
+- 대표 주소의 원격 CSS에서 모달 `color: #333`과 `[hidden]` 규칙을 모두 확인했고, 원격 CSS의 SHA-256이 로컬 `dist/`와 일치했습니다.
