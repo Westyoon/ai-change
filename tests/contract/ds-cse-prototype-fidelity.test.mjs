@@ -200,6 +200,10 @@ test("CSE restores prototype material, recipe, button, and shake markup without 
     stylesheet,
     /\.code-heart-game\s+\.ch-modal-backdrop\[hidden\]\s*\{[^}]*display:\s*none\s*!important/u,
   );
+  assert.match(
+    stylesheet,
+    /\.code-heart-game\s+\.ch-modal-card\s*\{[^}]*color:\s*#333/u,
+  );
   assert.equal(findByClass(uiRoot, "ch-modal-title")?.textContent, "📖 개발 레시피북");
   const recipeRows = findAllByClass(uiRoot, "ch-recipe-row");
   assert.equal(recipeRows.length, 4);

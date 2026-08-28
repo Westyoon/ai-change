@@ -419,3 +419,14 @@ CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은
 - Production deployment: `https://b5a718fd.ai-change.pages.dev/` (source `98ad465`)
 - 대표 주소 `https://ai-change.pages.dev/`의 원격 CSS에서 `[hidden]` 보정 규칙을 확인했고 CSE CSS·JS·JSON의 SHA-256이 로컬 `dist/`와 모두 일치했습니다.
 - 자동 브라우저가 연결되지 않아 실제 pointer·touch 캡처는 수행하지 못했습니다. CSE 정답 4개 주문은 DOM 상호작용 검사에서 `CLEAR`, 400점, 완료 callback 1회를 확인했습니다.
+
+### CSE 레시피 상세 글자색 원본 복원
+
+사용자 화면 확인 결과 레시피 제목은 보이지만 각 주문의 언어·엔진·라이브러리·도구 상세 문구가 밝은 카드에서 사라져 있었습니다. 데이터나 DOM이 누락된 것은 아니며, 상세 `span`과 원본 레시피 값은 모두 렌더링되고 있었습니다.
+
+원본 `origin/prototype/cse-minigame`은 `index.html`에서 저장소에 존재하지 않는 `css/common.css`를 요청했기 때문에 standalone 화면에서 브라우저 기본 검정 글자색을 사용했습니다. 통합본의 실제 `css/common.css`는 공통 다크 테마를 위해 `body`에 밝은 `--text` 색을 지정하고, CSE 레시피 상세에는 별도 색이 없어 흰색 모달·밝은 회색 레시피 카드 위로 해당 색이 상속됐습니다.
+
+- CSE의 흰색 `.ch-modal-card`에 원본 기본 글자색에 해당하는 `#333`을 component 범위로 지정했습니다.
+- 분홍 레시피 제목, 보라색 모달 제목, 흰색 닫기 버튼과 원본 크기·간격·마크업은 변경하지 않았습니다.
+- CSE fidelity 검사에 밝은 모달의 어두운 글자색 계약을 추가했습니다.
+- 전체 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, production build 85개 파일, release smoke 37/37 통과
