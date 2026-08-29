@@ -31,9 +31,7 @@ export default {
         
         console.log("생성된 구글 로그인 URL:", googleAuthUrl);
 
-        return new Response("구글 로그인 성공! 인증 코드를 정상적으로 받아왔습니다.", {
-            headers: { "Content-Type": "text/html; charset=utf-8" },
-        });
+        return Response.redirect(googleAuthUrl, 302);
       }
 
       // 2. 구글 로그인 완료 후 돌아오는 콜백 처리 (/api/auth/callback)
@@ -55,8 +53,14 @@ export default {
             grant_type: "authorization_code",
           }),
         });
+        
         const tokenData: any = await tokenRes.json();
-        if (!tokenData.access_token) return new Response("구글 토큰 발급 실패", { status: 400 });
+        
+        // 구글이 보낸 실제 에러 내용을 터미널에 출력
+        if (!tokenData.access_token) {
+          console.error("구글 토큰 교환 실패 상세 내용:", tokenData);
+          return Response.json({ error: "구글 토큰 발급 실패", details: tokenData }, { status: 400 });
+        }
 
         // 2-2. 토큰으로 구글 유저 정보(이메일, 이름) 가져오기
         const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -64,9 +68,18 @@ export default {
         });
         const googleUser: any = await userRes.json();
         
-        const userId = googleUser.sub; // 구글 고유 ID를 유저 ID로 사용
-        const email = googleUser.email;
-        const name = googleUser.name;
+        // 디버깅을 위한 로그 출력
+        console.log("구글에서 받아온 전체 유저 정보:", googleUser);
+
+        const userId = googleUser.id;
+        const email = googleUser.email || "no-email@google.com";
+        const name = googleUser.name || "사용자";
+
+        console.log("DB 저장 직전 데이터 확인:", { userId, email, name });
+
+        if (!userId) {
+          return new Response("구글 사용자 고유 ID(sub)를 가져오지 못했습니다.", { status: 400 });
+        }
 
         // 2-3. DB에 유저가 없으면 자동으로 회원가입 처리 (users & stats 생성)
         const existingUser = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(userId).first();
@@ -85,7 +98,7 @@ export default {
         return new Response(null, {
           status: 302,
           headers: {
-            Location: `http://localhost:5173?userId=${userId}`, // 프론트엔드 주소로 변경 가능
+            Location: `http://localhost:8787/api/users`, // 혹은 "https://www.google.com"
             "Set-Cookie": `userId=${userId}; Path=/; HttpOnly; SameSite=Lax`,
           },
         });
