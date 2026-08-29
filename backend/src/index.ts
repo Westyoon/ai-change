@@ -152,6 +152,33 @@ export default {
         return Response.json({ message: "갱신 완료", attack: updatedAttack, hp: updatedHp, defense: updatedDefense, clears: updatedClears, score: updatedScore }, { headers: corsHeaders });
       }
 
+      // 7. 랭킹 데이터 조회 (점수 또는 클리어 기준 정렬)
+      if (url.pathname === "/api/ranking" && request.method === "GET") {
+        const criteria = url.searchParams.get("criteria") === "clears" ? "clears" : "score";
+        
+        // stats 테이블과 users 테이블을 조인하여 이름과 스탯 정보를 함께 가져옴
+        const query = `
+          SELECT u.name, s.score, s.clears, s.attack 
+          FROM stats s 
+          JOIN users u ON s.user_id = u.id 
+          ORDER BY s.${criteria} DESC 
+          LIMIT 10
+        `;
+        
+        const { results } = await env.DB.prepare(query).all();
+        
+        // 프론트엔드가 요구하는 형식(rank 포함)으로 가공해서 전달
+        const rankedResults = results.map((user, index) => ({
+          rank: index + 1,
+          name: user.name,
+          score: user.score,
+          clears: user.clears,
+          attack: user.attack
+        }));
+
+        return Response.json(rankedResults, { headers: corsHeaders });
+      }
+
       return Response.json({ error: "Not Found" }, { status: 404, headers: corsHeaders });
 
     } catch (error: any) {

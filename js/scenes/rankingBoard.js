@@ -12,25 +12,24 @@ export default class RankingScene {
         await this.loadRankingData();
     }
 
-    // 데이터 로드 (현재는 로컬 더미 데이터, 추후 fetch로 교체)
     async loadRankingData() {
         try {
-            // TODO: 나중에 실제 백엔드 연동 시 아래 주석 해제
-            // const response = await fetch(`http://localhost:8787/api/ranking?criteria=${this.currentCriteria}`);
-            // this.rankings = await response.json();
+            // 백엔드 API 엔드포인트 호출 (현재 정렬 기준 전달)
+            const response = await fetch(`http://localhost:8787/api/ranking?criteria=${this.currentCriteria}`);
+        
+            if (!response.ok) {
+                throw new Error(`서버 응답 에러: ${response.status}`);
+            }
 
-            // 임시 더미 데이터 (클리어 횟수 'clears' 필드 추가)
-            this.rankings = [
-                { name: "AI공학도", score: 1250, clears: 8, attack: 45 },
-                { name: "이화인", score: 1100, clears: 12, attack: 40 },
-                { name: "개발자", score: 950, clears: 5, attack: 35 },
-                { name: "새싹이", score: 800, clears: 10, attack: 30 },
-                { name: "코딩왕", score: 720, clears: 3, attack: 25 }
-            ];
+            // 서버에서 받은 JSON 데이터를 rankings에 저장
+            this.rankings = await response.json();
 
             this.sortAndRender();
         } catch (error) {
             console.error("랭킹 데이터를 불러오는 데 실패했습니다:", error);
+            // 에러 발생 시 사용자에게 안내 문구를 띄우거나 빈 배열 처리
+            this.rankings = [];
+            this.updateRankingUI();
         }
     }
 
@@ -68,12 +67,13 @@ export default class RankingScene {
     // 기준 변경 및 UI 갱신
     switchCriteria(criteria) {
         this.currentCriteria = criteria;
-        
+    
         // 탭 활성화 스타일 토글
         this.container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         this.container.querySelector(`#${criteria}-tab`).classList.add('active');
 
-        this.sortAndRender();
+        // 서버에서 기준에 맞는 데이터를 새로고침
+        this.loadRankingData();
     }
 
     // 데이터 정렬 후 순위(rank)를 다시 매겨서 UI 업데이트
