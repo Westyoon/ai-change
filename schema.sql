@@ -7,11 +7,15 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS stats (
     user_id TEXT PRIMARY KEY,
-    attack INTEGER DEFAULT 0,
-    hp INTEGER DEFAULT 100,
-    defense INTEGER DEFAULT 0,
+    attack INTEGER DEFAULT TBD,
+    hp INTEGER DEFAULT TBD,
+    defense INTEGER DEFAULT TBD,
+    clears INTEGER DEFAULT 0,
+    score INTEGER DEFAULT 0,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_stats_scores ON stats(attack, hp, defense);
+CREATE INDEX IF NOT EXISTS idx_stats_score ON stats(score);
+
+CREATE INDEX IF NOT EXISTS idx_stats_clears ON stats(clears);
