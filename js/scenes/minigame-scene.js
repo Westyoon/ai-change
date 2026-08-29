@@ -183,6 +183,25 @@ export function createMiniGameScene(context) {
         if (persistsProgress) {
           context.services.save?.applyResult?.(miniGameId, result, { completedNpcIds });
         }
+        if (persistsProgress && result.status === "CLEAR") {
+          void context.services.account.recordClear({
+            attemptId: result.sessionId,
+            gameId: miniGameId,
+            status: "CLEAR",
+            score: result.score,
+          }).then((submission) => {
+            if (!submission.submitted) return;
+            showToast(
+              context,
+              submission.duplicate
+                ? "이미 반영된 클리어 기록입니다."
+                : "클리어를 서버에 저장했습니다. 스탯 포인트 +1",
+            );
+          }).catch(() => {
+            if (!context.services.account.getState().authenticated) return;
+            showToast(context, "로컬 클리어는 저장됐지만 서버 기록은 반영하지 못했습니다.");
+          });
+        }
         const outroScriptId = result.status === "CLEAR" ? game.clearOutroScript : game.failOutroScript;
         const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
         overlay = createResultOverlay({

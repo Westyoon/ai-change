@@ -478,3 +478,52 @@ CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은
 - release HTTP·보안 경로 smoke: 38/38 통과
 - 로컬 서버 `http://127.0.0.1:3000/`: root, character CSS, preview scene, character public export·facade 모두 HTTP 200과 올바른 MIME 확인
 - 이 세션에 연결 가능한 인앱 브라우저 인스턴스가 없어 실제 screenshot·WASD·Space·pointer·touch 조작 QA는 수행하지 못했습니다. Chrome·Safari 실제 기기의 조이스틱 동시 입력과 화면 회전은 수동 QA로 남깁니다.
+
+## 2026-08-30 로그인·스탯 DB·랭킹 서버 통합 기준 정리
+
+GitHub PR #12 `feat: add authorize, login, ranking board functionality`에서 Cloudflare Worker·D1, Google 로그인, 이용자 스탯과 랭킹의 초안을 가져와 현재 SPA 및 사후게임 캐릭터 시스템과 연결하는 통합 작업을 시작했습니다. 원본 PR의 기여와 merge 이력은 유지하되, 독립 `public/` 화면을 그대로 배포하지 않고 기존 app router·scene·service와 같은 origin API 구조로 이식하는 방식을 택했습니다.
+
+원본을 그대로 운영하지 않은 이유는 다음과 같습니다.
+
+- 인증 없이 body의 `userId`를 받아 다른 이용자의 스탯을 바꿀 수 있었습니다.
+- 전체 이용자·개별 스탯 API가 내부 provider ID와 email을 공개했습니다.
+- Google OAuth `state` 검증이 없고, 발급 cookie는 서명되지 않은 원본 ID였으며 보호 API의 인증 근거로 쓰이지 않았습니다.
+- 모든 origin을 허용하는 CORS와 프론트의 `http://localhost:8787` 고정 주소 때문에 운영 인증 경계와 실제 연결이 맞지 않았습니다.
+- 별도 `public/login.html`, `public/rankingBoard.html`은 현재 root production build에 포함되지 않아 기존 SPA와 분리돼 있었습니다.
+
+통합 기준은 하나의 Cloudflare Worker가 `/api/*`를 먼저 처리하고 나머지 경로에서는 `dist/` Static Assets를 제공하는 same-origin 구조입니다. session은 무작위 token을 `HttpOnly`·`SameSite=Lax` cookie로 전달하고 D1에는 token hash와 만료 시각만 저장합니다. 공개 API는 health·Google 로그인 시작/callback·표시 이름과 점수/클리어만 담은 ranking으로 제한하며, 본인 session 조회·logout·CLEAR 결과 등록·스탯 포인트 배분은 인증된 경로로 분리합니다. 공개 users와 ID 기반 stats 조회는 통합 계약에서 제외합니다.
+
+미니게임 완료 시 host의 `attemptId`, 등록된 `gameId`, `CLEAR`, 제한된 score만 서버에 보내고 계정은 session에서 결정합니다. 같은 계정·attempt는 한 번만 반영해 `clears`와 미배분 포인트의 중복 지급을 막습니다. 다만 게임 판정 자체가 브라우저 JavaScript에서 발생하므로 인증과 멱등성만으로 조작을 완전히 막을 수 없으며, 경쟁성 랭킹에는 추후 서버 challenge나 검증 가능한 event 정책이 필요합니다.
+
+계정의 `attack`·`hp`·`defense`는 계산 전 원본 스탯으로 캐릭터 core에 연결합니다. `hp`는 `health` 입력 별칭이지만 Battle의 `maxHealth` 공식이나 현재 체력을 의미하지 않습니다. 최대 체력·피해·방어 공식은 Battle 규칙에서 별도로 계산해야 합니다.
+
+세부 API 계약, 로컬 D1 migration·Worker 실행, `.dev.vars`와 Cloudflare secret 배치, Google redirect URI, 개인 Cloudflare/D1에서 운영 계정으로 옮기는 절차는 `docs/auth-stats-ranking.md`에 정리했습니다. secret 실제 값은 어떤 문서에도 기록하지 않습니다.
+
+이 기록 시점에는 다음 항목을 완료로 표시하지 않습니다.
+
+- 실제 Google Client ID·Secret을 사용한 로그인 callback 종단 간 검증
+- staging·production D1 migration과 데이터 이전
+- 대표 custom domain의 same-origin Worker 배포
+- 운영 환경에서의 session·logout·랭킹·CLEAR 멱등성·스탯 배분 회귀 확인
+- 네트워크 실패 후 계정 귀속을 보존하는 CLEAR 재시도 queue
+
+### 통합 구현 결과
+
+- 원본 PR #12의 13개 커밋을 `after/character-move` 위 통합 merge 이력으로 보존했습니다. PR이 오래된 `main`을 대상으로 하고 있어 원본 브랜치를 직접 수정하지 않고 `integration/after-auth-stats-ranking`에서 최신 스캐폴드에 이식했습니다.
+- Google OAuth `state`, 만료되는 opaque session과 token hash 저장, 로그아웃, 본인 session 기반 스탯 조회·배분을 Worker에 구현했습니다. 공개 users·ID 기반 stats와 인증 없는 기존 `PUT /api/stats`는 제거했습니다.
+- D1 baseline과 보안 확장을 두 migration으로 나눠 기존 users·stats를 보존하면서 `unspent_points`, `sessions`, `game_results`를 추가할 수 있게 했습니다.
+- 독립 `public/` 로그인·랭킹 페이지는 기존 dark/pixel SPA의 account·ranking scene과 same-origin AccountService로 이식한 뒤 제거했습니다. Google 표시 이름의 공개 랭킹 사용을 로그인 화면에 고지하고 email·외부 계정 ID는 응답과 화면에서 제외했습니다.
+- 실제 MVP 미니게임의 `CLEAR`만 `attemptId`와 함께 서버에 전송합니다. 최초 시도만 클리어·미사용 포인트를 올리고 재전송은 중복 응답으로 끝납니다. 게스트 또는 API 장애 시 기존 로컬 결과 화면과 저장은 계속 동작합니다.
+- CSE 최대 400, AI·CS 최대 100처럼 서로 다른 점수 단위를 한 줄로 비교하지 않도록 점수 랭킹을 `gameId`별로 분리하고, 전체 랭킹의 기본 화면은 누적 클리어로 변경했습니다. 점수가 없는 DS·AIDS는 현재 점수 선택 목록에서 제외했습니다.
+- 계정의 `attack`·`hp`·`defense`를 캐릭터 raw stats에 연결했으며 연습장의 `100 / 100` 체력 fixture와 미확정 Battle 공식은 변경하지 않았습니다.
+
+### 로컬 검증 결과
+
+- source validation: 157개 파일·24개 JSON 문서 통과
+- 전체 Node 단위·계약·원본 충실도 회귀 테스트: 86/86 통과
+- source HTTP·MIME smoke: 33/33 통과
+- production build: 99개 runtime 파일 생성
+- release HTTP·보안 경로 smoke: 39/39 통과
+- Backend TypeScript typecheck, Wrangler Static Assets+D1 dry-run, 로컬 D1 migration 통과
+- 로컬 Worker에서 SPA·account asset·health·session·ranking 200, 폐기 API 404, 외부 Origin 403, 미인증 결과 등록 401을 확인했습니다.
+- 이 세션에는 제어 가능한 브라우저가 제공되지 않아 실제 화면 클릭·스크린샷과 Google 계정 OAuth E2E는 수행하지 못했습니다.

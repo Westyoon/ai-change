@@ -1,0 +1,7 @@
+# Copy this file to .dev.vars for local OAuth testing.
+# Never commit real credential values.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Optional: set this only when the browser uses this exact origin.
+# PUBLIC_ORIGIN=http://127.0.0.1:8787

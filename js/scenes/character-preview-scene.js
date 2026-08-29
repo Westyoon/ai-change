@@ -77,6 +77,7 @@ export function createCharacterPreviewScene(context) {
   let joystick = null;
   let remoteView = null;
   let mounted = false;
+  let unsubscribeAccount = null;
 
   return {
     mount(root, _params, { signal }) {
@@ -165,7 +166,7 @@ export function createCharacterPreviewScene(context) {
       const directionRow = createDiagnosticRow("방향", "아래");
       const positionRow = createDiagnosticRow("위치", "206, 302");
       const contactRow = createDiagnosticRow("접촉", "없음");
-      const statsRow = createDiagnosticRow("계정 스탯", "연동 대기 (API 준비)");
+      const statsRow = createDiagnosticRow("계정 원본 스탯", "로그인 상태 확인 중");
       const remoteRow = createDiagnosticRow("다른 캐릭터", "원격 snapshot 예시 1명");
       const diagnosticList = createElement("dl", { className: "character-diagnostics__list" }, [
         ...stateRow.nodes,
@@ -239,6 +240,18 @@ export function createCharacterPreviewScene(context) {
         },
       }).start();
       system.input.attachAttackButton(attackButton);
+      unsubscribeAccount = context.services.account.subscribe((account) => {
+        if (!mounted || !system) return;
+        if (account.authenticated) {
+          const { attack, hp, defense } = account.stats;
+          system.setAccountStats({ attack, hp, defense });
+          statsRow.value.textContent = `공격 ${attack} · HP ${hp} · 방어 ${defense}`;
+          return;
+        }
+        statsRow.value.textContent = account.available
+          ? "게스트 · 로그인 후 연동"
+          : "게스트 · 계정 서버 연결 안 됨";
+      });
       joystick = new VirtualJoystick({
         element: joystickBase,
         knob: joystickKnob,
@@ -323,6 +336,8 @@ export function createCharacterPreviewScene(context) {
       joystick = null;
       remoteView?.destroy();
       remoteView = null;
+      unsubscribeAccount?.();
+      unsubscribeAccount = null;
       system?.destroy();
       system = null;
     },
