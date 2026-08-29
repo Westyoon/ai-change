@@ -1,62 +1,16 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Change - Game Dashboard</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-        h2 { color: #333; margin-bottom: 20px; }
-        .btn {
-            background-color: #4285F4;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 15px;
-            transition: background 0.2s;
-        }
-        .btn:hover { background-color: #357ae8; }
-        .btn-action { background-color: #34A853; }
-        .btn-action:hover { background-color: #2e9248; }
-        .btn-logout { background-color: #ea4335; margin-top: 10px; }
-        .btn-logout:hover { background-color: #d33426; }
-        .stats-box {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: left;
-        }
-        .stats-box p { margin: 8px 0; font-size: 15px; color: #555; }
-        .hidden { display: none; }
-    </style>
+    <link rel="stylesheet" href="./css/login.css">
 </head>
 <body>
 
     <div class="container">
-        <h2>🎮 AI Change RPG</h2>
+        <h2>🏆 AI Change RPG</h2>
 
         <!-- 로그인 전 화면 -->
         <div id="login-section">
@@ -65,102 +19,8 @@
                 <button class="btn">구글로 로그인</button>
             </a>
         </div>
-
-        <!-- 로그인 후 대시보드 화면 -->
-        <div id="dashboard-section" class="hidden">
-            <p id="user-welcome" style="font-weight: bold; color: #333;"></p>
-            
-            <div class="stats-box">
-                <p>⚔️ 공격력 (Attack): <span id="stat-attack">0</span></p>
-                <p>❤️ 체력 (HP): <span id="stat-hp">100</span></p>
-                <p>🛡️ 방어력 (Defense): <span id="stat-defense">0</span></p>
-                <p>🏆 클리어 횟수: <span id="stat-clears">0</span></p>
-                <p>⭐ 점수 (Score): <span id="stat-score">0</span></p>
-            </div>
-
-            <button class="btn btn-action" onclick="clearStage()">미니게임 클리어 (스탯 강화)</button>
-            <button class="btn btn-logout" onclick="logout()">로그아웃</button>
-        </div>
     </div>
 
-    <script>
-        const BACKEND_URL = "http://localhost:8787";
-
-        window.addEventListener("DOMContentLoaded", async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlUserId = urlParams.get("userId");
-
-            if (urlUserId) {
-                // 로그인 직후 URL에 userId가 담겨 들어왔을 때 로컬스토리지에 저장 후 깔끔하게 URL 정리
-                localStorage.setItem("userId", urlUserId);
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-
-            const userId = localStorage.getItem("userId");
-
-            if (userId) {
-                // 로그인 상태 UI 전환
-                document.getElementById("login-section").classList.add("hidden");
-                document.getElementById("dashboard-section").classList.remove("hidden");
-                
-                // 유저 스탯 데이터 불러오기
-                await fetchUserStats(userId);
-            }
-        });
-
-        async function fetchUserStats(userId) {
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/stats/${userId}`);
-                if (!res.ok) throw new Error("스탯을 불러오지 못했습니다.");
-                
-                const data = await res.json();
-                document.getElementById("user-welcome").innerText = `${data.name} 님 환영합니다!`;
-                document.getElementById("stat-attack").innerText = data.attack;
-                document.getElementById("stat-hp").innerText = data.hp;
-                document.getElementById("stat-defense").innerText = data.defense;
-                document.getElementById("stat-clears").innerText = data.clears;
-                document.getElementById("stat-score").innerText = data.score;
-            } catch (error) {
-                console.error(error);
-                logout(); // 유효하지 않은 유저면 로그아웃 처리
-            }
-        }
-
-        async function clearStage() {
-            const userId = localStorage.getItem("userId");
-            if (!userId) return;
-
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/stats`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        userId: userId,
-                        selectedStat: "attack", // 클리어 시 공격력이 오르도록 설정 (hp, defense로 변경 가능)
-                        newScore: 100 // 예시 점수
-                    })
-                });
-
-                if (!res.ok) throw new Error("스탯 업데이트 실패");
-
-                const updated = await res.json();
-                // 화면 즉시 갱신
-                document.getElementById("stat-attack").innerText = updated.attack;
-                document.getElementById("stat-hp").innerText = updated.hp;
-                document.getElementById("stat-defense").innerText = updated.defense;
-                document.getElementById("stat-clears").innerText = updated.clears;
-                document.getElementById("stat-score").innerText = updated.score;
-                
-                alert("스테이지 클리어! 공격력이 1 증가했습니다.");
-            } catch (error) {
-                alert("오류가 발생했습니다: " + error.message);
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem("userId");
-            window.location.href = window.location.pathname; // 새로고침
-        }
-    </script>
+    <script src="./js/scenes/login.js"></script>
 </body>
 </html>
