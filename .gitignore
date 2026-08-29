@@ -1,1 +1,10 @@
 /docs/기능명세서.md
+
+node_modules/
+
+.wrangler/
+backend/.dev.vars
+backend/.env
+
+.DS_Store
+Thumbs.db
