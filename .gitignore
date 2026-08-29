@@ -2,7 +2,14 @@
 node_modules/
 dist/
 .wrangler/
+backend/.dev.vars
+backend/.dev.vars.*
+backend/.env
+backend/.env.*
+.dev.vars
+.env
 npm-debug.log*
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/

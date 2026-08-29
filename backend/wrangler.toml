@@ -1,0 +1,8 @@
+name = "ai-change"
+main = "src/index.ts"
+compatibility_date = "2026-08-28"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ai-change"
+database_id = "15814753-6db9-405b-b27c-de3a23856e92"

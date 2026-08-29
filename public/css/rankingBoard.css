@@ -1,0 +1,134 @@
+.ranking-modal {
+    width: 100%;
+    max-width: 400px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    font-family: 'Pretendard', sans-serif;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.ranking-modal h2 {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 20px;
+}
+
+/* 탭 버튼 스타일 컨테이너 */
+.ranking-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+/* 개별 탭 버튼 */
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* 활성화된 탭 버튼 */
+.tab-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.tab-btn:hover:not(.active) {
+    background: #e5e7eb;
+}
+
+.ranking-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.ranking-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: #f9fafb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.ranking-item.rank-1 {
+    background: #fef3c7;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.ranking-item.rank-2 {
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.ranking-item.rank-3 {
+    background: #ffedd5;
+    font-weight: 600;
+    color: #9a3412;
+}
+
+.rank-number {
+    width: 40px;
+    font-weight: 700;
+}
+
+.rank-name {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0 10px;
+}
+
+.rank-score {
+    font-weight: 600;
+    color: #2563eb;
+    margin-right: 12px;
+}
+
+.close-ranking-btn {
+    width: 100%;
+    padding: 12px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 12px;
+}
+
+.close-ranking-btn:hover {
+    background: #e5e7eb;
+}
+
+.no-data {
+    text-align: center;
+    padding: 24px;
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
