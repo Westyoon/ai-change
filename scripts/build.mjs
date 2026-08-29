@@ -95,10 +95,17 @@ async function copyPublicEntry(relativePath, copiedFiles) {
 async function verifyBuild(copiedFiles) {
   const requiredFiles = [
     "index.html",
+    "css/account.css",
     "css/common.css",
+    "css/battle-character.css",
     "data/app-config.json",
     "data/minigames.json",
     "js/app.js",
+    "js/core/account-service.js",
+    "js/battle/character/index.js",
+    "js/scenes/account-scene.js",
+    "js/scenes/character-preview-scene.js",
+    "js/scenes/ranking-scene.js",
   ];
 
   for (const relativePath of requiredFiles) {

@@ -25,12 +25,50 @@ function progressPercent(progress) {
   return 0;
 }
 
+const AUTH_QUERY_KEYS = Object.freeze(["login", "error", "auth_error", "reason", "error_description"]);
+
+function authErrorMessage(code) {
+  if (code === "access_denied" || code === "cancelled") {
+    return "로그인이 취소되었습니다. 원할 때 다시 시도할 수 있습니다.";
+  }
+  if (code === "state_mismatch" || code === "invalid_state") {
+    return "로그인 요청이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.";
+  }
+  return "로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+export function consumeAuthCallback(locationRef = globalThis.location, historyRef = globalThis.history) {
+  const search = locationRef?.search ?? "";
+  const params = new URLSearchParams(search);
+  const login = params.get("login");
+  const error = params.get("auth_error") ?? params.get("error") ?? params.get("reason");
+  if (!login && !error) return null;
+
+  for (const key of AUTH_QUERY_KEYS) params.delete(key);
+  const remaining = params.toString();
+  const cleanUrl = `${locationRef.pathname ?? "/"}${remaining ? `?${remaining}` : ""}${locationRef.hash ?? ""}`;
+  historyRef?.replaceState?.(historyRef.state ?? null, "", cleanUrl);
+
+  if (login === "success" && !error) {
+    return Object.freeze({
+      notice: "로그인이 완료되었습니다. 계정 스탯을 불러오고 있습니다.",
+      noticeTone: "info",
+    });
+  }
+  return Object.freeze({
+    notice: authErrorMessage(error ?? login),
+    noticeTone: "error",
+  });
+}
+
 export function createLoadingScene(context) {
   let mounted = false;
 
   return {
     async mount(root, _params, { signal }) {
       mounted = true;
+      const authCallback = consumeAuthCallback();
+      void context.services.account.refreshSession();
       root.setAttribute("aria-busy", "true");
       const scene = createScene({
         className: "scene--centered",
@@ -109,7 +147,7 @@ export function createLoadingScene(context) {
       bar.style.width = "100%";
       track.setAttribute("aria-valuenow", "100");
       status.textContent = "100% · 스캐폴드 준비 완료";
-      await context.router.navigate("main-menu");
+      await context.router.navigate(authCallback ? "account" : "main-menu", authCallback ?? {});
     },
     unmount() {
       mounted = false;

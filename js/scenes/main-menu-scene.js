@@ -31,9 +31,16 @@ export function createMainMenuScene(context) {
 
       const codes = context.content.departments.map((department) => department.code).join(" · ");
       scene.append(createElement("p", { className: "department-code", text: codes }));
+      const account = context.services.account.getState();
+      const accountDescription = account.authenticated
+        ? `${account.user?.name ?? "플레이어"}님의 전투 스탯과 미사용 포인트를 확인합니다.`
+        : "로그인하고 클리어 기록과 사후게임 전투 스탯을 연결합니다.";
       const grid = createElement("div", { className: "menu-grid" }, [
         menuCard("스토리 시작", "인트로에서 학과 맵과 5개 모듈 연결을 확인합니다.", () => context.router.navigate("story-intro")),
         menuCard("배틀", "독립 registry 연결 지점만 준비되어 있습니다.", () => context.router.navigate("battle"), "COMING SOON"),
+        menuCard("캐릭터 시스템", "사후게임 공용 이동·공격 명령·피격 연결을 연습장에서 확인합니다.", () => context.router.navigate("character-preview"), "DEV PREVIEW"),
+        menuCard("내 계정", accountDescription, () => context.router.navigate("account"), account.authenticated ? "SIGNED IN" : "LOGIN"),
+        menuCard("랭킹보드", "최고 점수와 누적 클리어 순위를 확인합니다.", () => context.router.navigate("ranking")),
         menuCard("게임 방법", "공통 조작과 학과별 스캐폴드 상태를 확인합니다.", () => context.router.navigate("how-to")),
         menuCard("설정", "음량·음소거와 로컬 진행 초기화 UI를 확인합니다.", () => context.router.navigate("settings")),
       ]);

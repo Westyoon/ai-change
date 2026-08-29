@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "check:release": "npm run check && npm run build && npm run smoke:dist",
@@ -11,6 +14,11 @@
     "cf:deploy:worker:production": "npm run check:release && npx --yes wrangler@4.127.0 deploy --config wrangler.worker.jsonc --env=",
     "cf:deploy:worker:staging": "npm run check:release && npx --yes wrangler@4.127.0 deploy --config wrangler.worker.jsonc --env staging",
     "cf:deploy:temporary": "npm run check:release && npx --yes wrangler@4.127.0 deploy --config wrangler.worker.jsonc --temporary --env=",
+    "cf:full:check": "npm run check:release && npm --prefix backend run typecheck",
+    "cf:full:db:migrate:local": "npm --prefix backend run db:migrate:local",
+    "cf:full:db:migrate:remote": "npm --prefix backend run db:migrate:remote",
+    "cf:full:deploy": "npm run cf:full:check && npm --prefix backend run deploy",
+    "cf:full:dev": "npm --prefix backend run dev",
     "cf:dev": "npm run build && npx --yes wrangler@4.127.0 pages dev",
     "cf:dev:worker": "npm run build && npx --yes wrangler@4.127.0 dev --config wrangler.worker.jsonc",
     "dev": "node scripts/serve.mjs",

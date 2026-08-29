@@ -432,3 +432,98 @@ CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은
 - 전체 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, production build 85개 파일, release smoke 37/37 통과
 - Production deployment: `https://4ca5a6d4.ai-change.pages.dev/` (source `040ba07`)
 - 대표 주소의 원격 CSS에서 모달 `color: #333`과 `[hidden]` 규칙을 모두 확인했고, 원격 CSS의 SHA-256이 로컬 `dist/`와 일치했습니다.
+
+## 2026-08-29 사후게임 캐릭터 이동·기본 전투 연결 시스템 구현
+
+최신 첨부 기획안에서 담당 범위로 지정된 `캐릭터 이동`과 `캐릭터 (기본 전투 시스템)`을 구현하기 위해 최신 `dev`의 `a431795`에서 `after/character-move` 브랜치를 생성했습니다. 작업 시작 시 로컬·원격에 기존 `after/*` 브랜치가 없었고, `after/character-move`와 `dev`의 차이도 0이었습니다. 실제 Battle은 계속 빈 registry, `battles=[]`, `features.battleContent=false`인 Coming Soon 상태로 유지했습니다.
+
+### 공용 character core
+
+- `CharacterSystem` facade 아래 캐릭터 domain, input adapter, world controller, DOM view, 모바일 조이스틱을 분리했습니다.
+- PC WASD와 모바일 조이스틱을 길이 1 이하의 같은 이동 벡터로 정규화하고, delta time 기반 이동과 상·하·좌·우 마지막 방향을 유지합니다.
+- 기존 공통 InputManager의 `Space = CONFIRM`은 바꾸지 않았습니다. 캐릭터 장면에서만 `code=Space`인 CONFIRM을 공격으로 해석하고, 모바일 `ATTACK` 버튼과 같은 명령 queue로 합쳐 AI·CS의 기존 Space 조작을 보존했습니다.
+- `idle`, `moving`, `attacking`, `hit`, `dead`, `control-locked` 상태와 중첩 가능한 reason 기반 조작 잠금을 구현했습니다.
+- 맵 경계와 AABB solid collider, 축별 wall sliding을 유지하면서 큰 frame delta에도 얇은 벽을 건너뛰지 않도록 연속 substep 충돌 resolver를 공통 map collision scaffold에 추가했습니다.
+- X알, 필드 미니게임, 전투 입장, 공격 발판, 함정, 회피 구역은 콘텐츠 규칙 없이 `enter`·`stay`·`exit` 접촉 event만 제공합니다. 같은 시스템의 world를 교체할 때 기존 접점의 `exit`도 먼저 보냅니다.
+- 캐릭터 snapshot에 위치·방향·이동·공격 순간·체력·사망·외형·`footY`를 남겨 y-depth 정렬과 원격 캐릭터 표시가 가능하게 했습니다.
+
+### 기본 전투 경계
+
+- Space·모바일 버튼 입력은 `character:attack` event를 한 번 발생시키고 바로 기본 상태로 돌아옵니다.
+- event에는 character ID, sequence, 당시 바라보던 방향, 원본 account stats와 입력 source만 전달합니다. 바라보던 방향은 공격 판정 방향이 아닙니다.
+- 근접·원거리 여부, 공격 origin·방향·범위·target, 타격 판정, damage·defense·max HP 공식, cooldown, 공격 아트·effect는 추가하지 않았습니다.
+- 외부 보스·함정·서버가 이미 계산한 피해만 `applyResolvedDamage()`로 받고, 매 피격에 즉시 현재 체력을 줄입니다. 별도 무적 시간은 없고 체력 0에서 사망 event는 한 번만 발생합니다.
+- 계정 시스템의 `attack`, `defense`, `health`를 공식 없이 보관하며, 현재 `feature/auth-stats-ranking` 브랜치가 사용하는 `hp`도 `health` 별칭으로 받을 수 있게 했습니다. 로그인·저장·랭킹·실시간 통신은 병합하지 않았습니다.
+
+### 화면·아트 연결
+
+- 메인 메뉴에 실제 Battle과 분리된 `캐릭터 시스템 · DEV PREVIEW` 연습장을 추가했습니다. 기존 `배틀 · COMING SOON` 카드와 route는 그대로 남겼습니다.
+- 연습장에서 경계·solid·depth object와 기획에 명시된 접점 hook, HP, 상태·방향·위치, 공격·피격 event log, 조작 잠금, 원격 snapshot 예시를 확인할 수 있습니다.
+- 모바일·좁은 화면에는 왼쪽 조이스틱과 오른쪽 공격 버튼을 표시하고, logical world의 9:5 비율은 PC·모바일 모두 유지합니다.
+- 최종 캐릭터 이미지는 아직 제공되지 않아 기존 다크·민트 디자인 안의 명시적인 CSS placeholder를 사용했습니다. `appearance.sprites.idle|walk.up|down|left|right`에 최종 8개 이미지 URL을 전달하면 같은 view가 방향별 이미지를 교체합니다. 공격 이미지·effect slot은 만들지 않았습니다.
+
+### 스캐폴딩·문서 변경
+
+- `INPUT_ACTIONS.ATTACK`을 추가하되 전역 key binding은 추가하지 않았습니다.
+- `scripts/validate.mjs`와 production build의 필수 runtime 목록에 character core·scene·CSS를 등록했습니다.
+- `README.md`, `docs/execution-and-controls.md`, `docs/사후게임_기획안.md`를 현재 구현 상태로 갱신하고, 팀 간 연결 계약을 `docs/after-character-system.md`에 정리했습니다.
+- 캐릭터 이동·충돌·입력·공격 경계·피격·사망·stats·접촉·원격 snapshot을 고정하는 단위 테스트 11개를 추가했습니다.
+
+### 검증 결과
+
+- source validation: 141개 파일·21개 JSON 문서 통과
+- 전체 Node 단위·계약·원본 충실도 회귀 테스트: 69/69 통과
+- source HTTP·MIME smoke: 32/32 통과
+- production build: 95개 runtime 파일 생성
+- release HTTP·보안 경로 smoke: 38/38 통과
+- 로컬 서버 `http://127.0.0.1:3000/`: root, character CSS, preview scene, character public export·facade 모두 HTTP 200과 올바른 MIME 확인
+- 이 세션에 연결 가능한 인앱 브라우저 인스턴스가 없어 실제 screenshot·WASD·Space·pointer·touch 조작 QA는 수행하지 못했습니다. Chrome·Safari 실제 기기의 조이스틱 동시 입력과 화면 회전은 수동 QA로 남깁니다.
+
+## 2026-08-30 로그인·스탯 DB·랭킹 서버 통합 기준 정리
+
+GitHub PR #12 `feat: add authorize, login, ranking board functionality`에서 Cloudflare Worker·D1, Google 로그인, 이용자 스탯과 랭킹의 초안을 가져와 현재 SPA 및 사후게임 캐릭터 시스템과 연결하는 통합 작업을 시작했습니다. 원본 PR의 기여와 merge 이력은 유지하되, 독립 `public/` 화면을 그대로 배포하지 않고 기존 app router·scene·service와 같은 origin API 구조로 이식하는 방식을 택했습니다.
+
+원본을 그대로 운영하지 않은 이유는 다음과 같습니다.
+
+- 인증 없이 body의 `userId`를 받아 다른 이용자의 스탯을 바꿀 수 있었습니다.
+- 전체 이용자·개별 스탯 API가 내부 provider ID와 email을 공개했습니다.
+- Google OAuth `state` 검증이 없고, 발급 cookie는 서명되지 않은 원본 ID였으며 보호 API의 인증 근거로 쓰이지 않았습니다.
+- 모든 origin을 허용하는 CORS와 프론트의 `http://localhost:8787` 고정 주소 때문에 운영 인증 경계와 실제 연결이 맞지 않았습니다.
+- 별도 `public/login.html`, `public/rankingBoard.html`은 현재 root production build에 포함되지 않아 기존 SPA와 분리돼 있었습니다.
+
+통합 기준은 하나의 Cloudflare Worker가 `/api/*`를 먼저 처리하고 나머지 경로에서는 `dist/` Static Assets를 제공하는 same-origin 구조입니다. session은 무작위 token을 `HttpOnly`·`SameSite=Lax` cookie로 전달하고 D1에는 token hash와 만료 시각만 저장합니다. 공개 API는 health·Google 로그인 시작/callback·표시 이름과 점수/클리어만 담은 ranking으로 제한하며, 본인 session 조회·logout·CLEAR 결과 등록·스탯 포인트 배분은 인증된 경로로 분리합니다. 공개 users와 ID 기반 stats 조회는 통합 계약에서 제외합니다.
+
+미니게임 완료 시 host의 `attemptId`, 등록된 `gameId`, `CLEAR`, 제한된 score만 서버에 보내고 계정은 session에서 결정합니다. 같은 계정·attempt는 한 번만 반영해 `clears`와 미배분 포인트의 중복 지급을 막습니다. 다만 게임 판정 자체가 브라우저 JavaScript에서 발생하므로 인증과 멱등성만으로 조작을 완전히 막을 수 없으며, 경쟁성 랭킹에는 추후 서버 challenge나 검증 가능한 event 정책이 필요합니다.
+
+계정의 `attack`·`hp`·`defense`는 계산 전 원본 스탯으로 캐릭터 core에 연결합니다. `hp`는 `health` 입력 별칭이지만 Battle의 `maxHealth` 공식이나 현재 체력을 의미하지 않습니다. 최대 체력·피해·방어 공식은 Battle 규칙에서 별도로 계산해야 합니다.
+
+세부 API 계약, 로컬 D1 migration·Worker 실행, `.dev.vars`와 Cloudflare secret 배치, Google redirect URI, 개인 Cloudflare/D1에서 운영 계정으로 옮기는 절차는 `docs/auth-stats-ranking.md`에 정리했습니다. secret 실제 값은 어떤 문서에도 기록하지 않습니다.
+
+이 기록 시점에는 다음 항목을 완료로 표시하지 않습니다.
+
+- 실제 Google Client ID·Secret을 사용한 로그인 callback 종단 간 검증
+- staging·production D1 migration과 데이터 이전
+- 대표 custom domain의 same-origin Worker 배포
+- 운영 환경에서의 session·logout·랭킹·CLEAR 멱등성·스탯 배분 회귀 확인
+- 네트워크 실패 후 계정 귀속을 보존하는 CLEAR 재시도 queue
+
+### 통합 구현 결과
+
+- 원본 PR #12의 13개 커밋을 `after/character-move` 위 통합 merge 이력으로 보존했습니다. PR이 오래된 `main`을 대상으로 하고 있어 원본 브랜치를 직접 수정하지 않고 `integration/after-auth-stats-ranking`에서 최신 스캐폴드에 이식했습니다.
+- Google OAuth `state`, 만료되는 opaque session과 token hash 저장, 로그아웃, 본인 session 기반 스탯 조회·배분을 Worker에 구현했습니다. 공개 users·ID 기반 stats와 인증 없는 기존 `PUT /api/stats`는 제거했습니다.
+- D1 baseline과 보안 확장을 두 migration으로 나눠 기존 users·stats를 보존하면서 `unspent_points`, `sessions`, `game_results`를 추가할 수 있게 했습니다.
+- 독립 `public/` 로그인·랭킹 페이지는 기존 dark/pixel SPA의 account·ranking scene과 same-origin AccountService로 이식한 뒤 제거했습니다. Google 표시 이름의 공개 랭킹 사용을 로그인 화면에 고지하고 email·외부 계정 ID는 응답과 화면에서 제외했습니다.
+- 실제 MVP 미니게임의 `CLEAR`만 `attemptId`와 함께 서버에 전송합니다. 최초 시도만 클리어·미사용 포인트를 올리고 재전송은 중복 응답으로 끝납니다. 게스트 또는 API 장애 시 기존 로컬 결과 화면과 저장은 계속 동작합니다.
+- CSE 최대 400, AI·CS 최대 100처럼 서로 다른 점수 단위를 한 줄로 비교하지 않도록 점수 랭킹을 `gameId`별로 분리하고, 전체 랭킹의 기본 화면은 누적 클리어로 변경했습니다. 점수가 없는 DS·AIDS는 현재 점수 선택 목록에서 제외했습니다.
+- 계정의 `attack`·`hp`·`defense`를 캐릭터 raw stats에 연결했으며 연습장의 `100 / 100` 체력 fixture와 미확정 Battle 공식은 변경하지 않았습니다.
+
+### 로컬 검증 결과
+
+- source validation: 157개 파일·24개 JSON 문서 통과
+- 전체 Node 단위·계약·원본 충실도 회귀 테스트: 86/86 통과
+- source HTTP·MIME smoke: 33/33 통과
+- production build: 99개 runtime 파일 생성
+- release HTTP·보안 경로 smoke: 39/39 통과
+- Backend TypeScript typecheck, Wrangler Static Assets+D1 dry-run, 로컬 D1 migration 통과
+- 로컬 Worker에서 SPA·account asset·health·session·ranking 200, 폐기 API 404, 외부 Origin 403, 미인증 결과 등록 401을 확인했습니다.
+- 이 세션에는 제어 가능한 브라우저가 제공되지 않아 실제 화면 클릭·스크린샷과 Google 계정 OAuth E2E는 수행하지 못했습니다.

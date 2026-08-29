@@ -1,4 +1,5 @@
 import { AudioManager } from "./core/audio-manager.js";
+import { AccountService } from "./core/account-service.js";
 import { AssetLoader } from "./core/asset-loader.js";
 import { EventBus } from "./core/event-bus.js";
 import { InputManager } from "./core/input-manager.js";
@@ -6,6 +7,8 @@ import { ResizeManager } from "./core/resize-manager.js";
 import { CONTENT_VERSION } from "./core/version.js";
 import { SceneRouter } from "./router.js";
 import { createBattleComingSoonScene } from "./scenes/battle-coming-soon-scene.js";
+import { createAccountScene } from "./scenes/account-scene.js";
+import { createCharacterPreviewScene } from "./scenes/character-preview-scene.js";
 import { createDialogueScene } from "./scenes/dialogue-scene.js";
 import { createErrorScene } from "./scenes/error-scene.js";
 import { createHowToScene } from "./scenes/how-to-scene.js";
@@ -14,6 +17,7 @@ import { createMainMenuScene } from "./scenes/main-menu-scene.js";
 import { createMapScene } from "./scenes/map-scene.js";
 import { createMiniGameIntroScene } from "./scenes/minigame-intro-scene.js";
 import { createMiniGameScene } from "./scenes/minigame-scene.js";
+import { createRankingScene } from "./scenes/ranking-scene.js";
 import { createSettingsScene } from "./scenes/settings-scene.js";
 import { createStoryIntroScene } from "./scenes/story-intro-scene.js";
 
@@ -84,6 +88,7 @@ async function bootstrap() {
         lastResult: null,
       },
       services: {
+        account: new AccountService(),
         assets: new AssetLoader(manifest),
         audio: new AudioManager(config.audio),
         events: new EventBus(),
@@ -105,6 +110,9 @@ async function bootstrap() {
       "minigame-intro": createMiniGameIntroScene,
       minigame: createMiniGameScene,
       battle: createBattleComingSoonScene,
+      "character-preview": createCharacterPreviewScene,
+      account: createAccountScene,
+      ranking: createRankingScene,
       error: createErrorScene,
     };
 
