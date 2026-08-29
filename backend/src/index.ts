@@ -2,12 +2,13 @@ export interface Env {
   DB: D1Database;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  BETTER_AUTH_URL: string; // 예: http://localhost:8787
+  BETTER_AUTH_URL: string; 
 }
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`; // 현재 접속 중인 도메인 자동 감지
 
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
@@ -23,13 +24,8 @@ export default {
     try {
       // 1. 구글 로그인 페이지로 리다이렉트 (/api/auth/google)
       if (url.pathname === "/api/auth/google") {
-        console.log("CLIENT_ID 확인:", env.GOOGLE_CLIENT_ID);
-        console.log("BETTER_AUTH_URL 확인:", env.BETTER_AUTH_URL);
-
-        const redirectUri = `${env.BETTER_AUTH_URL}/api/auth/callback`;
+        const redirectUri = `${baseUrl}/api/auth/callback`;
         const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=email%20profile`;
-        
-        console.log("생성된 구글 로그인 URL:", googleAuthUrl);
 
         return Response.redirect(googleAuthUrl, 302);
       }
@@ -39,9 +35,8 @@ export default {
         const code = url.searchParams.get("code");
         if (!code) return new Response("인증 코드가 없습니다.", { status: 400 });
 
-        const redirectUri = `${env.BETTER_AUTH_URL}/api/auth/callback`;
+        const redirectUri = `${baseUrl}/api/auth/callback`;
 
-        // 2-1. 구글에 code를 주고 토큰(Access Token) 교환
         const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -53,35 +48,26 @@ export default {
             grant_type: "authorization_code",
           }),
         });
-        
+
         const tokenData: any = await tokenRes.json();
-        
-        // 구글이 보낸 실제 에러 내용을 터미널에 출력
+
         if (!tokenData.access_token) {
-          console.error("구글 토큰 교환 실패 상세 내용:", tokenData);
           return Response.json({ error: "구글 토큰 발급 실패", details: tokenData }, { status: 400 });
         }
 
-        // 2-2. 토큰으로 구글 유저 정보(이메일, 이름) 가져오기
         const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
         const googleUser: any = await userRes.json();
-        
-        // 디버깅을 위한 로그 출력
-        console.log("구글에서 받아온 전체 유저 정보:", googleUser);
 
         const userId = googleUser.id;
         const email = googleUser.email || "no-email@google.com";
         const name = googleUser.name || "사용자";
 
-        console.log("DB 저장 직전 데이터 확인:", { userId, email, name });
-
         if (!userId) {
           return new Response("구글 사용자 고유 ID(sub)를 가져오지 못했습니다.", { status: 400 });
         }
 
-        // 2-3. DB에 유저가 없으면 자동으로 회원가입 처리 (users & stats 생성)
         const existingUser = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(userId).first();
 
         if (!existingUser) {
@@ -94,11 +80,11 @@ export default {
             .run();
         }
 
-        // 2-4. 로그인이 끝났으면 프론트엔드 메인 페이지로 이동시키면서 쿠키에 userId 저장
+        // 로그인이 끝났으면 현재 접속 중인 도메인의 유저 API로 이동
         return new Response(null, {
           status: 302,
           headers: {
-            Location: `http://localhost:8787/api/users`, // 혹은 "https://www.google.com"
+            Location: `${baseUrl}/api/users`,
             "Set-Cookie": `userId=${userId}; Path=/; HttpOnly; SameSite=Lax`,
           },
         });
@@ -152,11 +138,10 @@ export default {
         return Response.json({ message: "갱신 완료", attack: updatedAttack, hp: updatedHp, defense: updatedDefense, clears: updatedClears, score: updatedScore }, { headers: corsHeaders });
       }
 
-      // 7. 랭킹 데이터 조회 (점수 또는 클리어 기준 정렬)
+      // 7. 랭킹 데이터 조회
       if (url.pathname === "/api/ranking" && request.method === "GET") {
         const criteria = url.searchParams.get("criteria") === "clears" ? "clears" : "score";
-        
-        // stats 테이블과 users 테이블을 조인하여 이름과 스탯 정보를 함께 가져옴
+
         const query = `
           SELECT u.name, s.score, s.clears, s.attack 
           FROM stats s 
@@ -164,11 +149,10 @@ export default {
           ORDER BY s.${criteria} DESC 
           LIMIT 10
         `;
-        
+
         const { results } = await env.DB.prepare(query).all();
-        
-        // 프론트엔드가 요구하는 형식(rank 포함)으로 가공해서 전달
-        const rankedResults = results.map((user, index) => ({
+
+        const rankedResults = results.map((user: any, index: number) => ({
           rank: index + 1,
           name: user.name,
           score: user.score,
