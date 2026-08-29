@@ -114,7 +114,6 @@ export default class RankingScene {
                 <span class="rank-number">${user.rank}위</span>
                 <span class="rank-name">${user.name}</span>
                 <span class="rank-score">${this.currentCriteria === 'clears' ? `${user.clears}회 클리어` : `${user.score}점`}</span>
-                <span class="rank-stat">공격력: ${user.attack}</span>
             </li>
         `).join('');
     }
