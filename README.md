@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 `dev` 통합본에는 공통 화면 전환·데이터·lifecycle 스캐폴딩과 각 기능 브랜치의 최신 구현이 함께 들어 있습니다. DS·CS·CSE·AI·AIDS 미니게임 5종은 모두 플레이 가능한 MVP이며, 최종 아트와 `data/drafts/`에 남은 밸런스 결정은 아직 확정되지 않았습니다.
+현재 `dev` 통합본에는 공통 화면 전환·데이터·lifecycle 스캐폴딩과 각 기능 브랜치의 최신 구현이 함께 들어 있습니다. DS·CS·CSE·AI·AIDS 미니게임 5종은 모두 플레이 가능한 MVP입니다. `after/character-move`에는 사후게임의 공용 이동·방향·충돌·공격 명령·피격 상태 모듈과 개발 연습장이 추가되며, 최종 캐릭터 아트와 Battle 규칙·밸런스는 아직 확정되지 않았습니다.
 
 ## 학과 코드
 
@@ -67,7 +67,7 @@ Loading
 
 맵의 학과 카드는 기본 흐름에서 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 기존 NPC 대화와 미니게임 안내 route·데이터는 별도 콘텐츠에서 다시 사용할 수 있도록 유지합니다.
 
-Main Menu에서는 게임 방법, 설정, Battle Coming Soon 경로도 확인할 수 있습니다.
+Main Menu에서는 게임 방법, 설정, Battle Coming Soon 경로와 별도의 `캐릭터 시스템 · DEV PREVIEW` 연습장도 확인할 수 있습니다. 연습장은 실제 Battle을 publish하지 않고 공용 캐릭터 API만 검증합니다.
 
 ## 미니게임 모듈
 
@@ -107,7 +107,7 @@ js/
   map/                map domain skeleton
   story/              dialogue domain skeleton
   minigames/          registry, shared contract, 학과별 module
-  battle/             Story와 독립된 registry seam
+  battle/             Story와 독립된 registry seam, 사후게임 공용 character core
 data/
   departments.json    학과 코드 SSOT
   minigames.json      5개 stable registry entry
@@ -135,6 +135,7 @@ docs/                 계획·기획·실행·리소스 문서
 - [통합 개발 계획](./docs/AI_CHANGE_PLAN.md)
 - [기획안](./docs/기획안.md)
 - [사후게임(Battle) 기획안](./docs/사후게임_기획안.md)
+- [사후게임 공용 캐릭터 시스템](./docs/after-character-system.md)
 - [실행 및 조작 방법](./docs/execution-and-controls.md)
 - [리소스 출처 목록](./docs/asset-sources.md)
 - [Git 브랜치 규칙](./docs/GIT_BRANCH_RULE.md)
@@ -143,9 +144,9 @@ docs/                 계획·기획·실행·리소스 문서
 ## 아직 구현하지 않은 범위
 
 - 최종 게임명·로고·세계관·아트·사운드
-- 자유 이동 tile map과 실제 충돌 처리
+- 정식 자유 이동 필드 map·콘텐츠 데이터와 최종 캐릭터 스프라이트 연결
 - 5개 미니게임의 최종 규칙·밸런스·점수 정책
-- 실제 Battle 콘텐츠
+- 실제 Battle 보스·공격 판정·피해 공식·부활 규칙
 - 계정, 서버 저장, 온라인 랭킹, 멀티플레이
 
 구체적인 구현 순서와 결정 항목은 `docs/AI_CHANGE_PLAN.md`를 기준으로 진행합니다.

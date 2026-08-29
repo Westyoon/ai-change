@@ -96,9 +96,12 @@ async function verifyBuild(copiedFiles) {
   const requiredFiles = [
     "index.html",
     "css/common.css",
+    "css/battle-character.css",
     "data/app-config.json",
     "data/minigames.json",
     "js/app.js",
+    "js/battle/character/index.js",
+    "js/scenes/character-preview-scene.js",
   ];
 
   for (const relativePath of requiredFiles) {

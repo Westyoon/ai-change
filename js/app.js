@@ -6,6 +6,7 @@ import { ResizeManager } from "./core/resize-manager.js";
 import { CONTENT_VERSION } from "./core/version.js";
 import { SceneRouter } from "./router.js";
 import { createBattleComingSoonScene } from "./scenes/battle-coming-soon-scene.js";
+import { createCharacterPreviewScene } from "./scenes/character-preview-scene.js";
 import { createDialogueScene } from "./scenes/dialogue-scene.js";
 import { createErrorScene } from "./scenes/error-scene.js";
 import { createHowToScene } from "./scenes/how-to-scene.js";
@@ -105,6 +106,7 @@ async function bootstrap() {
       "minigame-intro": createMiniGameIntroScene,
       minigame: createMiniGameScene,
       battle: createBattleComingSoonScene,
+      "character-preview": createCharacterPreviewScene,
       error: createErrorScene,
     };
 

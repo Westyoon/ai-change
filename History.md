@@ -432,3 +432,49 @@ CSE Code Heart가 시작부터 조작되지 않는 것처럼 보이던 원인은
 - 전체 검증: source validation 128개 파일·21개 JSON, Node test 58/58, source smoke 31/31, production build 85개 파일, release smoke 37/37 통과
 - Production deployment: `https://4ca5a6d4.ai-change.pages.dev/` (source `040ba07`)
 - 대표 주소의 원격 CSS에서 모달 `color: #333`과 `[hidden]` 규칙을 모두 확인했고, 원격 CSS의 SHA-256이 로컬 `dist/`와 일치했습니다.
+
+## 2026-08-29 사후게임 캐릭터 이동·기본 전투 연결 시스템 구현
+
+최신 첨부 기획안에서 담당 범위로 지정된 `캐릭터 이동`과 `캐릭터 (기본 전투 시스템)`을 구현하기 위해 최신 `dev`의 `a431795`에서 `after/character-move` 브랜치를 생성했습니다. 작업 시작 시 로컬·원격에 기존 `after/*` 브랜치가 없었고, `after/character-move`와 `dev`의 차이도 0이었습니다. 실제 Battle은 계속 빈 registry, `battles=[]`, `features.battleContent=false`인 Coming Soon 상태로 유지했습니다.
+
+### 공용 character core
+
+- `CharacterSystem` facade 아래 캐릭터 domain, input adapter, world controller, DOM view, 모바일 조이스틱을 분리했습니다.
+- PC WASD와 모바일 조이스틱을 길이 1 이하의 같은 이동 벡터로 정규화하고, delta time 기반 이동과 상·하·좌·우 마지막 방향을 유지합니다.
+- 기존 공통 InputManager의 `Space = CONFIRM`은 바꾸지 않았습니다. 캐릭터 장면에서만 `code=Space`인 CONFIRM을 공격으로 해석하고, 모바일 `ATTACK` 버튼과 같은 명령 queue로 합쳐 AI·CS의 기존 Space 조작을 보존했습니다.
+- `idle`, `moving`, `attacking`, `hit`, `dead`, `control-locked` 상태와 중첩 가능한 reason 기반 조작 잠금을 구현했습니다.
+- 맵 경계와 AABB solid collider, 축별 wall sliding을 유지하면서 큰 frame delta에도 얇은 벽을 건너뛰지 않도록 연속 substep 충돌 resolver를 공통 map collision scaffold에 추가했습니다.
+- X알, 필드 미니게임, 전투 입장, 공격 발판, 함정, 회피 구역은 콘텐츠 규칙 없이 `enter`·`stay`·`exit` 접촉 event만 제공합니다. 같은 시스템의 world를 교체할 때 기존 접점의 `exit`도 먼저 보냅니다.
+- 캐릭터 snapshot에 위치·방향·이동·공격 순간·체력·사망·외형·`footY`를 남겨 y-depth 정렬과 원격 캐릭터 표시가 가능하게 했습니다.
+
+### 기본 전투 경계
+
+- Space·모바일 버튼 입력은 `character:attack` event를 한 번 발생시키고 바로 기본 상태로 돌아옵니다.
+- event에는 character ID, sequence, 당시 바라보던 방향, 원본 account stats와 입력 source만 전달합니다. 바라보던 방향은 공격 판정 방향이 아닙니다.
+- 근접·원거리 여부, 공격 origin·방향·범위·target, 타격 판정, damage·defense·max HP 공식, cooldown, 공격 아트·effect는 추가하지 않았습니다.
+- 외부 보스·함정·서버가 이미 계산한 피해만 `applyResolvedDamage()`로 받고, 매 피격에 즉시 현재 체력을 줄입니다. 별도 무적 시간은 없고 체력 0에서 사망 event는 한 번만 발생합니다.
+- 계정 시스템의 `attack`, `defense`, `health`를 공식 없이 보관하며, 현재 `feature/auth-stats-ranking` 브랜치가 사용하는 `hp`도 `health` 별칭으로 받을 수 있게 했습니다. 로그인·저장·랭킹·실시간 통신은 병합하지 않았습니다.
+
+### 화면·아트 연결
+
+- 메인 메뉴에 실제 Battle과 분리된 `캐릭터 시스템 · DEV PREVIEW` 연습장을 추가했습니다. 기존 `배틀 · COMING SOON` 카드와 route는 그대로 남겼습니다.
+- 연습장에서 경계·solid·depth object와 기획에 명시된 접점 hook, HP, 상태·방향·위치, 공격·피격 event log, 조작 잠금, 원격 snapshot 예시를 확인할 수 있습니다.
+- 모바일·좁은 화면에는 왼쪽 조이스틱과 오른쪽 공격 버튼을 표시하고, logical world의 9:5 비율은 PC·모바일 모두 유지합니다.
+- 최종 캐릭터 이미지는 아직 제공되지 않아 기존 다크·민트 디자인 안의 명시적인 CSS placeholder를 사용했습니다. `appearance.sprites.idle|walk.up|down|left|right`에 최종 8개 이미지 URL을 전달하면 같은 view가 방향별 이미지를 교체합니다. 공격 이미지·effect slot은 만들지 않았습니다.
+
+### 스캐폴딩·문서 변경
+
+- `INPUT_ACTIONS.ATTACK`을 추가하되 전역 key binding은 추가하지 않았습니다.
+- `scripts/validate.mjs`와 production build의 필수 runtime 목록에 character core·scene·CSS를 등록했습니다.
+- `README.md`, `docs/execution-and-controls.md`, `docs/사후게임_기획안.md`를 현재 구현 상태로 갱신하고, 팀 간 연결 계약을 `docs/after-character-system.md`에 정리했습니다.
+- 캐릭터 이동·충돌·입력·공격 경계·피격·사망·stats·접촉·원격 snapshot을 고정하는 단위 테스트 11개를 추가했습니다.
+
+### 검증 결과
+
+- source validation: 141개 파일·21개 JSON 문서 통과
+- 전체 Node 단위·계약·원본 충실도 회귀 테스트: 69/69 통과
+- source HTTP·MIME smoke: 32/32 통과
+- production build: 95개 runtime 파일 생성
+- release HTTP·보안 경로 smoke: 38/38 통과
+- 로컬 서버 `http://127.0.0.1:3000/`: root, character CSS, preview scene, character public export·facade 모두 HTTP 200과 올바른 MIME 확인
+- 이 세션에 연결 가능한 인앱 브라우저 인스턴스가 없어 실제 screenshot·WASD·Space·pointer·touch 조작 QA는 수행하지 못했습니다. Chrome·Safari 실제 기기의 조이스틱 동시 입력과 화면 회전은 수동 QA로 남깁니다.

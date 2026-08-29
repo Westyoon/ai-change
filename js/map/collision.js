@@ -85,3 +85,41 @@ export function resolveMovement({ position, size, delta, colliders = [], bounds 
   }
   return next;
 }
+
+/**
+ * Resolves a large movement in smaller pieces so thin solid objects cannot be
+ * skipped when a frame arrives late. The existing axis-by-axis resolver is
+ * kept as the single collision rule, including its wall-sliding behaviour.
+ */
+export function resolveContinuousMovement({
+  position,
+  size,
+  delta,
+  colliders = [],
+  bounds = null,
+  maxStep = null,
+}) {
+  const safePosition = { x: finite(position?.x), y: finite(position?.y) };
+  const safeSize = {
+    width: Math.max(0, finite(size?.width)),
+    height: Math.max(0, finite(size?.height)),
+  };
+  const safeDelta = { x: finite(delta?.x), y: finite(delta?.y) };
+  const bodyStep = Math.max(1, Math.min(safeSize.width || 1, safeSize.height || 1) / 2);
+  const requestedStep = Number.isFinite(maxStep) && maxStep > 0 ? maxStep : bodyStep;
+  const distance = Math.max(Math.abs(safeDelta.x), Math.abs(safeDelta.y));
+  const steps = Math.max(1, Math.ceil(distance / requestedStep));
+  const stepDelta = { x: safeDelta.x / steps, y: safeDelta.y / steps };
+
+  let next = safePosition;
+  for (let index = 0; index < steps; index += 1) {
+    next = resolveMovement({
+      position: next,
+      size: safeSize,
+      delta: stepDelta,
+      colliders,
+      bounds,
+    });
+  }
+  return next;
+}
