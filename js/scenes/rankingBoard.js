@@ -54,6 +54,7 @@ export default class RankingScene {
     bindEvents() {
         const scoreTab = this.container.querySelector('#score-tab');
         const clearsTab = this.container.querySelector('#clears-tab');
+        const closeBtn = this.container.querySelector('.close-ranking-btn');
 
         scoreTab.addEventListener('click', () => {
             this.switchCriteria('score');
@@ -61,6 +62,10 @@ export default class RankingScene {
 
         clearsTab.addEventListener('click', () => {
             this.switchCriteria('clears');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            this.container.innerHTML = ''; // 또는 this.container.style.display = 'none';
         });
     }
 
