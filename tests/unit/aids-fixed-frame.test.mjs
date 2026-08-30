@@ -7,6 +7,7 @@ import {
   AIDS_LOGICAL_WIDTH,
 } from "../../js/minigames/AIDS/dom-builder.js";
 import { createMiniGame } from "../../js/minigames/AIDS/index.js";
+import { platformOuterDimensions } from "../../js/minigames/AIDS/platforms.js";
 
 class FakeClassList {
   constructor(element) {
@@ -128,11 +129,17 @@ function createDom({ width, height }) {
   uiRoot.className = "minigame-ui-root";
   uiRoot.clientWidth = width;
   uiRoot.clientHeight = height;
-  return { observers, ownerDocument, uiRoot };
+  const stage = new FakeElement("div", ownerDocument);
+  stage.className = "minigame-stage";
+  stage.append(uiRoot);
+  const frameHost = new FakeElement("section", ownerDocument);
+  frameHost.className = "scene minigame-frame";
+  frameHost.append(stage);
+  return { frameHost, observers, ownerDocument, stage, uiRoot };
 }
 
 test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects resize cleanup", async () => {
-  const { observers, ownerDocument, uiRoot } = createDom({ width: 195, height: 370 });
+  const { frameHost, observers, ownerDocument, stage, uiRoot } = createDom({ width: 195, height: 370 });
   const instance = createMiniGame({ uiRoot });
 
   await instance.init(DEFAULT_CONFIG);
@@ -140,6 +147,8 @@ test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects re
   assert.equal(AIDS_LOGICAL_WIDTH, 390);
   assert.equal(AIDS_LOGICAL_HEIGHT, 740);
   assert.equal(uiRoot.className, "minigame-ui-root aids-ui-root");
+  assert.equal(stage.className, "minigame-stage aids-stage");
+  assert.equal(frameHost.className, "scene minigame-frame aids-frame-host");
   assert.equal(uiRoot.children.length, 1);
 
   const viewport = uiRoot.children[0];
@@ -160,19 +169,33 @@ test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects re
   uiRoot.clientWidth = 780;
   uiRoot.clientHeight = 1_480;
   observers[0].callback();
-  assert.equal(frame.style.transform, "scale(1)");
-  assert.equal(viewport.style.width, "390px");
-  assert.equal(viewport.style.height, "740px");
+  assert.equal(frame.style.transform, "scale(1.35)");
+  assert.equal(viewport.style.width, "526.5px");
+  assert.ok(Math.abs(Number.parseFloat(viewport.style.height) - 999) < 1e-9);
 
   instance.destroy();
 
   assert.equal(observers[0].disconnected, true);
   assert.equal(uiRoot.className, "minigame-ui-root");
+  assert.equal(stage.className, "minigame-stage");
+  assert.equal(frameHost.className, "scene minigame-frame");
   assert.equal(uiRoot.children.length, 0);
   assert.equal(ownerDocument.head.children.length, 0);
 
   uiRoot.clientWidth = 195;
   uiRoot.clientHeight = 370;
   observers[0].callback();
-  assert.equal(frame.style.transform, "scale(1)");
+  assert.equal(frame.style.transform, "scale(1.35)");
+});
+
+test("AIDS platform visuals derive from the same half length as collision physics", () => {
+  assert.deepEqual(platformOuterDimensions(DEFAULT_CONFIG.physics.platformHalfLen), {
+    width: 84,
+    marginLeft: -42,
+  });
+  assert.deepEqual(platformOuterDimensions(50), {
+    width: 104,
+    marginLeft: -52,
+  });
+  assert.throws(() => platformOuterDimensions(0), /platformHalfLen/u);
 });

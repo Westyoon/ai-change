@@ -6,6 +6,7 @@ const FAILURE_REASON = 'TIME_LIMIT';
 const SLOT_IDS = Object.freeze(['lang', 'engine', 'lib', 'tool']);
 const LOGICAL_FRAME_WIDTH = 440;
 const LOGICAL_FRAME_HEIGHT = 920;
+const MAX_DISPLAY_SCALE = 1.25;
 
 function createAbortError() {
   if (typeof DOMException === 'function') {
@@ -491,7 +492,7 @@ export function createMiniGame(context = {}) {
       logicalWidth: LOGICAL_FRAME_WIDTH,
       logicalHeight: LOGICAL_FRAME_HEIGHT,
       fitHeight: false,
-      maxScale: 1,
+      maxScale: MAX_DISPLAY_SCALE,
     });
   }
 

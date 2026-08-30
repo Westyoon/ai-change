@@ -16,7 +16,7 @@ import {
   estimateWavePlanEndMs,
 } from "../../js/minigames/CS/wave.js";
 import { spawnIntervalFor, stepFrame } from "../../js/minigames/AIDS/game-loop.js";
-import { stepFalling } from "../../js/minigames/AIDS/physics.js";
+import { stepFalling, stepRolling } from "../../js/minigames/AIDS/physics.js";
 
 test("CS MVP timing and purification preserve the approved integrated boundaries", () => {
   const config = { perfectWindowMs: 200, goodWindowMs: 500 };
@@ -140,6 +140,29 @@ test("AIDS time-to-go guidance accelerates toward a platform without exceeding i
   assert.ok(egg.vx > 0);
   assert.ok(egg.vx <= config.physics.fallSteerAccel * 0.016);
   assert.ok(egg.vx <= config.physics.maxFallSteerSpeed);
+});
+
+test("AIDS rolling exits at the same 40px half length used by the visible platform surface", () => {
+  const config = {
+    physics: {
+      rollAccel: 70,
+      maxRollSpeed: 150,
+      tiltAngleDeg: 16,
+      surfaceOffset: 9,
+      platformHalfLen: 40,
+      maxRollTimeSec: 2.5,
+    },
+  };
+  const makeEgg = (x) => ({
+    x,
+    y: 0,
+    vx: 0,
+    rollTime: 0,
+    platform: { x: 0, y: 100 },
+  });
+
+  assert.equal(stepRolling(makeEgg(39.99), 0, config, "right"), null);
+  assert.equal(stepRolling(makeEgg(40), 0, config, "right"), "right");
 });
 
 test("AIDS latest balance keeps timer clear priority when life and timer expire together", () => {

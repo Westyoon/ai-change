@@ -195,6 +195,19 @@
   }
 }
 
+@media (orientation: landscape) and (max-height: 560px) {
+  .minigame-frame {
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: max(260px, calc(100dvh - 80px));
+    padding-block: 12px;
+  }
+
+  .minigame-stage,
+  .minigame-ui-root {
+    min-height: 0;
+  }
+}
+
 /* CSE · Code Heart: Unlock! */
 /* =========================================================
    [MINIGAME 03] Code Heart: Unlock! (코드 하트 전용 스타일)
@@ -875,11 +888,19 @@
 }
 
 /* DS · Number Baseball */
+.minigame-ui-root.ds-ui-root {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(8px, 2.5vw, 28px);
+  overflow: auto;
+}
+
 .nb-container {
   display: grid;
   gap: 18px;
-  width: min(680px, 100%);
-  padding: clamp(18px, 4vw, 34px);
+  width: min(840px, 100%);
+  min-width: 0;
+  padding: clamp(14px, 3.5vw, 34px);
   border: 2px solid #32d9e6;
   border-radius: 22px;
   background: linear-gradient(160deg, #101a31, #13102c);
@@ -902,6 +923,7 @@
 
 .nb-progress-wrapper {
   flex: 1;
+  min-width: 0;
 }
 
 .nb-progress-bar {
@@ -911,7 +933,7 @@
 
 .nb-slots {
   display: grid;
-  grid-template-columns: repeat(3, minmax(56px, 86px));
+  grid-template-columns: repeat(3, minmax(0, 86px));
   gap: 12px;
   justify-content: center;
 }
@@ -989,13 +1011,14 @@
 
 .nb-keypad {
   display: grid;
-  grid-template-columns: repeat(5, minmax(44px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(4px, 1.5vw, 8px);
 }
 
 .nb-key,
 .nb-btn-delete,
 .nb-btn-submit {
+  min-width: 0;
   min-height: 48px;
   border: 1px solid #5d6d9a;
   border-radius: 12px;
@@ -1021,6 +1044,21 @@
 .nb-btn-submit:disabled {
   cursor: not-allowed;
   opacity: 0.42;
+}
+
+@media (max-width: 380px) {
+  .minigame-ui-root.ds-ui-root {
+    padding: 6px;
+  }
+
+  .ds-ui-root .nb-container {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .ds-ui-root .nb-slots {
+    gap: 8px;
+  }
 }
 
 /* CS · CLICK to PURIFY MVP */

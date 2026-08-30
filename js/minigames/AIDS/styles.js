@@ -9,8 +9,15 @@ function removeNode(node) {
 }
 
 const CSS = `
+.minigame-stage.aids-stage{
+  container-type:inline-size;
+}
+.minigame-frame.aids-frame-host{
+  padding-block:clamp(12px, 2vw, 24px);
+}
 .aids-ui-root{
-  width:100%; height:100%; min-width:0; min-height:0; padding:0;
+  width:100%; height:auto; min-width:0;
+  min-height:max(430px, min(999px, calc(100dvh - 200px))); padding:0;
   overflow:hidden; display:grid; place-items:center;
 }
 .aids-ui-root > .aids-frame-viewport{
@@ -111,6 +118,10 @@ const CSS = `
 .aids-ctrl-btn:active, .aids-ctrl-btn.aids-active{ transform: translateY(4px); box-shadow: 0 1px 0 #150F20; }
 .aids-ctrl-left.aids-active{ background: linear-gradient(180deg,#FFB27A,#E4711F); box-shadow:0 1px 0 #C9622A; }
 .aids-ctrl-right.aids-active{ background: linear-gradient(180deg,#6FDAD3,#1F8E88); box-shadow:0 1px 0 #16645F; }
+
+@media (orientation:landscape) and (max-height:560px){
+  .aids-ui-root{ min-height:max(120px, calc(100dvh - 200px)); }
+}
 `;
 
 export function injectStyles(uiRoot) {

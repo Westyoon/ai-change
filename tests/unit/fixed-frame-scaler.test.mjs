@@ -19,6 +19,13 @@ test("fixed frame scale contains a logical game without enlarging its original d
     logicalHeight: 740,
   }), 1);
   assert.equal(calculateFixedFrameScale({
+    availableWidth: 900,
+    availableHeight: 1200,
+    logicalWidth: 390,
+    logicalHeight: 740,
+    maxScale: 1.35,
+  }), 1.35);
+  assert.equal(calculateFixedFrameScale({
     availableWidth: 360,
     availableHeight: 400,
     logicalWidth: 440,
@@ -69,6 +76,13 @@ test("fixed frame scaler sizes only the viewport and transforms the logical fram
   assert.equal(frame.style.width, "440px");
   assert.equal(frame.style.height, "920px");
   assert.equal(frame.style.transform, `scale(${360 / 440})`);
+
+  container.clientWidth = 800;
+  observer.callback();
+  assert.equal(viewport.style.width, "440px");
+  assert.equal(viewport.style.height, "920px");
+  assert.equal(frame.style.transform, "scale(1)");
+
   detach();
   assert.equal(observer.disconnected, true);
 });

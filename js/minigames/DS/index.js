@@ -112,6 +112,7 @@ export function createMiniGame(context = {}) {
   let currentAttemptId = null;
   let terminal = false;
   let disposed = false;
+  let originalUiRootClassName = null;
   const removers = [];
 
   const dom = {
@@ -412,6 +413,9 @@ export function createMiniGame(context = {}) {
       throw new TypeError("Number Baseball requires context.uiRoot with an ownerDocument.");
     }
 
+    originalUiRootClassName = uiRoot.className ?? "";
+    uiRoot.className = `${originalUiRootClassName} ds-ui-root`.trim();
+
     const container = documentRef.createElement("section");
     container.className = "nb-container";
     container.dataset.miniGameId = GAME_ID;
@@ -526,6 +530,31 @@ export function createMiniGame(context = {}) {
     renderAttempt();
   }
 
+  function cleanupUi() {
+    for (const remove of removers.splice(0)) {
+      try {
+        remove();
+      } catch {
+        // Keep initialization rollback and destroy idempotent.
+      }
+    }
+    dom.root?.remove?.();
+    dom.root = null;
+    if (context.uiRoot && originalUiRootClassName !== null) {
+      context.uiRoot.className = originalUiRootClassName;
+    }
+    originalUiRootClassName = null;
+    dom.epochText = null;
+    dom.progressBar = null;
+    dom.inputSlots.length = 0;
+    dom.historyContainer = null;
+    dom.keypad = null;
+    dom.keyButtons.length = 0;
+    dom.deleteButton = null;
+    dom.submitButton = null;
+    dom.feedback = null;
+  }
+
   return Object.freeze({
     async init(config = {}, { signal } = {}) {
       if (disposed || lifecycleState !== "CREATED") {
@@ -538,9 +567,15 @@ export function createMiniGame(context = {}) {
 
       await Promise.resolve();
       throwIfUnavailable(signal, disposed);
-      buildUi();
-      lifecycleState = "READY";
-      renderAttempt();
+      try {
+        buildUi();
+        lifecycleState = "READY";
+        renderAttempt();
+      } catch (error) {
+        cleanupUi();
+        lifecycleState = "ERROR";
+        throw error;
+      }
     },
 
     start({ attemptId } = {}) {
@@ -585,20 +620,7 @@ export function createMiniGame(context = {}) {
       terminal = true;
       currentAttemptId = null;
       state.inputLocked = true;
-      for (const remove of removers.splice(0)) {
-        remove();
-      }
-      dom.root?.remove?.();
-      dom.root = null;
-      dom.epochText = null;
-      dom.progressBar = null;
-      dom.inputSlots.length = 0;
-      dom.historyContainer = null;
-      dom.keypad = null;
-      dom.keyButtons.length = 0;
-      dom.deleteButton = null;
-      dom.submitButton = null;
-      dom.feedback = null;
+      cleanupUi();
       lifecycleState = "DESTROYED";
     },
 
