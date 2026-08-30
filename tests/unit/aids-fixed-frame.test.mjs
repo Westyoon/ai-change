@@ -7,7 +7,16 @@ import {
   AIDS_LOGICAL_WIDTH,
 } from "../../js/minigames/AIDS/dom-builder.js";
 import { createMiniGame } from "../../js/minigames/AIDS/index.js";
-import { platformOuterDimensions } from "../../js/minigames/AIDS/platforms.js";
+import { finalizeRelease } from "../../js/minigames/AIDS/eggs.js";
+import {
+  AIDS_BASE_FIELD_HEIGHT,
+  AIDS_BASE_FIELD_WIDTH,
+  createFieldLayout,
+  layoutPlatforms,
+  platformOuterDimensions,
+  relayoutPlatforms,
+} from "../../js/minigames/AIDS/platforms.js";
+import { stepRolling } from "../../js/minigames/AIDS/physics.js";
 
 class FakeClassList {
   constructor(element) {
@@ -166,12 +175,24 @@ test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects re
 
   assert.equal(observers.length, 1);
   assert.deepEqual(observers[0].observed, [uiRoot]);
-  uiRoot.clientWidth = 780;
-  uiRoot.clientHeight = 1_480;
+  uiRoot.clientWidth = 526.5;
+  uiRoot.clientHeight = 999;
   observers[0].callback();
   assert.equal(frame.style.transform, "scale(1.35)");
   assert.equal(viewport.style.width, "526.5px");
   assert.ok(Math.abs(Number.parseFloat(viewport.style.height) - 999) < 1e-9);
+
+  uiRoot.clientWidth = 1_200;
+  uiRoot.clientHeight = 700;
+  observers[0].callback();
+  assert.equal(uiRoot.classList.contains("aids-desktop-layout"), true);
+  assert.equal(frame.style.width, "100%");
+  assert.equal(frame.style.height, "100%");
+  assert.equal(frame.style.transform, "none");
+  assert.equal(viewport.style.width, "100%");
+  assert.equal(viewport.style.height, "100%");
+  assert.equal(viewport.dataset.scale, "fluid");
+  assert.equal(viewport.dataset.layout, "fluid");
 
   instance.destroy();
 
@@ -185,17 +206,115 @@ test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects re
   uiRoot.clientWidth = 195;
   uiRoot.clientHeight = 370;
   observers[0].callback();
-  assert.equal(frame.style.transform, "scale(1.35)");
+  assert.equal(frame.style.transform, "none");
 });
 
-test("AIDS platform visuals derive from the same half length as collision physics", () => {
+test("AIDS mobile field keeps the original dimensions and physics values", () => {
+  assert.equal(AIDS_BASE_FIELD_WIDTH, 362);
+  assert.equal(AIDS_BASE_FIELD_HEIGHT, 490);
+
+  const layout = createFieldLayout(
+    DEFAULT_CONFIG,
+    AIDS_BASE_FIELD_WIDTH,
+    AIDS_BASE_FIELD_HEIGHT,
+  );
+  assert.equal(layout.horizontalScale, 1);
+  assert.equal(layout.verticalScale, 1);
+  assert.equal(layout.physics.platformHalfLen, DEFAULT_CONFIG.physics.platformHalfLen);
+  assert.equal(layout.physics.gravity, DEFAULT_CONFIG.physics.gravity);
+  assert.equal(layout.physics.releaseSpeedThreshold, 60);
+  assert.equal(layout.physics.releaseSpeed, 120);
+  assert.equal(layout.physics.missMargin, 60);
+});
+
+test("AIDS desktop platform visual and rolling collision use the same responsive edge", () => {
   assert.deepEqual(platformOuterDimensions(DEFAULT_CONFIG.physics.platformHalfLen), {
     width: 84,
     marginLeft: -42,
   });
-  assert.deepEqual(platformOuterDimensions(50), {
-    width: 104,
-    marginLeft: -52,
+
+  const layout = createFieldLayout(
+    DEFAULT_CONFIG,
+    AIDS_BASE_FIELD_WIDTH * 2,
+    AIDS_BASE_FIELD_HEIGHT * 2,
+  );
+  assert.equal(layout.physics.platformHalfLen, 80);
+  assert.equal(layout.physics.rollAccel, DEFAULT_CONFIG.physics.rollAccel * 2);
+  assert.equal(layout.physics.maxRollSpeed, DEFAULT_CONFIG.physics.maxRollSpeed * 2);
+  assert.equal(layout.physics.fallSteerAccel, DEFAULT_CONFIG.physics.fallSteerAccel * 2);
+  assert.equal(layout.physics.maxFallSteerSpeed, DEFAULT_CONFIG.physics.maxFallSteerSpeed * 2);
+  assert.equal(layout.physics.releaseSpeedThreshold, 120);
+  assert.equal(layout.physics.releaseSpeed, 240);
+  assert.equal(layout.physics.missMargin, 120);
+  assert.deepEqual(platformOuterDimensions(layout.physics.platformHalfLen), {
+    width: 164,
+    marginLeft: -82,
   });
+
+  const makeEgg = (x) => ({
+    x,
+    y: 0,
+    vx: 0,
+    rollTime: 0,
+    platform: { x: 0, y: 100 },
+  });
+  assert.equal(stepRolling(makeEgg(79.99), 0, DEFAULT_CONFIG, "right", layout.physics), null);
+  assert.equal(stepRolling(makeEgg(80), 0, DEFAULT_CONFIG, "right", layout.physics), "right");
+
+  const releasingEgg = {
+    platform: { rowIndex: DEFAULT_CONFIG.platformRows.length - 1, lane: "center" },
+    vx: 0,
+    vy: 5,
+  };
+  finalizeRelease({}, releasingEgg, "right", DEFAULT_CONFIG, layout.physics);
+  assert.equal(releasingEgg.vx, 240);
+  assert.equal(releasingEgg.target, "box");
   assert.throws(() => platformOuterDimensions(0), /platformHalfLen/u);
+});
+
+test("AIDS live desktop relayout preserves platform and active egg references", () => {
+  const ownerDocument = {
+    createElement(tagName) {
+      return new FakeElement(tagName, ownerDocument);
+    },
+  };
+  const field = new FakeElement("div", ownerDocument);
+  field.clientWidth = AIDS_BASE_FIELD_WIDTH;
+  field.clientHeight = AIDS_BASE_FIELD_HEIGHT;
+  const platformsContainer = new FakeElement("div", ownerDocument);
+  const refs = { field, platformsContainer };
+  const state = { tilt: "right", platforms: [], eggs: [] };
+
+  layoutPlatforms(refs, DEFAULT_CONFIG, state);
+  const platform = state.platforms[0];
+  const originalXPct = platform.xPct;
+  const eggElement = new FakeElement("div", ownerDocument);
+  const egg = {
+    done: false,
+    phase: "falling",
+    x: 100,
+    y: 200,
+    vx: 60,
+    vy: 100,
+    el: eggElement,
+    platform,
+    targetPlatform: platform,
+  };
+  state.eggs.push(egg);
+
+  field.clientWidth = AIDS_BASE_FIELD_WIDTH * 2;
+  field.clientHeight = AIDS_BASE_FIELD_HEIGHT * 1.5;
+  assert.equal(relayoutPlatforms(refs, DEFAULT_CONFIG, state), true);
+
+  assert.equal(state.platforms[0], platform);
+  assert.equal(platform.xPct, originalXPct);
+  assert.equal(egg.platform, platform);
+  assert.equal(egg.targetPlatform, platform);
+  assert.equal(egg.x, 200);
+  assert.equal(egg.y, 300);
+  assert.equal(egg.vx, 120);
+  assert.equal(egg.vy, 150);
+  assert.equal(state.fieldLayout.physics.platformHalfLen, 80);
+  assert.equal(platform.el.style.width, "164px");
+  assert.equal(platform.el.style.marginLeft, "-82px");
 });

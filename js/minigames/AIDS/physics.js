@@ -8,8 +8,8 @@ export function boxTargetX(config, dir, fieldW) {
     return (fieldW * pct) / 100;
 }
 
-export function stepFalling(egg, dt, config, fieldW, fieldH) {
-    const p = config.physics;
+export function stepFalling(egg, dt, config, fieldW, fieldH, runtimePhysics = config.physics) {
+    const p = runtimePhysics;
 
     let steerX = null;
     let surfaceY = null;
@@ -53,8 +53,8 @@ export function stepFalling(egg, dt, config, fieldW, fieldH) {
     egg.y += egg.vy * dt;
 }
 
-export function stepRolling(egg, dt, config, tilt) {
-    const p = config.physics;
+export function stepRolling(egg, dt, config, tilt, runtimePhysics = config.physics) {
+    const p = runtimePhysics;
 
     const dirSign = tilt === 'left' ? -1 : 1;
     egg.vx += p.rollAccel * dirSign * dt;

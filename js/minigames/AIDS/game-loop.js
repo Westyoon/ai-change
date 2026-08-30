@@ -23,13 +23,14 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
 
     const fieldW = refs.field.clientWidth;
     const fieldH = refs.field.clientHeight;
-    const eggR = config.physics.eggRadius;
+    const physics = state.fieldLayout?.physics ?? config.physics;
+    const eggR = physics.eggRadius;
 
     for (const egg of state.eggs) {
         if (egg.done) continue;
 
         if (egg.phase === 'falling') {
-            stepFalling(egg, dt, config, fieldW, fieldH);
+            stepFalling(egg, dt, config, fieldW, fieldH, physics);
 
             if (egg.target === 'box') {
                 if (egg.y + eggR >= fieldH) {
@@ -37,26 +38,37 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
                     continue;
                 }
             } else if (egg.target === 'miss') {
-                if (egg.x < -60 || egg.x > fieldW + 60 || egg.y > fieldH + 60) {
+                const missMargin = physics.missMargin ?? 60;
+                if (
+                    egg.x < -missMargin
+                    || egg.x > fieldW + missMargin
+                    || egg.y > fieldH + missMargin
+                ) {
                     resolveMiss(refs, state, egg);
                     continue;
                 }
             } else {
                 const plat = egg.targetPlatform;
-                const surfaceY = plat.y - config.physics.surfaceOffset;
+                const surfaceY = plat.y - physics.surfaceOffset;
                 if (egg.y + eggR >= surfaceY) {
                     egg.y = surfaceY - eggR;
                     const dxAtLanding = egg.x - plat.x;
 
-                    if (Math.abs(dxAtLanding) > config.physics.platformHalfLen) {
+                    if (Math.abs(dxAtLanding) > physics.platformHalfLen) {
                         egg.vy = 0;
                         egg.platform = plat;
-                        finalizeRelease(state, egg, dxAtLanding >= 0 ? 'right' : 'left', config);
+                        finalizeRelease(
+                            state,
+                            egg,
+                            dxAtLanding >= 0 ? 'right' : 'left',
+                            config,
+                            physics
+                        );
                     } else {
                         egg.vy = 0;
-                        egg.vx *= config.physics.landingInertiaKeep;
-                        const margin = Math.max(config.physics.platformHalfLen - Math.abs(dxAtLanding), 2);
-                        const maxSafeSpeed = Math.sqrt(2 * config.physics.rollAccel * margin) * 0.85;
+                        egg.vx *= physics.landingInertiaKeep;
+                        const margin = Math.max(physics.platformHalfLen - Math.abs(dxAtLanding), 2);
+                        const maxSafeSpeed = Math.sqrt(2 * physics.rollAccel * margin) * 0.85;
                         if (Math.abs(egg.vx) > maxSafeSpeed) {
                             egg.vx = Math.sign(egg.vx) * maxSafeSpeed;
                         }
@@ -67,9 +79,9 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
                 }
             }
         } else {
-            const exitSide = stepRolling(egg, dt, config, state.tilt);
+            const exitSide = stepRolling(egg, dt, config, state.tilt, physics);
             if (exitSide) {
-                finalizeRelease(state, egg, exitSide, config);
+                finalizeRelease(state, egg, exitSide, config, physics);
             }
         }
 

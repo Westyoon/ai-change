@@ -539,3 +539,23 @@ GitHub PR #12 `feat: add authorize, login, ranking board functionality`에서 Cl
 - AIDS: 원본 `390×740` 논리 프레임의 최대 배율을 `1.35`로 열었습니다. 발판 외곽은 `84 × scale`, 실제 공이 굴러가는 면과 충돌 폭은 `80 × scale`로 함께 바뀝니다. `platformHalfLen=40`에서 CSS 외곽 폭을 계산하도록 단일화해 설정을 바꿔도 보이는 길이와 물리 판정이 어긋나지 않습니다. 플레이 중 resize에서는 발판을 다시 생성하지 않아 random jitter와 진행 중인 공의 target 참조를 보존합니다.
 
 반응형 계약 테스트에는 AI 표시 상한·3:4 비율·짧은 가로 화면, CS 원본 기준 flex wrapping, CSE 확대 후 재축소, DS 좁은 화면 5열·host class 정리·초기화 rollback, AIDS `0.5→1.35` 배율·발판 외곽/충돌 길이·굴림 이탈 경계를 추가했습니다. 전체 검증은 source validation 157개 파일·24개 JSON, Node 테스트 91/91, source smoke 33/33, production build 99개 파일, release smoke 39/39, Worker TypeScript 검사를 통과했습니다. 이 세션에는 연결 가능한 브라우저 인스턴스가 없어 screenshot 기반 QA는 수행하지 못했으며, 로컬 서버 응답과 논리 배율·가짜 DOM·CSS 계약 테스트로 검증했습니다.
+
+## 2026-08-30 사전 미니게임 데스크톱 레이아웃 재구성
+
+직전 반응형 보정은 모바일 원본 프레임을 비례 확대하는 방식이어서, 넓은 데스크톱 stage 안에서도 세로형 게임과 큰 좌우 여백이 남았습니다. 기능 브랜치를 다시 대조한 결과 이는 통합 누락이 아니라 원본 구현에도 데스크톱 구성이 없었기 때문이었습니다.
+
+- AI `origin/prototype/ai-minigame@ebfda86`: `480×640` 고정 카드와 `480×460` Canvas만 제공하고 desktop breakpoint가 없었습니다.
+- CS `origin/feature/click-to-purify@02d63d5`: `480×480` Canvas와 `300px` 패널을 나란히 두고 `600px` 이하에서 세로로 바꾸는 축소 규칙만 있었습니다.
+- CSE `origin/prototype/cse-minigame@e3f94f4`: 주석의 PC 기준도 `440×920`인 고정 세로 화면이었습니다.
+- DS `origin/feature/ds-minigame@d2be19c`: 전용 CSS 없이 DOM과 임시 history inline style만 있었습니다.
+- AIDS `origin/feature/aids-minigame@1abc737`와 balance `origin/balance/aids-minigame-physics@1ece42c`: `390×740` 세로 화면과 고정 `84px` 발판이며 desktop field·physics 재계산은 없었습니다.
+
+모바일 원형을 바꾸지 않고 충분히 넓고 높은 host에서만 전용 desktop class를 활성화하도록 공통 fixed-frame scaler를 확장했습니다. 일반 scene의 `1120px` 폭은 그대로 두고 미니게임 scene만 최대 `1440px`을 사용할 수 있습니다.
+
+- AI: 기존 상단 HUD를 전체 폭에 유지하고 `480:460` Canvas를 원형 왜곡 없이 최대 `720×690`으로 확대했습니다. 기존 하단 조작부는 오른쪽 sidebar로 옮겨 전체 게임이 최대 `1000×750` landscape frame을 사용합니다. 시작·카운트다운 overlay와 게임 판정은 같은 DOM·논리 Canvas를 사용합니다.
+- CS: 원본 `480 + 300` 구성을 `8:5` 비율로 최대 `720 + 450`까지 함께 확대하고 gauge·글자·버튼·설명창도 같은 표시 배율을 적용했습니다. desktop 경계에서는 좌우 padding과 gap을 폭 계산에서 먼저 제외하며, tablet·mobile·짧은 landscape의 기존 wrapping 규칙은 유지합니다.
+- CSE: 모바일은 기존 `440×920` fixed frame과 세로 scroll을 유지합니다. desktop에서는 같은 header·손님·주문·작업대·feedback·재료·UNLOCK 카드를 2열 landscape workspace로 재배치하고 내부 세로 scrollbar를 제거했습니다. 레시피 modal의 기존 내용과 조작은 유지합니다.
+- DS: 기존 네온 카드와 5열 keypad를 유지하면서 desktop에서 입력·조작 영역과 history를 2열로 배치하고 최대 `1200px` 폭과 가용 높이를 사용합니다. 좁은 화면의 5열 overflow 보정은 그대로 적용됩니다.
+- AIDS: 모바일에서는 `390×740`, 기준 field `362×490`, 기존 물리값을 유지하고 desktop에서는 같은 HUD·field·상자·좌우 버튼이 전체 frame을 사용합니다. field 폭에서 발판 half-length를 계산해 표시 길이와 착지·굴림 경계를 일치시키며 수평 가속도·속도·이탈 속도·miss 여백도 같은 비율로 바꿉니다. field 높이는 중력 비율에 반영합니다. 실행 중 resize는 발판 객체와 random jitter를 재생성하지 않고 공의 위치·속도를 새 field로 변환해 `platform`·`targetPlatform` 참조를 보존합니다. 상자 중심도 physics의 `22% / 78%` 목표 좌표와 같은 field 폭을 사용합니다.
+
+공통 scaler, 게임별 desktop CSS, CSE fluid 전환과 AIDS responsive physics에 회귀 테스트를 추가했습니다. 자동 검증은 source validation `157`개 파일·`24`개 JSON, Node 테스트 `95/95`, source HTTP smoke `33/33`, production build `99`개 runtime 파일, release HTTP smoke `39/39`, Backend TypeScript 검사를 모두 통과했습니다. 로컬 서버는 정상 기동했지만 이 세션에 연결 가능한 브라우저가 없어 실제 screenshot·pointer·touch 시각 QA는 별도 실제 브라우저 확인 대상으로 남깁니다.
