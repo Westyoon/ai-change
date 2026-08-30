@@ -1,16 +1,17 @@
 .minigame-stage.ai-ball-classification-stage {
-  --ai-frame-width: min(480px, 100cqw, 75cqh);
+  --ai-frame-max-width: 640px;
+  --ai-frame-width: min(var(--ai-frame-max-width), 100cqw, calc(75dvh - 180px));
 
-  container-type: size;
+  container-type: inline-size;
   place-items: center;
   background: #1a1a24;
 }
 
 .minigame-ui-root.ai-ball-classification-ui-root {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  inset: 0;
-  min-height: 0;
+  width: 100%;
+  min-height: min(853.333px, 133.333cqw, calc(100dvh - 240px));
   padding: 0;
   pointer-events: none;
 }
@@ -71,7 +72,7 @@
   align-items: center;
   gap: calc(var(--ai-frame-width) / 48);
   color: #fff;
-  font-size: clamp(0.62rem, calc(var(--ai-frame-width) / 34.3), 0.875rem);
+  font-size: clamp(0.62rem, calc(var(--ai-frame-width) / 34.3), 1.167rem);
   white-space: nowrap;
 }
 
@@ -83,7 +84,7 @@
   border-radius: 999px;
   background: #6c5ce7;
   color: #fff;
-  font-size: clamp(0.56rem, calc(var(--ai-frame-width) / 40), 0.75rem);
+  font-size: clamp(0.56rem, calc(var(--ai-frame-width) / 40), 1rem);
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -96,7 +97,7 @@
   align-items: center;
   gap: 0.25em;
   color: #00cec9;
-  font-size: clamp(0.66rem, calc(var(--ai-frame-width) / 30), 1rem);
+  font-size: clamp(0.66rem, calc(var(--ai-frame-width) / 30), 1.333rem);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -132,7 +133,7 @@
 
 .ai-ball-classification .control-info {
   color: #a0a5b5;
-  font-size: clamp(0.56rem, calc(var(--ai-frame-width) / 36.9), 0.8125rem);
+  font-size: clamp(0.56rem, calc(var(--ai-frame-width) / 36.9), 1.083rem);
   line-height: 1.35;
 }
 
@@ -147,7 +148,7 @@
   box-shadow: 0 calc(var(--ai-frame-width) / 120) calc(var(--ai-frame-width) / 40) rgb(0 0 0 / 30%);
   color: #fff;
   font: inherit;
-  font-size: clamp(0.62rem, calc(var(--ai-frame-width) / 30), 1rem);
+  font-size: clamp(0.62rem, calc(var(--ai-frame-width) / 30), 1.333rem);
   font-weight: 800;
   cursor: pointer;
   pointer-events: auto;
@@ -213,14 +214,14 @@
 .ai-ball-classification .rules-overlay h2 {
   margin: 0 0 calc(var(--ai-frame-width) / 40);
   color: #a29bfe;
-  font-size: clamp(1.1rem, calc(var(--ai-frame-width) / 17.1), 1.75rem);
+  font-size: clamp(1.1rem, calc(var(--ai-frame-width) / 17.1), 2.333rem);
 }
 
 .ai-ball-classification .rules-overlay p {
   max-width: 90%;
   margin: 0 0 calc(var(--ai-frame-width) / 20);
   color: #dfe6e9;
-  font-size: clamp(0.68rem, calc(var(--ai-frame-width) / 32), 0.9375rem);
+  font-size: clamp(0.68rem, calc(var(--ai-frame-width) / 32), 1.25rem);
   line-height: 1.5;
 }
 
@@ -233,7 +234,7 @@
   box-shadow: 0 calc(var(--ai-frame-width) / 120) calc(var(--ai-frame-width) / 32) rgb(108 92 231 / 40%);
   color: #fff;
   font: inherit;
-  font-size: clamp(0.72rem, calc(var(--ai-frame-width) / 30), 1rem);
+  font-size: clamp(0.72rem, calc(var(--ai-frame-width) / 30), 1.333rem);
   font-weight: 800;
   cursor: pointer;
   pointer-events: auto;
@@ -258,7 +259,7 @@
   padding: calc(var(--ai-frame-width) / 16);
   background: rgb(15 16 25 / 92%);
   color: #00cec9;
-  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 5.625rem);
+  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 7.5rem);
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -272,7 +273,7 @@
 .ai-ball-classification .countdown-card h3 {
   margin: 0 0 calc(var(--ai-frame-width) / 24);
   color: #dfe6e9;
-  font-size: clamp(0.76rem, calc(var(--ai-frame-width) / 24), 1.25rem);
+  font-size: clamp(0.76rem, calc(var(--ai-frame-width) / 24), 1.667rem);
 }
 
 .ai-ball-classification .target-preview-box {
@@ -291,7 +292,7 @@
 
 .ai-ball-classification .countdown-text {
   color: #00cec9;
-  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 5.625rem);
+  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 7.5rem);
   font-weight: 900;
   line-height: 1;
 }
@@ -310,6 +311,16 @@
   .ai-ball-classification .btn-lid,
   .ai-ball-classification > .ai-ball-classification__lid {
     transition: none;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .minigame-stage.ai-ball-classification-stage {
+    --ai-frame-width: min(480px, 100cqw, calc(75dvh - 150px));
+  }
+
+  .minigame-ui-root.ai-ball-classification-ui-root {
+    min-height: min(430px, calc(100dvh - 200px));
   }
 }
 

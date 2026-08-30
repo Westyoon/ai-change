@@ -527,3 +527,15 @@ GitHub PR #12 `feat: add authorize, login, ranking board functionality`에서 Cl
 - Backend TypeScript typecheck, Wrangler Static Assets+D1 dry-run, 로컬 D1 migration 통과
 - 로컬 Worker에서 SPA·account asset·health·session·ranking 200, 폐기 API 404, 외부 Origin 403, 미인증 결과 등록 401을 확인했습니다.
 - 이 세션에는 제어 가능한 브라우저가 제공되지 않아 실제 화면 클릭·스크린샷과 Google 계정 OAuth E2E는 수행하지 못했습니다.
+
+## 2026-08-30 사전 미니게임 5종 반응형 표시 보정
+
+기존 기능 브랜치의 디자인과 게임 판정을 유지하면서 모바일 크기에서만 멈추던 표시 상한과 좁은 화면의 잘림을 보정했습니다. 게임 내부 좌표를 화면 크기에 따라 다시 계산하지 않고 각 원본 논리 프레임과 Canvas 해상도를 유지해, 리사이즈 도중에도 속도·배치·충돌 판정이 달라지지 않게 했습니다.
+
+- AI: 원본 `480×640` 프레임과 `480×460` Canvas는 유지하고 표시 프레임만 최대 `640px`까지 확대합니다. HUD·안내·카운트다운 글자도 같은 비율로 커지며, 높이가 짧은 가로 화면에서는 기존처럼 화면 높이에 맞춰 축소합니다.
+- CS: 고정 2열 grid를 원본 prototype의 `flex-wrap` 구조로 복원했습니다. `480×480` Canvas와 `300px` 패널을 기준으로 최대 `600px`·`375px`까지 함께 커지고, 중간 폭·모바일에서는 내부 요소를 찌그러뜨리지 않고 위아래로 줄바꿈합니다.
+- CSE: 원본 `440×920` 내부 UI와 세로 스크롤을 그대로 두고 바깥 배율 상한만 `1.25`로 열어 태블릿·PC에서 최대 `550×1150`으로 표시합니다.
+- DS: 카드 최대 폭을 넓히고 5열 키패드를 `minmax(0, 1fr)`로 바꿨습니다. 320~375px에서도 5열·색·버튼 순서는 유지하면서 가로 잘림 없이 줄어들고, 짧은 화면에서는 DS UI만 스크롤됩니다. 초기화 도중 DOM 생성이나 listener 연결이 실패해도 전용 host class와 부분 UI를 되돌립니다.
+- AIDS: 원본 `390×740` 논리 프레임의 최대 배율을 `1.35`로 열었습니다. 발판 외곽은 `84 × scale`, 실제 공이 굴러가는 면과 충돌 폭은 `80 × scale`로 함께 바뀝니다. `platformHalfLen=40`에서 CSS 외곽 폭을 계산하도록 단일화해 설정을 바꿔도 보이는 길이와 물리 판정이 어긋나지 않습니다. 플레이 중 resize에서는 발판을 다시 생성하지 않아 random jitter와 진행 중인 공의 target 참조를 보존합니다.
+
+반응형 계약 테스트에는 AI 표시 상한·3:4 비율·짧은 가로 화면, CS 원본 기준 flex wrapping, CSE 확대 후 재축소, DS 좁은 화면 5열·host class 정리·초기화 rollback, AIDS `0.5→1.35` 배율·발판 외곽/충돌 길이·굴림 이탈 경계를 추가했습니다. 전체 검증은 source validation 157개 파일·24개 JSON, Node 테스트 91/91, source smoke 33/33, production build 99개 파일, release smoke 39/39, Worker TypeScript 검사를 통과했습니다. 이 세션에는 연결 가능한 브라우저 인스턴스가 없어 screenshot 기반 QA는 수행하지 못했으며, 로컬 서버 응답과 논리 배율·가짜 DOM·CSS 계약 테스트로 검증했습니다.

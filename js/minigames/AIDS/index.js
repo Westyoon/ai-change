@@ -15,6 +15,8 @@ import { buildHearts, updateHearts } from './hud.js';
 import { layoutPlatforms, setTilt } from './platforms.js';
 import { stepFrame } from './game-loop.js';
 
+const MAX_DISPLAY_SCALE = 1.35;
+
 function createAbortError() {
   if (typeof DOMException === 'function') {
     return new DOMException('Mini-game initialization was aborted.', 'AbortError');
@@ -101,6 +103,10 @@ export function createMiniGame(context = {}) {
   let terminal = false;
   let disposed = false;
   let hostLayoutClassAdded = false;
+  let hostStage = null;
+  let hostStageClassAdded = false;
+  let hostFrame = null;
+  let hostFrameClassAdded = false;
 
   function addListener(target, type, listener) {
     if (typeof target?.addEventListener !== 'function') return;
@@ -120,15 +126,37 @@ export function createMiniGame(context = {}) {
   }
 
   function enableHostLayout() {
-    if (!context.uiRoot || hasClass(context.uiRoot, 'aids-ui-root')) return;
-    toggleClass(context.uiRoot, 'aids-ui-root', true);
-    hostLayoutClassAdded = true;
+    if (context.uiRoot && !hasClass(context.uiRoot, 'aids-ui-root')) {
+      toggleClass(context.uiRoot, 'aids-ui-root', true);
+      hostLayoutClassAdded = true;
+    }
+    hostStage = context.uiRoot?.parentElement ?? context.uiRoot?.parentNode ?? null;
+    if (hostStage && !hasClass(hostStage, 'aids-stage')) {
+      toggleClass(hostStage, 'aids-stage', true);
+      hostStageClassAdded = true;
+    }
+    hostFrame = hostStage?.parentElement ?? hostStage?.parentNode ?? null;
+    if (hostFrame && !hasClass(hostFrame, 'aids-frame-host')) {
+      toggleClass(hostFrame, 'aids-frame-host', true);
+      hostFrameClassAdded = true;
+    }
   }
 
   function restoreHostLayout() {
-    if (!hostLayoutClassAdded) return;
-    toggleClass(context.uiRoot, 'aids-ui-root', false);
-    hostLayoutClassAdded = false;
+    if (hostLayoutClassAdded) {
+      toggleClass(context.uiRoot, 'aids-ui-root', false);
+      hostLayoutClassAdded = false;
+    }
+    if (hostStageClassAdded) {
+      toggleClass(hostStage, 'aids-stage', false);
+      hostStageClassAdded = false;
+    }
+    if (hostFrameClassAdded) {
+      toggleClass(hostFrame, 'aids-frame-host', false);
+      hostFrameClassAdded = false;
+    }
+    hostFrame = null;
+    hostStage = null;
   }
 
   function removeMountedDom() {
@@ -331,7 +359,7 @@ export function createMiniGame(context = {}) {
             logicalWidth: AIDS_LOGICAL_WIDTH,
             logicalHeight: AIDS_LOGICAL_HEIGHT,
             fitHeight: true,
-            maxScale: 1,
+            maxScale: MAX_DISPLAY_SCALE,
           }));
         }
         bindControls();

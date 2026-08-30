@@ -1,3 +1,16 @@
+const PLATFORM_BORDER_WIDTH = 2;
+
+export function platformOuterDimensions(platformHalfLen) {
+    if (!Number.isFinite(platformHalfLen) || platformHalfLen <= 0) {
+        throw new TypeError('platformHalfLen must be a positive finite number.');
+    }
+    const outerHalf = platformHalfLen + PLATFORM_BORDER_WIDTH;
+    return Object.freeze({
+        width: outerHalf * 2,
+        marginLeft: -outerHalf,
+    });
+}
+
 export function layoutPlatforms(refs, config, state) {
     const doc = refs.platformsContainer.ownerDocument;
     const fieldW = refs.field.clientWidth;
@@ -17,6 +30,9 @@ export function layoutPlatforms(refs, config, state) {
             wrap.className = 'aids-platform-wrap aids-tilt-' + state.tilt;
             wrap.style.left = x + 'px';
             wrap.style.top = y + 'px';
+            const dimensions = platformOuterDimensions(config.physics.platformHalfLen);
+            wrap.style.width = dimensions.width + 'px';
+            wrap.style.marginLeft = dimensions.marginLeft + 'px';
             wrap.innerHTML = '<div class="aids-platform-bar"></div><div class="aids-platform-pivot"></div>';
             refs.platformsContainer.appendChild(wrap);
 

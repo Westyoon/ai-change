@@ -352,7 +352,7 @@ test("CS counts both WORM split-child misses toward the normal MISS limit", asyn
   }
 });
 
-test("CS dedicated stylesheet preserves the desktop pair and 600px vertical layout", async () => {
+test("CS dedicated stylesheet preserves the original pair with responsive wrapping", async () => {
   const [documentText, stylesheet, config] = await Promise.all([
     readFile(new URL("../../index.html", import.meta.url), "utf8"),
     readFile(new URL("../../css/click-to-purify.css", import.meta.url), "utf8"),
@@ -360,11 +360,17 @@ test("CS dedicated stylesheet preserves the desktop pair and 600px vertical layo
   ]);
 
   assert.match(documentText, /href="\.\/css\/click-to-purify\.css"/u);
-  assert.match(stylesheet, /grid-template-columns:\s*minmax\(0, 480px\) minmax\(220px, 300px\)/u);
-  assert.match(stylesheet, /width:\s*min\(300px, 100%\)/u);
+  assert.match(stylesheet, /display:\s*flex/u);
+  assert.match(stylesheet, /flex-wrap:\s*wrap/u);
+  assert.match(stylesheet, /flex:\s*8 1 480px/u);
+  assert.match(stylesheet, /max-width:\s*600px/u);
+  assert.match(stylesheet, /flex:\s*5 1 300px/u);
+  assert.match(stylesheet, /max-width:\s*375px/u);
   assert.match(stylesheet, /aspect-ratio:\s*1 \/ 1/u);
   assert.match(stylesheet, /@media \(max-width: 600px\)/u);
-  assert.match(stylesheet, /grid-template-columns:\s*minmax\(0, 480px\);/u);
+  assert.match(stylesheet, /orientation:\s*landscape/u);
+  assert.match(stylesheet, /max-width:\s*min\(420px, calc\(100dvh - 220px\)\)/u);
+  assert.match(stylesheet, /flex:\s*5 1 240px/u);
   assert.equal(config.goodScoreWeight, 0.7);
   assert.deepEqual(config.resultPresentation, {
     clear: {

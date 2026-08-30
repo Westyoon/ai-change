@@ -307,6 +307,21 @@ test("AI mounts the prototype shell and restores the shared host shell on destro
   assert.equal(uiRoot.className, "minigame-ui-root");
 });
 
+test("AI responsive CSS enlarges only the display frame while preserving its 3:4 design", async () => {
+  const stylesheet = await readFile(
+    new URL("../../css/ai-ball-classification.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(stylesheet, /--ai-frame-max-width:\s*640px/u);
+  assert.match(stylesheet, /--ai-frame-width:\s*min\(var\(--ai-frame-max-width\), 100cqw, calc\(75dvh - 180px\)\)/u);
+  assert.match(stylesheet, /min-height:\s*min\(853\.333px, 133\.333cqw, calc\(100dvh - 240px\)\)/u);
+  assert.match(stylesheet, /aspect-ratio:\s*3 \/ 4/u);
+  assert.match(stylesheet, /orientation:\s*landscape/u);
+  assert.match(stylesheet, /--ai-frame-width:\s*min\(480px, 100cqw, calc\(75dvh - 150px\)\)/u);
+  assert.match(stylesheet, /min-height:\s*min\(430px, calc\(100dvh - 200px\)\)/u);
+});
+
 test("AI keeps the prototype start overlay before beginning its single countdown", async () => {
   const module = await loadMiniGameModule("ai-ball-classification");
   const configs = await loadGameConfigs();

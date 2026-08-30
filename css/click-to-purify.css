@@ -1,10 +1,10 @@
 /* CS · CLICK to PURIFY prototype fidelity layer */
 .minigame-stage.click-to-purify-stage {
   box-sizing: border-box;
-  grid-template-columns: minmax(0, 480px) minmax(220px, 300px);
-  grid-template-rows: auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
-  align-content: center;
+  align-content: safe center;
   align-items: center;
   justify-content: center;
   min-height: 522px;
@@ -24,8 +24,10 @@
   position: relative;
   inset: auto;
   display: block;
+  flex: 8 1 480px;
   width: 100%;
-  max-width: 480px;
+  min-width: min(480px, 100%);
+  max-width: 600px;
   height: auto;
   max-height: none;
   aspect-ratio: 1 / 1;
@@ -41,7 +43,10 @@
   inset: auto;
   z-index: 2;
   display: block;
-  width: min(300px, 100%);
+  flex: 5 1 300px;
+  width: 100%;
+  min-width: min(300px, 100%);
+  max-width: 375px;
   min-height: 0;
   padding: 0;
   align-self: center;
@@ -255,8 +260,6 @@
 
 @media (max-width: 600px) {
   .minigame-stage.click-to-purify-stage {
-    grid-template-columns: minmax(0, 480px);
-    grid-template-rows: auto auto;
     gap: 12px;
     align-content: start;
     min-height: 0;
@@ -269,7 +272,7 @@
   }
 
   .click-to-purify-stage > .minigame-ui-root.click-to-purify-ui-root {
-    width: min(300px, 100%);
+    max-width: 375px;
   }
 }
 
@@ -282,5 +285,25 @@
   .click-to-purify-stage .click-to-purify__intro-box {
     padding: 14px;
     font-size: 12px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .minigame-stage.click-to-purify-stage {
+    gap: 12px;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .click-to-purify-stage > .minigame-canvas.click-to-purify-canvas {
+    flex: 8 1 360px;
+    min-width: min(120px, 100%);
+    max-width: min(420px, calc(100dvh - 220px));
+  }
+
+  .click-to-purify-stage > .minigame-ui-root.click-to-purify-ui-root {
+    flex: 5 1 240px;
+    min-width: min(120px, 100%);
+    max-width: 240px;
   }
 }
