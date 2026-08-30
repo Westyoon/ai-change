@@ -119,6 +119,51 @@ const CSS = `
 .aids-ctrl-left.aids-active{ background: linear-gradient(180deg,#FFB27A,#E4711F); box-shadow:0 1px 0 #C9622A; }
 .aids-ctrl-right.aids-active{ background: linear-gradient(180deg,#6FDAD3,#1F8E88); box-shadow:0 1px 0 #16645F; }
 
+/* The original 390x740 composition remains untouched below the breakpoint.
+   On a desktop-sized host, the same pieces occupy the full available frame. */
+.aids-ui-root.aids-desktop-layout{
+  height:100%; min-height:540px; place-items:stretch;
+}
+.aids-ui-root.aids-desktop-layout > .aids-frame-viewport,
+.aids-desktop-layout .aids-logical-frame{
+  min-width:0; min-height:0;
+}
+.aids-desktop-layout .aids-topbar{
+  padding:clamp(14px, 2.1vh, 24px) clamp(22px, 3.5vw, 64px) 8px;
+}
+.aids-desktop-layout .aids-timer{
+  font-size:clamp(26px, 2vw, 34px); padding-inline:clamp(14px, 1.7vw, 28px);
+}
+.aids-desktop-layout .aids-hearts{ gap:clamp(3px, .45vw, 8px); }
+.aids-desktop-layout .aids-heart{
+  width:clamp(20px, 1.8vw, 30px); height:clamp(20px, 1.8vw, 30px);
+}
+.aids-desktop-layout .aids-field{
+  width:auto; margin-inline:clamp(24px, 3.5vw, 68px); min-height:220px;
+}
+.aids-desktop-layout .aids-boxes{
+  position:relative; display:block; height:clamp(66px, 8vh, 88px);
+  padding:0; margin-top:clamp(4px, 1vh, 12px);
+  margin-inline:clamp(24px, 3.5vw, 68px);
+}
+.aids-desktop-layout .aids-box{
+  position:absolute; top:0; width:clamp(120px, 14vw, 220px);
+  height:clamp(66px, 8vh, 88px); transform:translateX(-50%);
+  font-size:clamp(14px, 1.2vw, 19px);
+}
+.aids-desktop-layout .aids-box-left{ left:22%; }
+.aids-desktop-layout .aids-box-right{ left:78%; }
+.aids-desktop-layout .aids-box.aids-flash-good{ transform:translateX(-50%) scale(1.06); }
+.aids-desktop-layout .aids-box.aids-flash-bad{ transform:translateX(-50%) scale(.94); }
+.aids-desktop-layout .aids-controls{
+  justify-content:center; gap:clamp(14px, 2.5vw, 40px);
+  padding:clamp(12px, 1.8vh, 20px) clamp(24px, 8vw, 160px) clamp(18px, 2.5vh, 28px);
+}
+.aids-desktop-layout .aids-ctrl-btn{
+  flex:0 1 clamp(220px, 28vw, 420px); height:clamp(64px, 8vh, 82px);
+  font-size:clamp(22px, 1.8vw, 30px);
+}
+
 @media (orientation:landscape) and (max-height:560px){
   .aids-ui-root{ min-height:max(120px, calc(100dvh - 200px)); }
 }

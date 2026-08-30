@@ -29,12 +29,14 @@ export function spawnEgg(refs, config, state) {
     });
 }
 
-export function finalizeRelease(state, egg, exitSide, config) {
+export function finalizeRelease(state, egg, exitSide, config, runtimePhysics = config.physics) {
     const rowIndex = egg.platform.rowIndex;
     egg.phase = 'falling';
     egg.vy = 0;
-    if (Math.abs(egg.vx) < 60) {
-        egg.vx = exitSide === 'left' ? -120 : 120;
+    const releaseSpeedThreshold = runtimePhysics.releaseSpeedThreshold ?? 60;
+    const releaseSpeed = runtimePhysics.releaseSpeed ?? 120;
+    if (Math.abs(egg.vx) < releaseSpeedThreshold) {
+        egg.vx = exitSide === 'left' ? -releaseSpeed : releaseSpeed;
     }
 
     const nextRowIndex = rowIndex + 1;

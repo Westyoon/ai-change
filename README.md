@@ -138,7 +138,7 @@ Loading
 | `AI` | `ai-ball-classification` | AI Ball Classification Game | MVP |
 | `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 | MVP |
 
-각 기능 브랜치의 원본 논리 배치와 색·문구를 유지하고 공통 stage에서는 바깥 표시 프레임의 모바일·태블릿·PC 반응형 확대·축소·줄바꿈·스크롤을 담당합니다. AI·CS의 Canvas와 CSE·AIDS의 논리 좌표는 바뀌지 않으므로 화면 크기가 달라져도 게임 판정 기준은 동일합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
+각 기능 브랜치의 색·문구·카드·버튼과 게임 규칙을 유지합니다. 모바일에서는 AI `480×640`, CSE `440×920`, AIDS `390×740` 원본 세로 프레임을 그대로 축소하고, 충분히 넓고 높은 데스크톱에서는 같은 UI 요소를 landscape 작업 공간으로 재배치합니다. AI·CS Canvas는 원본 종횡비를 유지해 늘어나며, AIDS는 필드 폭에 맞춘 발판 길이와 동일한 충돌 범위·수평 물리를 사용합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
 
 ## 주요 구조
 

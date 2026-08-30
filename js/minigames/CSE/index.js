@@ -493,6 +493,11 @@ export function createMiniGame(context = {}) {
       logicalHeight: LOGICAL_FRAME_HEIGHT,
       fitHeight: false,
       maxScale: MAX_DISPLAY_SCALE,
+      fluidLayout: {
+        minWidth: 760,
+        minHeight: 540,
+        className: 'cse-desktop-layout',
+      },
     });
   }
 

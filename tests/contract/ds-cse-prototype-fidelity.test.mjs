@@ -134,7 +134,7 @@ async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
 }
 
-test("CSE mounts the original 440x920 frame with width-only scaling and cleans it up", async () => {
+test("CSE keeps the original portrait frame on small hosts and switches to a fluid desktop layout", async () => {
   const config = await readJson("../../data/minigames/code-heart.json");
   const { observers, uiRoot } = createFakeEnvironment({ width: 400, height: 480 });
   uiRoot.className = "minigame-ui-root host-class";
@@ -162,11 +162,26 @@ test("CSE mounts the original 440x920 frame with width-only scaling and cleans i
   assert.equal(frame.style.transform, "scale(1.25)");
   assert.equal(viewport.style.width, "550px");
   assert.equal(viewport.style.height, "1150px");
+  assert.equal(viewport.dataset.layout, "fixed");
+  assert.doesNotMatch(uiRoot.className, /\bcse-desktop-layout\b/u);
+
+  uiRoot.clientHeight = 600;
+  observers[0].callback();
+  assert.equal(frame.style.transform, "none");
+  assert.equal(frame.style.width, "100%");
+  assert.equal(frame.style.height, "100%");
+  assert.equal(viewport.style.width, "100%");
+  assert.equal(viewport.style.height, "100%");
+  assert.equal(viewport.dataset.scale, "fluid");
+  assert.equal(viewport.dataset.layout, "fluid");
+  assert.match(uiRoot.className, /\bcse-desktop-layout\b/u);
 
   uiRoot.clientWidth = 220;
   observers[0].callback();
   assert.equal(frame.style.transform, "scale(0.5)");
   assert.equal(viewport.style.width, "220px");
+  assert.equal(viewport.dataset.layout, "fixed");
+  assert.doesNotMatch(uiRoot.className, /\bcse-desktop-layout\b/u);
 
   instance.destroy();
   instance.destroy();
@@ -298,6 +313,32 @@ test("DS responsive CSS keeps the five-column keypad inside narrow hosts", async
   assert.match(stylesheet, /@media \(max-width: 380px\)/u);
   assert.match(stylesheet, /@media \(orientation: landscape\) and \(max-height: 560px\)/u);
   assert.match(stylesheet, /grid-template-rows:\s*auto minmax\(0, 1fr\)/u);
+});
+
+test("CSE and DS expose desktop layouts without replacing their original visual components", async () => {
+  const stylesheet = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
+
+  assert.match(
+    stylesheet,
+    /@media \(min-width: 900px\) and \(min-height: 640px\)\s*\{[\s\S]*?\.minigame-frame\s*\{[^}]*width:\s*min\(1440px,/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-desktop-layout \.code-heart-game\s*\{[^}]*grid-template-areas:[^}]*"counter tray"[^}]*"workspace tray"[^}]*"feedback tray"/su,
+  );
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-desktop-layout \.code-heart-game \.ch-tray-section\s*\{[^}]*grid-area:\s*tray/su,
+  );
+  assert.match(
+    stylesheet,
+    /@media \(min-width: 900px\) and \(min-height: 640px\)\s*\{[\s\S]*?\.ds-ui-root \.nb-container\s*\{[^}]*grid-template-areas:[^}]*"slots history"[^}]*width:\s*min\(1200px, 100%\)/u,
+  );
+  assert.match(
+    stylesheet,
+    /\.ds-ui-root \.nb-keypad\s*\{[^}]*gap:/su,
+  );
+  assert.match(stylesheet, /\.nb-keypad\s*\{[^}]*repeat\(5, minmax\(0, 1fr\)\)/su);
 });
 
 test("DS rolls back its host class and partial listeners when UI initialization fails", async () => {
