@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>데이터 스핑크스 (O/X 보스) 테스트</title>
+  <style>
+    body { margin: 0; background-color: #222; color: #fff; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+    #game-container { position: relative; width: 800px; height: 360px; background: #333; overflow: hidden; border: 2px solid #555; margin-top: 20px; }
+    #world { width: 1600px; height: 720px; transform: scale(0.5); transform-origin: top left; position: absolute; top: 0; left: 0; }
+    
+    .zone-o { position: absolute; left: 0; top: 0; width: 800px; height: 720px; background: rgba(0, 255, 0, 0.15); border-right: 4px solid #fff; box-sizing: border-box; }
+    .zone-x { position: absolute; left: 800px; top: 0; width: 800px; height: 720px; background: rgba(255, 0, 0, 0.15); }
+    .zone-label { font-size: 100px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.3; }
+    
+    #debug-ui { margin-top: 10px; padding: 15px; background: #000; border: 1px solid #0f0; width: 770px; text-align: center; font-size: 24px; font-weight: bold;}
+    
+    /*캐릭터*/
+    #player-box {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      background-color: yellow;
+      border: 3px solid black;
+      z-index: 9999;
+      left: 400px; /* O 구역 한가운데서 시작 */
+      top: 360px;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <h2>보스전 O/X 구역 반반 분할 테스트</h2>
+  <div id="game-container">
+    <div id="world">
+      <div class="zone-o"><div class="zone-label" style="color: #0f0;">O</div></div>
+      <div class="zone-x"><div class="zone-label" style="color: #f00;">X</div></div>
+      <div id="ui-root"></div>
+      
+      <div id="player-box"></div>
+    </div>
+  </div>
+  <div id="debug-ui">현재 위치: <span id="loc-text" style="color: yellow;">NEUTRAL</span></div>
+  <p>W, A, S, D 키로 캐릭터를 움직여보세요!</p>
+
+  <script type="module">
+    try {
+      const module = await import('./data-sphinx.js');
+      const createDataSphinxBoss = module.createDataSphinxBoss;
+
+      const mockEvents = {
+        listeners: {},
+        on(event, callback) {
+          if (!this.listeners[event]) this.listeners[event] = [];
+          this.listeners[event].push(callback);
+        },
+        emit(event, data) {
+          if (this.listeners[event]) this.listeners[event].forEach(cb => cb(data));
+        }
+      };
+
+      const keys = {};
+      window.addEventListener('keydown', e => keys[e.code] = true);
+      window.addEventListener('keyup', e => keys[e.code] = false);
+
+      const mockInputManager = {
+        getMovementVector() {
+          let x = 0; let y = 0;
+          if (keys['KeyW'] || keys['ArrowUp']) y -= 1;
+          if (keys['KeyS'] || keys['ArrowDown']) y += 1;
+          if (keys['KeyA'] || keys['ArrowLeft']) x -= 1;
+          if (keys['KeyD'] || keys['ArrowRight']) x += 1;
+          const len = Math.sqrt(x*x + y*y);
+          return len > 0 ? { x: x/len, y: y/len } : { x: 0, y: 0 };
+        }
+      };
+
+      const mockContext = { events: mockEvents, input: mockInputManager, uiRoot: document.getElementById('ui-root') };
+      
+      // 시작 위치를 800 경계선이 아닌 O 구역(400)으로 설정
+      const mapConfig = { spawn: { x: 400, y: 360 } }; 
+
+      const playerEl = document.getElementById('player-box');
+      
+      // 움직일 때마다 위치 갱신
+      mockEvents.on('character:move', (data) => {
+          playerEl.style.left = data.to.x + 'px';
+          playerEl.style.top = data.to.y + 'px';
+      });
+
+      const boss = createDataSphinxBoss(mockContext, {}, {}, mapConfig);
+
+      await boss.init({}, { signal: new AbortController().signal });
+      boss.start({ attemptId: 'test-attempt-1' });
+
+      let lastTime = performance.now();
+      function loop(now) {
+        const deltaMs = now - lastTime;
+        lastTime = now;
+        boss.update(deltaMs);
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+
+      mockEvents.on('character:contact', (contact) => {
+        if (contact.kind === "QUIZ_ZONE") {
+          const locText = document.getElementById('loc-text');
+          if (contact.phase === "enter" || contact.phase === "stay") {
+            locText.textContent = contact.metadata.zoneValue;
+            locText.style.color = contact.metadata.zoneValue === 'O' ? '#0f0' : '#f00';
+          }
+        }
+      });
+      
+    } catch (error) {
+      // 스크립트 에러 발생 시 경고창
+      alert("스크립트 실행 중 에러가 발생했습니다!\n개발자 도구(F12) 콘솔 창의 빨간 에러 메시지를 확인해 주세요.\n에러 내용: " + error.message);
+      console.error(error);
+    }
+  </script>
+</body>
+</html>
