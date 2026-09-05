@@ -5,29 +5,21 @@ import {
 } from "../../character/index.js";
 
 export function createDataSphinxBoss(context, battleState, account, mapConfig) {
-  const quizList = [
-    { id: 1, question: "이화여자대학교의 상징색은 '이화 그린'이다.", answer: "O" },
-    { id: 2, question: "C++에서 동적 할당된 메모리를 해제하는 키워드는 delete이다.", answer: "O" },
-    { id: 3, question: "ECC는 Ewha Campus Complex의 약자이다.", answer: "O" },
-    { id: 4, question: "배열의 첫 번째 인덱스는 1부터 시작한다.", answer: "X" },
-    { id: 5, question: "이화여대 후문 근처에는 공과대학 건물이 있다.", answer: "O" },
-    { id: 6, question: "HTML은 프로그래밍 언어이다.", answer: "X" },
-    { id: 7, question: "대강당에서는 매주 채플이 진행된다.", answer: "O" },
-    { id: 8, question: "HTTP 상태 코드 404는 '서버 내부 오류'를 의미한다.", answer: "X" },
-    { id: 9, question: "이화여대의 마스코트는 '화연이'이다.", answer: "X" },
-    { id: 10, question: "이진 탐색(Binary Search)은 정렬된 배열에서만 사용할 수 있다.", answer: "O" }
-  ];
+  let quizList = []; // config에서 불러올 빈 배열로 초기화
 
   let state = {
     currentQuizIndex: 0,
     timeLimitMs: 15000, 
     timeRemainingMs: 0,
-    delayTimerMs: 0, // setTimeout을 대체할 딜레이 타이머
+    delayTimerMs: 0, 
     playerLocation: "NEUTRAL", 
     phase: "INIT",
-    isPaused: false, // 일시정지 상태 플래그
+    isPaused: false, 
     currentAttemptId: null,
     bossHealth: 100, 
+    bossMaxHealth: 100,
+    damagePerCorrect: 10,
+    playerDamagePerWrong: 20,
     metrics: { correctCount: 0, wrongCount: 0, timeoutCount: 0 }
   };
 
@@ -42,6 +34,14 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
 
   async function init(config, { signal }) {
     console.log("데이터 스핑크스: init");
+
+    // --- 🌟 JSON(config) 데이터 연동 ---
+    quizList = config?.quizList || [];
+    state.timeLimitMs = config?.timeLimitMs || 15000;
+    state.bossMaxHealth = config?.bossMaxHealth || 100;
+    state.bossHealth = state.bossMaxHealth;
+    state.damagePerCorrect = config?.damagePerCorrect || 10;
+    state.playerDamagePerWrong = config?.playerDamagePerWrong || 20;
 
     dom.container = document.createElement("div");
     Object.assign(dom.container.style, {
@@ -105,7 +105,7 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
   }
 
   function updateBossUI() {
-    dom.bossHealthText.textContent = `데이터 스핑크스 체력: ${state.bossHealth} / 100`;
+    dom.bossHealthText.textContent = `데이터 스핑크스 체력: ${state.bossHealth} / ${state.bossMaxHealth}`;
   }
 
   function endGame(status, failureReason = null) {
@@ -153,7 +153,7 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
     
     const currentQuiz = quizList[index];
     updateBossUI();
-    dom.questionText.textContent = `[문제 ${index + 1}/10] ${currentQuiz.question}`;
+    dom.questionText.textContent = `[문제 ${index + 1}/${quizList.length}] ${currentQuiz.question}`;
     dom.timerText.textContent = (state.timeLimitMs / 1000).toFixed(1);
     dom.timerText.style.color = "yellow";
   }
@@ -168,26 +168,30 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
     if (state.playerLocation === "NEUTRAL") {
       dom.timerText.textContent = "시간 초과!";
       dom.timerText.style.color = "red";
-      system.applyResolvedDamage(20, { sourceId: "sphinx-timeout" });
+      system.applyResolvedDamage(state.playerDamagePerWrong, { sourceId: "sphinx-timeout" });
       state.metrics.timeoutCount++;
     } else if (isCorrect) {
       dom.timerText.textContent = "정답입니다!";
       dom.timerText.style.color = "#0f0";
-      state.bossHealth = Math.max(0, state.bossHealth - 10);
+      state.bossHealth = Math.max(0, state.bossHealth - state.damagePerCorrect);
       state.metrics.correctCount++;
       updateBossUI();
     } else {
       dom.timerText.textContent = "오답입니다!";
       dom.timerText.style.color = "red";
-      system.applyResolvedDamage(20, { sourceId: "sphinx-wrong" });
+      system.applyResolvedDamage(state.playerDamagePerWrong, { sourceId: "sphinx-wrong" });
       state.metrics.wrongCount++;
     }
 
-    // setTimeout 대신 딜레이 타이머(2초) 설정
+    const playerSnapshot = system.getSnapshot();
+    if (playerSnapshot.currentHealth <= 0) {
+      setTimeout(() => endGame("FAIL", "PLAYER_DEAD"), 1000);
+      return;
+    }
+
     state.delayTimerMs = 2000;
   }
 
-  // --- 🌟 라이프사이클 메서드 완성 ---
   function start({ attemptId }) {
     console.log("데이터 스핑크스: start, attemptId:", attemptId);
     state.currentAttemptId = attemptId;
@@ -196,13 +200,11 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
   }
 
   function pause(reason) {
-    console.log("데이터 스핑크스: pause", reason);
     state.isPaused = true;
     if (system) system.setControlLocked(true, "game-paused");
   }
 
   function resume() {
-    console.log("데이터 스핑크스: resume");
     state.isPaused = false;
     if (state.phase === "PLAYING" && system) {
       system.setControlLocked(false, "game-paused");
@@ -212,10 +214,9 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
   function restart({ attemptId }) {
     console.log("데이터 스핑크스: restart, attemptId:", attemptId);
     
-    // 상태 및 맵트릭스 완전 초기화
     state.currentAttemptId = attemptId;
     state.currentQuizIndex = 0;
-    state.bossHealth = 100;
+    state.bossHealth = state.bossMaxHealth;
     state.timeRemainingMs = 0;
     state.delayTimerMs = 0;
     state.playerLocation = "NEUTRAL";
@@ -223,13 +224,11 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
     state.isPaused = false;
     state.metrics = { correctCount: 0, wrongCount: 0, timeoutCount: 0 };
     
-    // 캐릭터 체력 및 위치 복구
     if (system) {
       system.character.currentHealth = system.character.maxHealth;
       system.character.dead = false;
       system.character.setPosition(800, 360);
       
-      // 걸려있던 모든 Lock 해제
       system.setControlLocked(false, "quiz-end");
       system.setControlLocked(false, "game-paused");
       system.setControlLocked(false, "quiz-resolving");
@@ -240,26 +239,20 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
   
   function destroy() {
     console.log("데이터 스핑크스: destroy");
-    // 메모리 누수 방지를 위한 이벤트 리스너 해제
     if (context.events.off) {
       context.events.off(CHARACTER_EVENTS.CONTACT, handleContact);
     }
-    
     if (system) {
       system.destroy();
       system = null;
     }
-    
     if (dom.container && dom.container.parentNode) {
       dom.container.parentNode.removeChild(dom.container);
     }
   }
 
-  // 게임 루프
   function update(deltaMs) {
-    // 일시정지 중이면 타이머 및 캐릭터 업데이트 완전 중단
     if (state.isPaused) return;
-
     if (system) system.update(deltaMs);
 
     if (state.phase === "PLAYING") {
@@ -275,7 +268,6 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
         resolveQuiz(); 
       }
     } else if (state.phase === "RESOLVING") {
-      // setTimeout을 대체하는 안전한 딜레이 카운트다운
       state.delayTimerMs -= deltaMs;
       if (state.delayTimerMs <= 0) {
         const playerSnapshot = system.getSnapshot();
