@@ -1,0 +1,18 @@
+{
+  "timeLimitMs": 15000,
+  "bossMaxHealth": 100,
+  "damagePerCorrect": 10,
+  "playerDamagePerWrong": 20,
+  "quizList": [
+    { "id": 1, "question": "이화그린의 색상코드는 #00643E이다.", "answer": "O" },
+    { "id": 2, "question": "인공지능대학 라운지는 ECC B4에 위치해 있다.", "answer": "X" },
+    { "id": 3, "question": "이화여자대학교 인공지능대학은 2022년 신설되었다.", "answer": "X" },
+    { "id": 4, "question": "인공지능대학 마스코트는 '이아이'이다.", "answer": "O" },
+    { "id": 5, "question": "이화여자대학교 창립기념일은 5월 30일이다.", "answer": "X" },
+    { "id": 6, "question": "캐릭캐릭체인지 주인공의 이름은 '아무'이다.", "answer": "O" },
+    { "id": 7, "question": "원자번호 79번은 금이다.", "answer": "O" },
+    { "id": 8, "question": "HTML은 HyperTitle Markup Language의 약자이다.", "answer": "X" },
+    { "id": 9, "question": "'Python'이란 이름은 뱀에서 따온 것이다.", "answer": "X" },
+    { "id": 10, "question": "한강에 가장 먼저 지어진 다리는 한강철교이다.", "answer": "O" }
+  ]
+}
