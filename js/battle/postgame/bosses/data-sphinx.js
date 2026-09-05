@@ -5,7 +5,6 @@ import {
 } from "../../character/index.js";
 
 export function createDataSphinxBoss(context, battleState, account, mapConfig) {
-  // 10문제 샘플 데이터 확충
   const quizList = [
     { id: 1, question: "이화여자대학교의 상징색은 '이화 그린'이다.", answer: "O" },
     { id: 2, question: "C++에서 동적 할당된 메모리를 해제하는 키워드는 delete이다.", answer: "O" },
@@ -23,15 +22,13 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
     currentQuizIndex: 0,
     timeLimitMs: 15000, 
     timeRemainingMs: 0,
+    delayTimerMs: 0, // setTimeout을 대체할 딜레이 타이머
     playerLocation: "NEUTRAL", 
     phase: "INIT",
+    isPaused: false, // 일시정지 상태 플래그
     currentAttemptId: null,
     bossHealth: 100, 
-    metrics: { 
-      correctCount: 0,
-      wrongCount: 0,
-      timeoutCount: 0
-    }
+    metrics: { correctCount: 0, wrongCount: 0, timeoutCount: 0 }
   };
 
   const dom = {
@@ -186,19 +183,11 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
       state.metrics.wrongCount++;
     }
 
-    const playerSnapshot = system.getSnapshot();
-    if (playerSnapshot.currentHealth <= 0) {
-      setTimeout(() => endGame("FAIL", "PLAYER_DEAD"), 1000);
-      return;
-    }
-
-    setTimeout(() => {
-      if (state.phase !== "END") { 
-        loadQuiz(state.currentQuizIndex + 1);
-      }
-    }, 2000);
+    // setTimeout 대신 딜레이 타이머(2초) 설정
+    state.delayTimerMs = 2000;
   }
 
+  // --- 🌟 라이프사이클 메서드 완성 ---
   function start({ attemptId }) {
     console.log("데이터 스핑크스: start, attemptId:", attemptId);
     state.currentAttemptId = attemptId;
@@ -206,18 +195,71 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
     loadQuiz(0); 
   }
 
-  function pause(reason) {}
-  function resume() {}
-  function restart({ attemptId }) {}
+  function pause(reason) {
+    console.log("데이터 스핑크스: pause", reason);
+    state.isPaused = true;
+    if (system) system.setControlLocked(true, "game-paused");
+  }
+
+  function resume() {
+    console.log("데이터 스핑크스: resume");
+    state.isPaused = false;
+    if (state.phase === "PLAYING" && system) {
+      system.setControlLocked(false, "game-paused");
+    }
+  }
+
+  function restart({ attemptId }) {
+    console.log("데이터 스핑크스: restart, attemptId:", attemptId);
+    
+    // 상태 및 맵트릭스 완전 초기화
+    state.currentAttemptId = attemptId;
+    state.currentQuizIndex = 0;
+    state.bossHealth = 100;
+    state.timeRemainingMs = 0;
+    state.delayTimerMs = 0;
+    state.playerLocation = "NEUTRAL";
+    state.phase = "INIT";
+    state.isPaused = false;
+    state.metrics = { correctCount: 0, wrongCount: 0, timeoutCount: 0 };
+    
+    // 캐릭터 체력 및 위치 복구
+    if (system) {
+      system.character.currentHealth = system.character.maxHealth;
+      system.character.dead = false;
+      system.character.setPosition(800, 360);
+      
+      // 걸려있던 모든 Lock 해제
+      system.setControlLocked(false, "quiz-end");
+      system.setControlLocked(false, "game-paused");
+      system.setControlLocked(false, "quiz-resolving");
+    }
+
+    loadQuiz(0); 
+  }
   
   function destroy() {
     console.log("데이터 스핑크스: destroy");
+    // 메모리 누수 방지를 위한 이벤트 리스너 해제
+    if (context.events.off) {
+      context.events.off(CHARACTER_EVENTS.CONTACT, handleContact);
+    }
+    
+    if (system) {
+      system.destroy();
+      system = null;
+    }
+    
     if (dom.container && dom.container.parentNode) {
       dom.container.parentNode.removeChild(dom.container);
     }
   }
 
+  // 게임 루프
   function update(deltaMs) {
+    // 일시정지 중이면 타이머 및 캐릭터 업데이트 완전 중단
+    if (state.isPaused) return;
+
     if (system) system.update(deltaMs);
 
     if (state.phase === "PLAYING") {
@@ -231,6 +273,17 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
       if (state.timeRemainingMs <= 0) {
         state.timeRemainingMs = 0;
         resolveQuiz(); 
+      }
+    } else if (state.phase === "RESOLVING") {
+      // setTimeout을 대체하는 안전한 딜레이 카운트다운
+      state.delayTimerMs -= deltaMs;
+      if (state.delayTimerMs <= 0) {
+        const playerSnapshot = system.getSnapshot();
+        if (playerSnapshot.currentHealth <= 0) {
+          endGame("FAIL", "PLAYER_DEAD");
+        } else if (state.phase !== "END") {
+          loadQuiz(state.currentQuizIndex + 1);
+        }
       }
     }
   }
