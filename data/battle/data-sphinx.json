@@ -4,15 +4,15 @@
   "damagePerCorrect": 10,
   "playerDamagePerWrong": 20,
   "quizList": [
-    { "id": 1, "question": "이화여자대학교의 상징색은 '이화 그린'이다.", "answer": "O" },
-    { "id": 2, "question": "C++에서 동적 할당된 메모리를 해제하는 키워드는 delete이다.", "answer": "O" },
-    { "id": 3, "question": "ECC는 Ewha Campus Complex의 약자이다.", "answer": "O" },
-    { "id": 4, "question": "배열의 첫 번째 인덱스는 1부터 시작한다.", "answer": "X" },
-    { "id": 5, "question": "이화여대 후문 근처에는 공과대학 건물이 있다.", "answer": "O" },
-    { "id": 6, "question": "HTML은 프로그래밍 언어이다.", "answer": "X" },
-    { "id": 7, "question": "대강당에서는 매주 채플이 진행된다.", "answer": "O" },
-    { "id": 8, "question": "HTTP 상태 코드 404는 '서버 내부 오류'를 의미한다.", "answer": "X" },
-    { "id": 9, "question": "이화여대의 마스코트는 '화연이'이다.", "answer": "X" },
-    { "id": 10, "question": "이진 탐색(Binary Search)은 정렬된 배열에서만 사용할 수 있다.", "answer": "O" }
+    { "id": 1, "question": "이화그린의 색상코드는 #00643E이다.", "answer": "O" },
+    { "id": 2, "question": "인공지능대학 라운지는 ECC B4에 위치해 있다.", "answer": "X" },
+    { "id": 3, "question": "이화여자대학교 인공지능대학은 2022년 신설되었다.", "answer": "X" },
+    { "id": 4, "question": "인공지능대학 마스코트는 '이아이'이다.", "answer": "O" },
+    { "id": 5, "question": "이화여자대학교 창립기념일은 5월 30일이다.", "answer": "X" },
+    { "id": 6, "question": "캐릭캐릭체인지 주인공의 이름은 '아무'이다.", "answer": "O" },
+    { "id": 7, "question": "원자번호 79번은 금이다.", "answer": "O" },
+    { "id": 8, "question": "HTML은 HyperTitle Markup Language의 약자이다.", "answer": "X" },
+    { "id": 9, "question": "'Python'이란 이름은 뱀에서 따온 것이다.", "answer": "X" },
+    { "id": 10, "question": "한강에 가장 먼저 지어진 다리는 한강철교이다.", "answer": "O" }
   ]
 }
