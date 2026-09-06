@@ -63,9 +63,9 @@ check("isCellInSet: 포함 안 된 경우 false", isCellInSet({ row: 2, col: 1 }
 
 console.log("\n[stats.js]");
 check("공격력 0이면 기본 데미지 그대로(10)", calcPlayerDamage(0), 10);
-check("공격력 10, 계수 0.05면 데미지 15", calcPlayerDamage(10), 15);
+check("공격력 10 (스탯1=보너스0 기준, 보너스 9포인트 x 0.05)면 데미지 14.5", calcPlayerDamage(10), 14.5);
 check("방어력이 보스공격보다 높아도 최소 1데미지는 들어감", calcIncomingDamage(5, 100), 1);
-check("체력 스탯 8이면 최대HP 180 (100 + 8*10)", calcMaxHp(8), 180);
+check("체력 스탯 8 (스탯1=보너스0 기준, 보너스 7포인트)이면 최대HP 170 (100 + 7*10)", calcMaxHp(8), 170);
 
 console.log("\n[difficulty.js]");
 check("10초 시점엔 단일 저격만 등장", getDifficultyTier(10).patternIds, ["single-snipe"]);
@@ -160,9 +160,9 @@ check("경직 지속시간 1200ms 적용", enc1.phaseRemainingMs, 1200);
 const counterResult = enc1.attemptCounter("p1"); // 경직 시작 직후 반격 -> 유효해야 함
 check("경직 시작 직후 반격은 명중", counterResult.hit, true);
 check(
-  "반격 데미지(공격력10 -> 기본10*(1+10*0.05)=15) 만큼 보스 HP 감소",
+  "반격 데미지(공격력10 -> 스탯1까지는 보너스 없음, 기본10*(1+(10-1)*0.05)=14.5) 만큼 보스 HP 감소",
   enc1.boss.hp,
-  985
+  985.5
 );
 
 enc1.tick(1200); // 경직 종료 -> 다음 패턴으로
@@ -200,7 +200,7 @@ for (let i = 0; i < 5 && enc2.state === STATE.RUNNING; i++) {
   enc2.tick(1200); // 경직 종료 -> 다음 패턴
 }
 check("전멸하면 상태가 COMPLETED로 전환됨", enc2.state, STATE.COMPLETED);
-check("실패 결과 status는 'fail'", lastCandidate2?.status, "fail");
+check("실패 결과 status는 'FAIL' (팀 공용 결과 계약)", lastCandidate2?.status, "FAIL");
 check("실패 사유는 'defeated' (전멸)", lastCandidate2?.failureReason, "defeated");
 check(
   "성공이든 실패든 failureReason 필드 자체는 항상 존재함 (undefined 아님)",
@@ -226,7 +226,7 @@ enc3.start();
 enc3.tick(1500); // 예고 종료 (방어 100이라 최소 데미지 1만 받음, 안 죽음) -> 경직 시작
 enc3.attemptCounter("p1"); // 반격 15데미지 -> 보스 체력 10 -> 0 이하로 즉시 승리 처리
 check("보스 체력이 0 이하가 되면 바로 COMPLETED", enc3.state, STATE.COMPLETED);
-check("성공 결과 status는 'success'", lastCandidate3?.status, "success");
+check("성공 결과 status는 'CLEAR' (팀 공용 결과 계약)", lastCandidate3?.status, "CLEAR");
 check("성공해도 failureReason은 null (필드는 존재)", lastCandidate3?.failureReason, null);
 
 // --- 시나리오 4: 인원수에 따른 보스 체력 배율이 encounter에도 반영되는지 ---

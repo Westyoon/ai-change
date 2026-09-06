@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>스탯 보스 · dev harness</title>
+    <link rel="stylesheet" href="../../../../../../css/common.css" />
+    <link rel="stylesheet" href="../../../../../../css/battle-character.css" />
+    <link rel="stylesheet" href="../../../../../../css/stat-boss.css" />
+    <style>
+      /* 2026-09-06: 제목/일시정지/다시시작 버튼은 항상 화면에 보인다(숨기는 로직 없음).
+         커스텀 "개발자 모드" 버튼도 없다. 상태(state)·완료(onComplete) 값처럼 원래
+         디버그용으로 화면에 찍던 정보만 console.log로 옮겨서 F12 콘솔에서 보게 한다.
+         게임 설명(조작법)은 디버그 정보가 아니라 실제 플레이어에게 필요한 안내라서,
+         실제 CS 게임의 시작 팝업처럼 "?" 버튼을 누르면 뜨는 화면 안내 패널로 뒀다.
+      */
+      /* 2026-09-06: 모바일 실기기에서 전체 화면이 한 화면에 안 들어온다는 피드백으로
+         dev-harness 자체(제목줄/여백)를 최대한 줄임 - 실제 게임 화면 쪽 여백/디자인은
+         안 건드림, 이건 순전히 테스트 페이지 바깥쪽 여백만 줄인 것. */
+      body { margin: 0; padding: 10px; }
+      main { display: grid; gap: 8px; width: min(820px, 100%); margin: auto; }
+      .harness-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .harness-header h1 { margin: 0; font-size: 1.05rem; }
+      #help-open {
+        flex: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        border: 1px solid #8884;
+        background: #8881;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .harness-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+      .harness-controls button { min-height: 42px; padding: 8px 14px; }
+      .stage-root { position: relative; }
+
+      .help-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 9999; /* 2026-09-06: 게임 HUD(.stat-boss-hud z-index:3000)/모바일 조작
+          버튼(battle-character.css z-index:5000)보다 높아야 모달이 그 위를 확실히 덮음 */
+      }
+      .help-overlay[hidden] { display: none; }
+      .help-panel {
+        background: #fff;
+        color: #1a1a1a;
+        max-width: 480px;
+        width: 100%;
+        max-height: 80vh;
+        overflow: auto;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+      .help-panel h2 { margin: 0 0 12px; font-size: 1.1rem; }
+      .help-panel p { margin: 0 0 10px; line-height: 1.5; font-size: 0.92rem; }
+      .help-panel button {
+        margin-top: 8px;
+        min-height: 40px;
+        padding: 8px 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="harness-header">
+        <h1>스탯 보스</h1>
+        <button id="help-open" type="button" aria-haspopup="dialog" aria-label="게임 설명 보기">?</button>
+      </div>
+      <div class="stage-root" id="stage-root"></div>
+      <div class="harness-controls">
+        <button id="pause" type="button">일시정지</button>
+        <button id="restart" type="button" disabled>다시 시작</button>
+      </div>
+    </main>
+
+    <div class="help-overlay" id="help-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="help-panel">
+        <h2 id="help-title">게임 설명</h2>
+        <p>PC는 WASD로 자유롭게 이동해서, 격자에 빗금 친 칸(예고)에서 벗어나면 회피에 성공합니다.</p>
+        <p>
+          위쪽 phase 배지가 "경직 · 반격 찬스"로 바뀌는 순간 Space를 누르면 반격할 수 있습니다. 보스와의
+          거리는 상관없이, 타이밍만 맞으면 반격이 성립합니다.
+        </p>
+        <p>모바일이나 좁은 화면에서는 아래쪽에 조이스틱과 "공격" 버튼이 나타나서 같은 방식으로 반격할 수 있습니다.</p>
+        <p>
+          이 화면은 실제 메뉴(맵 → 스탯 보스 위치)에 연결되기 전에 로직과 화면을 확인하기 위한 개발자용
+          테스트 페이지라서, 실제 게임에서 보이는 위치·연출과는 다를 수 있습니다.
+        </p>
+        <button id="help-close" type="button">닫기</button>
+      </div>
+    </div>
+
+    <script type="module">
+      import { InputManager } from "../../../../../core/input-manager.js";
+      import { EventBus } from "../../../../../core/event-bus.js";
+      import { createBattle } from "../index.js";
+
+      const stageRoot = document.querySelector("#stage-root");
+      const pauseButton = document.querySelector("#pause");
+      const restartButton = document.querySelector("#restart");
+      const helpOpenButton = document.querySelector("#help-open");
+      const helpCloseButton = document.querySelector("#help-close");
+      const helpOverlay = document.querySelector("#help-overlay");
+
+      function openHelp() {
+        helpOverlay.hidden = false;
+      }
+      function closeHelp() {
+        helpOverlay.hidden = true;
+      }
+      helpOpenButton.addEventListener("click", openHelp);
+      helpCloseButton.addEventListener("click", closeHelp);
+      helpOverlay.addEventListener("click", (event) => {
+        if (event.target === helpOverlay) closeHelp();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !helpOverlay.hidden) closeHelp();
+      });
+
+      // 실제 앱에서는 app.js가 만들어서 context.services로 내려주는 것들을,
+      // 여기서는 dev harness가 직접 하나씩 만들어서 흉내낸다.
+      const input = new InputManager({ target: window, root: document }).start();
+      const events = new EventBus();
+
+      let attemptNumber = 1;
+      let paused = false;
+
+      function describeState(state) {
+        if (!state) return "(아직 없음)";
+        return {
+          state: state.state,
+          phase: state.phase,
+          elapsedMs: Math.round(state.elapsedMs),
+          currentPatternId: state.currentPatternId,
+          bossHp: state.boss ? `${Math.round(state.boss.hp)} / ${state.boss.maxHp}` : null,
+        };
+      }
+
+      const battle = createBattle({
+        root: stageRoot,
+        input,
+        events,
+        onComplete(attemptId, candidate) {
+          console.log(`[스탯 보스 dev harness] 완료: ${attemptId}`, candidate);
+          restartButton.disabled = false;
+        },
+      });
+
+      // 2026-09-06: 다른 플레이어가 연보라색으로 뜨는지 눈으로 확인해보고 싶을 때를
+      // 위한 임시 테스트용 스위치. 주소 끝에 ?players=2를 붙이면 가짜 2번째 플레이어를
+      // 하나 더 넣어준다(실제 멀티플레이 네트워킹은 없어서 이 2번째 플레이어는 안
+      // 움직이는 고정 인형이지만, 색 확인 용도로는 충분함). 아무것도 안 붙이면
+      // 지금까지처럼 혼자 테스트하는 기본값 그대로라 밸런스 테스트에 영향 없음.
+      const forceTwoPlayers = new URLSearchParams(location.search).get("players") === "2";
+      const initConfig = forceTwoPlayers
+        ? {
+            players: [
+              { id: "player-1", attackStat: 1, defenseStat: 1, healthStat: 1, position: { x: 480, y: 480 } },
+              { id: "player-2", attackStat: 1, defenseStat: 1, healthStat: 1, position: { x: 300, y: 480 } },
+            ],
+          }
+        : {}; // 기본: battle.js의 기본 fixture(플레이어 1명)로 시작
+
+      await battle.init(initConfig);
+
+      battle.start({ attemptId: `stat-boss-dev:${attemptNumber}` });
+
+      pauseButton.addEventListener("click", () => {
+        const changed = paused ? battle.resume() : battle.pause("MANUAL");
+        if (!changed) return;
+        paused = !paused;
+        pauseButton.textContent = paused ? "재개" : "일시정지";
+      });
+
+      restartButton.addEventListener("click", () => {
+        attemptNumber += 1;
+        paused = false;
+        pauseButton.textContent = "일시정지";
+        restartButton.disabled = true;
+        battle.restart({ attemptId: `stat-boss-dev:${attemptNumber}` });
+      });
+
+      // 상태 표시는 화면이 아니라 콘솔에만: 1초 간격으로 현재 state를 찍는다
+      // (200ms처럼 너무 자주 찍으면 콘솔이 도배되니 F12로 확인하기 좋게 완화).
+      setInterval(() => {
+        console.log("[스탯 보스 dev harness] state:", describeState(battle.getState()));
+      }, 1000);
+    </script>
+  </body>
+</html>

@@ -35,8 +35,28 @@ export const PATTERNS = [
     getSteps(ctx) {
       // 전체 격자가 위험해지고, 랜덤한 안전 칸 1~2개만 남는다.
       // (v3: "범위 밖 이동 필요" -> 안전 칸으로 이동해야 하는 형태로 구현)
+      //
+      // 2026-09-06: 안전 칸을 격자 전체(35칸)에서 완전 무작위로 뽑았더니, 플레이어
+      // 이동속도(character.js 기본값 180px/s)로는 이 패턴의 예고시간(15~40초 구간
+      // 1200ms, 40초~ 구간 800ms) 안에 절대 못 닿는 먼 칸이 뽑히는 경우가 있어서
+      // "사실상 회피 불가"가 됨 - 플레이 테스트로 발견(초현). 180px/s * 0.8~1.2s ≈
+      // 144~216px ≈ 셀 1~1.8칸 이동 가능하다는 계산에 따라, 안전 칸 후보를
+      // "적어도 한 명의 플레이어가 현재 칸 기준 REACH_RADIUS_CELLS 칸 이내로
+      // 이동하면 닿을 수 있는 칸"으로 좁혀서 그 안에서만 뽑도록 수정.
+      // REACH_RADIUS_CELLS=1은 위 계산에서 나온 보수적인(타이트한 쪽) 값 - 밸런싱 대상.
+      const REACH_RADIUS_CELLS = 1;
+      const reachable = allCells().filter((c) =>
+        ctx.players.some(
+          (p) =>
+            Math.abs(c.row - p.cell.row) <= REACH_RADIUS_CELLS &&
+            Math.abs(c.col - p.cell.col) <= REACH_RADIUS_CELLS,
+        ),
+      );
+      // reachable엔 항상 각 플레이어 자기 칸 자체가 포함되므로 비는 일은 이론상 없지만,
+      // 만약을 대비해 비었을 때는(설정 오류 등) 기존처럼 전체 격자에서 뽑는다.
+      const pool = reachable.length > 0 ? reachable : allCells();
       const safeCount = ctx.random.int(1, 2);
-      const safeCells = ctx.random.sample(allCells(), safeCount);
+      const safeCells = ctx.random.sample(pool, Math.min(safeCount, pool.length));
       return [{ dangerCells: inverse(safeCells) }];
     },
   },

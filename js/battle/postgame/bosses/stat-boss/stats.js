@@ -18,27 +18,37 @@ const DEFAULT_BALANCE = {
   hpPerPoint: 10, // 체력 포인트당 최대 HP 증가량 (사후게임_기획안.md 6.3과 일치)
 };
 
+// 2026-09-06: "1레벨 = 각 스탯 1(보너스 없는 시작값), 2레벨부터 스탯 포인트가
+// 붙으면서 그때부터 보너스가 늘어난다"는 모델로 확정 (0825 회의 "기본적으로 공격력1
+// 체력1 방어력1" 논의와 일치). 그래서 세 공식 전부 "스탯값 - 1"을 보너스 계산에 쓴다
+// (1 이하는 전부 보너스 0으로 클램프 - 0을 넣는 기존 테스트/호출부와도 호환됨).
+function bonusPoints(stat) {
+  return Math.max(0, stat - 1);
+}
+
 /**
  * 플레이어가 보스에게 주는 데미지.
- * 데미지 = 기본값 × (1 + 공격력 × 계수)
+ * 데미지 = 기본값 × (1 + (공격력-1) × 계수)  ※ 공격력 1일 때 보너스 0 -> 데미지 = 기본값
  */
 export function calcPlayerDamage(attackStat, balance = DEFAULT_BALANCE) {
-  return balance.baseDamage * (1 + attackStat * balance.damageCoefficient);
+  return balance.baseDamage * (1 + bonusPoints(attackStat) * balance.damageCoefficient);
 }
 
 /**
  * 보스 공격을 맞았을 때(회피 실패 시) 플레이어가 실제로 받는 피해.
- * 피격 데미지 = 보스 공격력 - 방어력 (최소 1 보정 - 방어력이 아무리 높아도 0데미지는 안 되게)
+ * 피격 데미지 = 보스 공격력 - (방어력-1) (최소 1 보정 - 방어력이 아무리 높아도 0데미지는 안 되게)
+ * ※ 방어력 1일 때 감소 0 -> 보스 공격력을 그대로 다 맞음
  */
 export function calcIncomingDamage(bossAttack, defenseStat) {
-  return Math.max(1, bossAttack - defenseStat);
+  return Math.max(1, bossAttack - bonusPoints(defenseStat));
 }
 
 /**
  * 체력 스탯 기반 최대 HP. (v3: "레벨 없이 스탯제로만 운영")
+ * 최대HP = 기본체력 + (체력-1) × 포인트당증가량  ※ 체력 1일 때 보너스 0 -> 최대HP = 기본체력
  */
 export function calcMaxHp(healthStat, balance = DEFAULT_BALANCE) {
-  return balance.baseHp + healthStat * balance.hpPerPoint;
+  return balance.baseHp + bonusPoints(healthStat) * balance.hpPerPoint;
 }
 
 export { DEFAULT_BALANCE };
