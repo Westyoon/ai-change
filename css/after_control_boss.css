@@ -281,3 +281,33 @@
   }
   
   .after-controlboss-game .hidden { display: none !important; }
+  
+  /* 뚜렷한 가시성을 가진 원형 충격파 링 */
+  .after-controlboss-game .acb-shockwave {
+    position: absolute;
+    border: 4px solid #ff1744;
+    background: radial-gradient(circle, rgba(255, 23, 68, 0.05) 60%, rgba(255, 23, 68, 0.25) 100%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-shadow: 0 0 16px #ff1744, inset 0 0 12px rgba(255, 23, 68, 0.4);
+    box-sizing: border-box;
+  }
+  
+  /* 비활성화된 일반 바닥 타일 스타일 (밟아도 안전함) */
+  .after-controlboss-game .acb-tile.plain {
+    background: #f8f9fa;
+    border-color: #dee2e6;
+    color: #ced4da;
+    opacity: 0.85;
+  }
+
+  .after-controlboss-game #acb-shockwave-layer {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    z-index: 25 !important;
+  }
