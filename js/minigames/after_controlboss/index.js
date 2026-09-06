@@ -29,10 +29,14 @@ export default class AfterControlBossMiniGame {
     this.phaseTimer = 0;
     this.bossAttackTimer = 0;
 
+    this.shockwaveInterval = 4.5;
+    this.shockwaveTimer = 0;
+    this.shockwaves = [];
+
     this.playerCurrentHp = 100;
     this.playerMaxHp = 100;
-    this.playerPos = { x: 195, y: 640 }; // 화면 하단 중앙 스폰
-    this.playerSpeed = 210;
+    this.playerPos = { x: 225, y: 550 };
+    this.playerSpeed = 220;
     this.playerEl = null;
     this.keys = { w: false, a: false, s: false, d: false };
     this.activeTriggers = new Set();
@@ -60,6 +64,7 @@ export default class AfterControlBossMiniGame {
 
   async init(configData) {
     this.config = configData;
+    this.playerPos = { x: 225, y: 550 };
     this.renderDOM();
     this.buildWorldTriggers();
     this.initCharacterSystem();
@@ -82,6 +87,7 @@ export default class AfterControlBossMiniGame {
     this.isDestroyed = true;
     if (this.rafId) cancelAnimationFrame(this.rafId);
     this.clearBulletsDOM();
+    this.clearShockwavesDOM();
     this.unbindEvents();
     if (this.characterSystem) {
       this.characterSystem.destroy?.();
@@ -139,10 +145,11 @@ export default class AfterControlBossMiniGame {
             width: ${coverZone.width}px;
             height: ${coverZone.height}px;
           ">
-            <span>🛡️ 엄폐</span>
+            <span>🛡️ 엄폐벽</span>
           </div>
 
           <div id="acb-altar-tiles" class="acb-altar-tiles"></div>
+          <div id="acb-shockwave-layer" class="acb-shockwave-layer"></div>
           <div id="acb-bullet-layer" class="acb-bullet-layer"></div>
           <div id="acb-character-layer" class="acb-character-layer">
             <div id="acb-player-actor" class="acb-player-actor">YOU</div>
@@ -165,22 +172,15 @@ export default class AfterControlBossMiniGame {
   }
 
   buildWorldTriggers() {
-    // 390px 폭에 맞추어 3열 x 3행 배치 (총 9개 타일 중 2개 홀, 4개 정답)
-    const startX = 45;
-    const startY = 380;
-    const tileW = 85;
-    const tileH = 52;
-    const rows = 3;
-    const cols = 3;
-
+    const { startX, startY, tileW, tileH, rows, cols } = this.config.world.altarArea;
     this.tileBoundsMap.clear();
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const id = `tile_${r}_${c}`;
         this.tileBoundsMap.set(id, {
-          x: startX + c * (tileW + 22),
-          y: startY + r * (tileH + 16),
+          x: startX + c * (tileW + 18),
+          y: startY + r * (tileH + 12),
           width: tileW,
           height: tileH
         });
@@ -198,11 +198,11 @@ export default class AfterControlBossMiniGame {
       container: characterMount,
       character: {
         id: "player",
-        x: 195,
-        y: 640,
+        x: 225,
+        y: 550,
         width: 32,
-        height: 40,
-        speed: 190,
+        height: 42,
+        speed: 200,
         maxHealth: 100,
         currentHealth: 100,
         stats: { attack: 40, defense: 10, health: 100 }
@@ -271,12 +271,13 @@ export default class AfterControlBossMiniGame {
     this.currentShield = this.config.boss.maxShield;
     this.playerCurrentHp = 100;
     this.playerMaxHp = 100;
-    this.playerPos = { x: 195, y: 640 };
+    this.playerPos = { x: 225, y: 550 };
     this.isCovered = false;
     this.isStunned = false;
     this.isGameOver = false;
     this.activeTriggers.clear();
     this.clearBulletsDOM();
+    this.clearShockwavesDOM();
 
     if (this.playerEl) {
       this.playerEl.style.left = `${this.playerPos.x}px`;
@@ -301,6 +302,7 @@ export default class AfterControlBossMiniGame {
     this.bossAttackTimer = 0.6;
     this.clearTilesVisual();
     this.clearBulletsDOM();
+    this.clearShockwavesDOM();
     this.rebuildDynamicTriggers();
     this.updateUI();
     this.setStatus("Phase 1: 보스 가까이 다가가 Space로 실드를 공격하세요!", "info");
@@ -310,6 +312,7 @@ export default class AfterControlBossMiniGame {
     this.phase = 2;
     this.phaseTimer = this.config.boss.phase2CastSec || 3;
     this.clearBulletsDOM();
+    this.clearShockwavesDOM();
     this.updateUI();
     this.setStatus("⚠️ 보스 즉사기 캐스팅 (3초)! 중앙 엄폐벽 안으로 대피하세요!", "error", true);
   }
@@ -318,12 +321,14 @@ export default class AfterControlBossMiniGame {
     this.phase = 3;
     this.phaseTimer = this.config.boss.phase3DurationSec || 30;
     this.currentPlateStep = 0;
+    this.shockwaveTimer = 2.0;
     this.clearBulletsDOM();
+    this.clearShockwavesDOM();
     this.generatePhase3GimmickData();
     this.renderTilesVisual();
     this.rebuildDynamicTriggers();
     this.updateUI();
-    this.setStatus("Phase 3: 발판 기믹! 1➔2➔3➔4 순서대로 밟으세요 (낙사 홀 주의)", "warning");
+    this.setStatus("Phase 3: 발판 순서대로 밟기! 원형 파동이 오면 엄폐벽 뒤로 숨으세요!", "warning");
   }
 
   enterPhase4() {
@@ -331,6 +336,7 @@ export default class AfterControlBossMiniGame {
     this.phaseTimer = this.config.boss.groggyDurationSec || 10;
     this.clearTilesVisual();
     this.clearBulletsDOM();
+    this.clearShockwavesDOM();
     this.rebuildDynamicTriggers();
 
     const bonusDmg = this.config.boss.maxHp * this.config.boss.groggyDirectDamageRate;
@@ -340,6 +346,83 @@ export default class AfterControlBossMiniGame {
 
     this.updateUI();
     this.setStatus("✨ 기믹 성공! 보스 그로기 10초 다운! 가까이 가서 극딜하세요!", "success");
+  }
+
+  spawnShockwave() {
+    const { bossZone } = this.config.world;
+    const originX = bossZone.x + bossZone.width / 2;
+    const originY = bossZone.y + bossZone.height / 2;
+
+    const layer = this.container.querySelector('#acb-shockwave-layer');
+    if (!layer) return;
+
+    const ringEl = document.createElement('div');
+    ringEl.className = 'acb-shockwave';
+    ringEl.style.position = 'absolute';
+    ringEl.style.borderRadius = '50%';
+    ringEl.style.border = '5px solid #ff1744';
+    ringEl.style.backgroundColor = 'rgba(255, 23, 68, 0.15)';
+    ringEl.style.boxShadow = '0 0 20px #ff1744, inset 0 0 15px rgba(255, 23, 68, 0.5)';
+    ringEl.style.transform = 'translate(-50%, -50%)';
+    ringEl.style.pointerEvents = 'none';
+    ringEl.style.zIndex = '30';
+    ringEl.style.boxSizing = 'border-box';
+    ringEl.style.left = `${originX}px`;
+    ringEl.style.top = `${originY}px`;
+    ringEl.style.width = '10px';
+    ringEl.style.height = '10px';
+
+    layer.appendChild(ringEl);
+
+    this.shockwaves.push({
+      x: originX,
+      y: originY,
+      radius: 10,
+      speed: 240,
+      maxRadius: 650,
+      thickness: 30,
+      hasHitPlayer: false,
+      el: ringEl
+    });
+
+    this.setStatus("⚠️ 보스 원형 충격파 방출! 엄폐벽 안으로 숨으세요!", "error", true);
+  }
+
+  updateShockwaves(dt) {
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      const sw = this.shockwaves[i];
+      sw.radius += sw.speed * dt;
+
+      const d = Math.round(sw.radius * 2);
+      sw.el.style.width = `${d}px`;
+      sw.el.style.height = `${d}px`;
+      sw.el.style.left = `${sw.x}px`;
+      sw.el.style.top = `${sw.y}px`;
+
+      if (!sw.hasHitPlayer) {
+        const dist = Math.hypot(this.playerPos.x - sw.x, this.playerPos.y - sw.y);
+        if (Math.abs(dist - sw.radius) < sw.thickness) {
+          sw.hasHitPlayer = true;
+          if (this.isCovered) {
+            this.setStatus("🛡️ 엄폐벽이 원형 충격파를 막아냈습니다!", "success");
+          } else {
+            this.applyDirectPlayerDamage(25);
+            this.applyStunPenalty();
+            this.setStatus("💥 원형 충격파에 피격되었습니다! (엄폐 실패)", "error", true);
+          }
+        }
+      }
+
+      if (sw.radius > sw.maxRadius) {
+        sw.el.remove();
+        this.shockwaves.splice(i, 1);
+      }
+    }
+  }
+
+  clearShockwavesDOM() {
+    this.shockwaves.forEach(sw => sw.el.remove());
+    this.shockwaves = [];
   }
 
   spawnBossBullet() {
@@ -360,7 +443,7 @@ export default class AfterControlBossMiniGame {
     bulletEl.className = 'acb-bullet';
     bulletLayer.appendChild(bulletEl);
 
-    const speed = this.config.boss.bulletSpeed || 230;
+    const speed = this.config.boss.bulletSpeed || 240;
     this.bullets.push({
       x: originX,
       y: originY,
@@ -373,7 +456,7 @@ export default class AfterControlBossMiniGame {
   updateBullets(dt) {
     const cover = this.config.world.coverZone;
     const { width: mapW, height: mapH } = this.config.world.bounds;
-    const pBox = { x: this.playerPos.x - 16, y: this.playerPos.y - 20, width: 32, height: 40 };
+    const pBox = { x: this.playerPos.x - 16, y: this.playerPos.y - 21, width: 32, height: 42 };
 
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
@@ -430,16 +513,15 @@ export default class AfterControlBossMiniGame {
     this.playerPos.x += dx * this.playerSpeed * dt;
     this.playerPos.y += dy * this.playerSpeed * dt;
 
-    // 모바일 경계 제한 (390 x 780)
-    this.playerPos.x = Math.max(18, Math.min(372, this.playerPos.x));
-    this.playerPos.y = Math.max(20, Math.min(760, this.playerPos.y));
+    this.playerPos.x = Math.max(18, Math.min(432, this.playerPos.x));
+    this.playerPos.y = Math.max(20, Math.min(610, this.playerPos.y));
 
     if (this.playerEl) {
       this.playerEl.style.left = `${this.playerPos.x}px`;
       this.playerEl.style.top = `${this.playerPos.y}px`;
     }
 
-    const playerBox = { x: this.playerPos.x - 16, y: this.playerPos.y - 20, width: 32, height: 40 };
+    const playerBox = { x: this.playerPos.x - 16, y: this.playerPos.y - 21, width: 32, height: 42 };
 
     const coverBounds = this.config.world.coverZone;
     const isOverCover = this.checkOverlap(playerBox, coverBounds);
@@ -491,10 +573,9 @@ export default class AfterControlBossMiniGame {
 
     this.playerCurrentHp = Math.max(0, this.playerCurrentHp - dmg);
     this.updatePlayerUI();
-    this.setStatus(`피격! -${dmg} HP`, "error", true);
 
     if (this.characterSystem?.applyResolvedDamage) {
-      this.characterSystem.applyResolvedDamage(dmg, { sourceId: "boss_bullet" });
+      this.characterSystem.applyResolvedDamage(dmg, { sourceId: "boss_attack" });
     }
 
     if (this.playerCurrentHp <= 0) {
@@ -536,9 +617,17 @@ export default class AfterControlBossMiniGame {
       }
     } else if (this.phase === 3) {
       this.phaseTimer -= dt;
+
       const regen = this.config.boss.maxHp * this.config.boss.regenRatePerSec * dt;
       this.currentHp = Math.min(this.config.boss.maxHp, this.currentHp + regen);
       this.updateUI();
+
+      this.shockwaveTimer -= dt;
+      if (this.shockwaveTimer <= 0) {
+        this.spawnShockwave();
+        this.shockwaveTimer = this.shockwaveInterval;
+      }
+      this.updateShockwaves(dt);
 
       if (this.phaseTimer <= 0) {
         this.setStatus("시간 초과! Phase 1로 복귀합니다.", "error");
@@ -574,9 +663,9 @@ export default class AfterControlBossMiniGame {
     const closestY = Math.max(boss.y, Math.min(this.playerPos.y, boss.y + boss.height));
     const distance = Math.hypot(this.playerPos.x - closestX, this.playerPos.y - closestY);
 
-    const maxAttackRange = 120;
+    const maxAttackRange = 130;
     if (distance > maxAttackRange) {
-      this.setStatus("⚠️ 사거리 부족! 보스 밑으로 다가가세요.", "warning");
+      this.setStatus("⚠️ 사거리 부족! 보스 바로 밑으로 다가가세요.", "warning");
       return;
     }
 
@@ -637,7 +726,7 @@ export default class AfterControlBossMiniGame {
   applyStunPenalty() {
     this.isStunned = true;
     this.currentPlateStep = 0;
-    this.setStatus("⚠️ 잘못된 발판! 1초 경직 및 순서 초기화!", "error", true);
+    this.setStatus("⚠️ 1초 경직 및 발판 순서가 초기화되었습니다!", "error", true);
 
     if (this.characterSystem) {
       this.characterSystem.setControlLocked(true, "boss-gimmick-lock");
@@ -745,6 +834,7 @@ export default class AfterControlBossMiniGame {
           tile.classList.add('active-target');
           tile.textContent = `${orderIdx + 1}`;
         } else {
+          tile.classList.add('plain');
           tile.textContent = '·';
         }
       }
