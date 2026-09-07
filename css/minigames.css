@@ -1168,7 +1168,7 @@
   .minigame-ui-root.ds-ui-root {
     height: 100%;
     padding: clamp(14px, 2vw, 28px);
-    overflow: hidden;
+    overflow: auto;
   }
 
   .ds-ui-root .nb-container {
