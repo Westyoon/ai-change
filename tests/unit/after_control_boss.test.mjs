@@ -24,6 +24,7 @@ if (typeof globalThis.document === 'undefined') {
         },
         children: [],
         appendChild(child) { this.children.push(child); return child; },
+        remove() {},
         querySelector: () => el,
         querySelectorAll: () => [],
         setAttribute: () => {},
@@ -33,6 +34,13 @@ if (typeof globalThis.document === 'undefined') {
       };
       return el;
     }
+  };
+}
+
+if (typeof globalThis.window === 'undefined') {
+  globalThis.window = {
+    addEventListener: () => {},
+    removeEventListener: () => {}
   };
 }
 
@@ -67,6 +75,7 @@ const mockConfig = {
   title: "시련의 제단 테스트",
   world: {
     bounds: { x: 0, y: 0, width: 800, height: 600 },
+    bossZone: { x: 340, y: 40, width: 120, height: 80 },
     coverZone: { x: 50, y: 420, width: 100, height: 100 },
     altarArea: { startX: 200, startY: 300, tileW: 80, tileH: 60, rows: 4, cols: 5 }
   },
@@ -90,6 +99,7 @@ test('after_controlboss: Phase 1 실드 파괴 후 Phase 2 전이 검증', async
   });
 
   await game.init(mockConfig);
+  game.playerPos = { x: 400, y: 140 };
 
   assert.equal(game.phase, 1, '시작 시 Phase 1이어야 함');
   assert.equal(game.currentShield, 500, '초기 실드는 500이어야 함');
