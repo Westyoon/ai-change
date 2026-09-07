@@ -371,6 +371,16 @@ test("CS dedicated stylesheet preserves the original pair with responsive wrappi
   assert.match(stylesheet, /orientation:\s*landscape/u);
   assert.match(stylesheet, /max-width:\s*min\(420px, calc\(100dvh - 220px\)\)/u);
   assert.match(stylesheet, /flex:\s*5 1 240px/u);
+  assert.match(stylesheet, /@media \(min-width: 900px\) and \(min-height: 760px\)/u);
+  assert.match(stylesheet, /--ctp-canvas-size:\s*min\(/u);
+  assert.match(stylesheet, /720px/u);
+  assert.match(stylesheet, /calc\(\(100cqw - 78px\) \* 8 \/ 13\)/u);
+  assert.match(stylesheet, /calc\(100dvh - 220px\)/u);
+  assert.match(stylesheet, /--ctp-panel-size:\s*calc\(var\(--ctp-canvas-size\) \* 5 \/ 8\)/u);
+  assert.match(stylesheet, /flex-wrap:\s*nowrap/u);
+  assert.match(stylesheet, /flex:\s*0 0 var\(--ctp-canvas-size\)/u);
+  assert.match(stylesheet, /flex:\s*0 0 var\(--ctp-panel-size\)/u);
+  assert.match(stylesheet, /font-size:\s*calc\(var\(--ctp-canvas-size\) \* 16 \/ 480\)/u);
   assert.equal(config.goodScoreWeight, 0.7);
   assert.deepEqual(config.resultPresentation, {
     clear: {

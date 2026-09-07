@@ -87,6 +87,75 @@ test("fixed frame scaler sizes only the viewport and transforms the logical fram
   assert.equal(observer.disconnected, true);
 });
 
+test("fixed frame scaler switches to a scoped fluid desktop layout and back", () => {
+  let observer = null;
+  class FakeResizeObserver {
+    constructor(callback) {
+      this.callback = callback;
+      observer = this;
+    }
+
+    observe() {}
+    disconnect() {}
+  }
+
+  const activeClasses = new Set();
+  const layouts = [];
+  const container = {
+    style: {},
+    classList: {
+      toggle(className, force) {
+        if (force) activeClasses.add(className);
+        else activeClasses.delete(className);
+      },
+    },
+    clientWidth: 980,
+    clientHeight: 680,
+    ownerDocument: { defaultView: { ResizeObserver: FakeResizeObserver } },
+  };
+  const viewport = { style: {}, dataset: {} };
+  const frame = { style: {} };
+  const detach = attachFixedFrameScaler({
+    container,
+    viewport,
+    frame,
+    logicalWidth: 440,
+    logicalHeight: 920,
+    fitHeight: false,
+    maxScale: 1.25,
+    fluidLayout: {
+      minWidth: 760,
+      minHeight: 540,
+      className: "desktop-layout",
+    },
+    onLayout: (layout) => layouts.push(layout),
+  });
+
+  assert.equal(activeClasses.has("desktop-layout"), true);
+  assert.equal(viewport.style.width, "100%");
+  assert.equal(viewport.style.height, "100%");
+  assert.equal(viewport.style.flex, "1 1 auto");
+  assert.equal(frame.style.position, "relative");
+  assert.equal(frame.style.width, "100%");
+  assert.equal(frame.style.height, "100%");
+  assert.equal(frame.style.transform, "none");
+  assert.equal(viewport.dataset.scale, "fluid");
+  assert.equal(viewport.dataset.layout, "fluid");
+  assert.equal(layouts.at(-1).mode, "fluid");
+
+  container.clientWidth = 520;
+  observer.callback();
+  assert.equal(activeClasses.has("desktop-layout"), false);
+  assert.equal(frame.style.position, "absolute");
+  assert.equal(frame.style.width, "440px");
+  assert.equal(frame.style.height, "920px");
+  assert.equal(viewport.dataset.layout, "fixed");
+  assert.equal(layouts.at(-1).mode, "fixed");
+
+  detach();
+  assert.equal(activeClasses.has("desktop-layout"), false);
+});
+
 test("fixed frame scale rejects unusable dimensions", () => {
   assert.throws(() => calculateFixedFrameScale({
     availableWidth: 0,

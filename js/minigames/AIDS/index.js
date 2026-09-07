@@ -12,7 +12,7 @@ import {
   buildGameDom,
 } from './dom-builder.js';
 import { buildHearts, updateHearts } from './hud.js';
-import { layoutPlatforms, setTilt } from './platforms.js';
+import { layoutPlatforms, relayoutPlatforms, setTilt } from './platforms.js';
 import { stepFrame } from './game-loop.js';
 
 const MAX_DISPLAY_SCALE = 1.35;
@@ -170,6 +170,7 @@ export function createMiniGame(context = {}) {
       tilt: config.initialTilt,
       eggs: [],
       platforms: [],
+      fieldLayout: null,
       correctCount: 0,
       wrongCount: 0,
       lostCount: 0,
@@ -360,6 +361,16 @@ export function createMiniGame(context = {}) {
             logicalHeight: AIDS_LOGICAL_HEIGHT,
             fitHeight: true,
             maxScale: MAX_DISPLAY_SCALE,
+            fluidLayout: {
+              minWidth: 760,
+              minHeight: 540,
+              className: 'aids-desktop-layout',
+            },
+            onLayout: () => {
+              if (refs?.supportsGameplay && gameState?.platforms?.length) {
+                relayoutPlatforms(refs, config, gameState);
+              }
+            },
           }));
         }
         bindControls();

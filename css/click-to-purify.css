@@ -307,3 +307,109 @@
     max-width: 240px;
   }
 }
+
+/* Scale the prototype's 480px canvas + 300px panel as one desktop pair. */
+@media (min-width: 900px) and (min-height: 760px) {
+  .minigame-stage.click-to-purify-stage {
+    --ctp-canvas-size: min(
+      720px,
+      calc((100cqw - 78px) * 8 / 13),
+      calc(100dvh - 220px)
+    );
+    --ctp-panel-size: calc(var(--ctp-canvas-size) * 5 / 8);
+    --ctp-pair-gap: clamp(20px, calc(var(--ctp-canvas-size) / 24), 30px);
+
+    container-type: inline-size;
+    flex-wrap: nowrap;
+    gap: var(--ctp-pair-gap);
+    padding: 24px;
+  }
+
+  .click-to-purify-stage > .minigame-canvas.click-to-purify-canvas {
+    flex: 0 0 var(--ctp-canvas-size);
+    width: var(--ctp-canvas-size);
+    min-width: 0;
+    max-width: none;
+  }
+
+  .click-to-purify-stage > .minigame-ui-root.click-to-purify-ui-root {
+    flex: 0 0 var(--ctp-panel-size);
+    width: var(--ctp-panel-size);
+    min-width: 0;
+    max-width: none;
+  }
+
+  .click-to-purify-ui-root .ctp-gauge-shell {
+    height: calc(var(--ctp-canvas-size) * 18 / 480);
+    margin-bottom: calc(var(--ctp-canvas-size) * 8 / 480);
+    border-width: clamp(1px, calc(var(--ctp-canvas-size) / 240), 3px);
+    border-radius: calc(var(--ctp-canvas-size) * 4 / 480);
+  }
+
+  .click-to-purify-ui-root .ctp-gauge-label {
+    top: calc(var(--ctp-canvas-size) / 480);
+    right: calc(var(--ctp-canvas-size) * 6 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 11 / 480);
+    line-height: calc(var(--ctp-canvas-size) * 14 / 480);
+  }
+
+  .click-to-purify-ui-root .ctp-miss {
+    margin-bottom: calc(var(--ctp-canvas-size) * 8 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 12 / 480);
+  }
+
+  .click-to-purify-ui-root .ctp-click-btn,
+  .click-to-purify-ui-root .ctp-start-btn {
+    padding: calc(var(--ctp-canvas-size) * 14 / 480);
+    border-width: clamp(2px, calc(var(--ctp-canvas-size) / 240), 3px);
+    border-radius: calc(var(--ctp-canvas-size) * 6 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 16 / 480);
+  }
+
+  .click-to-purify-ui-root .ctp-start-btn {
+    margin-bottom: calc(var(--ctp-canvas-size) * 6 / 480);
+    padding: calc(var(--ctp-canvas-size) * 10 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 14 / 480);
+  }
+
+  .click-to-purify-stage .click-to-purify__intro-box {
+    width: min(calc(var(--ctp-canvas-size) * 340 / 480), calc(100% - 48px));
+    padding: calc(var(--ctp-canvas-size) * 20 / 480);
+    border-width: clamp(2px, calc(var(--ctp-canvas-size) / 240), 3px);
+    border-radius: calc(var(--ctp-canvas-size) * 10 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 13 / 480);
+  }
+
+  .click-to-purify-stage .click-to-purify__intro-box h2 {
+    margin-bottom: calc(var(--ctp-canvas-size) * 10 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 16 / 480);
+  }
+
+  .click-to-purify-stage .ctp-intro-close {
+    top: calc(var(--ctp-canvas-size) * 8 / 480);
+    right: calc(var(--ctp-canvas-size) * 8 / 480);
+    width: calc(var(--ctp-canvas-size) * 28 / 480);
+    height: calc(var(--ctp-canvas-size) * 28 / 480);
+    border-radius: calc(var(--ctp-canvas-size) * 4 / 480);
+    font-size: calc(var(--ctp-canvas-size) * 14 / 480);
+  }
+
+  .click-to-purify-stage .intro-rule {
+    margin-block: calc(var(--ctp-canvas-size) * 4 / 480);
+  }
+
+  .click-to-purify-stage .intro-legend {
+    margin-top: calc(var(--ctp-canvas-size) * 10 / 480);
+  }
+
+  .click-to-purify-stage .intro-legend li {
+    gap: calc(var(--ctp-canvas-size) * 8 / 480);
+    margin-bottom: calc(var(--ctp-canvas-size) * 6 / 480);
+  }
+
+  .click-to-purify-stage .intro-dot {
+    flex-basis: calc(var(--ctp-canvas-size) * 12 / 480);
+    width: calc(var(--ctp-canvas-size) * 12 / 480);
+    height: calc(var(--ctp-canvas-size) * 12 / 480);
+  }
+}
