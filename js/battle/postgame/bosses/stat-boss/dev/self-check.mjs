@@ -18,14 +18,14 @@ import {
   inverse,
   allCells,
   isCellInSet,
-} from "./grid.js";
-import { getPatternById, getAvailablePatterns } from "./patterns.js";
-import { calcPlayerDamage, calcIncomingDamage, calcMaxHp } from "./stats.js";
-import { getDifficultyTier, getBossHpMultiplier } from "./difficulty.js";
-import { judgeDodge, isCounterValid } from "./judge.js";
-import { createRandom } from "./random.js";
-import { STATE, canTransition } from "./state.js";
-import { StatBossEncounter } from "./encounter.js";
+} from "../grid.js";
+import { getPatternById, getAvailablePatterns } from "../patterns.js";
+import { calcPlayerDamage, calcIncomingDamage, calcMaxHp } from "../stats.js";
+import { getDifficultyTier, getBossHpMultiplier } from "../difficulty.js";
+import { judgeDodge, isCounterValid } from "../judge.js";
+import { createRandom } from "../random.js";
+import { STATE, canTransition } from "../state.js";
+import { StatBossEncounter } from "../encounter.js";
 
 let passCount = 0;
 let failCount = 0;

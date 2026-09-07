@@ -227,6 +227,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
 
     pause(_reason) {
       if (!encounter || encounter.state !== STATE.RUNNING) return false;
+      system?.setControlLocked(true, "game-paused");
       encounter.pause();
       loop.pause();
       return true;
@@ -234,6 +235,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
 
     resume() {
       if (!encounter || encounter.state !== STATE.PAUSED) return false;
+      system?.setControlLocked(false, "game-paused");
       encounter.resume();
       loop.resume();
       return true;
