@@ -4,6 +4,8 @@ compatibility_date = "2026-08-28"
 
 # Before production, configure PUBLIC_ORIGIN as an environment variable with
 # the exact canonical HTTPS origin (for example, https://your-domain.example).
+[vars]
+PUBLIC_ORIGIN = "https://ai-change.ai-change-backend.workers.dev"
 
 [assets]
 directory = "../dist"
@@ -14,5 +16,5 @@ not_found_handling = "none"
 [[d1_databases]]
 binding = "DB"
 database_name = "ai-change"
-database_id = "15814753-6db9-405b-b27c-de3a23856e92"
+database_id = "942d8f14-dc06-4460-b6c5-dfb0c07eab78"
 migrations_dir = "migrations"
