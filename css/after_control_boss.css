@@ -1,0 +1,313 @@
+.after-controlboss-game.light-theme {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #212529;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    user-select: none;
+  }
+  
+  /* 상단 헤더 */
+  .after-controlboss-game .acb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    z-index: 5;
+  }
+  
+  .after-controlboss-game .acb-title {
+    font-weight: 800;
+    font-size: 13px;
+    color: #111;
+  }
+  
+  .after-controlboss-game .acb-phase-badge {
+    background: #d32f2f;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  
+  /* 게이지 HUD */
+  .after-controlboss-game .acb-boss-status-bar {
+    background: #f1f3f5;
+    padding: 6px 14px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 5;
+  }
+  
+  .after-controlboss-game .acb-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10.5px;
+  }
+  
+  .after-controlboss-game .acb-bar-wrap label {
+    width: 48px;
+    font-weight: 800;
+    color: #495057;
+  }
+  
+  .after-controlboss-game .acb-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .after-controlboss-game .acb-bar-fill.hp { background: #e53935; height: 100%; transition: width 0.1s linear; }
+  .after-controlboss-game .acb-bar-fill.shield { background: #0288d1; height: 100%; transition: width 0.1s linear; }
+  .after-controlboss-game .acb-bar-fill.player-hp { background: #2e7d32; height: 100%; transition: width 0.1s ease; }
+  .after-controlboss-game .acb-bar-val { font-size: 10.5px; width: 40px; text-align: right; font-weight: 600; color: #495057; }
+  
+  /* 2D 월드 */
+  .after-controlboss-game .acb-game-world {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  
+  /* 보스 박스 */
+  .after-controlboss-game .acb-boss-box {
+    position: absolute;
+    background: #e53935;
+    border: 3px solid #b71c1c;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 900;
+    box-shadow: 0 4px 12px rgba(229, 57, 53, 0.35);
+    z-index: 4;
+  }
+  
+  .after-controlboss-game .acb-boss-box .boss-title {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+  
+  .after-controlboss-game .acb-cast-bar-wrap {
+    position: absolute;
+    bottom: -18px;
+    width: 120px;
+    height: 12px;
+    background: #343a40;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  .after-controlboss-game .acb-cast-progress {
+    height: 100%;
+    background: #ff9800;
+    width: 100%;
+  }
+  
+  .after-controlboss-game .acb-cast-label {
+    position: absolute;
+    inset: 0;
+    font-size: 8.5px;
+    font-weight: bold;
+    line-height: 12px;
+    color: #fff;
+    text-align: center;
+  }
+  
+  /* 엄폐벽 */
+  .after-controlboss-game .acb-cover-wall {
+    position: absolute;
+    background: #e0f7fa;
+    border: 2px solid #00acc1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #00838f;
+    font-weight: 800;
+    z-index: 3;
+  }
+  
+  .after-controlboss-game .acb-cover-wall.active {
+    background: #b2ebf2;
+    border-color: #00838f;
+    box-shadow: 0 0 12px rgba(0, 172, 193, 0.6);
+  }
+  
+  /* 투사체 */
+  .after-controlboss-game .acb-bullet {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #d32f2f;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px rgba(211, 47, 47, 0.8);
+    pointer-events: none;
+    z-index: 4;
+  }
+  
+  /* 플레이어 */
+  .after-controlboss-game .acb-player-actor {
+    position: absolute;
+    width: 32px;
+    height: 40px;
+    background: #2e7d32;
+    border: 2px solid #ffffff;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(46, 125, 50, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    font-weight: 900;
+    color: #fff;
+    pointer-events: none;
+    z-index: 10;
+    transform: translate(-50%, -50%);
+  }
+  
+  /* 발판 타일 레이어 */
+  .after-controlboss-game .acb-altar-tiles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  
+  .after-controlboss-game .acb-tile {
+    position: absolute;
+    background: #f1f3f5;
+    border: 2px solid #ced4da;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    color: #adb5bd;
+    box-sizing: border-box;
+  }
+  
+  .after-controlboss-game .acb-tile.active-target {
+    background: #fff3bf;
+    border-color: #fcc419;
+    color: #d9480f;
+    box-shadow: 0 0 8px rgba(252, 196, 25, 0.5);
+  }
+  
+  .after-controlboss-game .acb-tile.cleared {
+    background: #d3f9d8 !important;
+    color: #2b8a3e !important;
+    border-color: #40c057 !important;
+  }
+  
+  .after-controlboss-game .acb-tile.collapsed {
+    background: #212529 !important;
+    border-color: #fa5252 !important;
+  }
+  
+  /* 상태 메시지 */
+  .after-controlboss-game .acb-status-msg {
+    padding: 8px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: center;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    color: #495057;
+    z-index: 5;
+  }
+  
+  .after-controlboss-game .acb-status-msg.error { background: #ffe3e3; color: #c92a2a; }
+  .after-controlboss-game .acb-status-msg.success { background: #d3f9d8; color: #2b8a3e; }
+  .after-controlboss-game .acb-status-msg.warning { background: #fff3bf; color: #d9480f; }
+  
+  .after-controlboss-game .acb-shake { animation: acb-vibrate 0.35s ease both; }
+  @keyframes acb-vibrate {
+    20%, 80% { transform: translateX(-3px); }
+    40%, 60% { transform: translateX(3px); }
+  }
+  
+  /* 결과 모달 */
+  .after-controlboss-game .acb-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  
+  .after-controlboss-game .acb-modal-card {
+    background: #ffffff;
+    padding: 20px 28px;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    width: 240px;
+  }
+  
+  .after-controlboss-game .acb-btn-retry {
+    margin-top: 14px;
+    padding: 8px 20px;
+    background: #e53935;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  
+  .after-controlboss-game .hidden { display: none !important; }
+  
+  /* 뚜렷한 가시성을 가진 원형 충격파 링 */
+  .after-controlboss-game .acb-shockwave {
+    position: absolute;
+    border: 4px solid #ff1744;
+    background: radial-gradient(circle, rgba(255, 23, 68, 0.05) 60%, rgba(255, 23, 68, 0.25) 100%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-shadow: 0 0 16px #ff1744, inset 0 0 12px rgba(255, 23, 68, 0.4);
+    box-sizing: border-box;
+  }
+  
+  /* 비활성화된 일반 바닥 타일 스타일 (밟아도 안전함) */
+  .after-controlboss-game .acb-tile.plain {
+    background: #f8f9fa;
+    border-color: #dee2e6;
+    color: #ced4da;
+    opacity: 0.85;
+  }
+
+  .after-controlboss-game #acb-shockwave-layer {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    z-index: 25 !important;
+  }
