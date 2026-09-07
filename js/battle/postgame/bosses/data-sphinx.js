@@ -82,7 +82,9 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
       inputManager: context.input,
       character: {
         id: account?.id || "player-1",
-        x: 800, y: 360, width: 34, height: 44, speed: 500, 
+        x: mapConfig?.spawn?.x ?? 800,
+        y: mapConfig?.spawn?.y ?? 360,
+        width: 34, height: 44, speed: 500,
         maxHealth: battleState?.maxHealth || 100,
         currentHealth: battleState?.currentHealth || 100,
         stats: { attack: account?.attack || 10, defense: account?.defense || 0, health: account?.hp || 100 },
@@ -185,7 +187,7 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
 
     const playerSnapshot = system.getSnapshot();
     if (playerSnapshot.currentHealth <= 0) {
-      setTimeout(() => endGame("FAIL", "PLAYER_DEAD"), 1000);
+      state.delayTimerMs = 1000;
       return;
     }
 
@@ -206,7 +208,7 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
 
   function resume() {
     state.isPaused = false;
-    if (state.phase === "PLAYING" && system) {
+    if (system) {
       system.setControlLocked(false, "game-paused");
     }
   }
@@ -280,5 +282,13 @@ export function createDataSphinxBoss(context, battleState, account, mapConfig) {
     }
   }
 
-  return { init, start, pause, resume, restart, destroy, update };
+  function getState() {
+    return {
+      ...state,
+      metrics: { ...state.metrics },
+      player: system?.getSnapshot() ?? null,
+    };
+  }
+
+  return { init, start, pause, resume, restart, destroy, update, getState };
 }

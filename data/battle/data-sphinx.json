@@ -4,7 +4,7 @@
   "damagePerCorrect": 10,
   "playerDamagePerWrong": 20,
   "quizList": [
-    { "id": 1, "question": "이화그린의 색상코드는 #00643E이다.", "answer": "O" },
+    { "id": 1, "question": "이화그린의 색상코드는 #00462A이다.", "answer": "O" },
     { "id": 2, "question": "인공지능대학 라운지는 ECC B4에 위치해 있다.", "answer": "X" },
     { "id": 3, "question": "이화여자대학교 인공지능대학은 2022년 신설되었다.", "answer": "X" },
     { "id": 4, "question": "인공지능대학 마스코트는 '이아이'이다.", "answer": "O" },

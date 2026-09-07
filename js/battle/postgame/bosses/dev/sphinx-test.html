@@ -45,7 +45,7 @@
 
   <script type="module">
     try {
-      const module = await import('./data-sphinx.js');
+      const module = await import('../data-sphinx.js');
       const createDataSphinxBoss = module.createDataSphinxBoss;
 
       const mockEvents = {
@@ -90,7 +90,10 @@
 
       const boss = createDataSphinxBoss(mockContext, {}, {}, mapConfig);
 
-      await boss.init({}, { signal: new AbortController().signal });
+      const configResponse = await fetch('../../../../../data/battle/data-sphinx.json');
+      if (!configResponse.ok) throw new Error('데이터 스핑크스 설정을 불러오지 못했습니다.');
+      const config = await configResponse.json();
+      await boss.init(config, { signal: new AbortController().signal });
       boss.start({ attemptId: 'test-attempt-1' });
 
       let lastTime = performance.now();
