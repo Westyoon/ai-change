@@ -1,0 +1,325 @@
+/* stat-boss.css
+ *
+ * 스탯 보스 전투 화면 전용 스타일. 승인된 목업(Main.dc.html/BattleStagger.dc.html)의
+ * 레이아웃(좌상단 스탯 카드 / 중앙 보스 HP / 보스 전용 구역 / 7x5 격자 / 하단 조작)을
+ * 그대로 따른다. 캐릭터 액터·체력바·조이스틱·공격 버튼은 battle-character.css의
+ * 공용 클래스를 그대로 재사용한다. 색상 토큰은 common.css의 --line/--accent 등을 따른다.
+ *
+ * [좌표계] .stat-boss-arena는 battle.js의 DEFAULT_ARENA(960x600, 8:5)와 정확히
+ * 같은 비율이어야 한다. 보스는 .stat-boss-boss-zone이라는 별도 구역에 있고
+ * .stat-boss-arena(격자) 안에는 들어가지 않는다 - 그래서 격자와 보스가 겹치지 않는다.
+ */
+
+.stat-boss-stage {
+  display: grid;
+  /* minmax(0, 1fr): 명시 안 하면 암시적 1개 컬럼이 auto(내용 min-content) 크기로
+   * 잡혀서, 안의 어떤 자식(예: .stat-boss-boss-row)이 줄어들 수 있는 만큼 다 줄어도
+   * 자리가 부족하면 트랙 자체가 넓어져 화면 전체가 옆으로 밀려 커짐 - 모바일 실기기
+   * 테스트로 발견(예고→경직 전환 시 배지 글자가 길어지면서 발생). 0을 허용해야
+   * 자식의 min-width/flex-shrink 설정이 실제로 먹힘. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.stat-boss-hud {
+  position: relative;
+  z-index: 3000;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 9px 12px;
+  border-bottom: 2px solid var(--line);
+  background: rgb(9 13 26 / 92%);
+}
+
+/* 좌상단 내 스탯 카드: 경과 시간 + ATK/DEF/HP (목업의 timer+stat 카드) */
+.stat-boss-stat-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.stat-boss-stat-timer {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.stat-boss-stat-card__list {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+}
+
+.stat-boss-stat-card__list dt {
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.stat-boss-stat-card__list dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+/* 2026-09-06: boss-info + phase-badge를 한 묶음으로 감싸는 컨테이너.
+ * 처음엔 "긴 배지 텍스트일 때만 HP바를 줄여서 한 줄 유지" 방식으로 했는데,
+ * 모바일 폭(390px)에서는 그래도 자리가 모자라서 "1000 / 1000" 같은 보스 체력
+ * 숫자가 배지에 가려 잘려 보이는 문제가 생김(실기기 테스트로 발견). 그래서
+ * "배지는 텍스트 길이와 상관없이 항상 boss-info 아래 자기 줄"로 바꿈 - 예고("예고")든
+ * 경직("경직 · 반격 찬스 · 0.3초")이든 줄 수가 늘 2줄로 고정돼서 화면 높이가
+ * 안 바뀜(예고↔경직 전환마다 화면이 오르내리던 버그의 근본 수정). */
+.stat-boss-boss-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* 2026-09-06: grid(auto minmax(...) auto)였을 때, .stat-boss-hud의
+ * justify-content:space-between 때문에 이 요소가 넓어지면 grid의 auto 트랙(라벨/
+ * 숫자 칸) 안에 남는 공간이 그대로 끼어들어서 "BOSS 라벨-바" 사이나 "바-숫자" 사이가
+ * 벌어져 보였음(모바일 폭에서 특히 심함) - 플레이 테스트로 발견. flex로 바꾸면
+ * 자식이 내용 크기만큼만 차지해서 셋이 항상 붙어있게 됨. */
+.stat-boss-boss-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 100%; /* 항상 이 줄 전체를 차지 -> phase-badge는 무조건 다음 줄로 밀림(줄 수 고정) */
+}
+
+.stat-boss-boss-info strong {
+  color: var(--warning);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.stat-boss-boss-hp-track {
+  width: min(220px, 32vw);
+  height: 13px;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #050812;
+}
+
+.stat-boss-boss-hp-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--warning), var(--danger));
+  transition: width 150ms ease;
+}
+
+.stat-boss-boss-hp-track[data-low="true"] .stat-boss-boss-hp-fill {
+  background: var(--danger);
+}
+
+.stat-boss-boss-hp-text {
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.stat-boss-phase-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: auto; /* boss-info가 항상 줄 전체를 차지하니, 배지는 다음 줄에서 오른쪽 정렬 */
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-strong);
+  font-size: 0.75rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.stat-boss-phase-badge[data-phase="STAGGER"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stat-boss-pattern-tag {
+  margin: 0;
+  padding: 4px 12px;
+  color: var(--danger);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* 보스 존과 격자를 세로로 쌓는 틀. 보스는 여기서 격자와 분리된 자기 구역을 갖는다. */
+.stat-boss-battlefield {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 4px;
+  overflow: hidden;
+  border: var(--pixel-border) solid var(--line);
+  border-radius: 20px;
+  background: #0c1223;
+  box-shadow: var(--shadow), 7px 7px 0 rgb(53 70 111 / 35%);
+}
+
+.stat-boss-boss-zone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: clamp(64px, 16vw, 108px);
+  background: linear-gradient(180deg, rgb(255 111 145 / 10%), transparent);
+}
+
+.stat-boss-boss-actor {
+  position: relative;
+  width: clamp(56px, 13vw, 92px);
+  aspect-ratio: 1;
+}
+
+.stat-boss-boss-actor__sprite {
+  position: absolute;
+  inset: 0;
+  border: clamp(2px, 0.4vw, 3px) solid var(--text);
+  border-radius: 26%;
+  background: linear-gradient(160deg, #ff8fa6, var(--danger));
+  box-shadow: 4px 4px 0 rgb(255 111 145 / 55%);
+}
+
+.stat-boss-arena {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  overflow: hidden;
+  aspect-ratio: 8 / 5; /* ARENA 960x600 비율. battle.js의 DEFAULT_ARENA와 같이 조정할 것 */
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 720px) {
+  /* 2026-09-06: 모바일 실기기(특히 화면이 작은 기종)에서 전체 화면이 세로로 길어서
+   * 한 화면에 안 들어온다는 피드백으로, 좁은/터치 화면에서만 격자 비율과 세로 여백을
+   * 줄임. 데스크톱 레이아웃은 이 미디어쿼리 밖이라 그대로임 - PC 화면은 안 건드림. */
+  .stat-boss-arena {
+    aspect-ratio: 11 / 5;
+  }
+
+  .stat-boss-stage {
+    gap: 6px;
+  }
+
+  .stat-boss-hud {
+    padding: 7px 10px;
+  }
+
+  .stat-boss-boss-row {
+    gap: 4px 6px;
+  }
+
+  .stat-boss-pattern-tag {
+    padding: 2px 12px;
+  }
+
+  .stat-boss-boss-zone {
+    min-height: clamp(48px, 13vw, 96px);
+  }
+
+  /* .character-hud는 공용 캐릭터 시스템 컴포넌트(battle-character.css)라 그 파일
+   * 자체는 안 건드리고, 스탯 보스 화면 안에서만 여백을 살짝 줄임(다른 배틀/미니게임에는
+   * 영향 없음 - 이 선택자는 .stat-boss-stage 안에 있을 때만 적용됨). */
+  .stat-boss-stage .character-hud {
+    gap: 5px;
+    min-height: 40px;
+    padding: 6px 10px;
+  }
+}
+
+.stat-boss-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 2px;
+  padding: 2px;
+}
+
+.stat-boss-cell {
+  position: relative;
+  border: 1px solid rgb(179 191 220 / 14%);
+  border-radius: 4px;
+  background: rgb(179 191 220 / 4%);
+  transition: background 80ms linear, border-color 80ms linear;
+}
+
+/* 예고 중: 빗금 무늬 = "여기 위험해질 예정" */
+.stat-boss-cell[data-danger="true"] {
+  border-color: var(--danger);
+  background: repeating-linear-gradient(135deg, rgb(255 111 145 / 35%) 0 8px, rgb(255 111 145 / 12%) 8px 16px);
+}
+
+/* 판정이 실제로 일어나는 순간: 단색 빨강으로 짧게 플래시 (빗금보다 우선) */
+.stat-boss-cell[data-impact="true"] {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.stat-boss-counter-prompt {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 800;
+  padding: 4px 16px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  color: #171207;
+  background: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 900;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.stat-boss-counter-prompt[data-visible="true"] {
+  opacity: 1;
+}
+
+.stat-boss-counter-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: clamp(1rem, 4vw, 1.6rem);
+  font-weight: 900;
+  text-align: center;
+  text-shadow: 0 0 12px rgb(120 240 193 / 80%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.stat-boss-counter-flash[data-tone="miss"] {
+  color: var(--muted);
+  text-shadow: none;
+}
+
+.stat-boss-counter-flash[data-visible="true"] {
+  opacity: 1;
+}
