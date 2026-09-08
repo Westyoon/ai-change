@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "appId": "ai-change",
   "contentVersion": 1,
-  "storageChannel": "development",
+  "storageChannel": "production",
   "publicBasePath": "./",
   "initialScene": "loading",
   "mainMapId": "festival-main-map",
@@ -15,6 +15,6 @@
   "features": {
     "story": true,
     "localSave": true,
-    "battleContent": false
+    "battleContent": true
   }
 }

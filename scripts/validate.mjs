@@ -57,6 +57,8 @@ export const REQUIRED_FILES = Object.freeze([
   "css/map.css",
   "css/minigames.css",
   "css/battle-character.css",
+  "css/battle.css",
+  "css/stat-boss.css",
   "css/account.css",
   "js/app.js",
   "js/router.js",
@@ -64,6 +66,8 @@ export const REQUIRED_FILES = Object.freeze([
   "js/core/config-validator.js",
   "js/core/version.js",
   "js/battle/registry.js",
+  "js/battle/player-config.js",
+  "js/battle/unlock.js",
   "js/battle/character/index.js",
   "js/battle/character/character.js",
   "js/battle/character/character-controller.js",
@@ -82,6 +86,7 @@ export const REQUIRED_FILES = Object.freeze([
   "js/scenes/minigame-intro-scene.js",
   "js/scenes/minigame-scene.js",
   "js/scenes/battle-coming-soon-scene.js",
+  "js/scenes/battle-scene.js",
   "js/scenes/character-preview-scene.js",
   "js/scenes/account-scene.js",
   "js/scenes/ranking-scene.js",
@@ -99,6 +104,7 @@ export const REQUIRED_FILES = Object.freeze([
   "data/minigames.json",
   "data/departments.json",
   "data/battles.json",
+  "data/battle/stat-boss.json",
   "data/map-data.json",
   "data/scripts/main-story.json",
   "data/scripts/npc-dialogues.json",
@@ -295,6 +301,9 @@ function validateAppConfig(appConfig, battles, mapData, errors) {
   if (appConfig.initialScene !== "loading") {
     addError(errors, `app-config.json initialScene must be loading; received ${appConfig.initialScene}`);
   }
+  if (appConfig.storageChannel !== "production") {
+    addError(errors, `app-config.json storageChannel must be production; received ${appConfig.storageChannel}`);
+  }
   if (!appConfig.features || appConfig.features.story !== true || appConfig.features.localSave !== true) {
     addError(errors, "app-config.json production features story and localSave must both be true");
   }
@@ -484,6 +493,87 @@ function validateGameRegistry(
   return gameIds;
 }
 
+function validateBattleRegistry(
+  battles,
+  assets,
+  gameIds,
+  registrySource,
+  configDocuments,
+  errors
+) {
+  const validStatuses = new Set(["published", "locked", "coming-soon"]);
+  const assetById = new Map(assets.filter(Boolean).map((asset) => [asset.id, asset]));
+  const knownGroups = new Set(assets.flatMap((asset) => groupsForAsset(asset)));
+  const publishedModules = new Set();
+
+  for (const battle of battles) {
+    if (!battle || typeof battle !== "object" || typeof battle.id !== "string") continue;
+    if (typeof battle.title !== "string" || battle.title.trim() === "") {
+      addError(errors, `Battle ${battle.id} requires a non-empty title`);
+    }
+    if (!validStatuses.has(battle.status)) {
+      addError(errors, `Battle ${battle.id} has invalid status: ${battle.status}`);
+      continue;
+    }
+    if (battle.status !== "published") continue;
+
+    if (typeof battle.module !== "string" || !ID_PATTERN.test(battle.module)) {
+      addError(errors, `published Battle ${battle.id} requires a kebab-case module key`);
+    } else {
+      const loaderPattern = new RegExp(
+        `["']${battle.module.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}["']\\s*:\\s*\\(\\)\\s*=>\\s*import\\(`,
+        "u"
+      );
+      if (!loaderPattern.test(String(registrySource))) {
+        addError(errors, `Battle ${battle.id} module is not statically registered: ${battle.module}`);
+      }
+      if (publishedModules.has(battle.module)) {
+        addError(errors, `published Battle module is duplicated: ${battle.module}`);
+      }
+      publishedModules.add(battle.module);
+    }
+
+    const configAsset = assetById.get(battle.configAssetId);
+    if (!configAsset || configAsset.type !== "json" || configAsset.required !== true) {
+      addError(errors, `Battle ${battle.id} configAssetId must resolve to a required JSON asset: ${battle.configAssetId}`);
+    } else {
+      if (!groupsForAsset(configAsset).includes(battle.assetGroup)) {
+        addError(errors, `Battle ${battle.id} config asset is not in assetGroup ${battle.assetGroup}`);
+      }
+      const configPath = String(configAsset.src ?? "").replaceAll("\\", "/").replace(/^\.\//u, "");
+      const config = configDocuments instanceof Map
+        ? configDocuments.get(configPath)
+        : configDocuments?.[configPath];
+      if (!config || typeof config !== "object") {
+        addError(errors, `Battle ${battle.id} config document is missing: ${configPath}`);
+      } else if (config.battleId !== battle.id) {
+        addError(errors, `${configPath} battleId must be ${battle.id}; received ${config.battleId}`);
+      }
+    }
+    if (typeof battle.assetGroup !== "string" || !knownGroups.has(battle.assetGroup)) {
+      addError(errors, `Battle ${battle.id} references missing asset group: ${battle.assetGroup}`);
+    }
+
+    const condition = battle.unlockCondition;
+    if (!condition || typeof condition !== "object" || condition.type !== "ALL_MINIGAMES_CLEAR") {
+      addError(errors, `Battle ${battle.id} requires ALL_MINIGAMES_CLEAR unlockCondition`);
+      continue;
+    }
+    if (!Array.isArray(condition.miniGameIds) || condition.miniGameIds.length === 0) {
+      addError(errors, `Battle ${battle.id} unlockCondition requires miniGameIds`);
+      continue;
+    }
+    if (new Set(condition.miniGameIds).size !== condition.miniGameIds.length) {
+      addError(errors, `Battle ${battle.id} unlockCondition contains duplicate miniGameIds`);
+    }
+    for (const miniGameId of condition.miniGameIds) {
+      if (typeof miniGameId !== "string" || !gameIds.has(miniGameId)) {
+        addError(errors, `Battle ${battle.id} unlockCondition miniGameId does not resolve: ${miniGameId}`);
+      }
+    }
+  }
+}
+
 function validateActions(scriptDocuments, gameIds, scriptIds, assetIds, errors) {
   for (const document of scriptDocuments) {
     recursivelyVisit(document, (record) => {
@@ -565,6 +655,14 @@ export function validateReferenceGraph(snapshot) {
   );
 
   requireUniqueIds(battles, "Battle", errors);
+  validateBattleRegistry(
+    battles,
+    assets,
+    gameIds,
+    snapshot.battleRegistrySource ?? "",
+    snapshot.battleConfigDocuments,
+    errors
+  );
   validateVersionContract(snapshot, errors);
   validateAppConfig(snapshot.appConfig, battles, snapshot.mapData, errors);
   validateActions(snapshot.scriptDocuments ?? [], gameIds, scriptIds, assetIds, errors);
@@ -800,6 +898,7 @@ export async function validateProject(projectRoot = defaultRoot) {
   const html = await readTextOrEmpty("index.html");
   const versionSource = await readTextOrEmpty("js/core/version.js");
   const registrySource = await readTextOrEmpty("js/minigames/registry.js");
+  const battleRegistrySource = await readTextOrEmpty("js/battle/registry.js");
   const snapshot = {
     appConfig: jsonByRelativePath.get("data/app-config.json"),
     battles: jsonByRelativePath.get("data/battles.json"),
@@ -810,10 +909,16 @@ export async function validateProject(projectRoot = defaultRoot) {
     mapData: jsonByRelativePath.get("data/map-data.json"),
     minigames: jsonByRelativePath.get("data/minigames.json"),
     registrySource,
+    battleRegistrySource,
     scriptDocuments,
     configDocuments: new Map(
       [...jsonByRelativePath.entries()].filter(([relativePath]) =>
         /^data\/minigames\/[^/]+\.json$/u.test(relativePath)
+      )
+    ),
+    battleConfigDocuments: new Map(
+      [...jsonByRelativePath.entries()].filter(([relativePath]) =>
+        /^data\/battle\/[^/]+\.json$/u.test(relativePath)
       )
     )
   };

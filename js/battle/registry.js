@@ -1,7 +1,8 @@
-// Battle content is intentionally empty for the MVP. Keeping this allowlist
-// separate from the story mini-game registry lets future battle modules be
-// added without changing story routing.
-const BATTLE_MODULE_LOADERS = Object.freeze({});
+// Keep Battle imports in a static allowlist. Content data may select a key,
+// but it can never turn an arbitrary path into executable code.
+const BATTLE_MODULE_LOADERS = Object.freeze({
+  "stat-boss": () => import("./postgame/bosses/stat-boss/index.js"),
+});
 
 export function hasBattleModule(moduleKey) {
   return Object.hasOwn(BATTLE_MODULE_LOADERS, moduleKey);

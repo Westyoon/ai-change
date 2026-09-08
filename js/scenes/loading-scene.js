@@ -74,7 +74,7 @@ export function createLoadingScene(context) {
         className: "scene--centered",
         eyebrow: "BOOTING AI COLLEGE",
         title: "ai-change",
-        description: "공통 데이터와 화면 구조를 확인하고 있습니다.",
+        description: "게임 데이터와 계정 연결을 준비하고 있습니다.",
       });
       const track = createElement("div", {
         className: "loading-track",
@@ -140,13 +140,15 @@ export function createLoadingScene(context) {
         storageChannel: context.config.storageChannel,
         miniGameIds: context.content.minigames.map((game) => game.id),
         defaults: { settings: context.config.audio },
+        legacyStorageChannels:
+          context.config.storageChannel === "production" ? ["development"] : [],
       });
       const saveState = context.services.save.load();
       context.services.audio.applySettings?.(saveState.settings);
 
       bar.style.width = "100%";
       track.setAttribute("aria-valuenow", "100");
-      status.textContent = "100% · 스캐폴드 준비 완료";
+      status.textContent = "100% · 게임 준비 완료";
       await context.router.navigate(authCallback ? "account" : "main-menu", authCallback ?? {});
     },
     unmount() {

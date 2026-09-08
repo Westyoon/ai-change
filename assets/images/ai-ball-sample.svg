@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">AI Ball Classification sample ball</title>
+  <desc id="desc">A blue and violet geometric ball created for ai-change</desc>
+  <defs>
+    <radialGradient id="ball" cx="34%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#dbeafe"/>
+      <stop offset="0.42" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#4f46e5"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#111827" flood-opacity=".32"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" fill="none"/>
+  <circle cx="128" cy="122" r="88" fill="url(#ball)" filter="url(#shadow)"/>
+  <path d="M74 84c24-29 68-39 105-15" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="14" stroke-linecap="round"/>
+  <path d="M55 139c35 8 113 8 146-4M128 35c-18 34-22 131 3 174" fill="none" stroke="#312e81" stroke-opacity=".42" stroke-width="8"/>
+</svg>

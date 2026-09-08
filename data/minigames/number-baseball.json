@@ -27,9 +27,6 @@
     "clearCondition": "3 Fit"
   },
   "balance": {
-    "allowLeadingZero": "TBD",
-    "deleteAction": "TBD",
-    "timeLimit": "TBD",
-    "retryPenalty": "TBD"
+    "allowLeadingZero": true
   }
 }

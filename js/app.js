@@ -3,10 +3,9 @@ import { AccountService } from "./core/account-service.js";
 import { AssetLoader } from "./core/asset-loader.js";
 import { EventBus } from "./core/event-bus.js";
 import { InputManager } from "./core/input-manager.js";
-import { ResizeManager } from "./core/resize-manager.js";
 import { CONTENT_VERSION } from "./core/version.js";
 import { SceneRouter } from "./router.js";
-import { createBattleComingSoonScene } from "./scenes/battle-coming-soon-scene.js";
+import { createBattleScene } from "./scenes/battle-scene.js";
 import { createAccountScene } from "./scenes/account-scene.js";
 import { createCharacterPreviewScene } from "./scenes/character-preview-scene.js";
 import { createDialogueScene } from "./scenes/dialogue-scene.js";
@@ -93,7 +92,6 @@ async function bootstrap() {
         audio: new AudioManager(config.audio),
         events: new EventBus(),
         input: new InputManager(),
-        resize: new ResizeManager(),
         save: null,
       },
       router: null,
@@ -109,7 +107,7 @@ async function bootstrap() {
       dialogue: createDialogueScene,
       "minigame-intro": createMiniGameIntroScene,
       minigame: createMiniGameScene,
-      battle: createBattleComingSoonScene,
+      battle: createBattleScene,
       "character-preview": createCharacterPreviewScene,
       account: createAccountScene,
       ranking: createRankingScene,
@@ -118,7 +116,6 @@ async function bootstrap() {
 
     context.router = new SceneRouter({ root, routes, context });
     context.services.input.start?.();
-    context.services.resize.start?.();
     installGlobalBoundary(context);
 
     await context.router.start(config.initialScene);

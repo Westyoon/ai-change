@@ -4,7 +4,7 @@
 >
 > 통합 브랜치: `integration/after-auth-stats-ranking`
 >
-> 문서 상태: 구현·검증 기준. 이 문서 작성 시점에는 운영 배포와 실제 Google OAuth 종단 간 검증을 완료했다고 간주하지 않는다.
+> 문서 상태: 현재 통합 Worker 운영 배포, Google OAuth callback 종단 간 흐름과 운영 D1 연결을 확인했다. 아래 설정·체크리스트는 신규 환경이나 재배포 때 반복하는 기준이다.
 
 ## 1. 원본 PR에서 가져오는 기능
 
@@ -36,7 +36,7 @@ PR #12는 다음 기반을 제공했다.
 하나의 Cloudflare Worker가 정적 SPA와 API를 같은 origin으로 제공한다.
 
 ```text
-브라우저 · https://<대표 도메인>
+브라우저 · https://ai-change.ai-change-backend.workers.dev
   ├─ /api/*  ───────────────→ Cloudflare Worker
   │                            ├─ Google OAuth
   │                            └─ D1: users, stats, sessions, game_results
@@ -45,10 +45,10 @@ PR #12는 다음 기반을 제공했다.
 
 - Worker는 `/api/*`에서 정적 asset보다 먼저 실행한다.
 - 브라우저는 host를 하드코딩하지 않고 `/api/...` 상대 경로만 호출한다.
-- 운영 환경의 `PUBLIC_ORIGIN`은 Cloudflare 일반 환경 변수로 대표 HTTPS origin 하나만 설정한다. 다른 host로 직접 접근한 API 요청은 거부한다.
+- 운영 환경의 `PUBLIC_ORIGIN`은 canonical origin인 `https://ai-change.ai-change-backend.workers.dev`로 설정한다. 다른 host로 직접 접근한 API 요청은 거부한다.
 - 인증 cookie는 `HttpOnly`, 운영 환경 `Secure`, `SameSite=Lax`, `Path=/`로 발급한다.
 - D1에는 원본 session token이 아닌 SHA-256 hash와 만료 시각을 저장한다.
-- 기존 Cloudflare Pages 주소를 계속 안내한다면 새 대표 Worker 도메인으로 이동시키거나, 동일한 기능을 제공하지 않는 구 주소임을 명확히 구분한다.
+- 기존 `https://ai-change.pages.dev`는 별도 `pages-redirect/` 산출물로 같은 경로의 canonical Worker 주소에 302 이동한다. 이 규칙은 공용 `dist/`에 넣지 않는다.
 
 ## 4. API 계약
 
@@ -64,11 +64,13 @@ PR #12는 다음 기반을 제공했다.
 
 `/api/users`, `/api/stats/:userId`처럼 내부 ID나 email을 공개하는 경로는 통합 계약에 포함하지 않는다.
 
+> 테스트·배포 전 개인정보 고지: Google 로그인은 계정 ID·이메일·표시 이름을 D1에 저장하며, 표시 이름과 게임 기록은 공개 랭킹에 노출된다. 이메일과 외부 계정 ID는 공개 응답에 포함하지 않는다. 참가자에게 수집 항목, 공개 범위, 보관·삭제 담당자를 로그인 전에 안내하고 동의한 계정만 사용한다.
+
 ### session이 필요한 경로
 
 | Method | 경로 | 계약 |
 | --- | --- | --- |
-| `GET` | `/api/session` | 로그인 여부와 본인의 표시 이름·스탯만 반환 |
+| `GET` | `/api/session` | 로그인 여부와 본인의 표시 이름·스탯, 서로 다른 완료 게임 ID 목록 `completedGameIds` 반환 |
 | `POST` | `/api/auth/logout` | 현재 session을 폐기하고 cookie를 만료 |
 | `POST` | `/api/results` | 본인의 CLEAR 결과를 attempt 단위로 한 번만 반영 |
 | `POST` | `/api/stats/allocate` | 남은 스탯 포인트 1개를 `attack`·`hp`·`defense` 중 하나에 배분 |
@@ -85,6 +87,8 @@ PR #12는 다음 기반을 제공했다.
 ```
 
 서버는 session에서 이용자를 찾고, 등록된 5개 미니게임 ID·`CLEAR` 상태·허용 범위의 정수 점수만 받는다. 같은 계정의 같은 `attemptId`는 `game_results`의 unique 제약으로 한 번만 처리한다. 최초 반영 때만 `clears`와 `unspent_points`를 1 증가시키고, 최고 점수 랭킹은 단위가 다른 게임끼리 섞지 않고 `game_results.game_id`별로 계산한다.
+
+`completedGameIds`는 해당 계정의 `game_results`에서 완료한 서로 다른 `game_id`를 조회한 값이다. 클라이언트는 이를 로컬 완료 ID와 합쳐 `stat-boss` 해금을 판단하며, 반복 CLEAR로 증가한 `clears` 합계만으로는 해금하지 않는다.
 
 스탯 배분 요청은 다음처럼 선택할 항목만 보낸다.
 
@@ -172,23 +176,25 @@ Google Cloud Console의 Authorized redirect URI는 실제 callback과 문자 단
 
 - 로컬 예시: `http://127.0.0.1:8787/api/auth/callback`
 - staging: `https://<staging-host>/api/auth/callback`
-- production: `https://<대표 도메인>/api/auth/callback`
-- 대표 도메인을 `ai-change-game.dev`로 확정한 경우: `https://ai-change-game.dev/api/auth/callback`
+- production: `https://ai-change.ai-change-backend.workers.dev/api/auth/callback`
 
 스킴, host, port, 경로, trailing slash가 하나라도 다르면 callback이 거부된다. Google Console에는 실제로 사용하는 origin·redirect만 등록하고 임시 프리뷰 URL을 무제한 추가하지 않는다.
 
-## 9. staging·production 이전 체크리스트
+## 9. staging·production 재배포 체크리스트
+
+운영 계정의 Worker·D1·Google OAuth 연결은 완료된 상태다. 아래 항목은 환경 이전이나 재배포 때 다시 확인하며, 체크 결과와 개인정보 고지 담당자를 배포 기록에 남긴다.
 
 - [ ] `wrangler whoami`로 배포 대상이 개인 테스트 계정이 아닌 운영 Cloudflare 계정인지 확인
-- [ ] staging·production D1을 분리하고 각 binding의 DB 이름·ID를 운영 계정 값으로 교체
+- [ ] 배포 대상의 D1 binding이 운영 DB 이름·ID를 가리키는지 확인하고 staging을 사용할 때는 별도 DB로 분리
 - [ ] 기존 개인 D1의 users·stats를 백업하고, Google `sub`와 스탯 값이 보존되도록 이전 rehearsal 수행
 - [ ] staging에서 migration, health, session, ranking, 결과 멱등성, 포인트 원자적 배분을 먼저 검증
 - [ ] `/api/users`, `/api/stats/:userId`, 인증 없는 스탯 변경이 각각 노출·허용되지 않는지 확인
 - [ ] 환경별 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 Cloudflare secret으로 등록하고 저장소·배포 log에 값이 없는지 재확인
 - [ ] staging·production의 정확한 Google Authorized origin과 redirect URI 등록
-- [ ] 대표 custom domain의 DNS·TLS를 Worker에 연결하고 SPA와 `/api/*`가 같은 origin인지 확인
+- [ ] canonical Worker에서 SPA와 `/api/*`가 같은 origin인지 확인하고 custom domain을 추가할 때만 DNS·TLS와 `PUBLIC_ORIGIN`을 함께 변경
 - [ ] 로그인 취소, 잘못된 `state`, 만료 session, logout, 새로고침, Safari cookie 동작 확인
+- [ ] 로그인 전에 Google 표시 이름의 공개 랭킹 노출과 D1 수집·보관·삭제 범위를 고지하고 동의를 확인
 - [ ] 랭킹 표시 이름이 text로 렌더링되고 email·provider ID가 응답에 없는지 확인
-- [ ] 기존 Pages 대표 주소의 redirect 또는 종료 안내를 정해 이용자가 두 배포본으로 갈라지지 않게 함
+- [ ] `ai-change.pages.dev`가 같은 경로의 canonical Worker로 302 이동하고 공용 `dist/`에는 redirect가 없는지 확인
 - [ ] 운영 이전 완료 후 개인 계정 권한을 제거하고 OAuth secret을 회전
 - [ ] Worker version rollback과 D1 backup 복구 절차를 배포 전에 기록

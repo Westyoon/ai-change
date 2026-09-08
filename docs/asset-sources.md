@@ -2,7 +2,7 @@
 
 ## 1. 기록 기준
 
-`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 현재 등록된 이미지 중 6개는 코드로 직접 작성한 SVG placeholder이고, AI 기능 브랜치가 제공한 PNG sample 1개는 별도 확인 대상으로 기록합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
+`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 현재 등록된 이미지 7개는 모두 프로젝트 내부에서 직접 작성한 SVG placeholder입니다. 출처와 권한이 불명확했던 AI 기능 브랜치의 `sample.png`는 내부 제작 `ai-ball-sample.svg`로 교체했고 production `dist/`에서 제외합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
 
 최종 이미지·음원·폰트로 교체할 때는 실제 파일명, 종류, 제작자, 원본 URL, 라이선스, 수정 내용, 사용 위치를 확인한 뒤 이 문서와 manifest를 함께 갱신해야 합니다.
 
@@ -12,7 +12,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `CONTENT-COMMON-001` | `data/departments.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, 기획 문서 기반 | 해당 없음 | 프로젝트 내부 제작물 | 학과 코드·표시명 SSOT로 구조화 | 학과 표시와 참조 검증 |
 | `CONTENT-COMMON-002` | `data/minigames.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 미니게임 registry 스캐폴드 작성 | 미니게임 메뉴·진입 |
-| `CONTENT-COMMON-003` | `data/battles.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | MVP용 빈 Battle registry 작성 | Battle Coming Soon 판정 |
+| `CONTENT-COMMON-003` | `data/battles.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | published `stat-boss` 1종과 5종 완료 해금 조건 등록 | Battle 목록·해금 판정 |
 | `CONTENT-COMMON-004` | `data/map-data.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 학과 NPC를 임시 좌표에 배치 | 축제 맵 스캐폴드 |
 | `CONTENT-COMMON-005` | `data/scripts/main-story.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 개발용 인트로 한 줄 작성 | Story intro |
 | `CONTENT-COMMON-006` | `data/scripts/npc-dialogues.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | NPC 최초·재방문 및 게임 안내 문구 작성 | NPC·미니게임 안내 대화 |
@@ -22,6 +22,7 @@
 | `CONTENT-CSE-001` | `data/minigames/code-heart.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | CSE Code Heart |
 | `CONTENT-AI-001` | `data/minigames/ai-ball-classification.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | AI Ball Classification |
 | `CONTENT-AIDS-001` | `data/minigames/ai-data-egg-sort.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | AIDS 인지알·데사알 분류 |
+| `CONTENT-BATTLE-001` | `data/battle/stat-boss.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 사후게임 통합 기준 | 해당 없음 | 프로젝트 내부 제작물 | 보스 체력·패턴 시간·조작·결과 표시 설정 구조화 | published `stat-boss` |
 
 ## 3. 자체 제작 placeholder 이미지
 
@@ -32,14 +33,14 @@
 | `ASSET-CS-001` | `assets/minigames/click-to-purify/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 방패·커서와 `CS` 코드로 신규 작성 | CS 미니게임 썸네일 |
 | `ASSET-CSE-001` | `assets/minigames/code-heart/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 코드 기호·하트와 `CSE` 코드로 신규 작성 | CSE 미니게임 썸네일 |
 | `ASSET-AI-001` | `assets/minigames/ai-ball-classification/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 공·분류함과 `AI` 코드로 신규 작성 | AI 미니게임 썸네일 |
-| `ASSET-AI-002` | `assets/images/sample.png` | PNG placeholder | AI 기능 브랜치 PR #11 기여 파일 | 별도 원본 URL 미기재 | 라이선스·최종 사용 권한 확인 필요 | 기능 브랜치 원본과 같이 목표·방해 공 texture에 동일 이미지를 사용 | AI Ball Classification 목표 미리보기·목표 공·방해 공 |
+| `ASSET-AI-002` | `assets/images/ai-ball-sample.svg` | SVG placeholder | ai-change 프로젝트 자체 제작 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 파란색·보라색 원과 자체 작성 gradient·path로 기존 PNG sample을 교체 | AI Ball Classification 목표 미리보기·목표 공·방해 공 |
 | `ASSET-AIDS-001` | `assets/minigames/ai-data-egg-sort/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 알·상자와 `AIDS` 코드로 신규 작성 | AIDS 미니게임 썸네일 |
 
 SVG 파일은 외부 이미지나 로고를 복제하지 않았으며, 단순 도형과 텍스트만으로 생성했습니다. 최종 디자인 자산이 제공되면 사용자에게 노출되는 placeholder를 교체합니다.
 
 ## 4. 외부 리소스 현황
 
-현재 manifest에는 출처가 확인된 외부 이미지, 음원, 폰트, 아이콘이 등록되어 있지 않습니다. `ASSET-AI-002`는 기능 브랜치가 제공한 placeholder로 원본과 권한이 문서화되지 않았으므로 최종 production 아트로 간주하지 않습니다. 이후 외부 리소스를 추가할 때는 아래 항목을 모두 작성한 뒤 사용합니다.
+현재 manifest에는 외부 이미지, 음원, 폰트, 아이콘이 등록되어 있지 않습니다. 기존 `assets/images/sample.png`는 원본과 권한이 문서화되지 않은 기능 브랜치 참고 파일로만 남아 있으며 manifest와 production `dist/`에는 포함하지 않습니다. 이후 외부 리소스를 추가할 때는 아래 항목을 모두 작성한 뒤 사용합니다.
 
 - 원본 파일명과 실제 저장 파일명
 - 리소스 종류

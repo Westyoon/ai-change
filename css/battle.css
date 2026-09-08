@@ -1,0 +1,132 @@
+.battle-entry {
+  max-width: 980px;
+}
+
+.battle-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.battle-card {
+  padding: clamp(18px, 4vw, 30px);
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: rgb(9 13 26 / 48%);
+}
+
+.battle-card[data-unlocked="true"] {
+  border-color: var(--accent);
+}
+
+.battle-card h2 {
+  margin-top: 14px;
+}
+
+.battle-progress,
+.battle-notice {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-strong);
+}
+
+.battle-notice {
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+
+.battle-unlock-source {
+  margin: 18px auto 0;
+  text-align: center;
+}
+
+.battle-frame {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.battle-controls {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(9 13 26 / 64%);
+}
+
+.battle-controls__group {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.battle-controls__group--mobile:not(:only-child) {
+  display: none;
+}
+
+.battle-controls__label {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+
+.battle-controls__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  min-width: 0;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.battle-controls__list li::marker {
+  color: var(--accent);
+}
+
+.battle-stage {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.battle-stage > .stat-boss-stage {
+  min-height: 100%;
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 720px) {
+  .battle-controls__group--pc:not(:only-child) {
+    display: none;
+  }
+
+  .battle-controls__group--mobile:not(:only-child) {
+    display: flex;
+  }
+}
+
+@media (max-width: 720px) {
+  .battle-controls {
+    padding: 8px 10px;
+  }
+
+  .battle-controls__group {
+    gap: 8px;
+  }
+
+  .battle-controls__label,
+  .battle-controls__list {
+    font-size: 0.7rem;
+  }
+
+  .battle-controls__list {
+    gap: 3px 16px;
+  }
+
+  .battle-card .button-row {
+    align-items: stretch;
+  }
+
+  .battle-card .button {
+    width: 100%;
+  }
+}

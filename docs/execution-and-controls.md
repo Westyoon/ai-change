@@ -4,7 +4,7 @@
 
 이 문서는 `contentVersion=1` 통합 개발본 기준입니다. 공통 화면, 학과 데이터, 맵·대화 연결과 기능 브랜치에서 합쳐진 미니게임을 확인할 수 있습니다. DS·CS·CSE·AI·AIDS 5종은 모두 MVP이며 최종 밸런스·점수·기록 정책은 아직 확정되지 않았습니다.
 
-현재 Story 맵은 자유 이동 구현 전이므로 학과 카드를 클릭·터치하거나 키보드로 선택합니다. 카드를 선택하면 해당 학과 미니게임이 바로 시작됩니다. 사후게임 쪽은 `캐릭터 시스템 · DEV PREVIEW`에서 공용 이동·충돌·조이스틱 구현을 별도로 확인할 수 있으며 정식 필드 map에는 아직 연결하지 않았습니다.
+현재 Story 맵은 자유 이동 구현 전이므로 학과 카드를 클릭·터치하거나 키보드로 선택합니다. 카드를 선택하면 해당 학과 미니게임이 바로 시작됩니다. 사후게임은 `stat-boss` 1종만 published 상태이며, 서로 다른 학과 미니게임 5종을 모두 완료하면 배틀 메뉴에서 실행할 수 있습니다. 나머지 사후게임 prototype과 개발 harness는 production `dist/`에 포함하지 않습니다.
 
 학과 표기는 다음 코드를 공통으로 사용합니다.
 
@@ -18,7 +18,7 @@
 
 ## 2. 로컬 실행
 
-이 프로젝트는 별도의 backend나 외부 package 설치가 필요 없는 정적 웹게임입니다. Node.js 20 이상과 저장소에 포함된 개발 서버를 사용합니다. `fetch()`로 JSON을 읽으므로 `index.html`을 파일 탐색기에서 직접 열지 말고 반드시 로컬 HTTP 서버를 사용합니다.
+게스트 흐름은 별도 backend 설치가 필요 없는 정적 웹게임으로 실행할 수 있습니다. Node.js 22 이상과 저장소에 포함된 개발 서버를 사용합니다. `fetch()`로 JSON을 읽으므로 `index.html`을 파일 탐색기에서 직접 열지 말고 반드시 로컬 HTTP 서버를 사용합니다. Google 로그인·D1을 로컬에서 확인할 때는 README의 `cf:full:dev` 절차를 사용합니다.
 
 PowerShell에서 프로젝트 루트로 이동한 뒤 다음 명령을 실행합니다.
 
@@ -32,6 +32,8 @@ npm run dev
 ```text
 http://127.0.0.1:4173/
 ```
+
+운영 기능 확인은 canonical 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`에서 수행합니다. `https://ai-change.pages.dev`는 같은 경로로 302 이동하는 호환 주소입니다. Google 로그인 테스트 전에는 계정 ID·이메일·표시 이름이 D1에 저장되고 표시 이름과 게임 기록이 공개 랭킹에 노출된다는 점을 참가자에게 먼저 고지합니다.
 
 환경 변수 `PORT`가 이미 설정된 경우에는 개발 서버가 출력한 주소를 사용합니다. 서버는 실행 중인 PowerShell에서 `Ctrl+C`를 눌러 종료합니다.
 
@@ -63,7 +65,7 @@ npm run check
   → 맵 복귀
 ```
 
-Battle 메뉴는 `battles=[]`, `features.battleContent=false`인 현재 설정에 따라 Coming Soon 화면으로 연결됩니다. 그 옆의 `캐릭터 시스템 · DEV PREVIEW`는 실제 Battle publish와 무관한 공용 character core 연습장입니다.
+Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 published `stat-boss`를 사용합니다. 해금 판정은 로컬 완료 기록과 로그인 session의 `completedGameIds`를 합쳐 서로 다른 필수 5종을 모두 완료했는지 확인하며, 누적 클리어 횟수만으로는 열리지 않습니다.
 
 ## 5. 공통 조작
 
@@ -72,8 +74,8 @@ Battle 메뉴는 `battles=[]`, `features.battleContent=false`인 현재 설정�
 | 학과 미니게임 선택(현재) | `Tab`으로 이동 후 `Enter`·`Space`, 또는 클릭 | 학과 카드 터치 |
 | 맵 이동(후속 구현) | 방향키 또는 `WASD` | 화면 가상 방향 패드 |
 | 메뉴·버튼 선택 | 마우스 클릭, 키보드 포커스 후 `Enter` | 버튼 터치 |
-| 사후 캐릭터 연습장 이동 | `W`·`A`·`S`·`D` | 왼쪽 조이스틱 |
-| 사후 캐릭터 공격 명령 | `Space` | 오른쪽 공격 버튼 |
+| `stat-boss` 이동 | 방향키 또는 `W`·`A`·`S`·`D` | 왼쪽 조이스틱 |
+| `stat-boss` 경직 중 반격 | `Space` | 오른쪽 공격 버튼 |
 | 일시정지 | `Escape` | 일시정지 버튼 터치 |
 
 설정, 일시정지 또는 결과 화면이 열려 있을 때는 뒤쪽 맵·게임 입력이 차단됩니다.
@@ -94,10 +96,11 @@ Battle 메뉴는 `battles=[]`, `features.battleContent=false`인 현재 설정�
 
 ## 7. 로컬 데이터
 
-- 개발 저장 namespace는 `ai-change:development`입니다.
-- 현재 save schema key는 `ai-change:development:save:v1`을 사용합니다.
+- 현재 저장 namespace는 `ai-change:production`이며 save schema key는 `ai-change:production:save:v1`입니다.
+- 현재 key가 비어 있고 같은 origin에 기존 `ai-change:development:save:v1` 기록이 있으면 최초 로드에서 production key로 한 번 복사하며, legacy 기록은 삭제하지 않습니다.
 - 브라우저 저장소를 삭제하면 로컬 진행과 설정이 초기화될 수 있습니다.
-- 계정, 개인정보, 서버 점수는 저장하지 않습니다.
+- 계정, 개인정보, 서버 점수는 브라우저 저장소에 저장하지 않고 로그인한 운영 Worker/D1에서 관리합니다.
+- 로그인 session이 반환한 `completedGameIds`는 로컬 완료 기록과 합쳐 배틀 해금에 사용합니다.
 
 ## 8. 문제 해결
 
@@ -108,5 +111,5 @@ Battle 메뉴는 `battles=[]`, `features.battleContent=false`인 현재 설정�
 | 콘텐츠 버전 불일치 | 강력 새로고침 후 HTML·app config·manifest가 모두 version 1인지 확인 |
 | 키 입력이 동작하지 않음 | 대화·설정·결과 modal을 먼저 닫고 게임 영역에 focus |
 | 모바일 버튼이 보이지 않음 | 브라우저 기기 모드 또는 실제 터치 기기에서 다시 확인 |
-| Battle 진입 시 Coming Soon | published Battle이 없고 `battleContent` flag가 꺼진 현재 정상 동작 |
-| 캐릭터 연습장에서 공격해도 적 피해가 없음 | 공격 방식·범위·피해 공식은 미확정이며 현재는 `character:attack` 명령 전달만 검증하는 정상 동작 |
+| Battle 카드가 `LOCKED`로 표시됨 | 로컬 기록과 로그인 계정 기록을 합쳐 서로 다른 필수 미니게임 5종을 모두 완료했는지 확인 |
+| 예전 Pages 주소에서 주소가 바뀜 | `ai-change.pages.dev`는 canonical 통합 Worker로 302 이동하는 호환 주소이므로 정상 동작 |

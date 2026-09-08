@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
-  <title id="title">AI Ball Classification placeholder thumbnail</title>
+  <title id="title">AI Ball Classification 미리보기</title>
   <desc id="desc">Colored balls moving toward a classification bin and the AI department code</desc>
   <rect width="640" height="360" rx="28" fill="#10243e"/>
   <circle cx="104" cy="102" r="64" fill="#4dabf7"/>
@@ -11,5 +11,5 @@
   <path d="M500 148h94l-12 134h-70z" fill="#748ffc"/>
   <path d="M490 142h114" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
   <text x="48" y="292" fill="#ffffff" font-family="system-ui, sans-serif" font-size="34" font-weight="750">AI Ball Classification</text>
-  <text x="50" y="327" fill="#a5d8ff" font-family="system-ui, sans-serif" font-size="20">PLACEHOLDER</text>
+  <text x="50" y="327" fill="#a5d8ff" font-family="system-ui, sans-serif" font-size="20">CLASSIFY THE BALLS</text>
 </svg>

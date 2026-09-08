@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 사후게임 공용 캐릭터 이동·충돌·기본 공격 모듈, Google 로그인·계정 스탯·공개 랭킹을 위한 SPA와 Cloudflare Worker/D1 코드가 들어 있습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. 로그인 기능의 실제 OAuth 종단 간 검증, 운영 D1 migration, 대표 주소 배포는 아직 완료로 간주하지 않습니다.
+현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 공개된 사후게임 `stat-boss` 1종과 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 대표 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. 기존 `https://ai-change.pages.dev`는 같은 경로의 대표 운영 주소로 302 이동시키는 호환 주소입니다.
 
 ## 학과 코드
 
@@ -57,7 +57,7 @@ Google Cloud Console에는 Wrangler가 출력한 origin의 `/api/auth/callback`�
 
 ## 계정·스탯·랭킹 계약
 
-- `GET /api/session`: 현재 로그인 상태, 표시 이름, 본인 스탯만 반환
+- `GET /api/session`: 현재 로그인 상태, 표시 이름, 본인 스탯과 서로 다른 완료 게임 ID 목록 `completedGameIds`를 반환
 - `GET /api/auth/google`, `GET /api/auth/callback`: OAuth `state`를 검증하는 Google 로그인
 - `POST /api/auth/logout`: 현재 서버 session 폐기
 - `GET /api/ranking?criteria=clears`: 전체 누적 클리어 순위
@@ -66,6 +66,8 @@ Google Cloud Console에는 Wrangler가 출력한 origin의 `/api/auth/callback`�
 - `POST /api/stats/allocate`: 미사용 포인트를 공격·HP·방어 중 하나에 배분
 
 브라우저에는 무작위 session token만 `HttpOnly` cookie로 전달하고 D1에는 그 SHA-256 hash와 만료 시각을 저장합니다. 외부 계정 ID나 이메일을 공개하는 users/stats API와 요청 body의 `userId`를 신뢰하는 갱신 API는 제공하지 않습니다.
+
+> 개인정보·랭킹 고지: Google 로그인 시 Google 계정 ID·이메일·표시 이름을 계정 연결용으로 D1에 저장하고, 그중 표시 이름과 게임 기록은 공개 랭킹에 표시합니다. 이메일과 외부 계정 ID는 공개 API로 반환하지 않습니다. 테스트·배포 전 참가자에게 이 수집·공개 범위와 보관·삭제 담당자를 로그인 전에 고지하고, 동의한 계정만 사용합니다.
 
 미니게임마다 점수 단위가 달라 점수 순위는 요청한 `gameId`별로 분리하며, 전체 순위는 누적 클리어만 비교합니다. 미니게임 판정 자체는 현재 브라우저에서 이루어집니다. 인증·허용 목록·점수 범위·시도 ID 멱등성은 다른 계정 변조와 단순 중복 지급을 막지만, 경쟁성 점수 조작까지 완전히 검증하지는 못합니다. 정식 경쟁 랭킹 전에는 서버 challenge 또는 검증 가능한 이벤트 정책이 추가로 필요합니다.
 
@@ -94,27 +96,26 @@ npm run cf:full:check
 | 경로 | 명령 | 용도 |
 | --- | --- | --- |
 | 통합 Worker | `npm run cf:full:dev` | 로컬 SPA + API + D1 |
-| 통합 Worker | `npm run cf:full:deploy` | same-origin 운영 후보 배포 |
+| 통합 Worker | `npm run cf:deploy:production` | 대표 운영 주소의 SPA + API + D1 배포 |
+| 통합 Worker | `npm run cf:full:deploy` | 위 운영 배포가 호출하는 기존 호환 명령 |
 | 정적 Pages | `npm run cf:dev` | 계정 API 없는 로컬 정적 확인 |
-| 정적 Pages | `npm run cf:deploy:production` | 기존 Pages production 배포 |
+| Pages 호환 주소 | `npm run cf:deploy:pages-redirect` | `ai-change.pages.dev`를 대표 Worker로 경로 보존 302 이동 |
 | 정적 Pages | `npm run cf:deploy:staging` | 기존 Pages preview 배포 |
 | 레거시 Static Worker | `npm run cf:dev:worker`, `cf:deploy:worker:*` | `wrangler.worker.jsonc` 보존 경로 |
 
-로그인·서버 저장을 사용할 대표 주소는 통합 Worker 경로여야 합니다. 정적 Pages 또는 레거시 Static Worker만 배포하면 `/api/*`가 없어 로그인·스탯·랭킹이 연결되지 않습니다.
+로그인·서버 저장을 사용하는 canonical 주소는 `https://ai-change.ai-change-backend.workers.dev`입니다. `pages-redirect/`는 기존 Pages 주소 전용 산출물이며 공용 `dist/`에는 redirect를 넣지 않습니다. 레거시 정적 배포 명령은 호환성 때문에 남아 있지만 대표 운영 배포에 사용하지 않습니다.
 
-운영 배포 전에는 Cloudflare 계정과 D1 소유권을 팀 운영 계정으로 옮기고 `backend/wrangler.toml`의 database ID를 확인해야 합니다. 그 뒤 명시적으로 다음 작업을 수행합니다.
+현재 운영 Cloudflare 계정의 Worker와 D1 binding, Google OAuth secret 및 callback 연결을 완료했습니다. secret 값은 저장소에 두지 않으며, 계정 이전·secret 회전·schema 변경 때만 대상 계정과 D1을 다시 확인합니다.
 
-Cloudflare Worker의 일반 환경 변수 `PUBLIC_ORIGIN`에는 실제 대표 HTTPS origin을 정확히 설정합니다. 예를 들어 대표 주소가 확정된 뒤 `https://<대표-도메인>` 형태로 넣으며 경로는 포함하지 않습니다. 이렇게 하면 `workers.dev`와 custom domain을 오가며 OAuth callback·session host가 갈리는 일을 막을 수 있습니다. Google Console의 redirect URI도 같은 origin의 `/api/auth/callback`이어야 합니다.
+Cloudflare Worker의 `PUBLIC_ORIGIN`은 `https://ai-change.ai-change-backend.workers.dev`, Google Console의 production redirect URI는 `https://ai-change.ai-change-backend.workers.dev/api/auth/callback`으로 맞춥니다.
 
 ```bash
 npm run cf:full:check
-npm run cf:full:db:migrate:remote
-npm --prefix backend exec -- wrangler secret put GOOGLE_CLIENT_ID
-npm --prefix backend exec -- wrangler secret put GOOGLE_CLIENT_SECRET
-npm run cf:full:deploy
+npm run cf:deploy:production
+npm run cf:deploy:pages-redirect
 ```
 
-`cf:full:db:migrate:remote`, `wrangler secret put`, `cf:full:deploy`는 원격 상태나 Worker version을 바꾸므로 자동 검증 과정에 포함하지 않습니다. 현재 저장소 작업에서는 이 명령들을 실행하지 않았습니다.
+마지막 명령은 기존 Pages 호환 주소의 redirect 규칙을 변경할 때 실행합니다. 운영 migration, `wrangler secret put`, 배포 명령은 원격 상태를 바꾸므로 대상 계정 확인과 개인정보 고지 후 명시적으로 실행합니다.
 
 ## 현재 확인 가능한 흐름
 
@@ -123,10 +124,10 @@ Loading
   ├─ Main Menu → Story Intro → 학과별 Map → 미니게임 → CLEAR / FAIL
   ├─ 내 계정 → Google 로그인 / 스탯 확인·배분
   ├─ 랭킹보드 → 점수 / 클리어 공개 순위
-  └─ 캐릭터 시스템 DEV PREVIEW
+  └─ 배틀 → 5종 완료 확인 → stat-boss
 ```
 
-맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 계정의 `attack`·`hp`·`defense`는 캐릭터 core에 원본 스탯으로 전달하지만 실제 최대 체력·피해·방어 공식은 아직 확정하지 않았습니다.
+맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 배틀 해금은 로컬 완료 기록과 `/api/session`의 `completedGameIds`를 합쳐 서로 다른 5종의 완료를 확인합니다.
 
 ## 미니게임 모듈
 
@@ -140,6 +141,8 @@ Loading
 
 각 기능 브랜치의 색·문구·카드·버튼과 게임 규칙을 유지합니다. 모바일에서는 AI `480×640`, CSE `440×920`, AIDS `390×740` 원본 세로 프레임을 그대로 축소하고, 충분히 넓고 높은 데스크톱에서는 같은 UI 요소를 landscape 작업 공간으로 재배치합니다. AI·CS Canvas는 원본 종횡비를 유지해 늘어나며, AIDS는 필드 폭에 맞춘 발판 길이와 동일한 충돌 범위·수평 물리를 사용합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
 
+사후게임 registry에서 현재 `published`인 항목은 `stat-boss` 하나뿐입니다. 나머지 사후게임 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
+
 ## 주요 구조
 
 ```text
@@ -149,9 +152,9 @@ js/
   core/               입력·저장·asset·account 등 공통 service
   scenes/             화면 단위 orchestration과 계정·랭킹 scene
   minigames/          registry, 공통 계약, 학과별 모듈
-  battle/             사후게임 공용 캐릭터 core
+  battle/             사후게임 공용 core와 published stat-boss
 data/                 학과·미니게임·대화·map runtime 데이터
-assets/               자체 제작 placeholder와 기능 브랜치 asset
+assets/               자체 제작 SVG placeholder와 게임 asset
 backend/
   src/                same-origin Worker API
   migrations/         D1 schema migration
@@ -185,13 +188,11 @@ docs/                 계획·기획·실행·인증 통합 문서
 
 ## 아직 구현·검증하지 않은 범위
 
-- 실제 Google Client ID·Secret을 사용한 OAuth callback 종단 간 검증
-- staging·production D1 migration, 기존 데이터 이전, 팀 운영 계정으로 소유권 이전
-- 대표 custom domain의 same-origin Worker 배포와 운영 회귀 테스트
+- 별도 custom domain 연결과 staging 분리·백업 복구 rehearsal
 - 브라우저 결과 조작을 판별하는 서버 권위의 점수 검증
 - 일시적인 서버 장애·탭 종료 뒤에도 CLEAR를 복구하는 계정별 안전한 재시도 queue
 - 최종 게임명·로고·세계관·아트·사운드
 - 정식 자유 이동 필드 map과 최종 캐릭터 sprite 연결
 - 5개 미니게임의 최종 balance·점수 정책
-- 실제 Battle 보스·피해 공식·부활 규칙
+- `stat-boss` 최종 밸런스·아트와 나머지 사후게임 prototype의 publish 검토
 - 멀티플레이

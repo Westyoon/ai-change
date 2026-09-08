@@ -1,4 +1,6 @@
 import { loadMiniGameModule } from "../minigames/registry.js";
+import { getPublishedBattles } from "../battle/registry.js";
+import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
 import { createResultOverlay } from "../ui/result-overlay.js";
@@ -204,6 +206,14 @@ export function createMiniGameScene(context) {
         }
         const outroScriptId = result.status === "CLEAR" ? game.clearOutroScript : game.failOutroScript;
         const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
+        const unlockedBattle = result.status === "CLEAR" && context.config.features?.battleContent === true
+          ? getPublishedBattles(context.content.battles).find((battle) =>
+              getBattleUnlockStatus(
+                battle,
+                context.services.save?.getState?.() ?? {},
+                context.services.account.getState(),
+              ).unlocked)
+          : null;
         overlay = createResultOverlay({
           result,
           miniGameId,
@@ -232,6 +242,12 @@ export function createMiniGameScene(context) {
           },
           onMap: () => context.router.navigate("map"),
           onMenu: () => context.router.navigate("main-menu"),
+          primaryAction: unlockedBattle
+            ? {
+                label: "사후게임 열기",
+                onClick: () => context.router.navigate("battle"),
+              }
+            : null,
           backgroundElements: [toolbar, canvas, uiRoot],
         });
         stage.append(overlay.element);

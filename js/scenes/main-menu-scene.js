@@ -1,3 +1,5 @@
+import { getPublishedBattles } from "../battle/registry.js";
+import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { createElement, createScene } from "./scene-utils.js";
 
 function menuCard(title, description, onClick, badge = null) {
@@ -12,40 +14,81 @@ function menuCard(title, description, onClick, badge = null) {
 }
 
 export function createMainMenuScene(context) {
+  let mounted = false;
+  let unsubscribeAccount = null;
+
   return {
     mount(root) {
+      mounted = true;
       const scene = createScene({
         className: "scene--centered",
         eyebrow: "EWHA AI COLLEGE FESTIVAL",
         title: "ai-change",
-        description: "학과를 만나고, 대화하고, 미니게임 구조를 연결하는 개발 스캐폴드입니다.",
+        description: "다섯 학과 미니게임을 체험하고 사후게임 보스에 도전하세요.",
       });
       const logo = context.services.assets.get("app-logo");
       if (logo instanceof HTMLImageElement) {
         const image = logo.cloneNode(true);
         image.width = 112;
         image.height = 112;
-        image.alt = "ai-change 스캐폴드 로고";
+        image.alt = "ai-change 로고";
         scene.insertBefore(image, scene.querySelector("h1"));
       }
 
       const codes = context.content.departments.map((department) => department.code).join(" · ");
       scene.append(createElement("p", { className: "department-code", text: codes }));
-      const account = context.services.account.getState();
-      const accountDescription = account.authenticated
-        ? `${account.user?.name ?? "플레이어"}님의 전투 스탯과 미사용 포인트를 확인합니다.`
-        : "로그인하고 클리어 기록과 사후게임 전투 스탯을 연결합니다.";
-      const grid = createElement("div", { className: "menu-grid" }, [
-        menuCard("스토리 시작", "인트로에서 학과 맵과 5개 모듈 연결을 확인합니다.", () => context.router.navigate("story-intro")),
-        menuCard("배틀", "독립 registry 연결 지점만 준비되어 있습니다.", () => context.router.navigate("battle"), "COMING SOON"),
-        menuCard("캐릭터 시스템", "사후게임 공용 이동·공격 명령·피격 연결을 연습장에서 확인합니다.", () => context.router.navigate("character-preview"), "DEV PREVIEW"),
-        menuCard("내 계정", accountDescription, () => context.router.navigate("account"), account.authenticated ? "SIGNED IN" : "LOGIN"),
-        menuCard("랭킹보드", "최고 점수와 누적 클리어 순위를 확인합니다.", () => context.router.navigate("ranking")),
-        menuCard("게임 방법", "공통 조작과 학과별 스캐폴드 상태를 확인합니다.", () => context.router.navigate("how-to")),
-        menuCard("설정", "음량·음소거와 로컬 진행 초기화 UI를 확인합니다.", () => context.router.navigate("settings")),
-      ]);
+      const grid = createElement("div", { className: "menu-grid" });
       scene.append(grid);
       root.append(scene);
+
+      const renderCards = (account) => {
+        if (!mounted) return;
+        const accountDescription = account.authenticated
+          ? `${account.user?.name ?? "플레이어"}님의 전투 스탯과 미사용 포인트를 확인합니다.`
+          : "로그인하고 클리어 기록과 사후게임 전투 스탯을 연결합니다.";
+        const publishedBattles = context.config.features?.battleContent === true
+          ? getPublishedBattles(context.content.battles)
+          : [];
+        const saveState = context.services.save?.getState?.() ?? {};
+        const battleUnlocks = publishedBattles.map((battle) =>
+          getBattleUnlockStatus(battle, saveState, account));
+        const openBattle = battleUnlocks.find((status) => status.unlocked);
+        const battleProgress = battleUnlocks[0];
+        const battleBadge = publishedBattles.length === 0
+          ? "COMING SOON"
+          : openBattle
+            ? "OPEN"
+            : `LOCKED ${battleProgress?.completed ?? 0}/${battleProgress?.total ?? 0}`;
+        const battleDescription = publishedBattles.length === 0
+          ? "공개 준비 중인 사후게임입니다."
+          : openBattle
+            ? "해금된 스탯 보스에 도전합니다."
+            : "학과 미니게임 5종을 모두 클리어하면 열립니다.";
+        const cards = [
+          menuCard("스토리 시작", "인트로에서 학과 맵과 5개 모듈 연결을 확인합니다.", () => context.router.navigate("story-intro")),
+          menuCard("배틀", battleDescription, () => context.router.navigate("battle"), battleBadge),
+          menuCard("내 계정", accountDescription, () => context.router.navigate("account"), account.authenticated ? "SIGNED IN" : "LOGIN"),
+          menuCard("랭킹보드", "최고 점수와 누적 클리어 순위를 확인합니다.", () => context.router.navigate("ranking")),
+          menuCard("게임 방법", "공통 조작과 학과별 게임 방법을 확인합니다.", () => context.router.navigate("how-to")),
+          menuCard("설정", "음량·음소거와 로컬 진행 초기화 UI를 확인합니다.", () => context.router.navigate("settings")),
+        ];
+        if (publishedBattles.length === 0) {
+          cards.splice(2, 0, menuCard(
+            "캐릭터 시스템",
+            "사후게임 공용 이동·공격 명령·피격 연결을 연습장에서 확인합니다.",
+            () => context.router.navigate("character-preview"),
+            "DEV PREVIEW",
+          ));
+        }
+        grid.replaceChildren(...cards);
+      };
+
+      unsubscribeAccount = context.services.account.subscribe(renderCards);
+    },
+    unmount() {
+      mounted = false;
+      unsubscribeAccount?.();
+      unsubscribeAccount = null;
     },
   };
 }

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
-  <title id="title">DS 숫자 야구 placeholder thumbnail</title>
+  <title id="title">DS 숫자 야구 미리보기</title>
   <desc id="desc">Three numbered tiles and the DS department code</desc>
   <rect width="640" height="360" rx="28" fill="#16213e"/>
   <circle cx="118" cy="126" r="70" fill="#4263eb"/>
@@ -10,5 +10,5 @@
     <rect x="452" y="78" width="92" height="92" rx="16" fill="#ffd43b"/><text x="498" y="141" fill="#16213e">3</text>
   </g>
   <text x="48" y="274" fill="#ffffff" font-family="system-ui, sans-serif" font-size="38" font-weight="750">숫자 야구</text>
-  <text x="50" y="314" fill="#a5d8ff" font-family="system-ui, sans-serif" font-size="22">PLACEHOLDER</text>
+  <text x="50" y="314" fill="#a5d8ff" font-family="system-ui, sans-serif" font-size="22">NUMBER BASEBALL</text>
 </svg>

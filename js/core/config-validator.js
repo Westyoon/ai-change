@@ -1,4 +1,5 @@
 import { CONTENT_VERSION } from "./version.js";
+import { hasBattleModule } from "../battle/registry.js";
 
 export const DEPARTMENT_DISPLAY_NAMES = Object.freeze({
   AI: "인공지능학부",
@@ -18,6 +19,7 @@ export const SCAFFOLD_MINI_GAME_DEPARTMENTS = Object.freeze({
 
 const VALID_ASSET_TYPES = new Set(["json", "image"]);
 const VALID_MINI_GAME_STATUSES = new Set(["published", "locked", "coming-soon"]);
+const VALID_BATTLE_STATUSES = new Set(["published", "locked", "coming-soon"]);
 const VALID_RESULT_STATUSES = new Set(["CLEAR", "FAIL", "QUIT", "ERROR"]);
 const CANDIDATE_FIELDS = new Set(["status", "score", "failureReason", "metrics", "reward"]);
 
@@ -105,6 +107,7 @@ export function validateScaffoldContent(bundle = {}) {
   const appConfig = bundle.appConfig ?? bundle.app ?? null;
   const departments = unwrapList(bundle.departments, ["departments", "items"]);
   const minigames = unwrapList(bundle.minigames, ["minigames", "games", "items"]);
+  const battles = unwrapList(bundle.battles, ["battles", "items"]);
   const manifest = bundle.manifest ?? bundle.assetManifest ?? null;
   const assets = unwrapList(manifest, ["assets", "items"]);
   const maps = collectMaps(bundle.mapData ?? bundle.maps);
@@ -139,10 +142,93 @@ export function validateScaffoldContent(bundle = {}) {
     errors,
     warnings,
   );
+  const runnableBattleCount = validateBattles(
+    battles,
+    miniGameById,
+    assetById,
+    assets,
+    errors,
+  );
+  const battleFeatureEnabled = appConfig?.features?.battleContent === true;
+  if (battleFeatureEnabled !== (runnableBattleCount > 0)) {
+    errors.push(
+      `app-config.features.battleContent must equal runnable published Battle presence (${runnableBattleCount > 0}).`,
+    );
+  }
   validateMaps(maps, appConfig, miniGameById, departmentByCode, scriptIds, errors);
   validateDialogueActions(scripts, miniGameById, scriptIds, errors);
 
   return { errors, warnings };
+}
+
+function validateBattles(battles, miniGameById, assetById, assets, errors) {
+  const ids = new Set();
+  const publishedModules = new Set();
+  const knownGroups = new Set(assets.map((asset) => asset?.group).filter(Boolean));
+  let runnableCount = 0;
+
+  for (const battle of battles) {
+    let runnable = true;
+    const invalidate = (message) => {
+      errors.push(message);
+      runnable = false;
+    };
+    if (!isObject(battle) || typeof battle.id !== "string" || battle.id.length === 0) {
+      invalidate("Every Battle requires a non-empty id.");
+      continue;
+    }
+    if (ids.has(battle.id)) invalidate(`Duplicate Battle id: ${battle.id}.`);
+    ids.add(battle.id);
+    if (typeof battle.title !== "string" || battle.title.length === 0) {
+      invalidate(`Battle ${battle.id} requires a title.`);
+    }
+    if (!VALID_BATTLE_STATUSES.has(battle.status)) {
+      invalidate(`Battle ${battle.id} has invalid status ${String(battle.status)}.`);
+    }
+    if (battle.status !== "published") continue;
+
+    if (typeof battle.module !== "string" || battle.module.length === 0) {
+      invalidate(`Published Battle ${battle.id} requires a static module key.`);
+    } else {
+      if (!hasBattleModule(battle.module)) {
+        invalidate(`Published Battle ${battle.id} module is not registered: ${battle.module}.`);
+      }
+      if (publishedModules.has(battle.module)) {
+        invalidate(`Published Battle module is duplicated: ${battle.module}.`);
+      }
+      publishedModules.add(battle.module);
+    }
+
+    const configAsset = assetById.get(battle.configAssetId);
+    if (!configAsset || configAsset.type !== "json") {
+      invalidate(`Battle ${battle.id} configAssetId must reference a JSON asset.`);
+    }
+    if (typeof battle.assetGroup !== "string" || !knownGroups.has(battle.assetGroup)) {
+      invalidate(`Battle ${battle.id} references missing asset group ${String(battle.assetGroup)}.`);
+    }
+    if (configAsset && configAsset.group !== battle.assetGroup) {
+      invalidate(`Battle ${battle.id} config asset must belong to group ${String(battle.assetGroup)}.`);
+    }
+
+    const condition = battle.unlockCondition;
+    if (!isObject(condition) || condition.type !== "ALL_MINIGAMES_CLEAR") {
+      invalidate(`Battle ${battle.id} requires ALL_MINIGAMES_CLEAR unlockCondition.`);
+    } else if (!Array.isArray(condition.miniGameIds) || condition.miniGameIds.length === 0) {
+      invalidate(`Battle ${battle.id} unlockCondition requires miniGameIds.`);
+    } else {
+      const uniqueIds = new Set(condition.miniGameIds);
+      if (uniqueIds.size !== condition.miniGameIds.length) {
+        invalidate(`Battle ${battle.id} unlockCondition contains duplicate miniGameIds.`);
+      }
+      for (const miniGameId of condition.miniGameIds) {
+        if (typeof miniGameId !== "string" || !miniGameById.has(miniGameId)) {
+          invalidate(`Battle ${battle.id} unlockCondition references missing mini-game ${String(miniGameId)}.`);
+        }
+      }
+    }
+    if (runnable) runnableCount += 1;
+  }
+  return runnableCount;
 }
 
 function validateAppConfig(appConfig, errors) {

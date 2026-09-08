@@ -1,0 +1,28 @@
+{
+  "battleId": "stat-boss",
+  "implementationStatus": "MVP",
+  "bossBaseHp": 100,
+  "bossAttack": 34,
+  "staggerDurationMs": 1400,
+  "timeLimitSec": 120,
+  "controls": {
+    "pc": ["WASD 또는 방향키로 이동", "Space로 경직 중 반격", "Esc 또는 P로 일시정지"],
+    "mobile": ["왼쪽 조이스틱으로 이동", "오른쪽 공격 버튼으로 경직 중 반격"]
+  },
+  "resultPresentation": {
+    "clear": {
+      "title": "스탯 보스 격파",
+      "description": "위험 패턴을 돌파하고 보스를 쓰러뜨렸습니다.",
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    },
+    "fail": {
+      "title": "스탯 보스 도전 실패",
+      "description": "패턴을 다시 살펴보고 재도전해 보세요.",
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    }
+  }
+}

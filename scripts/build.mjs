@@ -9,7 +9,17 @@ const outputRoot = path.resolve(projectRoot, "dist");
 const PUBLIC_ENTRIES = Object.freeze(["index.html", "assets", "css", "data", "js"]);
 const EXCLUDED_DIRECTORIES = new Set([
   "data/drafts",
+  "js/battle/minigames",
   "js/minigames/AIDS/dev",
+  "js/minigames/after_controlboss",
+]);
+const EXCLUDED_PATHS = new Set([
+  "assets/images/sample.png",
+  "css/after_control_boss.css",
+  "css/after_minigames.css",
+  "data/battle/data-sphinx.json",
+  "data/minigames/after_controlboss.json",
+  "js/battle/postgame/bosses/data-sphinx.js",
 ]);
 const PUBLIC_FILE_EXTENSIONS = new Set([
   ".avif",
@@ -58,6 +68,7 @@ function assertSafeOutputDirectory() {
 function shouldExclude(relativePath) {
   const normalized = toPosix(relativePath);
   return (
+    EXCLUDED_PATHS.has(normalized) ||
     EXCLUDED_DIRECTORIES.has(normalized) ||
     (normalized.startsWith("js/") && normalized.split("/").includes("dev")) ||
     normalized.endsWith(".draft.json") ||
@@ -98,13 +109,20 @@ async function verifyBuild(copiedFiles) {
     "css/account.css",
     "css/common.css",
     "css/battle-character.css",
+    "css/battle.css",
+    "css/stat-boss.css",
     "data/app-config.json",
     "data/minigames.json",
+    "data/battle/stat-boss.json",
     "js/app.js",
     "js/core/account-service.js",
     "js/battle/character/index.js",
+    "js/battle/postgame/bosses/stat-boss/index.js",
+    "js/battle/player-config.js",
+    "js/battle/unlock.js",
     "js/scenes/account-scene.js",
     "js/scenes/character-preview-scene.js",
+    "js/scenes/battle-scene.js",
     "js/scenes/ranking-scene.js",
   ];
 

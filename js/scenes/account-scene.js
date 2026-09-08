@@ -130,7 +130,7 @@ export function createAccountScene(context) {
             }),
             createElement("span", {
               className: "account-privacy-note",
-              text: "Google 표시 이름은 공개 랭킹에 표시되며, 이메일과 외부 계정 ID는 공개하지 않습니다.",
+              text: "로그인 연결을 위해 Google 계정 식별자와 이메일을 서버에 저장합니다. 표시 이름은 테스트 랭킹에 공개되며, 이메일과 계정 식별자는 공개하지 않습니다.",
             }),
             actions,
           ]));
@@ -155,8 +155,8 @@ export function createAccountScene(context) {
             createElement("dd", { text: stats.clears }),
           ]),
           createElement("div", {}, [
-            createElement("dt", { text: "최고 점수" }),
-            createElement("dd", { text: stats.score.toLocaleString("ko-KR") }),
+            createElement("dt", { text: "게임별 최고 점수" }),
+            createElement("dd", { text: "랭킹에서 확인" }),
           ]),
           createElement("div", { className: "account-record-grid__points" }, [
             createElement("dt", { text: "미사용 스탯 포인트" }),

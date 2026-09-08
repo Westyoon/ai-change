@@ -9,7 +9,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check:release": "npm run check && npm run build && npm run smoke:dist",
-    "cf:deploy:production": "npm run check:release && npx --yes wrangler@4.127.0 pages deploy --branch dev",
+    "check:pages-redirect": "node --test tests/contract/deployment-routing.test.mjs",
+    "cf:deploy:production": "npm run cf:full:deploy",
+    "cf:deploy:pages-redirect": "npm run check:pages-redirect && npx --yes wrangler@4.127.0 pages deploy pages-redirect --project-name ai-change --branch dev",
     "cf:deploy:staging": "npm run check:release && npx --yes wrangler@4.127.0 pages deploy --branch staging",
     "cf:deploy:worker:production": "npm run check:release && npx --yes wrangler@4.127.0 deploy --config wrangler.worker.jsonc --env=",
     "cf:deploy:worker:staging": "npm run check:release && npx --yes wrangler@4.127.0 deploy --config wrangler.worker.jsonc --env staging",

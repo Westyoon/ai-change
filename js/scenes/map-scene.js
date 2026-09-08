@@ -31,6 +31,7 @@ export function createMapScene(context) {
       const map = findMap(context);
       if (!map) throw new Error(`맵을 찾을 수 없습니다: ${context.config.mainMapId}`);
       const completedNpcIds = new Set(saveState(context).story?.completedNpcIds ?? []);
+      const completedGameIds = new Set(context.services.account.getState().completedGameIds ?? []);
       const scene = createScene({ className: "map-scene" });
       const header = createElement("header", { className: "map-header" });
       const titleGroup = createElement("div", {}, [
@@ -49,7 +50,7 @@ export function createMapScene(context) {
       for (const npc of map.npcs ?? []) {
         const game = findMiniGame(context, npc.miniGameId);
         const department = findDepartment(context, npc.departmentCode);
-        const completed = completedNpcIds.has(npc.id);
+        const completed = completedNpcIds.has(npc.id) || completedGameIds.has(npc.miniGameId);
         const card = createElement("button", {
           className: "npc-card",
           type: "button",

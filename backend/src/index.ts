@@ -34,6 +34,10 @@ interface StatsRow {
   unspent_points: number;
 }
 
+interface CompletedGameRow {
+  game_id: string;
+}
+
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -229,6 +233,20 @@ async function fetchStats(env: Env, userId: string): Promise<StatsRow> {
   return row;
 }
 
+async function fetchCompletedGameIds(env: Env, userId: string): Promise<string[]> {
+  const query = await env.DB.prepare(
+    `SELECT DISTINCT game_id
+       FROM game_results
+      WHERE user_id = ? AND status = 'CLEAR'
+      ORDER BY game_id ASC`,
+  )
+    .bind(userId)
+    .all<CompletedGameRow>();
+  return query.results
+    .map((row) => row.game_id)
+    .filter((gameId) => ALLOWED_GAME_IDS.has(gameId));
+}
+
 async function getSession(request: Request, env: Env): Promise<SessionRow | null> {
   const token = parseCookies(request).get(sessionCookieName(request));
   if (!token || token.length > 128) return null;
@@ -359,11 +377,15 @@ async function sessionResponse(request: Request, env: Env): Promise<Response> {
   const session = await getSession(request, env);
   if (!session) return json({ authenticated: false });
 
-  const stats = await fetchStats(env, session.user_id);
+  const [stats, completedGameIds] = await Promise.all([
+    fetchStats(env, session.user_id),
+    fetchCompletedGameIds(env, session.user_id),
+  ]);
   return json({
     authenticated: true,
     user: { name: normalizeDisplayName(session.name) },
     stats: statPayload(stats),
+    completedGameIds,
   });
 }
 
@@ -409,7 +431,7 @@ async function ranking(request: Request, env: Env): Promise<Response> {
       `SELECT u.name, s.score, s.clears
          FROM stats s
          JOIN users u ON u.id = s.user_id
-        ORDER BY s.clears DESC, s.score DESC, u.created_at ASC
+        ORDER BY s.clears DESC, u.created_at ASC
         LIMIT 10`,
     ).all<{ name: string | null; score: number; clears: number }>();
     results = query.results;

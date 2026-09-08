@@ -13,6 +13,16 @@ function jsonResponse(payload, status = 200) {
   };
 }
 
+function textResponse(payload, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async text() {
+      return payload;
+    },
+  };
+}
+
 function queuedFetch(responses) {
   const calls = [];
   const fetchImpl = async (...args) => {
@@ -37,6 +47,7 @@ test("AccountService restores a same-origin session and exposes only display acc
       score: 950,
       unspent_points: 1,
     },
+    completedGameIds: ["data-number-baseball", "data-number-baseball", "computer-code-heart"],
   })]);
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
 
@@ -53,6 +64,7 @@ test("AccountService restores a same-origin session and exposes only display acc
     score: 950,
     unspentPoints: 1,
   });
+  assert.deepEqual(state.completedGameIds, ["data-number-baseball", "computer-code-heart"]);
   assert.equal(mock.calls[0][0], "/api/session");
   assert.equal(mock.calls[0][1].credentials, "same-origin");
   assert.equal(mock.calls[0][1].cache, "no-store");
@@ -83,6 +95,18 @@ test("an unauthenticated session remains a normal available guest", async () => 
   assert.equal(state.status, "guest");
   assert.equal(state.available, true);
   assert.equal(state.error, null);
+  assert.deepEqual(state.completedGameIds, []);
+});
+
+test("a successful HTML response is reported as unavailable instead of a false guest", async () => {
+  const mock = queuedFetch([textResponse("<!doctype html><title>Static site</title>")]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+
+  const state = await service.refreshSession();
+
+  assert.equal(state.status, "unavailable");
+  assert.equal(state.available, false);
+  assert.equal(state.authenticated, false);
 });
 
 test("recordClear submits only authenticated CLEAR results and refreshes account stats", async () => {
@@ -129,6 +153,7 @@ test("recordClear submits only authenticated CLEAR results and refreshes account
   assert.equal(submitted.awarded, true);
   assert.equal(service.getState().stats.clears, 1);
   assert.equal(service.getState().stats.unspentPoints, 1);
+  assert.deepEqual(service.getState().completedGameIds, ["game-a"]);
 });
 
 test("recordClear treats an uncredited replay as a duplicate without another reward", async () => {

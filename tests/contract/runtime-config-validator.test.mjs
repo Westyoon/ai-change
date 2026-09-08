@@ -13,10 +13,11 @@ async function readJson(relativeUrl) {
 }
 
 test("runtime config validator accepts the checked-in runtime data graph", async () => {
-  const [appConfig, departments, minigames, manifest, mapData, ...scripts] = await Promise.all([
+  const [appConfig, departments, minigames, battles, manifest, mapData, ...scripts] = await Promise.all([
     readJson("../../data/app-config.json"),
     readJson("../../data/departments.json"),
     readJson("../../data/minigames.json"),
+    readJson("../../data/battles.json"),
     readJson("../../data/asset-manifest.json"),
     readJson("../../data/map-data.json"),
     readJson("../../data/scripts/main-story.json"),
@@ -28,6 +29,7 @@ test("runtime config validator accepts the checked-in runtime data graph", async
     appConfig,
     departments,
     minigames,
+    battles,
     manifest,
     mapData,
     scripts,
@@ -36,6 +38,37 @@ test("runtime config validator accepts the checked-in runtime data graph", async
 
   assert.deepEqual(result.errors, []);
   assert.equal(result.warnings.length, 5);
+});
+
+test("runtime config validator rejects an unregistered or invalidly unlocked published Battle", async () => {
+  const [appConfig, departments, minigames, battles, manifest, mapData, ...scripts] = await Promise.all([
+    readJson("../../data/app-config.json"),
+    readJson("../../data/departments.json"),
+    readJson("../../data/minigames.json"),
+    readJson("../../data/battles.json"),
+    readJson("../../data/asset-manifest.json"),
+    readJson("../../data/map-data.json"),
+    readJson("../../data/scripts/main-story.json"),
+    readJson("../../data/scripts/npc-dialogues.json"),
+    readJson("../../data/scripts/minigame-outros.json")
+  ]);
+  battles[0].module = "unregistered-battle";
+  battles[0].unlockCondition.miniGameIds.push("missing-game", "missing-game");
+
+  const result = validateScaffoldContent({
+    appConfig,
+    departments,
+    minigames,
+    battles,
+    manifest,
+    mapData,
+    scripts,
+  });
+
+  assert.ok(result.errors.some((error) => error.includes("module is not registered")));
+  assert.ok(result.errors.some((error) => error.includes("duplicate miniGameIds")));
+  assert.ok(result.errors.some((error) => error.includes("missing mini-game")));
+  assert.ok(result.errors.some((error) => error.includes("runnable published Battle")));
 });
 
 test("runtime department constants preserve all user-approved abbreviations", () => {

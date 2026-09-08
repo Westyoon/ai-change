@@ -27,6 +27,14 @@ const METRIC_LABELS = Object.freeze({
   ballsResolved: "처리한 공",
   nonTargetsPassed: "통과시킨 방해 공",
   totalBallCount: "전체 공",
+  clearTimeMs: "전투 시간",
+  damageDealt: "가한 피해",
+  damageTaken: "받은 피해",
+  counterSuccesses: "반격 성공",
+  counterMisses: "반격 실패",
+  patternsResolved: "해결한 패턴",
+  bossHp: "남은 보스 HP",
+  bossMaxHp: "보스 최대 HP",
 });
 
 function formatMetric(key, value) {
@@ -80,12 +88,14 @@ export function resolveResultPresentation({ result, outroText, presentation } = 
 export function createResultOverlay({
   result,
   departmentCode,
+  contextLabel,
   outroText,
   presentation,
   miniGameId,
   onRetry,
   onMap,
   onMenu,
+  primaryAction = null,
   backgroundElements = [],
 }) {
   const resolvedPresentation = resolveResultPresentation({ result, outroText, presentation });
@@ -124,7 +134,7 @@ export function createResultOverlay({
     text: resolvedPresentation.description,
   });
   const meta = createElement("p", {
-    text: `학과 ${departmentCode ?? "-"} · 플레이 ${(result.durationMs / 1000).toFixed(1)}초`,
+    text: `${contextLabel ?? `학과 ${departmentCode ?? "-"}`} · 플레이 ${(result.durationMs / 1000).toFixed(1)}초`,
   });
   const metrics = createElement("dl", { className: "result-metrics" });
   const metricEntries = [
@@ -151,10 +161,21 @@ export function createResultOverlay({
     for (const button of actions.querySelectorAll("button")) button.disabled = true;
     action?.();
   };
-  const retryButton = createButton(resolvedPresentation.retryLabel, runOnce(onRetry), "primary");
+  const primaryButton = primaryAction
+    ? createButton(primaryAction.label, runOnce(primaryAction.onClick), "primary")
+    : null;
+  const retryButton = createButton(
+    resolvedPresentation.retryLabel,
+    runOnce(onRetry),
+    primaryButton ? "" : "primary",
+  );
   const mapButton = createButton(resolvedPresentation.mapLabel, runOnce(onMap));
   const menuButton = createButton(resolvedPresentation.menuLabel, runOnce(onMenu), "ghost");
-  actions = createElement("div", { className: "button-row" }, [retryButton, mapButton, menuButton]);
+  actions = createElement(
+    "div",
+    { className: "button-row" },
+    [primaryButton, retryButton, mapButton, menuButton].filter(Boolean),
+  );
 
   const handleKeyDown = (event) => {
     if (event.key === "Escape") {
@@ -184,7 +205,7 @@ export function createResultOverlay({
   if (metricEntries.length > 0) card.append(metrics);
   card.append(actions);
   backdrop.append(card);
-  const focusFrame = requestAnimationFrame(() => retryButton.focus());
+  const focusFrame = requestAnimationFrame(() => (primaryButton ?? retryButton).focus());
 
   return {
     element: backdrop,

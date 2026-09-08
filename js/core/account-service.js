@@ -30,6 +30,13 @@ function freezeStats(candidate = {}) {
   });
 }
 
+function freezeCompletedGameIds(candidate) {
+  if (!Array.isArray(candidate)) return Object.freeze([]);
+  return Object.freeze([
+    ...new Set(candidate.filter((id) => typeof id === "string" && id.length > 0)),
+  ]);
+}
+
 function findStats(payload) {
   const candidates = [
     payload?.stats,
@@ -40,13 +47,22 @@ function findStats(payload) {
   return candidates.find((candidate) => candidate && typeof candidate === "object") ?? null;
 }
 
-function frozenState({ status, authenticated = false, available = true, user = null, stats, error = null }) {
+function frozenState({
+  status,
+  authenticated = false,
+  available = true,
+  user = null,
+  stats,
+  completedGameIds = [],
+  error = null,
+}) {
   return Object.freeze({
     status,
     authenticated,
     available,
     user: user ? Object.freeze({ name: text(user.name ?? user.displayName, "플레이어") }) : null,
     stats: stats ? freezeStats(stats) : EMPTY_STATS,
+    completedGameIds: freezeCompletedGameIds(completedGameIds),
     error,
   });
 }
@@ -65,6 +81,7 @@ function sessionState(payload) {
     authenticated: true,
     user: user ?? { name: payload?.name },
     stats: findStats(payload) ?? EMPTY_STATS,
+    completedGameIds: payload?.completedGameIds,
   });
 }
 
@@ -127,6 +144,7 @@ export class AccountService {
       available: this.#state.available,
       user: this.#state.user,
       stats: this.#state.stats,
+      completedGameIds: this.#state.completedGameIds,
     }));
 
     this.#refreshPromise = this.#loadSession().finally(() => {
@@ -198,7 +216,7 @@ export class AccountService {
         score: Number.isFinite(score) ? score : 0,
       },
     });
-    await this.#applyStatsOrRefresh(payload);
+    await this.#applyStatsOrRefresh(payload, { completedGameId: gameId });
     return Object.freeze({
       submitted: true,
       duplicate:
@@ -244,14 +262,17 @@ export class AccountService {
     }
   }
 
-  async #applyStatsOrRefresh(payload) {
+  async #applyStatsOrRefresh(payload, { completedGameId = null } = {}) {
     const stats = findStats(payload);
     if (stats) {
+      const completedGameIds = new Set(this.#state.completedGameIds);
+      if (completedGameId) completedGameIds.add(completedGameId);
       this.#setState(frozenState({
         status: "authenticated",
         authenticated: true,
         user: this.#state.user,
         stats,
+        completedGameIds: [...completedGameIds],
       }));
       return;
     }
@@ -282,10 +303,18 @@ export class AccountService {
     if (allowUnauthorized && response.status === 401) return null;
 
     let payload = null;
+    let raw = "";
     try {
-      const raw = await response.text();
+      raw = await response.text();
       payload = raw ? JSON.parse(raw) : null;
-    } catch {
+    } catch (cause) {
+      if (response.ok && raw) {
+        throw new AccountServiceError("Account server returned invalid JSON.", {
+          status: response.status,
+          code: "INVALID_RESPONSE",
+          cause,
+        });
+      }
       payload = null;
     }
 

@@ -78,7 +78,7 @@ function makeFixture() {
     appConfig: {
       appId: "ai-change",
       contentVersion: 1,
-      storageChannel: "development",
+      storageChannel: "production",
       publicBasePath: "/",
       initialScene: "loading",
       mainMapId: "festival-main-map",
@@ -100,8 +100,10 @@ function makeFixture() {
     mapData: { id: "festival-main-map", npcs },
     minigames,
     registrySource: `const loaders = {${imports.join(",")}};`,
+    battleRegistrySource: "const loaders = {};",
     scriptDocuments: [{ scripts }],
-    configDocuments
+    configDocuments,
+    battleConfigDocuments: {}
   };
 }
 
@@ -132,6 +134,46 @@ test("tooling package contract is dependency-free and exposes the required comma
 
 test("the complete five-department reference graph passes", () => {
   assert.deepEqual(validateReferenceGraph(makeFixture()), []);
+});
+
+test("a published Battle must resolve its static loader, config group and five-game unlock", () => {
+  const fixture = makeFixture();
+  fixture.appConfig.features.battleContent = true;
+  fixture.battles.push({
+    id: "stat-boss",
+    title: "스탯 보스",
+    module: "stat-boss",
+    status: "published",
+    configAssetId: "stat-boss-config",
+    assetGroup: "stat-boss",
+    unlockCondition: {
+      type: "ALL_MINIGAMES_CLEAR",
+      miniGameIds: Object.keys(EXPECTED_GAMES),
+    },
+  });
+  fixture.manifest.assets.push({
+    id: "stat-boss-config",
+    group: "stat-boss",
+    type: "json",
+    src: "./data/battle/stat-boss.json",
+    required: true,
+    alt: null,
+    sourceRef: "CONTENT-BATTLE-001",
+  });
+  fixture.battleRegistrySource = [
+    'const loaders = {"stat-boss": () => im',
+    'port("./postgame/bosses/stat-boss/index.js")};',
+  ].join("");
+  fixture.battleConfigDocuments["data/battle/stat-boss.json"] = { battleId: "stat-boss" };
+
+  assert.deepEqual(validateReferenceGraph(fixture), []);
+
+  fixture.battleRegistrySource = "const loaders = {};";
+  fixture.battles[0].unlockCondition.miniGameIds.push("missing-game", "missing-game");
+  const errors = validateReferenceGraph(fixture);
+  assert.ok(errors.some((error) => error.includes("not statically registered")));
+  assert.ok(errors.some((error) => error.includes("duplicate miniGameIds")));
+  assert.ok(errors.some((error) => error.includes("does not resolve")));
 });
 
 test("department abbreviations are an exact stable mapping", () => {

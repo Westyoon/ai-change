@@ -114,6 +114,46 @@ test("SaveManager persists game and NPC completion in one write and keeps QUIT a
   assert.equal(save.getState().revision, 1);
 });
 
+test("SaveManager copies the legacy development save into production without deleting it", () => {
+  const values = new Map();
+  const legacyKey = "ai-change:development:save:v1";
+  const productionKey = "ai-change:production:save:v1";
+  values.set(legacyKey, JSON.stringify({
+    version: 1,
+    revision: 7,
+    updatedAt: "2026-09-01T00:00:00.000Z",
+    story: { introSeen: true, completedNpcIds: ["npc-ds"], lastMapId: null, lastPlayerPosition: null },
+    minigames: {
+      "data-number-baseball": {
+        completed: true,
+        playCount: 2,
+        bestScore: null,
+        bestMetrics: null,
+      },
+    },
+    settings: { masterVolume: 0.5, bgmVolume: 0.4, sfxVolume: 0.3, muted: true },
+  }));
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  const save = new SaveManager({
+    appId: "ai-change",
+    storageChannel: "production",
+    legacyStorageChannels: ["development"],
+    miniGameIds: ["data-number-baseball"],
+    storage,
+  });
+
+  const state = save.load();
+  assert.equal(state.minigames["data-number-baseball"].completed, true);
+  assert.equal(state.story.introSeen, true);
+  assert.equal(state.settings.muted, true);
+  assert.equal(state.revision, 8);
+  assert.ok(values.has(productionKey));
+  assert.ok(values.has(legacyKey), "legacy progress remains recoverable after migration");
+});
+
 test("InputLock remains locked until every independent reason is released", async () => {
   const lock = new InputLock();
   const changes = [];

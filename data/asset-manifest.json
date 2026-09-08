@@ -70,7 +70,7 @@
       "type": "image",
       "src": "./assets/images/app-logo.svg",
       "required": true,
-      "alt": "ai-change 임시 로고",
+      "alt": "ai-change 로고",
       "sourceRef": "ASSET-COMMON-001"
     },
     {
@@ -88,7 +88,7 @@
       "type": "image",
       "src": "./assets/minigames/number-baseball/thumbnail.svg",
       "required": true,
-      "alt": "DS 숫자 야구 미니게임 임시 미리보기",
+      "alt": "DS 숫자 야구 미니게임 미리보기",
       "sourceRef": "ASSET-DS-001"
     },
     {
@@ -106,7 +106,7 @@
       "type": "image",
       "src": "./assets/minigames/click-to-purify/thumbnail.svg",
       "required": true,
-      "alt": "CS CLICK to PURIFY 미니게임 임시 미리보기",
+      "alt": "CS CLICK to PURIFY 미니게임 미리보기",
       "sourceRef": "ASSET-CS-001"
     },
     {
@@ -124,7 +124,7 @@
       "type": "image",
       "src": "./assets/minigames/code-heart/thumbnail.svg",
       "required": true,
-      "alt": "CSE Code Heart 미니게임 임시 미리보기",
+      "alt": "CSE Code Heart 미니게임 미리보기",
       "sourceRef": "ASSET-CSE-001"
     },
     {
@@ -142,14 +142,14 @@
       "type": "image",
       "src": "./assets/minigames/ai-ball-classification/thumbnail.svg",
       "required": true,
-      "alt": "AI Ball Classification 미니게임 임시 미리보기",
+      "alt": "AI Ball Classification 미니게임 미리보기",
       "sourceRef": "ASSET-AI-001"
     },
     {
       "id": "ai-ball-classification-sample",
       "group": "ai-ball-classification",
       "type": "image",
-      "src": "./assets/images/sample.png",
+      "src": "./assets/images/ai-ball-sample.svg",
       "required": true,
       "alt": "AI Ball Classification 목표 공 샘플 이미지",
       "sourceRef": "ASSET-AI-002"
@@ -169,8 +169,17 @@
       "type": "image",
       "src": "./assets/minigames/ai-data-egg-sort/thumbnail.svg",
       "required": true,
-      "alt": "AIDS 인지알·데사알 분류 미니게임 임시 미리보기",
+      "alt": "AIDS 인지알·데사알 분류 미니게임 미리보기",
       "sourceRef": "ASSET-AIDS-001"
+    },
+    {
+      "id": "stat-boss-config",
+      "group": "stat-boss",
+      "type": "json",
+      "src": "./data/battle/stat-boss.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-BATTLE-001"
     }
   ]
 }

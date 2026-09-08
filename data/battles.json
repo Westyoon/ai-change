@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "id": "stat-boss",
+    "title": "스탯 보스",
+    "description": "위험 칸을 피하고 경직 순간에 반격하는 1인 보스전입니다.",
+    "module": "stat-boss",
+    "status": "published",
+    "configAssetId": "stat-boss-config",
+    "assetGroup": "stat-boss",
+    "unlockCondition": {
+      "type": "ALL_MINIGAMES_CLEAR",
+      "miniGameIds": [
+        "data-number-baseball",
+        "cyber-click-to-purify",
+        "computer-code-heart",
+        "ai-ball-classification",
+        "ai-data-egg-sort"
+      ]
+    }
+  }
+]

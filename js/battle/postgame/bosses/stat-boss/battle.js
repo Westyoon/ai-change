@@ -56,6 +56,13 @@ function defaultPlayers(arena) {
   ];
 }
 
+export function getCharacterJudgementPosition(snapshot) {
+  return {
+    x: snapshot.x + snapshot.width / 2,
+    y: snapshot.y + snapshot.height / 2,
+  };
+}
+
 export function createBattle({ root, input = null, events = null, onComplete = null } = {}) {
   if (!root) throw new Error("createBattle(context.root)가 필요합니다 (DOM을 붙일 부모 element).");
   if (!events) {
@@ -105,7 +112,8 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     const characterSnapshot = system.update(deltaMs);
     // 캐릭터 시스템(픽셀 좌표) -> encounter(칸 판정)로 위치를 매 프레임 밀어준다.
     // "이동은 자유이동, 판정은 그 순간의 좌표만 본다"는 1단계 설계 그대로.
-    encounter.setPlayerPosition(localPlayerId, characterSnapshot.x, characterSnapshot.y);
+    const judgementPosition = getCharacterJudgementPosition(characterSnapshot);
+    encounter.setPlayerPosition(localPlayerId, judgementPosition.x, judgementPosition.y);
     encounter.tick(deltaMs);
 
     // encounter가 계산한 플레이어 HP(판정 결과)를 캐릭터 시스템에 "이미 계산된
@@ -158,6 +166,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
         speed: 180,
         maxHealth: initialMaxHp,
         currentHealth: initialMaxHp,
+        stats: localPlayer.accountStats,
         appearance: { id: "placeholder", label: "YOU", color: "#78f0c1", accentColor: "#28c99a" },
       },
       // colliders/triggers 없음: 격자 바닥은 뻥 뚫린 평지라 장애물이 없다.

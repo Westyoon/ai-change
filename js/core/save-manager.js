@@ -72,13 +72,21 @@ function createDefaultState(miniGameIds, defaults) {
 
 export class SaveManager {
   #defaults;
+  #legacyKeys;
   #miniGameIds;
   #state;
   #storage = null;
   #readOnly = false;
   #persistedRevision = 0;
 
-  constructor({ appId, storageChannel, miniGameIds, defaults = {}, storage } = {}) {
+  constructor({
+    appId,
+    storageChannel,
+    miniGameIds,
+    defaults = {},
+    storage,
+    legacyStorageChannels = [],
+  } = {}) {
     if (typeof appId !== "string" || appId.length === 0) {
       throw new TypeError("SaveManager requires appId.");
     }
@@ -88,10 +96,19 @@ export class SaveManager {
     if (!Array.isArray(miniGameIds) || new Set(miniGameIds).size !== miniGameIds.length) {
       throw new TypeError("SaveManager requires unique miniGameIds.");
     }
+    if (
+      !Array.isArray(legacyStorageChannels)
+      || legacyStorageChannels.some((channel) => typeof channel !== "string" || channel.length === 0)
+    ) {
+      throw new TypeError("legacyStorageChannels must contain non-empty strings.");
+    }
 
     this.appId = appId;
     this.storageChannel = storageChannel;
     this.key = `${appId}:${storageChannel}:save:v${CONTENT_VERSION}`;
+    this.#legacyKeys = [...new Set(legacyStorageChannels)]
+      .filter((channel) => channel !== storageChannel)
+      .map((channel) => `${appId}:${channel}:save:v${CONTENT_VERSION}`);
     this.#miniGameIds = [...miniGameIds];
     this.#defaults = createDefaultState(this.#miniGameIds, defaults);
     this.#state = clone(this.#defaults);
@@ -121,8 +138,19 @@ export class SaveManager {
     }
 
     let raw;
+    let sourceKey = this.key;
     try {
       raw = this.#storage.getItem(this.key);
+      if (raw == null) {
+        for (const legacyKey of this.#legacyKeys) {
+          const candidate = this.#storage.getItem(legacyKey);
+          if (candidate != null) {
+            raw = candidate;
+            sourceKey = legacyKey;
+            break;
+          }
+        }
+      }
     } catch (error) {
       this.lastError = error;
       this.#storage = null;
@@ -150,7 +178,11 @@ export class SaveManager {
       }
 
       this.#state = this.#normalizeStored(stored);
-      this.#persistedRevision = stored.revision;
+      if (sourceKey === this.key) {
+        this.#persistedRevision = stored.revision;
+      } else {
+        this.#persistMigratedState(stored.revision);
+      }
       return this.getState();
     } catch (error) {
       this.lastError = error;
@@ -368,6 +400,24 @@ export class SaveManager {
       this.#storage.setItem(`${this.key}:corrupt-latest`, limited);
     } catch {
       // Recovery must continue even when a backup cannot be written.
+    }
+  }
+
+  #persistMigratedState(previousRevision) {
+    const migrated = clone(this.#state);
+    migrated.revision = Math.max(0, previousRevision) + 1;
+    migrated.updatedAt = new Date().toISOString();
+    try {
+      this.#storage.setItem(this.key, JSON.stringify(migrated));
+      this.#state = migrated;
+      this.#persistedRevision = migrated.revision;
+    } catch (error) {
+      // The legacy value remains untouched. A later normal save can retry the
+      // new production key without risking the user's existing progress.
+      this.lastError = error;
+      this.#state.revision = 0;
+      this.#state.updatedAt = null;
+      this.#persistedRevision = 0;
     }
   }
 }

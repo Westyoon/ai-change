@@ -21,6 +21,7 @@ const EXPECTED_MODULE_KEYS = [
   "ai-ball-classification",
   "ai-data-egg-sort"
 ];
+const EXPECTED_BATTLE_MODULE_KEYS = ["stat-boss"];
 
 class FakeElement {
   constructor(tagName, ownerDocument) {
@@ -134,15 +135,18 @@ test("all five registered mini-games are integrated MVPs rather than scaffolds",
   );
 });
 
-test("the independent empty Battle registry keeps MVP content in Coming Soon state", async () => {
-  assert.deepEqual(listBattleModuleKeys(), []);
+test("the independent Battle registry exposes only the published stat boss loader", async () => {
+  assert.deepEqual(listBattleModuleKeys(), EXPECTED_BATTLE_MODULE_KEYS);
+  assert.equal(hasBattleModule("stat-boss"), true);
+  assert.equal(typeof (await loadBattleModule("stat-boss")).createBattle, "function");
   assert.equal(hasBattleModule("future-battle"), false);
   assert.deepEqual(
     getPublishedBattles([
       { id: "coming-soon", status: "coming-soon", module: null },
-      { id: "unregistered", status: "published", module: "future-battle" }
+      { id: "unregistered", status: "published", module: "future-battle" },
+      { id: "stat-boss", status: "published", module: "stat-boss" }
     ]),
-    []
+    [{ id: "stat-boss", status: "published", module: "stat-boss" }]
   );
   await assert.rejects(() => loadBattleModule("future-battle"), /not registered/u);
 });

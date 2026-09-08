@@ -1,0 +1,146 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createStatBossPlayer } from "../../js/battle/player-config.js";
+import { getBattleUnlockStatus } from "../../js/battle/unlock.js";
+import {
+  calcIncomingDamage,
+  calcMaxHp,
+  calcPlayerDamage,
+} from "../../js/battle/postgame/bosses/stat-boss/stats.js";
+import { getCharacterJudgementPosition } from "../../js/battle/postgame/bosses/stat-boss/battle.js";
+import { finalizeBattleCandidate } from "../../js/scenes/battle-scene.js";
+
+const MINI_GAME_IDS = ["ds", "cs", "cse", "ai", "aids"];
+const DEFINITION = Object.freeze({
+  unlockCondition: Object.freeze({
+    type: "ALL_MINIGAMES_CLEAR",
+    miniGameIds: Object.freeze(MINI_GAME_IDS),
+  }),
+});
+
+function localSave(completedIds = []) {
+  return {
+    minigames: Object.fromEntries(MINI_GAME_IDS.map((id) => [id, {
+      completed: completedIds.includes(id),
+      playCount: id === "ds" ? 99 : 0,
+    }])),
+  };
+}
+
+test("Battle unlock requires every distinct mini-game id and unions local/server completion", () => {
+  const repeatedSingleGame = getBattleUnlockStatus(
+    DEFINITION,
+    localSave(["ds"]),
+    { stats: { clears: 99 }, completedGameIds: [] },
+  );
+  assert.equal(repeatedSingleGame.unlocked, false);
+  assert.equal(repeatedSingleGame.completed, 1);
+
+  const restoredAcrossOrigins = getBattleUnlockStatus(
+    DEFINITION,
+    localSave(["ds", "cs", "cse", "ai"]),
+    { completedGameIds: ["aids", "aids"] },
+  );
+  assert.deepEqual(restoredAcrossOrigins, {
+    unlocked: true,
+    completed: 5,
+    total: 5,
+    missingMiniGameIds: [],
+  });
+});
+
+test("Battle unlock reports the exact missing stable ids", () => {
+  const status = getBattleUnlockStatus(
+    DEFINITION,
+    localSave(["ds", "cs", "ai"]),
+    { completedGameIds: [] },
+  );
+  assert.equal(status.unlocked, false);
+  assert.equal(status.completed, 3);
+  assert.equal(status.total, 5);
+  assert.deepEqual(status.missingMiniGameIds, ["cse", "aids"]);
+});
+
+test("account stats map from D1 baselines to stat-boss baselines exactly once", () => {
+  const baseline = createStatBossPlayer({
+    authenticated: true,
+    stats: { attack: 0, hp: 100, defense: 0 },
+  });
+  assert.equal(baseline.attackStat, 1);
+  assert.equal(baseline.healthStat, 1);
+  assert.equal(baseline.defenseStat, 1);
+  assert.equal(calcPlayerDamage(baseline.attackStat), 10);
+  assert.equal(calcMaxHp(baseline.healthStat), 100);
+  assert.equal(calcIncomingDamage(34, baseline.defenseStat), 34);
+
+  const allocated = createStatBossPlayer({
+    authenticated: true,
+    stats: { attack: 1, hp: 101, defense: 1 },
+  });
+  assert.equal(allocated.attackStat, 2);
+  assert.equal(allocated.healthStat, 2);
+  assert.equal(allocated.defenseStat, 2);
+  assert.equal(calcPlayerDamage(allocated.attackStat), 10.5);
+  assert.equal(calcMaxHp(allocated.healthStat), 110);
+  assert.equal(calcIncomingDamage(34, allocated.defenseStat), 33);
+  assert.deepEqual(allocated.accountStats, { attack: 1, hp: 101, defense: 1 });
+});
+
+test("guest Battle uses 1/1/1 without accepting private account fields", () => {
+  const player = createStatBossPlayer({
+    authenticated: false,
+    user: { name: "private", email: "hidden@example.com" },
+    stats: { attack: 999, hp: 999, defense: 999 },
+  });
+  assert.equal(player.attackStat, 1);
+  assert.equal(player.healthStat, 1);
+  assert.equal(player.defenseStat, 1);
+  assert.deepEqual(player.accountStats, { attack: 0, hp: 0, defense: 0 });
+  assert.equal(Object.hasOwn(player, "user"), false);
+});
+
+test("stat-boss judges the character center rather than its top-left corner", () => {
+  assert.deepEqual(
+    getCharacterJudgementPosition({ x: 120, y: 80, width: 34, height: 44 }),
+    { x: 137, y: 102 },
+  );
+});
+
+test("Battle host validates candidates and owns identity and duration fields", () => {
+  const result = finalizeBattleCandidate({
+    battleId: "stat-boss",
+    id: "stat-boss:attempt-1",
+    durationMs: 1234,
+    candidate: {
+      status: "CLEAR",
+      score: 100,
+      failureReason: null,
+      metrics: { damageDealt: 100 },
+      reward: null,
+    },
+  });
+  assert.deepEqual(result, {
+    sessionId: "stat-boss:attempt-1",
+    battleId: "stat-boss",
+    status: "CLEAR",
+    score: 100,
+    durationMs: 1234,
+    failureReason: null,
+    metrics: { damageDealt: 100 },
+    reward: null,
+  });
+  assert.equal(Object.isFrozen(result), true);
+  assert.throws(() => finalizeBattleCandidate({
+    battleId: "stat-boss",
+    id: "bad",
+    durationMs: 0,
+    candidate: {
+      status: "CLEAR",
+      score: 1,
+      failureReason: null,
+      metrics: {},
+      reward: null,
+      sessionId: "module-owned",
+    },
+  }), /host-owned/u);
+});
