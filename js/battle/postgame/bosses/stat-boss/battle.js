@@ -10,10 +10,8 @@
 // onComplete(attemptId, candidate)는 정확히 한 번만 호출된다 (encounter.js가
 // COMPLETED 전이 시 한 번만 부르도록 이미 보장하고 있음 - 2단계에서 확인됨).
 //
-// [지금 범위] registry.js / data/battles.json 등록(14.2절 "route·메뉴 연결")은
-// 팀 공동 작업이라 여기 포함하지 않았다. 대신 dev/dev-harness.html에서 이 함수를
-// 직접 불러서 브라우저로 바로 확인할 수 있다 (다른 미니게임들의 dev-harness.html과
-// 같은 방식).
+// registry.js와 data/battles.json을 통해 운영 Battle scene에 연결된다.
+// dev/dev-harness.html은 모듈 단독 진단용으로만 남고 production build에서는 제외한다.
 //
 // createBattle(context)의 context는 다른 미니게임의 createMiniGame({...})과 같은
 // 패턴이다: DOM/입출력 관련 host 자원(root/input/events)은 factory 시점에 받고,
@@ -23,9 +21,8 @@
 //   context.events      - 공용 EventBus 인스턴스 (캐릭터 이벤트 연결에 반드시 필요)
 //   context.onComplete  - (attemptId, candidate) => void
 //
-// config.players는 아직 계정 시스템이 안 붙어 있어서 생략하면 임시 fixture
-// 1명으로 시작한다. 나중에 계정 스탯이 연결되면 config.players를 그 값으로
-// 채워서 넘기면 된다 (encounter.js는 이미 여러 명을 받을 수 있음 - 2단계 시나리오4).
+// 운영 host는 계정 스탯을 stat-boss 표현으로 변환한 config.players를 전달한다.
+// 생략 시에는 dev harness와 단독 self-check를 위한 1명 fixture로 시작한다.
 
 import { GameLoop } from "../../../../core/game-loop.js";
 import { CharacterSystem, VirtualJoystick, CHARACTER_EVENTS } from "../../../character/index.js";

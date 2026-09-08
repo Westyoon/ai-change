@@ -33,7 +33,7 @@ npm run dev
 → 캐릭터 시스템 (DEV PREVIEW)
 ```
 
-연습장은 실제 Battle registry를 publish하지 않는 개발용 연결 화면이다. `data/battles.json=[]`와 `features.battleContent=false`는 그대로 유지되며, 기존 `배틀 · COMING SOON` 화면도 남아 있다.
+연습장은 published Battle과 별개로 공용 캐릭터 동작을 확인하는 개발용 화면이다. 현재 `data/battles.json`에는 `stat-boss` 1종이 published 상태이고 `features.battleContent=true`이므로 운영 메뉴에서는 연습장 카드를 숨긴다.
 
 PC에서는 WASD와 Space를 사용한다. 모바일 또는 폭 720px 이하 화면에서는 연습장 아래쪽에 조이스틱과 공격 버튼이 표시된다. `피격 API 테스트 · 10`의 수치는 반복 피격과 사망 상태를 확인하기 위한 fixture일 뿐 전투 밸런스가 아니다.
 
