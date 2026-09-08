@@ -332,8 +332,9 @@ test("AI responsive CSS preserves the portrait prototype and adds a bounded desk
   assert.match(stylesheet, /min-height:\s*min\(853\.333px, 133\.333cqw, calc\(100dvh - 240px\)\)/u);
   assert.match(stylesheet, /aspect-ratio:\s*3 \/ 4/u);
   assert.match(stylesheet, /orientation:\s*landscape/u);
-  assert.match(stylesheet, /--ai-frame-width:\s*min\(480px, 100cqw, calc\(75dvh - 150px\)\)/u);
+  assert.match(stylesheet, /--ai-frame-width:\s*min\(480px, 100cqw, calc\(\(100dvh - 150px\) \* 3 \/ 4\)\)/u);
   assert.match(stylesheet, /min-height:\s*min\(430px, calc\(100dvh - 200px\)\)/u);
+  assert.match(stylesheet, /min-height:\s*clamp\(28px, 10dvh, 44px\)/u);
   assert.match(stylesheet, /@media \(min-width: 900px\) and \(min-height: 760px\)/u);
   assert.match(stylesheet, /--ai-frame-max-width:\s*1000px/u);
   assert.match(stylesheet, /grid-template-columns:\s*72% 28%/u);

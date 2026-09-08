@@ -3,6 +3,8 @@
   grid-template-rows: auto minmax(320px, 1fr);
   gap: 14px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: min(680px, calc(100dvh - 110px));
 }
 
@@ -12,12 +14,26 @@
   gap: 10px;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
+}
+
+.minigame-toolbar > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.minigame-toolbar > .button-row {
+  min-width: 0;
+  margin-top: 0;
+  justify-content: flex-end;
 }
 
 .minigame-stage {
   position: relative;
   display: grid;
   grid-template-rows: 1fr;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   border: 3px solid var(--line);
   border-radius: 20px;
@@ -38,6 +54,8 @@
   z-index: 2;
   display: grid;
   place-items: center;
+  min-width: 0;
+  max-width: 100%;
   min-height: 380px;
   padding: clamp(18px, 4vw, 42px);
 }
@@ -189,6 +207,21 @@
     min-height: calc(100dvh - 92px);
   }
 
+  .minigame-toolbar {
+    align-items: stretch;
+  }
+
+  .minigame-toolbar > strong,
+  .minigame-toolbar > .button-row {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .minigame-toolbar > .button-row .button {
+    flex: 1 1 132px;
+    min-width: 0;
+  }
+
   .minigame-stage,
   .minigame-ui-root {
     min-height: 430px;
@@ -208,11 +241,11 @@
   }
 }
 
-/* Give only the minigame scene the desktop canvas; regular scenes keep the shared 1120px shell. */
+/* Keep the desktop game canvas inside the shared scene host at every zoom level. */
 @media (min-width: 900px) and (min-height: 640px) {
   .minigame-frame {
     justify-self: center;
-    width: min(1440px, calc(100vw - 40px));
+    width: 100%;
     min-height: min(820px, calc(100dvh - 96px));
     padding: clamp(16px, 2vw, 28px);
   }
@@ -992,6 +1025,10 @@
 
 /* DS · Number Baseball */
 .minigame-ui-root.ds-ui-root {
+  container: ds-minigame / size;
+  place-items: start center;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   padding: clamp(8px, 2.5vw, 28px);
@@ -1003,6 +1040,7 @@
   gap: 18px;
   width: min(840px, 100%);
   min-width: 0;
+  margin-block: auto;
   padding: clamp(14px, 3.5vw, 34px);
   border: 2px solid #32d9e6;
   border-radius: 22px;
@@ -1164,13 +1202,8 @@
   }
 }
 
-@media (min-width: 900px) and (min-height: 640px) {
-  .minigame-ui-root.ds-ui-root {
-    height: 100%;
-    padding: clamp(14px, 2vw, 28px);
-    overflow: auto;
-  }
-
+/* Use the actual game host, not the browser viewport, to choose the two-column layout. */
+@container ds-minigame (min-width: 820px) and (min-height: 520px) {
   .ds-ui-root .nb-container {
     grid-template-areas:
       "header header"
@@ -1227,6 +1260,32 @@
   .ds-ui-root .nb-btn-submit {
     min-height: clamp(52px, 7vh, 72px);
     font-size: clamp(1rem, 1.4vw, 1.25rem);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .minigame-ui-root.ds-ui-root {
+    padding: 8px;
+  }
+
+  .ds-ui-root .nb-container {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .ds-ui-root .nb-slot {
+    min-height: 56px;
+  }
+
+  .ds-ui-root .nb-history {
+    min-height: 68px;
+    max-height: 110px;
+  }
+
+  .ds-ui-root .nb-key,
+  .ds-ui-root .nb-btn-delete,
+  .ds-ui-root .nb-btn-submit {
+    min-height: 44px;
   }
 }
 

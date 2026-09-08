@@ -316,11 +316,16 @@
 
 @media (orientation: landscape) and (max-height: 560px) {
   .minigame-stage.ai-ball-classification-stage {
-    --ai-frame-width: min(480px, 100cqw, calc(75dvh - 150px));
+    --ai-frame-width: min(480px, 100cqw, calc((100dvh - 150px) * 3 / 4));
   }
 
   .minigame-ui-root.ai-ball-classification-ui-root {
     min-height: min(430px, calc(100dvh - 200px));
+  }
+
+  .ai-ball-classification .btn-lid,
+  .ai-ball-classification > .ai-ball-classification__lid {
+    min-height: clamp(28px, 10dvh, 44px);
   }
 }
 

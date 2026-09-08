@@ -147,7 +147,7 @@ function createDom({ width, height }) {
   return { frameHost, observers, ownerDocument, stage, uiRoot };
 }
 
-test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects resize cleanup", async () => {
+test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and cleans up", async () => {
   const { frameHost, observers, ownerDocument, stage, uiRoot } = createDom({ width: 195, height: 370 });
   const instance = createMiniGame({ uiRoot });
 
@@ -166,6 +166,10 @@ test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects re
   assert.equal(viewport.className, "aids-frame-viewport");
   assert.equal(frame.className, "aids-logical-frame");
   assert.equal(root.className, "aids-root");
+  assert.match(
+    ownerDocument.head.children[0].textContent,
+    /\.aids-ui-root\s*\{[^}]*overflow-y:auto[^}]*align-items:safe center/su,
+  );
   assert.equal(frame.style.width, "390px");
   assert.equal(frame.style.height, "740px");
   assert.equal(frame.style.transform, "scale(0.5)");
@@ -175,6 +179,15 @@ test("AIDS mounts a 390x740 logical frame, contain-scales it, and disconnects re
 
   assert.equal(observers.length, 1);
   assert.deepEqual(observers[0].observed, [uiRoot]);
+
+  uiRoot.clientWidth = 568;
+  uiRoot.clientHeight = 190;
+  observers[0].callback();
+  assert.equal(frame.style.transform, "scale(0.7)");
+  assert.equal(viewport.style.width, "273px");
+  assert.equal(viewport.style.height, "518px");
+  assert.equal(viewport.dataset.layout, "fixed");
+
   uiRoot.clientWidth = 526.5;
   uiRoot.clientHeight = 999;
   observers[0].callback();

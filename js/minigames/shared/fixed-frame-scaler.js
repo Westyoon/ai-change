@@ -53,14 +53,23 @@ export function calculateFixedFrameScale({
   logicalHeight,
   fitHeight = true,
   maxScale = 1,
+  minimumScale = 0,
 } = {}) {
   const width = positiveFinite(availableWidth, "availableWidth");
   const height = positiveFinite(availableHeight, "availableHeight");
   const frameWidth = positiveFinite(logicalWidth, "logicalWidth");
   const frameHeight = positiveFinite(logicalHeight, "logicalHeight");
   const ceiling = positiveFinite(maxScale, "maxScale");
+  const floor = nonNegativeFinite(minimumScale, "minimumScale");
+  if (floor > ceiling) {
+    throw new RangeError("minimumScale must not exceed maxScale.");
+  }
   const widthScale = width / frameWidth;
-  const heightScale = fitHeight ? height / frameHeight : Number.POSITIVE_INFINITY;
+  // Width is always contained. On unusually short hosts the readable floor may
+  // exceed the height fit, in which case the host can expose vertical scrolling.
+  const heightScale = fitHeight
+    ? Math.max(height / frameHeight, floor)
+    : Number.POSITIVE_INFINITY;
   return Math.min(ceiling, widthScale, heightScale);
 }
 
@@ -79,12 +88,17 @@ export function attachFixedFrameScaler({
   logicalHeight,
   fitHeight = true,
   maxScale = 1,
+  minimumScale = 0,
   fluidLayout = null,
   onLayout = null,
 } = {}) {
   positiveFinite(logicalWidth, "logicalWidth");
   positiveFinite(logicalHeight, "logicalHeight");
   positiveFinite(maxScale, "maxScale");
+  nonNegativeFinite(minimumScale, "minimumScale");
+  if (minimumScale > maxScale) {
+    throw new RangeError("minimumScale must not exceed maxScale.");
+  }
   const fluid = normalizeFluidLayout(fluidLayout);
   if (onLayout != null && typeof onLayout !== "function") {
     throw new TypeError("onLayout must be a function when provided.");
@@ -148,6 +162,7 @@ export function attachFixedFrameScaler({
       logicalHeight,
       fitHeight,
       maxScale,
+      minimumScale,
     });
     viewport.style.width = `${logicalWidth * scale}px`;
     viewport.style.height = `${logicalHeight * scale}px`;

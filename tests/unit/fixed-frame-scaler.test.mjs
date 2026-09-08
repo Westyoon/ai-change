@@ -34,6 +34,23 @@ test("fixed frame scale contains a logical game without enlarging its original d
   }), 360 / 440);
 });
 
+test("fixed frame scale keeps controls readable on short hosts without overflowing width", () => {
+  assert.equal(calculateFixedFrameScale({
+    availableWidth: 568,
+    availableHeight: 190,
+    logicalWidth: 390,
+    logicalHeight: 740,
+    minimumScale: 0.7,
+  }), 0.7);
+  assert.equal(calculateFixedFrameScale({
+    availableWidth: 195,
+    availableHeight: 190,
+    logicalWidth: 390,
+    logicalHeight: 740,
+    minimumScale: 0.7,
+  }), 0.5);
+});
+
 test("fixed frame scaler sizes only the viewport and transforms the logical frame", () => {
   let observer = null;
   class FakeResizeObserver {
@@ -163,4 +180,12 @@ test("fixed frame scale rejects unusable dimensions", () => {
     logicalWidth: 390,
     logicalHeight: 740,
   }), /availableWidth/u);
+  assert.throws(() => calculateFixedFrameScale({
+    availableWidth: 390,
+    availableHeight: 740,
+    logicalWidth: 390,
+    logicalHeight: 740,
+    maxScale: 0.6,
+    minimumScale: 0.7,
+  }), /minimumScale/u);
 });

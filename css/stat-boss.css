@@ -19,6 +19,11 @@
    * 자식의 min-width/flex-shrink 설정이 실제로 먹힘. */
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  align-content: start;
+  max-height: max(260px, calc(100dvh - 210px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .stat-boss-hud {
@@ -170,6 +175,8 @@
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 4px;
+  justify-self: center;
+  width: min(100%, 960px, max(480px, calc((100dvh - 520px) * 8 / 5)));
   overflow: hidden;
   border: var(--pixel-border) solid var(--line);
   border-radius: 20px;

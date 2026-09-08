@@ -7,6 +7,7 @@ const SLOT_IDS = Object.freeze(['lang', 'engine', 'lib', 'tool']);
 const LOGICAL_FRAME_WIDTH = 440;
 const LOGICAL_FRAME_HEIGHT = 920;
 const MAX_DISPLAY_SCALE = 1.25;
+const MINIMUM_READABLE_SCALE = 0.9;
 
 function createAbortError() {
   if (typeof DOMException === 'function') {
@@ -491,8 +492,9 @@ export function createMiniGame(context = {}) {
       frame: root,
       logicalWidth: LOGICAL_FRAME_WIDTH,
       logicalHeight: LOGICAL_FRAME_HEIGHT,
-      fitHeight: false,
+      fitHeight: true,
       maxScale: MAX_DISPLAY_SCALE,
+      minimumScale: MINIMUM_READABLE_SCALE,
       fluidLayout: {
         minWidth: 760,
         minHeight: 540,

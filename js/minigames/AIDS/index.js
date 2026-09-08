@@ -16,6 +16,7 @@ import { layoutPlatforms, relayoutPlatforms, setTilt } from './platforms.js';
 import { stepFrame } from './game-loop.js';
 
 const MAX_DISPLAY_SCALE = 1.35;
+const MINIMUM_READABLE_SCALE = 0.7;
 
 function createAbortError() {
   if (typeof DOMException === 'function') {
@@ -361,6 +362,7 @@ export function createMiniGame(context = {}) {
             logicalHeight: AIDS_LOGICAL_HEIGHT,
             fitHeight: true,
             maxScale: MAX_DISPLAY_SCALE,
+            minimumScale: MINIMUM_READABLE_SCALE,
             fluidLayout: {
               minWidth: 760,
               minHeight: 540,

@@ -18,7 +18,8 @@ const CSS = `
 .aids-ui-root{
   width:100%; height:auto; min-width:0;
   min-height:max(430px, min(999px, calc(100dvh - 200px))); padding:0;
-  overflow:hidden; display:grid; place-items:center;
+  overflow-x:hidden; overflow-y:auto; display:grid;
+  align-items:safe center; justify-items:center;
 }
 .aids-ui-root > .aids-frame-viewport{
   position:relative; min-width:0; min-height:0; overflow:hidden;
@@ -123,6 +124,7 @@ const CSS = `
    On a desktop-sized host, the same pieces occupy the full available frame. */
 .aids-ui-root.aids-desktop-layout{
   height:100%; min-height:540px; place-items:stretch;
+  overflow:hidden;
 }
 .aids-ui-root.aids-desktop-layout > .aids-frame-viewport,
 .aids-desktop-layout .aids-logical-frame{

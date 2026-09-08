@@ -151,17 +151,17 @@ test("CSE keeps the original portrait frame on small hosts and switches to a flu
   assert.equal(frame.parentNode, viewport);
   assert.equal(frame.style.width, "440px");
   assert.equal(frame.style.height, "920px");
-  assert.equal(frame.style.transform, `scale(${400 / 440})`);
-  assert.equal(viewport.style.width, "400px");
-  assert.equal(Number(viewport.dataset.scale), 400 / 440);
+  assert.equal(frame.style.transform, "scale(0.9)");
+  assert.equal(viewport.style.width, "396px");
+  assert.equal(Number(viewport.dataset.scale), 0.9);
   assert.equal(observers.length, 1);
   assert.deepEqual(observers[0].observed, [uiRoot]);
 
   uiRoot.clientWidth = 800;
   observers[0].callback();
-  assert.equal(frame.style.transform, "scale(1.25)");
-  assert.equal(viewport.style.width, "550px");
-  assert.equal(viewport.style.height, "1150px");
+  assert.equal(frame.style.transform, "scale(0.9)");
+  assert.equal(viewport.style.width, "396px");
+  assert.equal(viewport.style.height, "828px");
   assert.equal(viewport.dataset.layout, "fixed");
   assert.doesNotMatch(uiRoot.className, /\bcse-desktop-layout\b/u);
 
@@ -304,24 +304,33 @@ test("DS history renders Fit, Shift, and Outlier as the original separate color 
   assert.equal(uiRoot.className, "minigame-ui-root host-class");
 });
 
-test("DS responsive CSS keeps the five-column keypad inside narrow hosts", async () => {
-  const stylesheet = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
-
-  assert.match(stylesheet, /\.minigame-ui-root\.ds-ui-root\s*\{[^}]*overflow:\s*auto/su);
-  assert.match(stylesheet, /\.nb-keypad\s*\{[^}]*repeat\(5, minmax\(0, 1fr\)\)/su);
-  assert.match(stylesheet, /\.nb-key,\s*\.nb-btn-delete,\s*\.nb-btn-submit\s*\{[^}]*min-width:\s*0/su);
-  assert.match(stylesheet, /@media \(max-width: 380px\)/u);
-  assert.match(stylesheet, /@media \(orientation: landscape\) and \(max-height: 560px\)/u);
-  assert.match(stylesheet, /grid-template-rows:\s*auto minmax\(0, 1fr\)/u);
-});
-
-test("CSE and DS expose desktop layouts without replacing their original visual components", async () => {
+test("DS responsive CSS follows its actual host and keeps controls inside narrow or short hosts", async () => {
   const stylesheet = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
 
   assert.match(
     stylesheet,
-    /@media \(min-width: 900px\) and \(min-height: 640px\)\s*\{[\s\S]*?\.minigame-frame\s*\{[^}]*width:\s*min\(1440px,/u,
+    /\.minigame-ui-root\.ds-ui-root\s*\{[^}]*container:\s*ds-minigame \/ size[^}]*place-items:\s*start center[^}]*width:\s*100%[^}]*height:\s*100%[^}]*overflow:\s*auto/su,
   );
+  assert.match(stylesheet, /\.nb-keypad\s*\{[^}]*repeat\(5, minmax\(0, 1fr\)\)/su);
+  assert.match(stylesheet, /\.nb-key,\s*\.nb-btn-delete,\s*\.nb-btn-submit\s*\{[^}]*min-width:\s*0/su);
+  assert.match(stylesheet, /@media \(max-width: 380px\)/u);
+  assert.match(stylesheet, /@media \(orientation: landscape\) and \(max-height: 560px\)/u);
+  assert.match(stylesheet, /\.ds-ui-root \.nb-key,\s*\.ds-ui-root \.nb-btn-delete,\s*\.ds-ui-root \.nb-btn-submit\s*\{[^}]*min-height:\s*44px/su);
+  assert.match(stylesheet, /grid-template-rows:\s*auto minmax\(0, 1fr\)/u);
+});
+
+test("CSE and DS expose host-bounded layouts without replacing their original visual components", async () => {
+  const stylesheet = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
+  const commonStylesheet = await readFile(new URL("../../css/common.css", import.meta.url), "utf8");
+
+  assert.match(commonStylesheet, /\.scene-root\s*\{[^}]*width:\s*min\(1120px, 100%\)[^}]*min-width:\s*0/su);
+  assert.match(commonStylesheet, /\.scene\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/su);
+  assert.match(
+    stylesheet,
+    /\.minigame-frame\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*max-width:\s*100%/u,
+  );
+  assert.doesNotMatch(stylesheet, /\.minigame-frame\s*\{[^}]*width:\s*min\(1440px,/u);
+  assert.match(stylesheet, /\.minigame-toolbar\s*>\s*\.button-row\s*\{[^}]*min-width:\s*0[^}]*margin-top:\s*0/u);
   assert.match(
     stylesheet,
     /\.cse-ui-root\.cse-desktop-layout \.code-heart-game\s*\{[^}]*grid-template-areas:[^}]*"counter tray"[^}]*"workspace tray"[^}]*"feedback tray"/su,
@@ -332,7 +341,7 @@ test("CSE and DS expose desktop layouts without replacing their original visual 
   );
   assert.match(
     stylesheet,
-    /@media \(min-width: 900px\) and \(min-height: 640px\)\s*\{[\s\S]*?\.ds-ui-root \.nb-container\s*\{[^}]*grid-template-areas:[^}]*"slots history"[^}]*width:\s*min\(1200px, 100%\)/u,
+    /@container ds-minigame \(min-width: 820px\) and \(min-height: 520px\)\s*\{[\s\S]*?\.ds-ui-root \.nb-container\s*\{[^}]*grid-template-areas:[^}]*"slots history"[^}]*width:\s*min\(1200px, 100%\)/u,
   );
   assert.match(
     stylesheet,

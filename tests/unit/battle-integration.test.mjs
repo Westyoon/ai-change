@@ -164,3 +164,24 @@ test("Battle result card stays above module-owned HUD and touch controls", async
     /\.battle-stage\s*>\s*\.result-backdrop\s*\{[^}]*z-index:\s*10000;/su,
   );
 });
+
+test("Battle layouts keep narrow landscapes contained without changing world coordinates", async () => {
+  const [dataSphinxCss, statBossCss] = await Promise.all([
+    readFile(new URL("../../css/data-sphinx.css", import.meta.url), "utf8"),
+    readFile(new URL("../../css/stat-boss.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(
+    dataSphinxCss,
+    /@media \(orientation: landscape\) and \(max-height: 560px\) and \(min-width: 800px\)/u,
+  );
+  assert.match(
+    statBossCss,
+    /\.stat-boss-stage\s*\{[^}]*max-height:\s*max\(260px, calc\(100dvh - 210px\)\)[^}]*overflow-y:\s*auto/su,
+  );
+  assert.match(
+    statBossCss,
+    /\.stat-boss-battlefield\s*\{[^}]*width:\s*min\(100%, 960px, max\(480px, calc\(\(100dvh - 520px\) \* 8 \/ 5\)\)\)/su,
+  );
+  assert.match(statBossCss, /\.stat-boss-arena\s*\{[^}]*aspect-ratio:\s*8 \/ 5/su);
+});
