@@ -9,7 +9,6 @@ const forbiddenPaths = [
   "/assets/images/sample.png",
   "/css/after_control_boss.css",
   "/css/after_minigames.css",
-  "/data/battle/data-sphinx.json",
   "/data/minigames/after_controlboss.json",
   "/docs/AI_CHANGE_PLAN.md",
   "/js/battle/minigames/modal-manager.js",

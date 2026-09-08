@@ -21,7 +21,7 @@ const EXPECTED_MODULE_KEYS = [
   "ai-ball-classification",
   "ai-data-egg-sort"
 ];
-const EXPECTED_BATTLE_MODULE_KEYS = ["stat-boss"];
+const EXPECTED_BATTLE_MODULE_KEYS = ["control-boss", "data-sphinx", "stat-boss", "xr-egg-trials"];
 
 class FakeElement {
   constructor(tagName, ownerDocument) {
@@ -135,18 +135,28 @@ test("all five registered mini-games are integrated MVPs rather than scaffolds",
   );
 });
 
-test("the independent Battle registry exposes only the published stat boss loader", async () => {
+test("the independent Battle registry exposes every published post-game through static loaders", async () => {
   assert.deepEqual(listBattleModuleKeys(), EXPECTED_BATTLE_MODULE_KEYS);
-  assert.equal(hasBattleModule("stat-boss"), true);
-  assert.equal(typeof (await loadBattleModule("stat-boss")).createBattle, "function");
+  for (const key of EXPECTED_BATTLE_MODULE_KEYS) {
+    assert.equal(hasBattleModule(key), true);
+    assert.equal(typeof (await loadBattleModule(key)).createBattle, "function");
+  }
   assert.equal(hasBattleModule("future-battle"), false);
   assert.deepEqual(
     getPublishedBattles([
       { id: "coming-soon", status: "coming-soon", module: null },
       { id: "unregistered", status: "published", module: "future-battle" },
-      { id: "stat-boss", status: "published", module: "stat-boss" }
+      { id: "stat-boss", status: "published", module: "stat-boss" },
+      { id: "data-sphinx", status: "published", module: "data-sphinx" },
+      { id: "control-boss", status: "published", module: "control-boss" },
+      { id: "xr-egg-trials", status: "published", module: "xr-egg-trials" },
     ]),
-    [{ id: "stat-boss", status: "published", module: "stat-boss" }]
+    [
+      { id: "stat-boss", status: "published", module: "stat-boss" },
+      { id: "data-sphinx", status: "published", module: "data-sphinx" },
+      { id: "control-boss", status: "published", module: "control-boss" },
+      { id: "xr-egg-trials", status: "published", module: "xr-egg-trials" },
+    ]
   );
   await assert.rejects(() => loadBattleModule("future-battle"), /not registered/u);
 });

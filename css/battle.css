@@ -90,6 +90,11 @@
   overflow: hidden;
 }
 
+/* Keep the host-owned result card above each Battle module's HUD and touch UI. */
+.battle-stage > .result-backdrop {
+  z-index: 10000;
+}
+
 .battle-stage > .stat-boss-stage {
   min-height: 100%;
 }

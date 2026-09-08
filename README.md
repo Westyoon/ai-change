@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 공개된 사후게임 `stat-boss` 1종과 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 대표 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. 기존 `https://ai-change.pages.dev`는 같은 경로의 대표 운영 주소로 302 이동시키는 호환 주소입니다.
+현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 공개된 사후 콘텐츠 4종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`)과 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 대표 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. 기존 `https://ai-change.pages.dev`는 같은 경로의 대표 운영 주소로 302 이동시키는 호환 주소입니다.
 
 ## 학과 코드
 
@@ -124,7 +124,7 @@ Loading
   ├─ Main Menu → Story Intro → 학과별 Map → 미니게임 → CLEAR / FAIL
   ├─ 내 계정 → Google 로그인 / 스탯 확인·배분
   ├─ 랭킹보드 → 점수 / 클리어 공개 순위
-  └─ 배틀 → 5종 완료 확인 → stat-boss
+  └─ 배틀 → 5종 완료 확인 → 사후 콘텐츠 4종
 ```
 
 맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 배틀 해금은 로컬 완료 기록과 `/api/session`의 `completedGameIds`를 합쳐 서로 다른 5종의 완료를 확인합니다.
@@ -141,7 +141,7 @@ Loading
 
 각 기능 브랜치의 색·문구·카드·버튼과 게임 규칙을 유지합니다. 모바일에서는 AI `480×640`, CSE `440×920`, AIDS `390×740` 원본 세로 프레임을 그대로 축소하고, 충분히 넓고 높은 데스크톱에서는 같은 UI 요소를 landscape 작업 공간으로 재배치합니다. AI·CS Canvas는 원본 종횡비를 유지해 늘어나며, AIDS는 필드 폭에 맞춘 발판 길이와 동일한 충돌 범위·수평 물리를 사용합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
 
-사후게임 registry에서 현재 `published`인 항목은 `stat-boss` 하나뿐입니다. 나머지 사후게임 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
+사후게임 registry에는 `stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`가 `published` 상태로 등록되어 있습니다. 네 모듈은 같은 lifecycle·해금·결과 화면 계약을 사용합니다. 교체된 전역 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
 
 ## 주요 구조
 
@@ -152,7 +152,7 @@ js/
   core/               입력·저장·asset·account 등 공통 service
   scenes/             화면 단위 orchestration과 계정·랭킹 scene
   minigames/          registry, 공통 계약, 학과별 모듈
-  battle/             사후게임 공용 core와 published stat-boss
+  battle/             사후게임 공용 core와 published 콘텐츠 4종
 data/                 학과·미니게임·대화·map runtime 데이터
 assets/               자체 제작 SVG placeholder와 게임 asset
 backend/
@@ -180,6 +180,7 @@ docs/                 계획·기획·실행·인증 통합 문서
 - [기획안](./docs/기획안.md)
 - [사후게임(Battle) 기획안](./docs/사후게임_기획안.md)
 - [사후게임 공용 캐릭터 시스템](./docs/after-character-system.md)
+- [사후게임 전투 공식 및 조정 가이드](./docs/사후게임_전투공식_및_조정가이드.md)
 - [로그인·스탯·랭킹 통합](./docs/auth-stats-ranking.md)
 - [실행 및 조작 방법](./docs/execution-and-controls.md)
 - [리소스 출처 목록](./docs/asset-sources.md)
@@ -194,5 +195,5 @@ docs/                 계획·기획·실행·인증 통합 문서
 - 최종 게임명·로고·세계관·아트·사운드
 - 정식 자유 이동 필드 map과 최종 캐릭터 sprite 연결
 - 5개 미니게임의 최종 balance·점수 정책
-- `stat-boss` 최종 밸런스·아트와 나머지 사후게임 prototype의 publish 검토
+- 사후 콘텐츠 4종의 실제 기기 플레이테스트·최종 밸런스·아트·사운드
 - 멀티플레이

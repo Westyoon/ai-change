@@ -5,8 +5,69 @@
     "description": "위험 칸을 피하고 경직 순간에 반격하는 1인 보스전입니다.",
     "module": "stat-boss",
     "status": "published",
+    "usesAccountStats": true,
     "configAssetId": "stat-boss-config",
     "assetGroup": "stat-boss",
+    "unlockCondition": {
+      "type": "ALL_MINIGAMES_CLEAR",
+      "miniGameIds": [
+        "data-number-baseball",
+        "cyber-click-to-purify",
+        "computer-code-heart",
+        "ai-ball-classification",
+        "ai-data-egg-sort"
+      ]
+    }
+  },
+  {
+    "id": "data-sphinx",
+    "title": "데이터 스핑크스",
+    "description": "제한 시간 안에 O/X 구역을 선택해 퀴즈 보스를 쓰러뜨리는 전투입니다.",
+    "module": "data-sphinx",
+    "status": "published",
+    "usesAccountStats": false,
+    "configAssetId": "data-sphinx-config",
+    "assetGroup": "data-sphinx",
+    "unlockCondition": {
+      "type": "ALL_MINIGAMES_CLEAR",
+      "miniGameIds": [
+        "data-number-baseball",
+        "cyber-click-to-purify",
+        "computer-code-heart",
+        "ai-ball-classification",
+        "ai-data-egg-sort"
+      ]
+    }
+  },
+  {
+    "id": "control-boss",
+    "title": "컨트롤 보스",
+    "description": "실드 파괴, 엄폐, 순서 발판, 그로기 공격을 차례로 수행하는 최종 전투입니다.",
+    "module": "control-boss",
+    "status": "published",
+    "usesAccountStats": true,
+    "configAssetId": "control-boss-config",
+    "assetGroup": "control-boss",
+    "unlockCondition": {
+      "type": "ALL_MINIGAMES_CLEAR",
+      "miniGameIds": [
+        "data-number-baseball",
+        "cyber-click-to-purify",
+        "computer-code-heart",
+        "ai-ball-classification",
+        "ai-data-egg-sort"
+      ]
+    }
+  },
+  {
+    "id": "xr-egg-trials",
+    "title": "X알 무작위 챌린지",
+    "description": "가위바위보, 카드 짝맞추기, 연타 중 무작위로 선택된 한 가지 시험에 도전합니다.",
+    "module": "xr-egg-trials",
+    "status": "published",
+    "usesAccountStats": false,
+    "configAssetId": "xr-egg-trials-config",
+    "assetGroup": "xr-egg-trials",
     "unlockCondition": {
       "type": "ALL_MINIGAMES_CLEAR",
       "miniGameIds": [

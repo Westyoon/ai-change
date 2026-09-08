@@ -180,6 +180,33 @@
       "required": true,
       "alt": null,
       "sourceRef": "CONTENT-BATTLE-001"
+    },
+    {
+      "id": "data-sphinx-config",
+      "group": "data-sphinx",
+      "type": "json",
+      "src": "./data/battle/data-sphinx.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-BATTLE-002"
+    },
+    {
+      "id": "control-boss-config",
+      "group": "control-boss",
+      "type": "json",
+      "src": "./data/battle/control-boss.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-BATTLE-003"
+    },
+    {
+      "id": "xr-egg-trials-config",
+      "group": "xr-egg-trials",
+      "type": "json",
+      "src": "./data/battle/xr-egg-trials.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-BATTLE-004"
     }
   ]
 }

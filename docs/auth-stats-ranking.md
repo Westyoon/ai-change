@@ -88,7 +88,7 @@ PR #12는 다음 기반을 제공했다.
 
 서버는 session에서 이용자를 찾고, 등록된 5개 미니게임 ID·`CLEAR` 상태·허용 범위의 정수 점수만 받는다. 같은 계정의 같은 `attemptId`는 `game_results`의 unique 제약으로 한 번만 처리한다. 최초 반영 때만 `clears`와 `unspent_points`를 1 증가시키고, 최고 점수 랭킹은 단위가 다른 게임끼리 섞지 않고 `game_results.game_id`별로 계산한다.
 
-`completedGameIds`는 해당 계정의 `game_results`에서 완료한 서로 다른 `game_id`를 조회한 값이다. 클라이언트는 이를 로컬 완료 ID와 합쳐 `stat-boss` 해금을 판단하며, 반복 CLEAR로 증가한 `clears` 합계만으로는 해금하지 않는다.
+`completedGameIds`는 해당 계정의 `game_results`에서 완료한 서로 다른 `game_id`를 조회한 값이다. 클라이언트는 이를 로컬 완료 ID와 합쳐 published 사후 콘텐츠의 공통 해금을 판단하며, 반복 CLEAR로 증가한 `clears` 합계만으로는 해금하지 않는다.
 
 스탯 배분 요청은 다음처럼 선택할 항목만 보낸다.
 

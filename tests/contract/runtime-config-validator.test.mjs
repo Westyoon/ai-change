@@ -52,6 +52,9 @@ test("runtime config validator rejects an unregistered or invalidly unlocked pub
     readJson("../../data/scripts/npc-dialogues.json"),
     readJson("../../data/scripts/minigame-outros.json")
   ]);
+  // Isolate one invalid published entry so no other valid Battle keeps the
+  // feature runnable and masks the feature-presence assertion under test.
+  battles.splice(1);
   battles[0].module = "unregistered-battle";
   battles[0].unlockCondition.miniGameIds.push("missing-game", "missing-game");
 

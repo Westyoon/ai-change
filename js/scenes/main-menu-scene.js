@@ -24,7 +24,7 @@ export function createMainMenuScene(context) {
         className: "scene--centered",
         eyebrow: "EWHA AI COLLEGE FESTIVAL",
         title: "ai-change",
-        description: "다섯 학과 미니게임을 체험하고 사후게임 보스에 도전하세요.",
+        description: "다섯 학과 미니게임을 체험하고 사후 콘텐츠에 도전하세요.",
       });
       const logo = context.services.assets.get("app-logo");
       if (logo instanceof HTMLImageElement) {
@@ -62,7 +62,7 @@ export function createMainMenuScene(context) {
         const battleDescription = publishedBattles.length === 0
           ? "공개 준비 중인 사후게임입니다."
           : openBattle
-            ? "해금된 스탯 보스에 도전합니다."
+            ? `해금된 사후 콘텐츠 ${publishedBattles.length}종에 도전합니다.`
             : "학과 미니게임 5종을 모두 클리어하면 열립니다.";
         const cards = [
           menuCard("스토리 시작", "인트로에서 학과 맵과 5개 모듈 연결을 확인합니다.", () => context.router.navigate("story-intro")),

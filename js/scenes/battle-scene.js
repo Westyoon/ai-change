@@ -1,5 +1,5 @@
 import { getPublishedBattles, loadBattleModule } from "../battle/registry.js";
-import { createStatBossPlayer } from "../battle/player-config.js";
+import { createBattlePlayer } from "../battle/player-config.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
@@ -82,7 +82,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         className: "scene--panel battle-entry",
         eyebrow: "AFTER GAME · BATTLE",
         title: "사후게임 배틀",
-        description: "학과 미니게임 5종을 모두 클리어하면 보스전에 입장할 수 있습니다.",
+        description: "학과 미니게임 5종을 모두 클리어하면 사후 전투와 챌린지에 입장할 수 있습니다.",
       });
       if (notice) {
         scene.append(createElement("p", {
@@ -108,12 +108,14 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           createElement("p", {
             className: "battle-progress",
             text: unlock.unlocked
-              ? "해금 완료 · 계정 스탯 또는 게스트 기본 스탯으로 도전합니다."
+              ? battle.usesAccountStats === false
+                ? "해금 완료 · 이 콘텐츠의 고정 규칙으로 도전합니다."
+                : "해금 완료 · 계정 스탯 또는 게스트 기본 스탯으로 도전합니다."
               : `남은 미니게임: ${missingTitles.join(" · ")}`,
           }),
         ]);
         const start = createButton(
-          unlock.unlocked ? "보스전 시작" : "아직 잠겨 있습니다",
+          unlock.unlocked ? "도전 시작" : "아직 잠겨 있습니다",
           () => context.router.navigate("battle", { battleId: battle.id }),
           unlock.unlocked ? "primary" : "ghost",
         );
@@ -284,7 +286,9 @@ function createBattlePlayScene(context, battle) {
         events: context.services.events,
         onComplete,
       });
-      const player = createStatBossPlayer(accountService.getState(), arena);
+      const player = createBattlePlayer(accountService.getState(), arena, {
+        useAccountStats: battle.usesAccountStats !== false,
+      });
       await instance.init({ ...config, arena, players: [player] }, { signal });
       if (signal.aborted) return;
       currentAttemptId = attemptId(battle.id);

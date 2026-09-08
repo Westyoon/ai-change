@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveResultPresentation } from "../../js/ui/result-overlay.js";
+import { formatResultMetric, resolveResultPresentation } from "../../js/ui/result-overlay.js";
 
 test("result presentation keeps the common contract while applying game-specific copy", () => {
   const resolved = resolveResultPresentation({
@@ -51,4 +51,12 @@ test("result presentation joins array metrics when restoring prototype copy", ()
       fail: { description: "정답은 {answer} 이었습니다." },
     },
   }).description, "정답은 407 이었습니다.");
+});
+
+test("Battle metrics translate trial values and format every millisecond field", () => {
+  assert.equal(formatResultMetric("trial", "card-match"), "카드 짝맞추기");
+  assert.equal(formatResultMetric("playerHand", "rock"), "바위");
+  assert.equal(formatResultMetric("phaseReached", 4), "Phase 4");
+  assert.equal(formatResultMetric("elapsedBattleMs", 12_345), "12.3초");
+  assert.equal(formatResultMetric("remainingMs", 950), "0.9초");
 });

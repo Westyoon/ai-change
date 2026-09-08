@@ -1,0 +1,52 @@
+{
+  "battleId": "xr-egg-trials",
+  "implementationStatus": "MVP",
+  "selectionMode": "random",
+  "trialIds": [
+    "rps",
+    "card-match",
+    "mash"
+  ],
+  "cardMatch": {
+    "symbols": ["🌙", "⭐", "💎", "🌸", "🗝️"],
+    "totalLives": 5,
+    "pairsToClear": 3,
+    "previewMs": 1000,
+    "mismatchDelayMs": 700
+  },
+  "mash": {
+    "targetPresses": 40,
+    "timeLimitMs": 10000
+  },
+  "controls": {
+    "pc": [
+      "가위바위보·카드: 마우스 또는 Tab/Enter로 선택",
+      "연타: 버튼 클릭 또는 Space/Enter"
+    ],
+    "mobile": [
+      "화면의 선택지·카드·연타 버튼을 터치"
+    ]
+  },
+  "resultPresentation": {
+    "clear": {
+      "title": "X알의 시험 통과",
+      "description": "무작위로 선택된 짧은 시험을 완료했습니다.",
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    },
+    "fail": {
+      "title": "X알의 시험 실패",
+      "description": "같은 규칙으로 다시 도전할 수 있습니다.",
+      "reasonDescriptions": {
+        "RPS_DRAW": "가위바위보에서 비겼습니다. 이 시험에서는 무승부도 실패입니다.",
+        "RPS_LOSS": "가위바위보에서 졌습니다.",
+        "CARD_LIVES_EXHAUSTED": "카드 짝을 찾기 전에 기회를 모두 사용했습니다.",
+        "MASH_TIMEOUT": "목표 횟수를 채우기 전에 시간이 끝났습니다."
+      },
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    }
+  }
+}

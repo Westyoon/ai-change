@@ -23,4 +23,16 @@ export function createStatBossPlayer(accountState, arena = { width: 960, height:
   });
 }
 
+/**
+ * Every published Battle receives the same privacy-safe player shape. Individual
+ * encounters may use only the fields their documented formula needs.
+ */
+export function createBattlePlayer(
+  accountState,
+  arena = { width: 960, height: 600 },
+  { useAccountStats = true } = {},
+) {
+  return createStatBossPlayer(useAccountStats ? accountState : { authenticated: false }, arena);
+}
+
 export default createStatBossPlayer;

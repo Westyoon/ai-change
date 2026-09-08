@@ -1,0 +1,368 @@
+/* Control Boss only. The light portrait composition follows the original
+ * after_controlboss prototype; every selector is scoped to this Battle. */
+
+.battle-stage > .control-boss-stage {
+  min-height: 100%;
+}
+
+.control-boss-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(220px, 1fr) auto auto;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  color: #212529;
+  background: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  user-select: none;
+}
+
+.control-boss-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+}
+
+.control-boss-title {
+  min-width: 0;
+  overflow: hidden;
+  color: #111;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-boss-phase {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: #fff;
+  background: #d32f2f;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.control-boss-phase[data-phase="3"] {
+  background: #d9480f;
+}
+
+.control-boss-phase[data-phase="4"] {
+  background: #2b8a3e;
+}
+
+.control-boss-hud {
+  display: grid;
+  gap: 4px;
+  padding: 5px 12px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f1f3f5;
+}
+
+.control-boss-bar {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 82px;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.68rem;
+}
+
+.control-boss-bar strong {
+  color: #495057;
+  letter-spacing: 0.03em;
+}
+
+.control-boss-bar__track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dee2e6;
+}
+
+.control-boss-bar__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: width 100ms linear;
+}
+
+.control-boss-bar__fill--hp {
+  background: #e53935;
+}
+
+.control-boss-bar__fill--shield {
+  background: #0288d1;
+}
+
+.control-boss-bar__value {
+  color: #495057;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.control-boss-player-hud {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 3px 12px;
+  color: #2b8a3e;
+  background: #ebfbee;
+  font-size: 0.68rem;
+}
+
+.control-boss-player-state {
+  margin-left: auto;
+  color: #495057;
+  font-weight: 700;
+}
+
+.control-boss-world {
+  position: relative;
+  isolation: isolate;
+  justify-self: center;
+  height: 100%;
+  min-height: 0;
+  max-width: 100%;
+  overflow: hidden;
+  aspect-ratio: 9 / 16;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background:
+    linear-gradient(rgb(233 236 239 / 55%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(233 236 239 / 55%) 1px, transparent 1px),
+    #fff;
+  background-size: 10% 10%;
+  box-shadow: 0 5px 18px rgb(33 37 41 / 12%);
+}
+
+.control-boss-actor,
+.control-boss-cover,
+.control-boss-tile,
+.control-boss-bullet,
+.control-boss-shockwave {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.control-boss-actor {
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  border: 3px solid #b71c1c;
+  border-radius: 8px;
+  color: #fff;
+  background: #e53935;
+  box-shadow: 0 4px 12px rgb(229 57 53 / 35%);
+  font-size: clamp(0.55rem, 2.5vw, 0.9rem);
+  font-weight: 900;
+}
+
+.control-boss-cast {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  width: 120%;
+  height: 13px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #343a40;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.control-boss-cast[data-visible="true"] {
+  opacity: 1;
+}
+
+.control-boss-cast__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #ff9800;
+}
+
+.control-boss-cast__label {
+  position: absolute;
+  inset: 0;
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 800;
+  line-height: 13px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.control-boss-cover {
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  border: 2px solid #00acc1;
+  border-radius: 8px;
+  color: #00838f;
+  background: #e0f7fa;
+  font-size: clamp(0.5rem, 2vw, 0.72rem);
+  font-weight: 800;
+}
+
+.control-boss-cover[data-active="true"] {
+  border-color: #00838f;
+  background: #b2ebf2;
+  box-shadow: 0 0 12px rgb(0 172 193 / 60%);
+}
+
+.control-boss-tiles,
+.control-boss-bullets,
+.control-boss-shockwaves {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.control-boss-tiles {
+  z-index: 10;
+}
+
+.control-boss-tile {
+  display: grid;
+  place-items: center;
+  border: 2px solid #ced4da;
+  border-radius: 8px;
+  color: #adb5bd;
+  background: #f8f9fa;
+  font-size: clamp(0.65rem, 3vw, 1rem);
+  font-weight: 800;
+}
+
+.control-boss-tile[data-kind="plate"] {
+  border-color: #fcc419;
+  color: #d9480f;
+  background: #fff3bf;
+  box-shadow: 0 0 8px rgb(252 196 25 / 50%);
+}
+
+.control-boss-tile[data-kind="plate"][data-cleared="true"] {
+  border-color: #40c057;
+  color: #2b8a3e;
+  background: #d3f9d8;
+}
+
+.control-boss-tile[data-kind="hole"] {
+  border-color: #fa5252;
+  background: #212529;
+}
+
+.control-boss-bullets {
+  z-index: 50;
+}
+
+.control-boss-bullet {
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #d32f2f;
+  box-shadow: 0 0 8px rgb(211 47 47 / 80%);
+}
+
+.control-boss-shockwaves {
+  z-index: 45;
+}
+
+.control-boss-shockwave {
+  transform: translate(-50%, -50%);
+  border: 5px solid #ff1744;
+  border-radius: 50%;
+  background: rgb(255 23 68 / 12%);
+  box-shadow: 0 0 16px #ff1744, inset 0 0 12px rgb(255 23 68 / 40%);
+}
+
+.control-boss-world > .character-actor {
+  z-index: 100;
+}
+
+.control-boss-status {
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 12px;
+  border-top: 1px solid #e9ecef;
+  color: #495057;
+  background: #f8f9fa;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.control-boss-status[data-tone="error"] {
+  color: #c92a2a;
+  background: #ffe3e3;
+}
+
+.control-boss-status[data-tone="success"] {
+  color: #2b8a3e;
+  background: #d3f9d8;
+}
+
+.control-boss-status[data-tone="warning"] {
+  color: #d9480f;
+  background: #fff3bf;
+}
+
+.control-boss-touch-controls {
+  min-height: 82px;
+  padding: 6px 12px 10px;
+  background: #f8f9fa;
+}
+
+.control-boss-joystick {
+  touch-action: none;
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 721px) {
+  .control-boss-stage {
+    grid-template-rows: auto auto auto minmax(300px, 1fr) auto;
+  }
+
+  .control-boss-touch-controls {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .control-boss-stage {
+    gap: 4px;
+    grid-template-rows: auto auto auto minmax(180px, 1fr) auto auto;
+  }
+
+  .control-boss-header,
+  .control-boss-hud {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .control-boss-title {
+    font-size: 0.72rem;
+  }
+
+  .control-boss-phase {
+    font-size: 0.58rem;
+  }
+
+  .control-boss-bar {
+    grid-template-columns: 44px minmax(0, 1fr) 68px;
+    gap: 5px;
+  }
+
+  .control-boss-status {
+    font-size: 0.64rem;
+  }
+}

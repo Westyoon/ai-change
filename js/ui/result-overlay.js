@@ -35,10 +35,37 @@ const METRIC_LABELS = Object.freeze({
   patternsResolved: "해결한 패턴",
   bossHp: "남은 보스 HP",
   bossMaxHp: "보스 최대 HP",
+  timeoutCount: "시간 초과",
+  phaseReached: "도달 단계",
+  bossHpRemaining: "남은 보스 HP",
+  bossShieldRemaining: "남은 실드",
+  playerHpRemaining: "남은 플레이어 HP",
+  attacks: "공격 횟수",
+  platesCompleted: "완료한 발판 시련",
+  elapsedBattleMs: "전투 시간",
+  trial: "선택된 시험",
+  playerHand: "내 선택",
+  opponentHand: "상대 선택",
+  outcome: "판정",
+  matchedPairs: "맞힌 카드 쌍",
+  livesRemaining: "남은 기회",
+  presses: "입력 횟수",
+  targetPresses: "목표 입력",
+  remainingMs: "남은 시간",
 });
 
-function formatMetric(key, value) {
-  if (key.endsWith("TimeMs") && Number.isFinite(value)) {
+const METRIC_VALUE_LABELS = Object.freeze({
+  trial: Object.freeze({ rps: "가위바위보", "card-match": "카드 짝맞추기", mash: "연타" }),
+  playerHand: Object.freeze({ rock: "바위", scissors: "가위", paper: "보" }),
+  opponentHand: Object.freeze({ rock: "바위", scissors: "가위", paper: "보" }),
+  outcome: Object.freeze({ win: "승리", draw: "무승부", lose: "패배" }),
+});
+
+export function formatResultMetric(key, value) {
+  const translated = METRIC_VALUE_LABELS[key]?.[value];
+  if (translated) return translated;
+  if (key === "phaseReached" && Number.isFinite(value)) return `Phase ${value}`;
+  if (key.endsWith("Ms") && Number.isFinite(value)) {
     return `${(value / 1000).toFixed(1)}초`;
   }
   if (key === "purification" && Number.isFinite(value)) {
@@ -150,7 +177,7 @@ export function createResultOverlay({
   for (const [key, value] of metricEntries) {
     metrics.append(
       createElement("dt", { text: key === "score" ? "점수" : METRIC_LABELS[key] ?? key }),
-      createElement("dd", { text: formatMetric(key, value) }),
+      createElement("dd", { text: formatResultMetric(key, value) }),
     );
   }
   let actionLocked = false;

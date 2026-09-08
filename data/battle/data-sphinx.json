@@ -1,10 +1,49 @@
 {
+  "battleId": "data-sphinx",
+  "implementationStatus": "MVP",
+  "arena": {
+    "width": 1600,
+    "height": 720
+  },
+  "player": {
+    "spawn": { "x": 800, "y": 360 },
+    "width": 34,
+    "height": 44,
+    "speed": 500,
+    "maxHealth": 100
+  },
   "timeLimitMs": 15000,
+  "resolutionDelayMs": 2000,
+  "deathDelayMs": 1000,
   "bossMaxHealth": 100,
   "damagePerCorrect": 10,
   "playerDamagePerWrong": 20,
+  "controls": {
+    "pc": ["WASD 또는 방향키로 O/X 영역 이동", "제한 시간이 끝날 때 서 있는 영역으로 답 선택", "Esc 또는 P로 일시정지"],
+    "mobile": ["가상 조이스틱으로 O/X 영역 이동", "제한 시간이 끝날 때 서 있는 영역으로 답 선택"]
+  },
+  "resultPresentation": {
+    "clear": {
+      "title": "데이터 스핑크스 격파",
+      "description": "모든 O/X 코드를 해석해 스핑크스를 쓰러뜨렸습니다.",
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    },
+    "fail": {
+      "title": "데이터 스핑크스 도전 실패",
+      "description": "문제를 다시 살펴보고 O/X 영역을 선택해 보세요.",
+      "reasonDescriptions": {
+        "PLAYER_DEAD": "오답 또는 시간 초과가 누적되어 체력을 모두 잃었습니다.",
+        "OUT_OF_QUESTIONS": "문제를 모두 풀었지만 스핑크스의 체력이 남았습니다."
+      },
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    }
+  },
   "quizList": [
-    { "id": 1, "question": "이화그린의 색상코드는 #00462A이다.", "answer": "O" },
+    { "id": 1, "question": "이화그린의 공식 별색은 Pantone 336 C이다.", "answer": "O" },
     { "id": 2, "question": "인공지능대학 라운지는 ECC B4에 위치해 있다.", "answer": "X" },
     { "id": 3, "question": "이화여자대학교 인공지능대학은 2022년 신설되었다.", "answer": "X" },
     { "id": 4, "question": "인공지능대학 마스코트는 '이아이'이다.", "answer": "O" },

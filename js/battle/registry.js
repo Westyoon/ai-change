@@ -1,7 +1,10 @@
 // Keep Battle imports in a static allowlist. Content data may select a key,
 // but it can never turn an arbitrary path into executable code.
 const BATTLE_MODULE_LOADERS = Object.freeze({
+  "control-boss": () => import("./postgame/bosses/control-boss/index.js"),
+  "data-sphinx": () => import("./postgame/bosses/data-sphinx/index.js"),
   "stat-boss": () => import("./postgame/bosses/stat-boss/index.js"),
+  "xr-egg-trials": () => import("./postgame/challenges/xr-egg-trials/index.js"),
 });
 
 export function hasBattleModule(moduleKey) {

@@ -4,7 +4,7 @@
 
 이 문서는 `contentVersion=1` 통합 개발본 기준입니다. 공통 화면, 학과 데이터, 맵·대화 연결과 기능 브랜치에서 합쳐진 미니게임을 확인할 수 있습니다. DS·CS·CSE·AI·AIDS 5종은 모두 MVP이며 최종 밸런스·점수·기록 정책은 아직 확정되지 않았습니다.
 
-현재 Story 맵은 자유 이동 구현 전이므로 학과 카드를 클릭·터치하거나 키보드로 선택합니다. 카드를 선택하면 해당 학과 미니게임이 바로 시작됩니다. 사후게임은 `stat-boss` 1종만 published 상태이며, 서로 다른 학과 미니게임 5종을 모두 완료하면 배틀 메뉴에서 실행할 수 있습니다. 나머지 사후게임 prototype과 개발 harness는 production `dist/`에 포함하지 않습니다.
+현재 Story 맵은 자유 이동 구현 전이므로 학과 카드를 클릭·터치하거나 키보드로 선택합니다. 카드를 선택하면 해당 학과 미니게임이 바로 시작됩니다. 사후게임은 `stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials` 4종이 published 상태이며, 서로 다른 학과 미니게임 5종을 모두 완료하면 배틀 메뉴에서 실행할 수 있습니다. 교체된 전역 prototype과 개발 harness는 production `dist/`에 포함하지 않습니다.
 
 학과 표기는 다음 코드를 공통으로 사용합니다.
 
@@ -65,7 +65,7 @@ npm run check
   → 맵 복귀
 ```
 
-Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 published `stat-boss`를 사용합니다. 해금 판정은 로컬 완료 기록과 로그인 session의 `completedGameIds`를 합쳐 서로 다른 필수 5종을 모두 완료했는지 확인하며, 누적 클리어 횟수만으로는 열리지 않습니다.
+Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 published 콘텐츠 4종을 사용합니다. 해금 판정은 로컬 완료 기록과 로그인 session의 `completedGameIds`를 합쳐 서로 다른 필수 5종을 모두 완료했는지 확인하며, 누적 클리어 횟수만으로는 열리지 않습니다.
 
 ## 5. 공통 조작
 
@@ -76,7 +76,10 @@ Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 publish
 | 메뉴·버튼 선택 | 마우스 클릭, 키보드 포커스 후 `Enter` | 버튼 터치 |
 | `stat-boss` 이동 | 방향키 또는 `W`·`A`·`S`·`D` | 왼쪽 조이스틱 |
 | `stat-boss` 경직 중 반격 | `Space` | 오른쪽 공격 버튼 |
-| 일시정지 | `Escape` | 일시정지 버튼 터치 |
+| `data-sphinx` O/X 선택 | 방향키 또는 `W`·`A`·`S`·`D`로 영역 이동 | 가상 조이스틱으로 영역 이동 |
+| `control-boss` 이동·공격 | 방향키 또는 `W`·`A`·`S`·`D`, `Space` | 가상 조이스틱, 공격 버튼 |
+| `xr-egg-trials` | 선택 버튼 또는 `Tab`·`Enter`; 연타는 `Space`도 가능 | 화면의 카드·선택·연타 버튼 터치 |
+| 일시정지 | `Escape` 또는 `P` | 일시정지 버튼 터치 |
 
 설정, 일시정지 또는 결과 화면이 열려 있을 때는 뒤쪽 맵·게임 입력이 차단됩니다.
 

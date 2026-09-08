@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { createStatBossPlayer } from "../../js/battle/player-config.js";
+import { createBattlePlayer, createStatBossPlayer } from "../../js/battle/player-config.js";
 import { getBattleUnlockStatus } from "../../js/battle/unlock.js";
 import {
   calcIncomingDamage,
@@ -99,6 +100,17 @@ test("guest Battle uses 1/1/1 without accepting private account fields", () => {
   assert.equal(Object.hasOwn(player, "user"), false);
 });
 
+test("fixed-rule Battles do not receive authenticated account stats", () => {
+  const player = createBattlePlayer({
+    authenticated: true,
+    stats: { attack: 9, hp: 250, defense: 7 },
+  }, undefined, { useAccountStats: false });
+  assert.equal(player.attackStat, 1);
+  assert.equal(player.healthStat, 1);
+  assert.equal(player.defenseStat, 1);
+  assert.deepEqual(player.accountStats, { attack: 0, hp: 0, defense: 0 });
+});
+
 test("stat-boss judges the character center rather than its top-left corner", () => {
   assert.deepEqual(
     getCharacterJudgementPosition({ x: 120, y: 80, width: 34, height: 44 }),
@@ -143,4 +155,12 @@ test("Battle host validates candidates and owns identity and duration fields", (
       sessionId: "module-owned",
     },
   }), /host-owned/u);
+});
+
+test("Battle result card stays above module-owned HUD and touch controls", async () => {
+  const css = await readFile(new URL("../../css/battle.css", import.meta.url), "utf8");
+  assert.match(
+    css,
+    /\.battle-stage\s*>\s*\.result-backdrop\s*\{[^}]*z-index:\s*10000;/su,
+  );
 });

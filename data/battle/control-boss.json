@@ -1,0 +1,85 @@
+{
+  "battleId": "control-boss",
+  "implementationStatus": "MVP",
+  "title": "시련의 제단: 컨트롤 보스전",
+  "arena": { "x": 0, "y": 0, "width": 450, "height": 800 },
+  "world": {
+    "bounds": { "x": 0, "y": 0, "width": 450, "height": 800 },
+    "bossZone": { "x": 165, "y": 40, "width": 120, "height": 80 },
+    "coverZone": { "x": 175, "y": 280, "width": 100, "height": 60 },
+    "altarArea": {
+      "startX": 45,
+      "startY": 380,
+      "tileW": 100,
+      "tileH": 60,
+      "rows": 3,
+      "cols": 3,
+      "gapX": 18,
+      "gapY": 12
+    }
+  },
+  "boss": {
+    "maxHp": 1000,
+    "maxShield": 500,
+    "regenRatePerSec": 0.01,
+    "phase1FirstAttackDelaySec": 0.6,
+    "phase2CastSec": 3,
+    "phase3DurationSec": 30,
+    "groggyDurationSec": 10,
+    "groggyDirectDamageRate": 0.2,
+    "attackIntervalSec": 1.3,
+    "attackRange": 130,
+    "bulletSpeed": 240,
+    "bulletDamage": 15,
+    "shockwaveInitialDelaySec": 2,
+    "shockwaveIntervalSec": 4.5,
+    "shockwaveSpeed": 240,
+    "shockwaveMaxRadius": 650,
+    "shockwaveThickness": 30,
+    "shockwaveDamage": 25
+  },
+  "player": {
+    "width": 32,
+    "height": 42,
+    "speed": 200,
+    "baseHp": 100,
+    "hpPerPoint": 10,
+    "baseAttackDamage": 40,
+    "attackCoefficient": 0.05,
+    "defensePerPoint": 1,
+    "minimumIncomingDamage": 1,
+    "stunDurationMs": 1000,
+    "startPosition": { "x": 209, "y": 529 }
+  },
+  "gimmick": {
+    "collapsedTileCount": 2,
+    "sequenceLength": 4
+  },
+  "controls": {
+    "pc": [
+      "WASD 또는 방향키로 이동",
+      "Space로 실드·그로기 상태 공격",
+      "Esc 또는 P로 일시정지"
+    ],
+    "mobile": [
+      "왼쪽 조이스틱으로 이동",
+      "오른쪽 공격 버튼으로 실드·그로기 상태 공격"
+    ]
+  },
+  "resultPresentation": {
+    "clear": {
+      "title": "컨트롤 보스 격파",
+      "description": "엄폐와 발판 시련을 돌파하고 보스를 쓰러뜨렸습니다.",
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    },
+    "fail": {
+      "title": "컨트롤 보스 도전 실패",
+      "description": "엄폐 위치와 발판 순서를 확인하고 재도전해 보세요.",
+      "retryLabel": "다시 도전",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    }
+  }
+}
