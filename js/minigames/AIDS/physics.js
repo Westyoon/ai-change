@@ -3,27 +3,33 @@ function tiltAngleRad(config, tilt) {
     return tilt === 'left' ? -rad : rad;
 }
 
-export function boxTargetX(config, dir, fieldW) {
-    const pct = dir === 'left' ? config.boxes.leftPct : config.boxes.rightPct;
-    return (fieldW * pct) / 100;
+const GUIDED_LANDING_EDGE_RATIO = 0.72;
+
+export function platformRestingY(
+    platform,
+    x,
+    config,
+    tilt,
+    runtimePhysics = config.physics
+) {
+    const theta = tiltAngleRad(config, tilt);
+    const eggRadius = Number.isFinite(runtimePhysics.eggRadius)
+        ? runtimePhysics.eggRadius
+        : 0;
+    return platform.y
+        - runtimePhysics.surfaceOffset
+        - eggRadius
+        + (x - platform.x) * Math.tan(theta);
 }
 
-export function stepFalling(egg, dt, config, fieldW, fieldH, runtimePhysics = config.physics) {
+export function stepFalling(egg, dt, config, _fieldW, _fieldH, runtimePhysics = config.physics) {
     const p = runtimePhysics;
-
-    let steerX = null;
-    let surfaceY = null;
-    if (egg.target === 'platform' && egg.targetPlatform) {
-        steerX = egg.targetPlatform.x;
-        surfaceY = egg.targetPlatform.y - p.surfaceOffset;
-    } else if (egg.target === 'box') {
-        steerX = boxTargetX(config, egg.finalDir, fieldW);
-        surfaceY = fieldH;
-    }
+    const eggRadius = Number.isFinite(p.eggRadius) ? p.eggRadius : 0;
 
     egg.vy += p.gravity * dt;
 
-    if (steerX !== null && surfaceY !== null) {
+    if (egg.target === 'platform' && egg.targetPlatform) {
+        const surfaceY = egg.targetPlatform.y - p.surfaceOffset - eggRadius;
         const remainingHeight = Math.max(surfaceY - egg.y, 0);
         let timeToLand;
         if (p.gravity > 0) {
@@ -34,17 +40,20 @@ export function stepFalling(egg, dt, config, fieldW, fieldH, runtimePhysics = co
         }
 
         if (timeToLand > 0.02) {
+            const projectedX = egg.x + egg.vx * timeToLand;
+            const platformHalfLen = Number.isFinite(p.platformHalfLen)
+                ? p.platformHalfLen
+                : 0;
+            const safeHalfLength = platformHalfLen * GUIDED_LANDING_EDGE_RATIO;
+            const safeLeft = egg.targetPlatform.x - safeHalfLength;
+            const safeRight = egg.targetPlatform.x + safeHalfLength;
+            const steerX = Math.max(safeLeft, Math.min(safeRight, projectedX));
             const desiredVx = Math.max(
                 -p.maxFallSteerSpeed,
                 Math.min(p.maxFallSteerSpeed, (steerX - egg.x) / timeToLand)
             );
             const maxDelta = p.fallSteerAccel * dt;
             const diff = desiredVx - egg.vx;
-            egg.vx += Math.max(-maxDelta, Math.min(maxDelta, diff));
-        } else {
-            const target = steerX - egg.x >= 0 ? p.maxFallSteerSpeed : -p.maxFallSteerSpeed;
-            const maxDelta = p.fallSteerAccel * dt;
-            const diff = target - egg.vx;
             egg.vx += Math.max(-maxDelta, Math.min(maxDelta, diff));
         }
     }
@@ -63,7 +72,8 @@ export function stepRolling(egg, dt, config, tilt, runtimePhysics = config.physi
 
     const dx = egg.x - egg.platform.x;
     const theta = tiltAngleRad(config, tilt);
-    egg.y = egg.platform.y - p.surfaceOffset + dx * Math.sin(theta);
+    egg.y = platformRestingY(egg.platform, egg.x, config, tilt, p);
+    egg.vy = egg.vx * Math.tan(theta);
 
     egg.rollTime += dt;
     const reachedEdge = Math.abs(dx) >= p.platformHalfLen;

@@ -8,6 +8,7 @@ import {
 } from "../../js/minigames/AIDS/dom-builder.js";
 import { createMiniGame } from "../../js/minigames/AIDS/index.js";
 import { finalizeRelease } from "../../js/minigames/AIDS/eggs.js";
+import { stepFrame } from "../../js/minigames/AIDS/game-loop.js";
 import {
   AIDS_BASE_FIELD_HEIGHT,
   AIDS_BASE_FIELD_WIDTH,
@@ -16,7 +17,11 @@ import {
   platformOuterDimensions,
   relayoutPlatforms,
 } from "../../js/minigames/AIDS/platforms.js";
-import { stepRolling } from "../../js/minigames/AIDS/physics.js";
+import {
+  platformRestingY,
+  stepFalling,
+  stepRolling,
+} from "../../js/minigames/AIDS/physics.js";
 
 class FakeClassList {
   constructor(element) {
@@ -275,11 +280,12 @@ test("AIDS desktop platform visual and rolling collision use the same responsive
   assert.equal(stepRolling(makeEgg(80), 0, DEFAULT_CONFIG, "right", layout.physics), "right");
 
   const releasingEgg = {
+    phase: "rolling",
     platform: { rowIndex: DEFAULT_CONFIG.platformRows.length - 1, lane: "center" },
     vx: 0,
     vy: 5,
   };
-  finalizeRelease({}, releasingEgg, "right", DEFAULT_CONFIG, layout.physics);
+  finalizeRelease({ tilt: "right" }, releasingEgg, "right", DEFAULT_CONFIG, layout.physics);
   assert.equal(releasingEgg.vx, 240);
   assert.equal(releasingEgg.target, "box");
   assert.throws(() => platformOuterDimensions(0), /platformHalfLen/u);
@@ -314,6 +320,19 @@ test("AIDS live desktop relayout preserves platform and active egg references", 
     targetPlatform: platform,
   };
   state.eggs.push(egg);
+  const rollingEggElement = new FakeElement("div", ownerDocument);
+  const rollingEgg = {
+    done: false,
+    phase: "rolling",
+    x: platform.x,
+    y: platformRestingY(platform, platform.x, DEFAULT_CONFIG, state.tilt),
+    vx: 20,
+    vy: 0,
+    el: rollingEggElement,
+    platform,
+    targetPlatform: platform,
+  };
+  state.eggs.push(rollingEgg);
 
   field.clientWidth = AIDS_BASE_FIELD_WIDTH * 2;
   field.clientHeight = AIDS_BASE_FIELD_HEIGHT * 1.5;
@@ -327,7 +346,205 @@ test("AIDS live desktop relayout preserves platform and active egg references", 
   assert.equal(egg.y, 300);
   assert.equal(egg.vx, 120);
   assert.equal(egg.vy, 150);
+  assert.equal(
+    rollingEgg.y,
+    platformRestingY(
+      platform,
+      rollingEgg.x,
+      DEFAULT_CONFIG,
+      state.tilt,
+      state.fieldLayout.physics,
+    ),
+  );
   assert.equal(state.fieldLayout.physics.platformHalfLen, 80);
   assert.equal(platform.el.style.width, "164px");
   assert.equal(platform.el.style.marginLeft, "-82px");
+});
+
+test("AIDS rolling stays radius-correct on both downhill platform surfaces", () => {
+  const platform = { x: 100, y: 200 };
+  const angle = (DEFAULT_CONFIG.physics.tiltAngleDeg * Math.PI) / 180;
+
+  for (const [tilt, direction] of [["left", -1], ["right", 1]]) {
+    const startY = platformRestingY(platform, platform.x, DEFAULT_CONFIG, tilt);
+    assert.equal(
+      startY,
+      platform.y - DEFAULT_CONFIG.physics.surfaceOffset - DEFAULT_CONFIG.physics.eggRadius,
+    );
+
+    const egg = {
+      x: platform.x,
+      y: startY,
+      vx: 0,
+      vy: 0,
+      rollTime: 0,
+      platform,
+    };
+
+    assert.equal(stepRolling(egg, 0, DEFAULT_CONFIG, tilt), null);
+    assert.equal(egg.y, startY, `${tilt} must not jump on its first rolling frame`);
+
+    assert.equal(stepRolling(egg, 0.1, DEFAULT_CONFIG, tilt), null);
+    assert.equal(Math.sign(egg.x - platform.x), direction);
+    assert.ok(egg.y > startY, `${tilt} must travel downhill`);
+    const expectedY = platform.y
+      - DEFAULT_CONFIG.physics.surfaceOffset
+      - DEFAULT_CONFIG.physics.eggRadius
+      + (egg.x - platform.x) * Math.tan(direction * angle);
+    assert.ok(Math.abs(egg.y - expectedY) < 1e-9);
+    assert.ok(Math.abs(egg.vy - egg.vx * Math.tan(direction * angle)) < 1e-9);
+  }
+});
+
+test("AIDS falling preserves horizontal momentum while its projected landing is safe", () => {
+  const egg = {
+    x: 80,
+    y: 0,
+    vx: 20,
+    vy: 0,
+    target: "platform",
+    targetPlatform: { x: 100, y: 200 },
+  };
+  const dt = 0.016;
+
+  stepFalling(egg, dt, DEFAULT_CONFIG, 362, 490);
+
+  assert.ok(Math.abs(egg.vx - 20) < 1e-9);
+  assert.ok(Math.abs(egg.x - 80.32) < 1e-9);
+  assert.ok(Math.abs(egg.vy - DEFAULT_CONFIG.physics.gravity * dt) < 1e-9);
+  assert.ok(Math.abs(egg.y - DEFAULT_CONFIG.physics.gravity * dt * dt) < 1e-9);
+});
+
+test("AIDS keeps downward velocity when an egg passes a platform edge", () => {
+  const ownerDocument = {
+    createElement(tagName) {
+      return new FakeElement(tagName, ownerDocument);
+    },
+  };
+  const field = new FakeElement("div", ownerDocument);
+  field.clientWidth = 400;
+  field.clientHeight = 300;
+  const timerEl = new FakeElement("div", ownerDocument);
+  const missedPlatform = { rowIndex: 0, lane: "center", x: 100, y: 100 };
+  const nextPlatform = { rowIndex: 1, lane: "right", x: 280, y: 180 };
+  const eggElement = new FakeElement("div", ownerDocument);
+  const egg = {
+    type: "de",
+    el: eggElement,
+    x: 150,
+    y: 80,
+    vx: 50,
+    vy: 100,
+    phase: "falling",
+    target: "platform",
+    targetPlatform: missedPlatform,
+    platform: null,
+    rollTime: 0,
+    finalDir: null,
+    done: false,
+  };
+  const state = {
+    tilt: "right",
+    life: DEFAULT_CONFIG.initialLives,
+    eggs: [egg],
+    platforms: [missedPlatform, nextPlatform],
+    nextSpawnAtSec: Number.POSITIVE_INFINITY,
+    lastElapsedMs: 0,
+  };
+
+  stepFrame({ state, config: DEFAULT_CONFIG, refs: { field, timerEl }, elapsedMs: 32 });
+
+  assert.equal(egg.phase, "falling");
+  assert.equal(egg.platform, missedPlatform);
+  assert.equal(egg.targetPlatform, nextPlatform);
+  assert.equal(egg.target, "platform");
+  assert.equal(egg.vx, 50);
+  assert.ok(Math.abs(egg.vy - 116) < 1e-9);
+  assert.ok(egg.y > 80);
+});
+
+test("AIDS third-row outward releases route to their directional result", () => {
+  for (const [lane, exitSide, velocity] of [
+    ["left", "left", -100],
+    ["right", "right", 100],
+  ]) {
+    const egg = {
+      phase: "rolling",
+      platform: { rowIndex: 2, lane },
+      targetPlatform: { rowIndex: 3, lane: "center" },
+      vx: velocity,
+      vy: 0,
+    };
+
+    finalizeRelease({ tilt: exitSide, platforms: [] }, egg, exitSide, DEFAULT_CONFIG);
+
+    assert.equal(egg.phase, "falling");
+    assert.equal(egg.finalDir, exitSide);
+    assert.equal(egg.target, "box");
+    assert.equal(egg.targetPlatform, null);
+    assert.equal(egg.vx, velocity);
+    assert.ok(egg.vy > 0, `${exitSide} release must continue downhill before gravity`);
+  }
+});
+
+test("AIDS crossing either field edge classifies by side without requiring box overlap", () => {
+  const ownerDocument = {
+    createElement(tagName) {
+      return new FakeElement(tagName, ownerDocument);
+    },
+  };
+  const field = new FakeElement("div", ownerDocument);
+  field.clientWidth = 400;
+  field.clientHeight = 300;
+  const boxLeft = new FakeElement("div", ownerDocument);
+  const boxRight = new FakeElement("div", ownerDocument);
+  const heartsEl = new FakeElement("div", ownerDocument);
+  for (let index = 0; index < DEFAULT_CONFIG.initialLives; index += 1) {
+    heartsEl.appendChild(new FakeElement("div", ownerDocument));
+  }
+  const timerEl = new FakeElement("div", ownerDocument);
+  const refs = { field, boxLeft, boxRight, heartsEl, timerEl };
+  const edgeEgg = (type, x) => {
+    const el = new FakeElement("div", ownerDocument);
+    field.appendChild(el);
+    return {
+      type,
+      el,
+      x,
+      y: 80,
+      vx: 0,
+      vy: 0,
+      phase: "falling",
+      target: "box",
+      targetPlatform: null,
+      platform: null,
+      rollTime: 0,
+      finalDir: null,
+      done: false,
+    };
+  };
+  const state = {
+    life: DEFAULT_CONFIG.initialLives,
+    eggs: [
+      edgeEgg("in", 0),
+      edgeEgg("de", field.clientWidth),
+      edgeEgg("de", 0),
+      edgeEgg("in", field.clientWidth),
+    ],
+    nextSpawnAtSec: Number.POSITIVE_INFINITY,
+    lastElapsedMs: 0,
+    correctCount: 0,
+    wrongCount: 0,
+    lostCount: 0,
+  };
+
+  assert.deepEqual(
+    stepFrame({ state, config: DEFAULT_CONFIG, refs, elapsedMs: 0 }),
+    { terminal: null },
+  );
+  assert.equal(state.correctCount, 2);
+  assert.equal(state.wrongCount, 2);
+  assert.equal(state.lostCount, 0);
+  assert.equal(state.life, DEFAULT_CONFIG.initialLives - 2);
+  assert.deepEqual(state.eggs, []);
 });

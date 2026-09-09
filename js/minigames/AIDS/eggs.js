@@ -31,12 +31,17 @@ export function spawnEgg(refs, config, state) {
 
 export function finalizeRelease(state, egg, exitSide, config, runtimePhysics = config.physics) {
     const rowIndex = egg.platform.rowIndex;
+    const wasRolling = egg.phase === 'rolling';
     egg.phase = 'falling';
-    egg.vy = 0;
     const releaseSpeedThreshold = runtimePhysics.releaseSpeedThreshold ?? 60;
     const releaseSpeed = runtimePhysics.releaseSpeed ?? 120;
-    if (Math.abs(egg.vx) < releaseSpeedThreshold) {
+    if (wasRolling && Math.abs(egg.vx) < releaseSpeedThreshold) {
         egg.vx = exitSide === 'left' ? -releaseSpeed : releaseSpeed;
+    }
+    if (wasRolling) {
+        const direction = state.tilt === 'left' ? -1 : 1;
+        const theta = (direction * runtimePhysics.tiltAngleDeg * Math.PI) / 180;
+        egg.vy = Math.max(0, egg.vx * Math.tan(theta));
     }
 
     const nextRowIndex = rowIndex + 1;
@@ -62,7 +67,8 @@ export function finalizeRelease(state, egg, exitSide, config, runtimePhysics = c
             egg.targetPlatform = findPlatform(state, nextRowIndex, 'center');
             egg.target = 'platform';
         } else {
-            egg.target = 'miss';
+            egg.finalDir = exitSide;
+            egg.target = 'box';
             egg.targetPlatform = null;
         }
     }

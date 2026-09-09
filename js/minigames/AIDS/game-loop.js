@@ -1,4 +1,4 @@
-import { stepFalling, stepRolling } from './physics.js';
+import { platformRestingY, stepFalling, stepRolling } from './physics.js';
 import { spawnEgg, finalizeRelease, resolveEgg, resolveMiss } from './eggs.js';
 import { updateTimerDisplay } from './hud.js';
 
@@ -32,6 +32,13 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
         if (egg.phase === 'falling') {
             stepFalling(egg, dt, config, fieldW, fieldH, physics);
 
+            const crossedSide = egg.x <= 0 ? 'left' : (egg.x >= fieldW ? 'right' : null);
+            if (crossedSide) {
+                egg.finalDir = crossedSide;
+                resolveEgg(refs, state, egg);
+                continue;
+            }
+
             if (egg.target === 'box') {
                 if (egg.y + eggR >= fieldH) {
                     resolveEgg(refs, state, egg);
@@ -49,13 +56,20 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
                 }
             } else {
                 const plat = egg.targetPlatform;
-                const surfaceY = plat.y - physics.surfaceOffset;
-                if (egg.y + eggR >= surfaceY) {
-                    egg.y = surfaceY - eggR;
-                    const dxAtLanding = egg.x - plat.x;
-
+                const dxAtLanding = egg.x - plat.x;
+                const contactX = Math.max(
+                    plat.x - physics.platformHalfLen,
+                    Math.min(plat.x + physics.platformHalfLen, egg.x)
+                );
+                const restingY = platformRestingY(
+                    plat,
+                    contactX,
+                    config,
+                    state.tilt,
+                    physics
+                );
+                if (egg.y >= restingY) {
                     if (Math.abs(dxAtLanding) > physics.platformHalfLen) {
-                        egg.vy = 0;
                         egg.platform = plat;
                         finalizeRelease(
                             state,
@@ -65,6 +79,7 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
                             physics
                         );
                     } else {
+                        egg.y = restingY;
                         egg.vy = 0;
                         egg.vx *= physics.landingInertiaKeep;
                         const margin = Math.max(physics.platformHalfLen - Math.abs(dxAtLanding), 2);

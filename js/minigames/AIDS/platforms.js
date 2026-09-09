@@ -1,3 +1,5 @@
+import { platformRestingY } from './physics.js';
+
 const PLATFORM_BORDER_WIDTH = 2;
 
 export const AIDS_BASE_FIELD_WIDTH = 362;
@@ -89,7 +91,7 @@ function applyPlatformGeometry(platform, layout) {
     platform.el.style.marginLeft = dimensions.marginLeft + 'px';
 }
 
-function remapEgg(egg, previousLayout, nextLayout, tilt) {
+function remapEgg(egg, previousLayout, nextLayout, tilt, config) {
     const widthRatio = nextLayout.fieldWidth / previousLayout.fieldWidth;
     const heightRatio = nextLayout.fieldHeight / previousLayout.fieldHeight;
     const velocityXRatio = nextLayout.horizontalScale / previousLayout.horizontalScale;
@@ -103,10 +105,13 @@ function remapEgg(egg, previousLayout, nextLayout, tilt) {
     // Keep rolling eggs exactly on the resized platform surface. Platform and
     // targetPlatform references are intentionally left untouched.
     if (egg.phase === 'rolling' && egg.platform) {
-        const dx = egg.x - egg.platform.x;
-        const direction = tilt === 'left' ? -1 : 1;
-        const theta = (direction * nextLayout.physics.tiltAngleDeg * Math.PI) / 180;
-        egg.y = egg.platform.y - nextLayout.physics.surfaceOffset + dx * Math.sin(theta);
+        egg.y = platformRestingY(
+            egg.platform,
+            egg.x,
+            config,
+            tilt,
+            nextLayout.physics
+        );
     }
 
     const eggRadius = nextLayout.physics.eggRadius;
@@ -170,7 +175,7 @@ export function relayoutPlatforms(refs, config, state) {
         applyPlatformGeometry(platform, nextLayout);
     }
     for (const egg of state.eggs ?? []) {
-        if (!egg.done) remapEgg(egg, previousLayout, nextLayout, state.tilt);
+        if (!egg.done) remapEgg(egg, previousLayout, nextLayout, state.tilt, config);
     }
     state.fieldLayout = nextLayout;
     return true;

@@ -67,7 +67,7 @@ const CSS = `
 
 .aids-platform-wrap{
   position:absolute; width:84px; height:22px; margin-left:-42px; margin-top:-11px;
-  transform-origin:50% 50%; transition: transform .2s cubic-bezier(.4,1.6,.6,1); z-index:4;
+  transform-origin:50% 50%; z-index:4;
   filter: drop-shadow(0 4px 4px rgba(0,0,0,0.18));
 }
 .aids-platform-wrap.aids-tilt-left{ transform: rotate(-16deg); }
