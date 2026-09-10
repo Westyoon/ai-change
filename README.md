@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 공개된 사후 콘텐츠 4종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`)과 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 대표 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. 기존 `https://ai-change.pages.dev`는 같은 경로의 대표 운영 주소로 302 이동시키는 호환 주소입니다.
+현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 공개된 사후 콘텐츠 4종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`)과 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev` 하나이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. API가 없던 기존 Cloudflare Pages 프로젝트는 2026-09-10에 폐기했습니다.
 
 ## 학과 코드
 
@@ -98,12 +98,10 @@ npm run cf:full:check
 | 통합 Worker | `npm run cf:full:dev` | 로컬 SPA + API + D1 |
 | 통합 Worker | `npm run cf:deploy:production` | 대표 운영 주소의 SPA + API + D1 배포 |
 | 통합 Worker | `npm run cf:full:deploy` | 위 운영 배포가 호출하는 기존 호환 명령 |
-| 정적 Pages | `npm run cf:dev` | 계정 API 없는 로컬 정적 확인 |
-| Pages 호환 주소 | `npm run cf:deploy:pages-redirect` | `ai-change.pages.dev`를 대표 Worker로 경로 보존 302 이동 |
-| 정적 Pages | `npm run cf:deploy:staging` | 기존 Pages preview 배포 |
-| 레거시 Static Worker | `npm run cf:dev:worker`, `cf:deploy:worker:*` | `wrangler.worker.jsonc` 보존 경로 |
+| 단순 정적 서버 | `npm run dev` | 계정 API 없는 UI 로컬 확인 |
+| 레거시 Static Worker | `npm run cf:dev:worker` | `wrangler.worker.jsonc`를 이용한 로컬 호환성 확인만 수행 |
 
-로그인·서버 저장을 사용하는 canonical 주소는 `https://ai-change.ai-change-backend.workers.dev`입니다. `pages-redirect/`는 기존 Pages 주소 전용 산출물이며 공용 `dist/`에는 redirect를 넣지 않습니다. 레거시 정적 배포 명령은 호환성 때문에 남아 있지만 대표 운영 배포에 사용하지 않습니다.
+로그인·서버 저장을 사용하는 canonical 주소는 `https://ai-change.ai-change-backend.workers.dev`입니다. API 없는 공개 정적 배포를 다시 만들지 않도록 Pages와 레거시 Static Worker의 외부 배포 명령을 제거했습니다.
 
 현재 운영 Cloudflare 계정의 Worker와 D1 binding, Google OAuth secret 및 callback 연결을 완료했습니다. secret 값은 저장소에 두지 않으며, 계정 이전·secret 회전·schema 변경 때만 대상 계정과 D1을 다시 확인합니다.
 
@@ -112,7 +110,6 @@ Cloudflare Worker의 `PUBLIC_ORIGIN`은 `https://ai-change.ai-change-backend.wor
 ```bash
 npm run cf:full:check
 npm run cf:deploy:production
-npm run cf:deploy:pages-redirect
 ```
 
 마지막 명령은 기존 Pages 호환 주소의 redirect 규칙을 변경할 때 실행합니다. 운영 migration, `wrangler secret put`, 배포 명령은 원격 상태를 바꾸므로 대상 계정 확인과 개인정보 고지 후 명시적으로 실행합니다.

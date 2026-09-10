@@ -24,13 +24,12 @@ async function exists(relativePath) {
   }
 }
 
-const [packageSource, backendPackageSource, wranglerConfig, buildSource, redirectSource] =
+const [packageSource, backendPackageSource, wranglerConfig, buildSource] =
   await Promise.all([
     read("package.json"),
     read("backend/package.json"),
     read("backend/wrangler.toml"),
     read("scripts/build.mjs"),
-    read("pages-redirect/_redirects"),
   ]);
 
 const rootPackage = JSON.parse(packageSource);
@@ -47,19 +46,18 @@ test("the production command deploys the integrated API-first Worker", () => {
   assert.doesNotMatch(rootPackage.scripts["cf:deploy:production"], /pages deploy/u);
 });
 
-test("the legacy Pages project deploys only a path-preserving temporary redirect", () => {
-  const redirectDeploy = rootPackage.scripts["cf:deploy:pages-redirect"];
-  assert.equal(typeof redirectDeploy, "string");
-  assert.match(redirectDeploy, /pages deploy pages-redirect/u);
-  assert.match(redirectDeploy, /--project-name ai-change(?:\s|$)/u);
-  assert.match(redirectDeploy, /--branch dev(?:\s|$)/u);
-  assert.doesNotMatch(redirectDeploy, /\bdist\b/u);
-
-  const rules = redirectSource
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-  assert.deepEqual(rules, [`/* ${canonicalOrigin}/:splat 302`]);
+test("accountless public deployment shortcuts stay retired", async () => {
+  for (const script of [
+    "cf:deploy:pages-redirect",
+    "cf:deploy:staging",
+    "cf:deploy:worker:production",
+    "cf:deploy:worker:staging",
+    "cf:deploy:temporary",
+  ]) {
+    assert.equal(rootPackage.scripts[script], undefined, `${script} must not recreate a static public app`);
+  }
+  assert.equal(await exists("wrangler.jsonc"), false);
+  assert.equal(await exists("pages-redirect/_redirects"), false);
 });
 
 test("the shared application dist remains free of the Pages-only redirect", async () => {

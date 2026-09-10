@@ -48,7 +48,7 @@ PR #12는 다음 기반을 제공했다.
 - 운영 환경의 `PUBLIC_ORIGIN`은 canonical origin인 `https://ai-change.ai-change-backend.workers.dev`로 설정한다. 다른 host로 직접 접근한 API 요청은 거부한다.
 - 인증 cookie는 `HttpOnly`, 운영 환경 `Secure`, `SameSite=Lax`, `Path=/`로 발급한다.
 - D1에는 원본 session token이 아닌 SHA-256 hash와 만료 시각을 저장한다.
-- 기존 `https://ai-change.pages.dev`는 별도 `pages-redirect/` 산출물로 같은 경로의 canonical Worker 주소에 302 이동한다. 이 규칙은 공용 `dist/`에 넣지 않는다.
+- API 없는 기존 `https://ai-change.pages.dev` 프로젝트와 과거 고정 배포는 폐기했으며 공개 주소는 canonical Worker 하나만 사용한다.
 
 운영 게임과 로그인에 사용하는 주소는 아래 하나다.
 
@@ -56,7 +56,7 @@ PR #12는 다음 기반을 제공했다.
 https://ai-change.ai-change-backend.workers.dev
 ```
 
-2026-09-10에 `/api/session` 대신 SPA HTML을 반환하던 과거 정적 고정 배포 6개를 삭제했다. 대표 주소 `ai-change.pages.dev`와 현재 고정 배포는 모든 경로를 canonical Worker로 302 이동한다. 앞으로도 Pages에는 `pages-redirect/`만 배포하며, API 없는 정적 앱 배포를 다시 만들지 않는다.
+2026-09-10에 `/api/session` 대신 SPA HTML을 반환하던 과거 정적 고정 배포 6개와 Pages 프로젝트 전체를 삭제했다. Pages·레거시 Static Worker의 외부 배포 명령도 제거해 API 없는 공개 앱이 다시 생성되지 않도록 했다.
 
 브라우저 저장소도 origin별로 분리된다. 과거 고정 Pages 주소에서 이미 만든 로컬 진행은 canonical 주소가 자동으로 읽을 수 없다. 배포 링크는 canonical 주소만 안내하며, 과거 주소에 남은 진행을 살려야 할 때는 별도 내보내기·가져오기 절차가 필요하다.
 
@@ -246,6 +246,6 @@ npx wrangler d1 migrations apply ai-change-staging --remote --config wrangler.to
 - [ ] 로그인 취소, 잘못된 `state`, 만료 session, logout, 새로고침, Safari cookie 동작 확인
 - [ ] 로그인 전에 Google 표시 이름의 공개 랭킹 노출과 D1 수집·보관·삭제 범위를 고지하고 동의를 확인
 - [ ] 랭킹 표시 이름이 text로 렌더링되고 email·provider ID가 응답에 없는지 확인
-- [ ] `ai-change.pages.dev`가 같은 경로의 canonical Worker로 302 이동하고 공용 `dist/`에는 redirect가 없는지 확인
+- [ ] 안내 링크·QR이 canonical Worker만 가리키고 폐기한 Pages 주소가 다시 생성되지 않았는지 확인
 - [ ] 운영 이전 완료 후 개인 계정 권한을 제거하고 OAuth secret을 회전
 - [ ] Worker version rollback과 D1 backup 복구 절차를 배포 전에 기록

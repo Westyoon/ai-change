@@ -213,23 +213,24 @@ test("Wrangler serves dist and runs the API before same-origin static assets", (
   assert.match(wranglerConfig, /^\s*migrations_dir\s*=\s*["']migrations["']\s*$/imu);
 });
 
-test("root commands distinguish the full Worker from preserved static deployment paths", () => {
+test("root commands expose one API-first production deployment path", () => {
   assert.equal(rootPackage.scripts["cf:full:dev"], "npm --prefix backend run dev");
   assert.match(rootPackage.scripts["cf:full:check"], /npm --prefix backend run typecheck/u);
   assert.match(rootPackage.scripts["cf:full:deploy"], /npm --prefix backend run deploy/u);
+  assert.equal(rootPackage.scripts["cf:deploy:production"], "npm run cf:full:deploy");
   assert.equal(rootPackage.scripts["cf:full:db:migrate:local"], "npm --prefix backend run db:migrate:local");
   assert.equal(rootPackage.scripts["cf:full:db:migrate:remote"], "npm --prefix backend run db:migrate:remote");
 
   for (const script of [
-    "cf:deploy:production",
+    "cf:deploy:pages-redirect",
     "cf:deploy:staging",
     "cf:deploy:worker:production",
     "cf:deploy:worker:staging",
-    "cf:dev",
-    "cf:dev:worker",
+    "cf:deploy:temporary",
   ]) {
-    assert.equal(typeof rootPackage.scripts[script], "string", `preserved deployment command is missing: ${script}`);
+    assert.equal(rootPackage.scripts[script], undefined, `accountless deployment command remains: ${script}`);
   }
+  assert.equal(typeof rootPackage.scripts["cf:dev:worker"], "string");
   for (const script of ["dev", "deploy", "typecheck", "db:migrate:local", "db:migrate:remote"]) {
     assert.equal(typeof backendPackage.scripts[script], "string", `backend command is missing: ${script}`);
   }

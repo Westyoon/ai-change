@@ -33,7 +33,7 @@ npm run dev
 http://127.0.0.1:4173/
 ```
 
-운영 기능 확인은 canonical 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`에서 수행합니다. `https://ai-change.pages.dev`는 같은 경로로 302 이동하는 호환 주소입니다. Google 로그인 테스트 전에는 계정 ID·이메일·표시 이름이 D1에 저장되고 표시 이름과 게임 기록이 공개 랭킹에 노출된다는 점을 참가자에게 먼저 고지합니다.
+운영 기능 확인은 canonical 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev`에서 수행합니다. 기존 `ai-change.pages.dev` 프로젝트는 폐기했으므로 사용하지 않습니다. Google 로그인 테스트 전에는 계정 ID·이메일·표시 이름이 D1에 저장되고 표시 이름과 게임 기록이 공개 랭킹에 노출된다는 점을 참가자에게 먼저 고지합니다.
 
 환경 변수 `PORT`가 이미 설정된 경우에는 개발 서버가 출력한 주소를 사용합니다. 서버는 실행 중인 PowerShell에서 `Ctrl+C`를 눌러 종료합니다.
 
@@ -115,4 +115,4 @@ Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 publish
 | 키 입력이 동작하지 않음 | 대화·설정·결과 modal을 먼저 닫고 게임 영역에 focus |
 | 모바일 버튼이 보이지 않음 | 브라우저 기기 모드 또는 실제 터치 기기에서 다시 확인 |
 | Battle 카드가 `LOCKED`로 표시됨 | 로컬 기록과 로그인 계정 기록을 합쳐 서로 다른 필수 미니게임 5종을 모두 완료했는지 확인 |
-| 예전 Pages 주소에서 주소가 바뀜 | `ai-change.pages.dev`는 canonical 통합 Worker로 302 이동하는 호환 주소이므로 정상 동작 |
+| 예전 Pages 주소가 열리지 않음 | 해당 프로젝트는 폐기했으므로 canonical 통합 Worker 주소로 다시 접속 |
