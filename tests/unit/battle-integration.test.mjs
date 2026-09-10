@@ -175,9 +175,10 @@ test("festival sprite is enlarged and bottom-anchored independently from its act
 });
 
 test("Battle layouts keep narrow landscapes contained without changing world coordinates", async () => {
-  const [dataSphinxCss, statBossCss] = await Promise.all([
+  const [dataSphinxCss, statBossCss, controlBossCss] = await Promise.all([
     readFile(new URL("../../css/data-sphinx.css", import.meta.url), "utf8"),
     readFile(new URL("../../css/stat-boss.css", import.meta.url), "utf8"),
+    readFile(new URL("../../css/control-boss.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(
@@ -193,4 +194,14 @@ test("Battle layouts keep narrow landscapes contained without changing world coo
     /\.stat-boss-battlefield\s*\{[^}]*width:\s*min\(100%, 960px, max\(480px, calc\(\(100dvh - 520px\) \* 8 \/ 5\)\)\)/su,
   );
   assert.match(statBossCss, /\.stat-boss-arena\s*\{[^}]*aspect-ratio:\s*8 \/ 5/su);
+
+  assert.match(controlBossCss, /\.control-boss-world\s*\{[^}]*aspect-ratio:\s*9 \/ 16/su);
+  assert.match(
+    controlBossCss,
+    /@media \(hover: hover\) and \(pointer: fine\) and \(min-width: 900px\) and \(min-height: 640px\)\s*\{[\s\S]*?grid-template-areas:\s*"header header"\s*"world boss"\s*"world player"\s*"world status";/u,
+  );
+  assert.match(
+    controlBossCss,
+    /@media \(orientation: landscape\) and \(max-height: 560px\)\s*\{[\s\S]*?\.control-boss-stage\s*\{[^}]*minmax\(140px, 1fr\)[^}]*overflow-y:\s*auto;/u,
+  );
 });

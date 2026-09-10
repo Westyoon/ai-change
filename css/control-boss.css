@@ -337,6 +337,97 @@
   }
 }
 
+/* Keep the original 450x800 world and its collision projection intact, but
+ * give it the full available desktop height. Moving the compact HUDs into a
+ * side rail makes the portrait arena visibly larger without stretching it. */
+@media (hover: hover) and (pointer: fine) and (min-width: 900px) and (min-height: 640px) {
+  .control-boss-stage {
+    grid-template-areas:
+      "header header"
+      "world boss"
+      "world player"
+      "world status";
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .control-boss-header {
+    grid-area: header;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+  }
+
+  .control-boss-hud {
+    grid-area: boss;
+    align-self: start;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+  }
+
+  .control-boss-player-hud {
+    grid-area: player;
+    align-self: start;
+    border: 1px solid #d3f9d8;
+    border-radius: 10px;
+  }
+
+  .control-boss-world {
+    grid-area: world;
+    align-self: stretch;
+    height: 100%;
+  }
+
+  .control-boss-status {
+    grid-area: status;
+    display: grid;
+    min-height: 0;
+    margin: 0;
+    place-items: center;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+  }
+}
+
+/* Short landscape screens cannot satisfy the ordinary 300px arena row plus
+ * every HUD row. Keep every control reachable inside this Battle instead of
+ * clipping the status or touch controls at the host boundary. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .control-boss-stage {
+    grid-template-rows: auto auto auto minmax(140px, 1fr) auto auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .control-boss-header {
+    padding-block: 5px;
+  }
+
+  .control-boss-hud {
+    gap: 2px;
+    padding-block: 3px;
+  }
+
+  .control-boss-player-hud {
+    padding-block: 2px;
+  }
+
+  .control-boss-world {
+    min-height: 140px;
+  }
+
+  .control-boss-status {
+    min-height: 28px;
+    padding-block: 4px;
+  }
+
+  .control-boss-touch-controls {
+    min-height: 72px;
+    padding-block: 4px 6px;
+  }
+}
+
 @media (max-width: 480px) {
   .control-boss-stage {
     gap: 4px;
