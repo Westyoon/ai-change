@@ -16,25 +16,27 @@
 
 :root {
   color-scheme: dark;
-  --bg: #edced9;
-  --surface: #392235;
-  --surface-strong: #4c2945;
-  --surface-soft: #633653;
-  --line: #f1a4c4;
-  --line-strong: #6d3856;
-  --text: #fffaf6;
-  --muted: #efcbd9;
-  --paper: #fff8f2;
-  --paper-soft: #ffe4ed;
-  --ink: #2b1826;
-  --ink-muted: #765267;
-  --accent: #e95f9d;
-  --accent-strong: #c72d72;
-  --accent-warm: #ec7b00;
+  --bg: #f2d5e4;
+  --surface: #363367;
+  --surface-strong: #48457d;
+  --surface-soft: #5b5795;
+  --line: #e333bb;
+  --line-strong: #363367;
+  --text: #ffffff;
+  --muted: #dedcf2;
+  --paper: #fff7fc;
+  --paper-soft: #f9ddec;
+  --ink: #272347;
+  --ink-muted: #685b7c;
+  --accent: #d82f76;
+  --accent-strong: #a8205b;
+  --accent-alt: #e333bb;
+  --accent-cyan: #2ab5e4;
+  --accent-warm: #a8205b;
   --danger: #dd2c3e;
   --warning: #fac804;
-  --focus: #fac804;
-  --shadow: 0 22px 60px rgb(63 25 49 / 30%);
+  --focus: #2ab5e4;
+  --shadow: 0 22px 60px rgb(54 51 103 / 30%);
   --radius: 24px;
   --pixel-border: 3px;
   --font-display: Galmuri11, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
@@ -59,24 +61,24 @@ body {
   overflow-x: hidden;
   color: var(--text);
   background:
-    radial-gradient(circle at 50% 20%, rgb(255 250 246 / 42%), transparent 48rem),
+    radial-gradient(circle at 50% 20%, rgb(255 250 255 / 50%), transparent 48rem),
     repeating-linear-gradient(
       0deg,
       transparent 0 44px,
-      rgb(105 51 79 / 18%) 44px 51px,
+      rgb(54 51 103 / 18%) 44px 51px,
       transparent 51px 91px,
-      rgb(255 250 246 / 38%) 91px 96px,
+      rgb(227 51 187 / 16%) 91px 96px,
       transparent 96px 140px
     ),
     repeating-linear-gradient(
       90deg,
       transparent 0 44px,
-      rgb(105 51 79 / 18%) 44px 51px,
+      rgb(54 51 103 / 18%) 44px 51px,
       transparent 51px 91px,
-      rgb(255 250 246 / 38%) 91px 96px,
+      rgb(216 47 118 / 15%) 91px 96px,
       transparent 96px 140px
     ),
-    repeating-linear-gradient(135deg, rgb(72 35 55 / 7%) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(135deg, rgb(42 181 228 / 8%) 0 1px, transparent 1px 4px),
     var(--bg);
   background-attachment: fixed;
 }
@@ -97,6 +99,7 @@ input:focus-visible,
 [tabindex]:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--surface);
 }
 
 .app-shell {
@@ -123,8 +126,8 @@ input:focus-visible,
   border: 3px solid var(--line-strong);
   border-radius: 20px;
   color: var(--ink-muted);
-  background: rgb(255 248 242 / 92%);
-  box-shadow: 0 7px 0 rgb(109 56 86 / 28%);
+  background: rgb(255 247 252 / 94%);
+  box-shadow: 0 7px 0 rgb(54 51 103 / 28%);
   backdrop-filter: blur(8px);
 }
 
@@ -142,7 +145,7 @@ input:focus-visible,
   display: block;
   width: clamp(70px, 7vw, 88px);
   height: auto;
-  filter: drop-shadow(0 3px 0 rgb(43 24 38 / 18%));
+  filter: drop-shadow(0 3px 0 rgb(54 51 103 / 18%));
 }
 
 .brand-mark__name {
@@ -190,10 +193,10 @@ input:focus-visible,
   border: var(--pixel-border) solid var(--line);
   border-radius: var(--radius);
   background:
-    radial-gradient(circle at 12% 0%, rgb(233 95 157 / 14%), transparent 24rem),
-    radial-gradient(circle at 88% 100%, rgb(250 200 4 / 7%), transparent 20rem),
-    linear-gradient(145deg, rgb(76 41 69 / 98%), rgb(43 24 38 / 98%));
-  box-shadow: var(--shadow), 8px 8px 0 rgb(109 56 86 / 34%);
+    radial-gradient(circle at 12% 0%, rgb(227 51 187 / 18%), transparent 24rem),
+    radial-gradient(circle at 88% 100%, rgb(42 181 228 / 12%), transparent 20rem),
+    linear-gradient(145deg, rgb(54 51 103 / 99%), rgb(35 31 74 / 99%));
+  box-shadow: var(--shadow), 8px 8px 0 rgb(54 51 103 / 34%);
   animation: scene-in 180ms ease-out both;
 }
 
@@ -248,11 +251,11 @@ input:focus-visible,
 
 .eyebrow {
   margin: 0 0 12px;
-  color: var(--warning);
+  color: var(--accent-cyan);
   font-size: 0.8rem;
   font-weight: 900;
   letter-spacing: 0.18em;
-  text-shadow: 0 2px 0 var(--accent-warm);
+  text-shadow: 0 2px 0 rgb(35 31 74 / 85%);
 }
 
 .muted {
@@ -329,14 +332,14 @@ input:focus-visible,
 }
 
 .button--primary {
-  border-color: #ffb5d2;
-  color: var(--ink);
+  border-color: var(--accent-alt);
+  color: var(--text);
   background: var(--accent);
 }
 
 .button--primary:hover {
-  color: var(--ink);
-  background: #f779af;
+  color: var(--text);
+  background: var(--accent-strong);
 }
 
 .button--danger {
@@ -424,7 +427,12 @@ button.menu-card {
 .loading-bar {
   width: 0;
   height: 100%;
-  background: repeating-linear-gradient(90deg, var(--accent) 0 16px, var(--warning) 16px 22px);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--accent) 0 14px,
+    var(--accent-alt) 14px 20px,
+    var(--accent-cyan) 20px 26px
+  );
   transition: width 160ms ease;
 }
 

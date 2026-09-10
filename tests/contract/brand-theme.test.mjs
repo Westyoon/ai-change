@@ -37,7 +37,13 @@ test("the shared theme uses the logo palette, responsive plaid, and self-hosted 
 
   assert.match(common, /@font-face\s*\{[\s\S]*?Galmuri11\.woff2/u);
   assert.match(common, /@font-face\s*\{[\s\S]*?Galmuri11-Bold\.woff2/u);
-  assert.match(common, /--accent:\s*#e95f9d/u);
+  assert.match(common, /--accent:\s*#d82f76/u);
+  assert.match(common, /--accent-alt:\s*#e333bb/u);
+  assert.match(common, /--surface:\s*#363367/u);
+  assert.match(common, /--accent-cyan:\s*#2ab5e4/u);
+  assert.match(common, /--text:\s*#ffffff/u);
+  assert.match(common, /button--primary:hover\s*\{[\s\S]*?background:\s*var\(--accent-strong\)/u);
+  assert.match(common, /\[tabindex\]:focus-visible\s*\{[\s\S]*?box-shadow:\s*0 0 0 6px var\(--surface\)/u);
   assert.match(common, /repeating-linear-gradient\(\s*0deg/u);
   assert.match(common, /repeating-linear-gradient\(\s*90deg/u);
   assert.match(common, /\.scene-brand-logo\s*\{[\s\S]*?height:\s*auto/u);

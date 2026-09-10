@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "NARRATIVE_READY",
   "scripts": [
     {
       "id": "ai-npc-first",
@@ -10,7 +10,19 @@
         {
           "speaker": "인공지능",
           "portraitAssetId": null,
-          "text": "AI 미니게임을 소개할게요. 목표 이미지를 보고 공을 분류해 보세요."
+          "stageDirection": "강의 자료 옆으로 새로운 기술을 소개하는 창들이 끊임없이 나타납니다.",
+          "text": "어제 배운 것도 아직 모르겠는데, 또 새로운 게 나왔대."
+        },
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "text": "AI는 답을 내놓는데, 나는 왜 그 답인지 설명도 못 하겠어."
+        },
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "stageDirection": "쌓인 창들이 캐릭터를 에워싸고 마음의 알 위로 X표가 나타납니다.",
+          "text": "졸업할 때쯤엔… 내가 할 수 있는 일이 남아 있을까."
         }
       ],
       "nextAction": {
@@ -42,7 +54,19 @@
         {
           "speaker": "데이터사이언스",
           "portraitAssetId": null,
-          "text": "데이터를 관찰하고 숫자 패턴을 추론하는 미니게임을 만나 보세요."
+          "stageDirection": "분석 그래프 옆 진로 검색창에서 빈 커서만 깜빡입니다.",
+          "text": "데이터에서는 답을 찾으라는데… 내 미래는 뭘 봐야 알 수 있어?"
+        },
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "text": "친구들은 인턴도 정했는데, 난 무슨 일을 하고 싶은지도 몰라."
+        },
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "stageDirection": "주변의 그래프가 흐트러지고 마음의 알에 X표가 새겨집니다.",
+          "text": "성적이라도 잘 받으면 좀 괜찮아질 줄 알았는데."
         }
       ],
       "nextAction": {
@@ -72,9 +96,21 @@
       "skippable": true,
       "lines": [
         {
-          "speaker": "컴공",
+          "speaker": "컴퓨터공학",
           "portraitAssetId": null,
-          "text": "개발 재료를 순서대로 조합하는 Code Heart를 소개할게요."
+          "stageDirection": "모니터의 오류 메시지가 하나둘 화면 밖으로 번져 나옵니다.",
+          "text": "이 오류 하나 때문에 오늘도 아무것도 못 끝냈어."
+        },
+        {
+          "speaker": "컴퓨터공학",
+          "portraitAssetId": null,
+          "text": "다들 다음 과제 하고 있는데, 나만 아직 여기야."
+        },
+        {
+          "speaker": "컴퓨터공학",
+          "portraitAssetId": null,
+          "stageDirection": "마음의 알이 검게 물들고 그 위에 X표가 새겨집니다.",
+          "text": "아무리 노력해도… 도저히 따라갈 수 없으면 어떡하지? 이것만으론 안 되나 봐."
         }
       ],
       "nextAction": {
@@ -106,7 +142,19 @@
         {
           "speaker": "사이버보안",
           "portraitAssetId": null,
-          "text": "위협을 살펴보고 알맞은 순간에 정화하는 미니게임을 만나 보세요."
+          "stageDirection": "실습 결과와 점검 목록 위로 놓친 항목이 붉게 표시됩니다.",
+          "text": "분명 다 확인했는데… 또 놓친 게 있대."
+        },
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "text": "내 실수 하나로 팀 과제가 잘못될까 봐 무서워."
+        },
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "stageDirection": "경고창이 겹겹이 쌓이고 마음의 알 위로 X표가 나타납니다.",
+          "text": "나도 확신이 없는데… 나중에 누구를 지킬 수 있겠어."
         }
       ],
       "nextAction": {
@@ -136,9 +184,21 @@
       "skippable": true,
       "lines": [
         {
-          "speaker": "인데부",
+          "speaker": "인공지능데이터사이언스",
           "portraitAssetId": null,
-          "text": "인지알과 데사알을 알맞은 상자로 분류해 보세요."
+          "stageDirection": "두 방향으로 뻗은 길 앞에서 어느 쪽으로도 발을 내딛지 못합니다.",
+          "text": "AI도 데이터도… 뭘 잘하냐고 하면 말이 안 나와."
+        },
+        {
+          "speaker": "인공지능데이터사이언스",
+          "portraitAssetId": null,
+          "text": "어느 쪽을 골라도, 다른 사람들보다 모자란 것 같아."
+        },
+        {
+          "speaker": "인공지능데이터사이언스",
+          "portraitAssetId": null,
+          "stageDirection": "두 갈래 길이 어둠에 잠기고 마음의 알 위로 X표가 나타납니다.",
+          "text": "어느 길도 못 고른 채 시간만 보내고 있는 걸까."
         }
       ],
       "nextAction": {

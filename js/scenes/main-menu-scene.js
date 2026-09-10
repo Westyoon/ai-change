@@ -69,7 +69,7 @@ export function createMainMenuScene(context) {
             ? `해금된 사후 콘텐츠 ${publishedBattles.length}종에 도전합니다.`
             : "학과 미니게임 5종을 모두 클리어하면 열립니다.";
         const cards = [
-          menuCard("스토리 시작", "인트로에서 학과 맵과 5개 모듈 연결을 확인합니다.", () => context.router.navigate("story-intro")),
+          menuCard("게임 시작", "마음의 알 인트로를 보고 다섯 학과의 수호알을 찾아갑니다.", () => context.router.navigate("story-intro")),
           menuCard("배틀", battleDescription, () => context.router.navigate("battle"), battleBadge),
           menuCard("내 계정", accountDescription, () => context.router.navigate("account"), account.authenticated ? "SIGNED IN" : "LOGIN"),
           menuCard("랭킹보드", "최고 점수와 누적 클리어 순위를 확인합니다.", () => context.router.navigate("ranking")),

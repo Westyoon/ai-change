@@ -10,7 +10,7 @@ async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
 }
 
-test("every department map card launches its registered mini-game directly", async () => {
+test("every department map card opens its registered NPC story before the mini-game", async () => {
   const [mapDocument, registryDocument] = await Promise.all([
     readJson("../../data/map-data.json"),
     readJson("../../data/minigames.json"),
@@ -22,14 +22,14 @@ test("every department map card launches its registered mini-game directly", asy
   for (const npc of npcs) {
     assert.ok(registeredIds.has(npc.miniGameId), `${npc.id} mini-game registration`);
     assert.deepEqual(getMapCardDestination(npc), {
-      sceneId: "minigame",
-      params: { miniGameId: npc.miniGameId },
+      sceneId: "dialogue",
+      params: { npcId: npc.id },
     });
   }
 });
 
-test("a map card without a mini-game cannot create a direct route", () => {
-  assert.throws(() => getMapCardDestination({ id: "broken-card" }), /miniGameId/u);
+test("a map card without an NPC id cannot create a story route", () => {
+  assert.throws(() => getMapCardDestination({ miniGameId: "broken-card" }), /id/u);
 });
 
 test("rapid repeated map selections launch only the first department game", () => {
@@ -43,10 +43,10 @@ test("rapid repeated map selections launch only the first department game", () =
     },
   });
 
-  assert.equal(launch({ miniGameId: "cyber-click-to-purify" }), true);
-  assert.equal(launch({ miniGameId: "ai-ball-classification" }), false);
+  assert.equal(launch({ id: "npc-cs", miniGameId: "cyber-click-to-purify" }), true);
+  assert.equal(launch({ id: "npc-ai", miniGameId: "ai-ball-classification" }), false);
   assert.deepEqual(navigations, [{
-    sceneId: "minigame",
-    params: { miniGameId: "cyber-click-to-purify" },
+    sceneId: "dialogue",
+    params: { npcId: "npc-cs" },
   }]);
 });

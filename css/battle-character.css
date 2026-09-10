@@ -43,8 +43,8 @@
   overflow: hidden;
   border: var(--pixel-border) solid var(--line);
   border-radius: 20px;
-  background: #2b1826;
-  box-shadow: var(--shadow), 7px 7px 0 rgb(109 56 86 / 35%);
+  background: #272347;
+  box-shadow: var(--shadow), 7px 7px 0 rgb(54 51 103 / 35%);
 }
 
 .character-hud {
@@ -57,7 +57,7 @@
   min-height: 54px;
   padding: 9px 12px;
   border-bottom: 2px solid var(--line);
-  background: rgb(43 24 38 / 92%);
+  background: rgb(35 31 74 / 92%);
 }
 
 .character-health {

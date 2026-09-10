@@ -1,12 +1,27 @@
 {
   "schemaVersion": 1,
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "NARRATIVE_READY",
   "scripts": [
     {
       "id": "data-number-baseball-clear",
       "type": "dialogue",
       "skippable": true,
-      "lines": [{"speaker": "데이터사이언스", "portraitAssetId": null, "text": "숫자 야구를 완료했습니다."}],
+      "lines": [
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "stageDirection": "흐트러졌던 화면이 차분해지고 X표가 빛의 입자로 흩어집니다.",
+          "text": "난 정해진 답보다, 몰랐던 걸 발견할 때 즐거웠어."
+        },
+        { "speaker": "데이터사이언스", "portraitAssetId": null, "text": "그런데 내 미래에만 당장 정답을 내놓으라고 하고 있었네." },
+        { "speaker": "데이터사이언스", "portraitAssetId": null, "text": "아직 잘 모르겠는 나로, 조금 더 알아가 보고 싶어." },
+        {
+          "speaker": "수호알",
+          "portraitLabel": "✦",
+          "stageDirection": "데이터사이언스의 꽃잎 자물쇠가 빛납니다.",
+          "text": "데이터사이언스 수호알 획득! 수호캐릭터가 함께합니다."
+        }
+      ],
       "nextAction": {"type": "returnToMap"}
     },
     {
@@ -20,7 +35,22 @@
       "id": "cyber-click-to-purify-clear",
       "type": "dialogue",
       "skippable": true,
-      "lines": [{"speaker": "사이버보안", "portraitAssetId": null, "text": "위협 정화를 완료했습니다."}],
+      "lines": [
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "stageDirection": "겹겹이 쌓였던 경고창이 사라지고 수호알이 떠오릅니다.",
+          "text": "처음엔 누군가 안심할 수 있게 돕고 싶었어."
+        },
+        { "speaker": "사이버보안", "portraitAssetId": null, "text": "처음부터 혼자 다 책임져야 하는 건 아니었는데." },
+        { "speaker": "사이버보안", "portraitAssetId": null, "text": "모르는 건 같이 확인하면서, 지키는 법을 배워갈래." },
+        {
+          "speaker": "수호알",
+          "portraitLabel": "✦",
+          "stageDirection": "사이버보안의 꽃잎 자물쇠가 빛납니다.",
+          "text": "사이버보안 수호알 획득! 수호캐릭터가 함께합니다."
+        }
+      ],
       "nextAction": {"type": "returnToMap"}
     },
     {
@@ -34,7 +64,22 @@
       "id": "computer-code-heart-clear",
       "type": "dialogue",
       "skippable": true,
-      "lines": [{"speaker": "컴공", "portraitAssetId": null, "text": "Code Heart를 완료했습니다."}],
+      "lines": [
+        {
+          "speaker": "컴퓨터공학",
+          "portraitAssetId": null,
+          "stageDirection": "오류 메시지가 사라지고 X표가 빛의 입자로 흩어집니다.",
+          "text": "…내가 만든 게 처음 움직였을 때, 정말 신났었는데."
+        },
+        { "speaker": "컴퓨터공학", "portraitAssetId": null, "text": "언제부턴가 남들보다 못한다는 생각만 남아 있었어." },
+        { "speaker": "컴퓨터공학", "portraitAssetId": null, "text": "아직 막히는 건 많지만… 만들고 싶은 건 여전히 있어." },
+        {
+          "speaker": "수호알",
+          "portraitLabel": "✦",
+          "stageDirection": "컴퓨터공학의 꽃잎 자물쇠가 빛납니다.",
+          "text": "컴퓨터공학 수호알 획득! 수호캐릭터가 함께합니다."
+        }
+      ],
       "nextAction": {"type": "returnToMap"}
     },
     {
@@ -48,7 +93,22 @@
       "id": "ai-ball-classification-clear",
       "type": "dialogue",
       "skippable": true,
-      "lines": [{"speaker": "인공지능", "portraitAssetId": null, "text": "공 분류를 완료했습니다."}],
+      "lines": [
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "stageDirection": "캐릭터를 에워싸던 창들이 사라지고 마음의 알이 빛을 되찾습니다.",
+          "text": "처음엔 ‘이런 것도 만들 수 있을까?’ 궁금해서 시작했어."
+        },
+        { "speaker": "인공지능", "portraitAssetId": null, "text": "따라잡아야 한다는 생각에, 내가 궁금했던 걸 잊었네." },
+        { "speaker": "인공지능", "portraitAssetId": null, "text": "아직 모르는 건 많지만… 그 질문부터 다시 꺼내볼래." },
+        {
+          "speaker": "수호알",
+          "portraitLabel": "✦",
+          "stageDirection": "인공지능의 꽃잎 자물쇠가 빛납니다.",
+          "text": "인공지능 수호알 획득! 수호캐릭터가 함께합니다."
+        }
+      ],
       "nextAction": {"type": "returnToMap"}
     },
     {
@@ -62,7 +122,22 @@
       "id": "ai-data-egg-sort-clear",
       "type": "dialogue",
       "skippable": true,
-      "lines": [{"speaker": "인데부", "portraitAssetId": null, "text": "알 분류를 완료했습니다."}],
+      "lines": [
+        {
+          "speaker": "인공지능데이터사이언스",
+          "portraitAssetId": null,
+          "stageDirection": "두 갈래 길을 가리던 어둠이 걷히고 X표가 빛의 입자로 흩어집니다.",
+          "text": "둘 다 궁금해서 여기까지 왔던 거였는데."
+        },
+        { "speaker": "인공지능데이터사이언스", "portraitAssetId": null, "text": "아직 못 고른 게 아니라, 더 알아보고 있었던 걸지도 몰라." },
+        { "speaker": "인공지능데이터사이언스", "portraitAssetId": null, "text": "조금만 더 고민해서, 내가 하고 싶은 걸 하나씩 찾아갈래." },
+        {
+          "speaker": "수호알",
+          "portraitLabel": "✦",
+          "stageDirection": "인공지능데이터사이언스의 꽃잎 자물쇠가 빛납니다.",
+          "text": "인공지능데이터사이언스 수호알 획득! 수호캐릭터가 함께합니다."
+        }
+      ],
       "nextAction": {"type": "returnToMap"}
     },
     {

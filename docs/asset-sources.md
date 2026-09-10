@@ -14,9 +14,9 @@
 | `CONTENT-COMMON-002` | `data/minigames.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 미니게임 registry 스캐폴드 작성 | 미니게임 메뉴·진입 |
 | `CONTENT-COMMON-003` | `data/battles.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 운영 사후 콘텐츠 4종과 5종 완료 해금 조건 등록 | Battle 목록·해금 판정 |
 | `CONTENT-COMMON-004` | `data/map-data.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 학과 NPC를 임시 좌표에 배치 | 축제 맵 스캐폴드 |
-| `CONTENT-COMMON-005` | `data/scripts/main-story.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 개발용 인트로 한 줄 작성 | Story intro |
-| `CONTENT-COMMON-006` | `data/scripts/npc-dialogues.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | NPC 최초·재방문 및 게임 안내 문구 작성 | NPC·미니게임 안내 대화 |
-| `CONTENT-COMMON-007` | `data/scripts/minigame-outros.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 성공·실패 개발용 문구 작성 | 결과 이후 outro |
+| `CONTENT-COMMON-005` | `data/scripts/main-story.json` | JSON 대사 | 사용자 제공 축제 스토리 원고 | 해당 없음 | 프로젝트 내부 사용 전제, 공개 전 등장인물 명칭 권리 확인 필요 | 12단계 인트로와 후속 최종전·아웃트로 원고를 런타임 데이터로 구조화 | Story intro 및 후속 스토리 준비 |
+| `CONTENT-COMMON-006` | `data/scripts/npc-dialogues.json` | JSON 대사 | 사용자 제공 축제 스토리 원고 | 해당 없음 | 프로젝트 내부 사용 전제 | 학과별 게임 전 고민 3문장, 재방문·게임 안내 문구 구조화 | NPC·미니게임 안내 대화 |
+| `CONTENT-COMMON-007` | `data/scripts/minigame-outros.json` | JSON 대사 | 사용자 제공 축제 스토리 원고 | 해당 없음 | 프로젝트 내부 사용 전제 | 학과별 회복 3문장과 수호알 획득 안내, 기존 실패 문구 구조화 | 결과 이후 outro |
 | `CONTENT-DS-001` | `data/minigames/number-baseball.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | DS 숫자 야구 |
 | `CONTENT-CS-001` | `data/minigames/click-to-purify.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | CS CLICK to PURIFY |
 | `CONTENT-CSE-001` | `data/minigames/code-heart.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | CSE Code Heart |
