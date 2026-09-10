@@ -314,11 +314,12 @@ export class AccountService {
     } catch (error) {
       const wrongHost = error instanceof AccountServiceError
         && (error.status === 403 || error.code === "INVALID_RESPONSE");
+      const requestError = error instanceof AccountServiceError ? error.message : null;
       const unavailable = guestState({
         available: false,
         error: wrongHost
           ? "현재 주소에는 계정 서버가 연결되어 있지 않습니다. 운영 주소에서 다시 열어 주세요."
-          : "계정 서버에 연결할 수 없습니다. 게임은 게스트로 계속할 수 있습니다.",
+          : `${requestError ?? "계정 서버에 연결할 수 없습니다."} 게임은 게스트로 계속할 수 있습니다.`,
       });
       if (authGeneration !== this.#authGeneration) return this.#state;
       if (this.#state.authenticated) this.#authGeneration += 1;

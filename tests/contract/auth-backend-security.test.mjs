@@ -162,6 +162,14 @@ test("OAuth state and hashed, expiring server sessions are enforced", () => {
   assert.match(workerSource, /Path=\/;[\s\S]{0,80}HttpOnly;[\s\S]{0,80}SameSite=Lax/u);
   assert.match(workerSource, /protocol\s*===\s*["']https:["'][\s\S]{0,80}["']; Secure["']/u);
   assert.doesNotMatch(workerSource, /sessionCookie\s*\(\s*userId\b/u);
+  const sessionCookieIndex = callback.indexOf("sessionCookie(request, sessionToken");
+  const stateCleanupCookieIndex = callback.indexOf('stateCookie("", request, 0)');
+  assert.ok(
+    sessionCookieIndex >= 0
+      && stateCleanupCookieIndex >= 0
+      && sessionCookieIndex < stateCleanupCookieIndex,
+    "the login session cookie must be emitted before the OAuth state cleanup cookie",
+  );
 });
 
 test("ranking returns display data rather than provider identity", () => {

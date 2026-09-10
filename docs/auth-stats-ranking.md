@@ -56,9 +56,11 @@ PR #12는 다음 기반을 제공했다.
 https://ai-change.ai-change-backend.workers.dev
 ```
 
-`https://<해시>.ai-change.pages.dev` 형태의 과거 고정 배포는 배포 당시 정적 파일을 계속 제공하는 별도 origin이다. 이 주소의 `/api/session`은 계정 JSON이 아니라 SPA HTML을 반환할 수 있고, Worker가 발급한 host 전용 cookie도 공유할 수 없다. 따라서 callback 뒤에도 게스트로 표시될 수 있다. 대표 주소 `ai-change.pages.dev`의 redirect와 과거 고정 배포 주소를 같은 것으로 취급하지 않는다.
+2026-09-10에 `/api/session` 대신 SPA HTML을 반환하던 과거 정적 고정 배포 6개를 삭제했다. 대표 주소 `ai-change.pages.dev`와 현재 고정 배포는 모든 경로를 canonical Worker로 302 이동한다. 앞으로도 Pages에는 `pages-redirect/`만 배포하며, API 없는 정적 앱 배포를 다시 만들지 않는다.
 
 브라우저 저장소도 origin별로 분리된다. 과거 고정 Pages 주소에서 이미 만든 로컬 진행은 canonical 주소가 자동으로 읽을 수 없다. 배포 링크는 canonical 주소만 안내하며, 과거 주소에 남은 진행을 살려야 할 때는 별도 내보내기·가져오기 절차가 필요하다.
+
+Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 네트워크 지연을 견디도록 `/api/session`을 150ms, 500ms, 1,000ms 간격으로 다시 확인한다. 성공 callback에서는 로그인 session cookie를 OAuth state 삭제 cookie보다 먼저 전송하며, `__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` 속성은 그대로 유지한다.
 
 ## 4. API 계약
 

@@ -118,7 +118,9 @@ export function createAccountScene(context) {
             nodes.push(notice("Google 로그인이 확인되었습니다. 계정 정보를 불러왔습니다."));
           } else {
             nodes.push(notice(
-              "Google 인증 응답은 받았지만 로그인 세션을 확인하지 못했습니다. 운영 주소에서 다시 로그인해 주세요.",
+              state.available
+                ? "Google 인증은 완료됐지만 이 브라우저에서 로그인 세션을 찾지 못했습니다. 아래 버튼으로 다시 로그인해 주세요."
+                : "Google 인증은 완료됐지만 계정 서버 확인이 지연되고 있습니다. 잠시 뒤 연결을 다시 확인해 주세요.",
               "error",
             ));
           }

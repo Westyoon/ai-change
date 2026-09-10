@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AccountService } from "../../js/core/account-service.js";
-import { consumeAuthCallback } from "../../js/scenes/loading-scene.js";
+import {
+  consumeAuthCallback,
+  refreshSessionAfterAuth,
+} from "../../js/scenes/loading-scene.js";
 
 function jsonResponse(payload, status = 200) {
   return {
@@ -92,6 +95,45 @@ test("session restore falls back to a playable guest state when the API is unava
   assert.equal(state.status, "unavailable");
   assert.match(state.error, /게스트/u);
   assert.deepEqual(observed, ["idle", "loading", "unavailable"]);
+});
+
+test("session restore preserves a useful server failure message", async () => {
+  const mock = queuedFetch([jsonResponse({ error: "Internal Server Error" }, 500)]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+
+  const state = await service.refreshSession();
+
+  assert.equal(state.status, "unavailable");
+  assert.match(state.error, /잠시 응답하지 않습니다/u);
+});
+
+test("a successful OAuth callback retries session discovery until the cookie is visible", async () => {
+  const states = [
+    { authenticated: false, status: "unavailable" },
+    { authenticated: false, status: "guest" },
+    { authenticated: true, status: "authenticated" },
+  ];
+  const calls = [];
+  const waited = [];
+  const service = {
+    async refreshSession() {
+      calls.push("refresh");
+      return states.shift();
+    },
+  };
+
+  const state = await refreshSessionAfterAuth(service, {
+    authCallback: true,
+    retryDelaysMs: [150, 500, 1_000],
+    wait: async (delayMs) => {
+      waited.push(delayMs);
+      return true;
+    },
+  });
+
+  assert.equal(state.authenticated, true);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(waited, [150, 500]);
 });
 
 test("an unauthenticated session remains a normal available guest", async () => {

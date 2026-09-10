@@ -26,6 +26,24 @@ function progressPercent(progress) {
 }
 
 const AUTH_QUERY_KEYS = Object.freeze(["login", "error", "auth_error", "reason", "error_description"]);
+const AUTH_SESSION_RETRY_DELAYS_MS = Object.freeze([150, 500, 1_000]);
+
+function waitForAuthRetry(delayMs, signal) {
+  if (signal?.aborted) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (shouldContinue) => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timeoutId);
+      signal?.removeEventListener?.("abort", abort);
+      resolve(shouldContinue);
+    };
+    const abort = () => finish(false);
+    const timeoutId = globalThis.setTimeout(() => finish(true), delayMs);
+    signal?.addEventListener?.("abort", abort, { once: true });
+  });
+}
 
 function authErrorMessage(code) {
   if (code === "access_denied" || code === "cancelled") {
@@ -63,6 +81,26 @@ export function consumeAuthCallback(locationRef = globalThis.location, historyRe
   });
 }
 
+export async function refreshSessionAfterAuth(
+  service,
+  {
+    authCallback = false,
+    signal = null,
+    wait = waitForAuthRetry,
+    retryDelaysMs = AUTH_SESSION_RETRY_DELAYS_MS,
+  } = {},
+) {
+  let state = await service.refreshSession();
+  if (!authCallback) return state;
+
+  for (const delayMs of retryDelaysMs) {
+    if (state.authenticated || signal?.aborted) return state;
+    if (!await wait(delayMs, signal)) return state;
+    state = await service.refreshSession();
+  }
+  return state;
+}
+
 export function createLoadingScene(context) {
   let mounted = false;
 
@@ -70,7 +108,10 @@ export function createLoadingScene(context) {
     async mount(root, _params, { signal }) {
       mounted = true;
       const authCallback = consumeAuthCallback();
-      const sessionRefresh = context.services.account.refreshSession();
+      const sessionRefresh = refreshSessionAfterAuth(context.services.account, {
+        authCallback: authCallback?.authCallback === "success",
+        signal,
+      });
       root.setAttribute("aria-busy", "true");
       const scene = createScene({
         className: "scene--centered",

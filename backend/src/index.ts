@@ -364,8 +364,8 @@ async function finishGoogleLogin(request: Request, env: Env, origin: string): Pr
     ]);
 
     const response = oauthRedirect(origin);
-    response.headers.append("Set-Cookie", stateCookie("", request, 0));
     response.headers.append("Set-Cookie", sessionCookie(request, sessionToken, SESSION_TTL_SECONDS));
+    response.headers.append("Set-Cookie", stateCookie("", request, 0));
     return response;
   } catch (error) {
     console.error("OAuth callback failed", error instanceof Error ? error.message : "unknown error");
