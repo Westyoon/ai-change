@@ -35,15 +35,32 @@ function metricsSnapshot(metrics) {
   });
 }
 
+function shuffledQuizList(quizList, random) {
+  const shuffled = [...quizList];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const sample = Number(random());
+    if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+      throw new RangeError("Data Sphinx random source must return a number from 0 up to 1.");
+    }
+    const swapIndex = Math.floor(sample * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 /** Pure O/X timing and damage rules. Character movement and DOM stay outside. */
 export class DataSphinxEncounter {
-  constructor({ config, onEvent = null, onComplete = null } = {}) {
+  constructor({ config, onEvent = null, onComplete = null, random = Math.random } = {}) {
     if (!config?.quizList?.length) {
       throw new TypeError("DataSphinxEncounter requires normalized config.");
+    }
+    if (typeof random !== "function") {
+      throw new TypeError("DataSphinxEncounter random must be a function.");
     }
     this.config = config;
     this.onEvent = typeof onEvent === "function" ? onEvent : null;
     this.onComplete = typeof onComplete === "function" ? onComplete : null;
+    this.random = random;
     this.state = DATA_SPHINX_STATES.CREATED;
     this.completedAttemptIds = new Set();
     this.currentAttemptId = null;
@@ -69,6 +86,7 @@ export class DataSphinxEncounter {
       throw new Error(`Data Sphinx attemptId was already completed: ${nextAttemptId}.`);
     }
     this.currentAttemptId = nextAttemptId;
+    this.quizOrder = shuffledQuizList(this.config.quizList, this.random);
     this.state = DATA_SPHINX_STATES.RUNNING;
     this._beginQuiz(0);
     this._emit({ type: "start", attemptId: nextAttemptId });
@@ -132,7 +150,7 @@ export class DataSphinxEncounter {
   }
 
   getSnapshot() {
-    const quiz = this.config.quizList[this.currentQuizIndex] ?? null;
+    const quiz = this.quizOrder[this.currentQuizIndex] ?? null;
     return Object.freeze({
       state: this.state,
       phase: this.phase,
@@ -155,6 +173,7 @@ export class DataSphinxEncounter {
 
   _resetAttempt() {
     this.currentQuizIndex = 0;
+    this.quizOrder = [];
     this.timeRemainingMs = 0;
     this.delayRemainingMs = 0;
     this.playerLocation = DATA_SPHINX_SELECTIONS.NEUTRAL;
@@ -169,7 +188,7 @@ export class DataSphinxEncounter {
       this._complete("CLEAR", null);
       return;
     }
-    if (index >= this.config.quizList.length) {
+    if (index >= this.quizOrder.length) {
       this._complete("FAIL", "OUT_OF_QUESTIONS");
       return;
     }
@@ -177,20 +196,20 @@ export class DataSphinxEncounter {
     this.timeRemainingMs = this.config.timeLimitMs;
     this.delayRemainingMs = 0;
     this.phase = DATA_SPHINX_PHASES.PLAYING;
-    const quiz = this.config.quizList[index];
+    const quiz = this.quizOrder[index];
     this._emit({
       type: "quiz-start",
       index,
       quizId: quiz.id,
       question: quiz.question,
-      quizCount: this.config.quizList.length,
+      quizCount: this.quizOrder.length,
       timeLimitMs: this.config.timeLimitMs,
     });
   }
 
   _resolveQuiz() {
     if (this.phase !== DATA_SPHINX_PHASES.PLAYING) return;
-    const quiz = this.config.quizList[this.currentQuizIndex];
+    const quiz = this.quizOrder[this.currentQuizIndex];
     const selection = this.playerLocation;
     let outcome;
     let damageToPlayer = 0;

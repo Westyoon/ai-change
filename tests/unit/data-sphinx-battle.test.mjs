@@ -153,14 +153,26 @@ function installFrameHarness() {
   };
 }
 
-test("checked-in Data Sphinx config preserves the ten-question fixed-damage formula", async () => {
+test("checked-in Data Sphinx config provides a balanced hundred-question bank", async () => {
   const document = JSON.parse(await readFile(
     new URL("../../data/battle/data-sphinx.json", import.meta.url),
     "utf8",
   ));
   const config = normalizeDataSphinxConfig(document);
 
-  assert.equal(config.quizList.length, 10);
+  assert.equal(config.quizList.length, 100);
+  assert.equal(new Set(config.quizList.map(({ id }) => id)).size, 100);
+  assert.equal(new Set(config.quizList.map(({ question }) => question)).size, 100);
+  assert.deepEqual(
+    Object.fromEntries(
+      ["O", "X"].map((answer) => [
+        answer,
+        config.quizList.filter((quiz) => quiz.answer === answer).length,
+      ]),
+    ),
+    { O: 50, X: 50 },
+  );
+  assert.ok(config.quizList.every(({ question }) => question.length <= 45));
   assert.equal(config.timeLimitMs, 3_000);
   assert.equal(config.bossMaxHealth, 100);
   assert.equal(config.damagePerCorrect, 10);
@@ -169,10 +181,34 @@ test("checked-in Data Sphinx config preserves the ten-question fixed-damage form
   assert.throws(
     () => normalizeDataSphinxConfig({
       ...document,
-      bossMaxHealth: 110,
+      bossMaxHealth: 1_010,
     }),
-    /at least 11 quizzes/u,
+    /at least 101 quizzes/u,
   );
+});
+
+test("each Data Sphinx attempt shuffles the bank without mutating the config", async () => {
+  const document = JSON.parse(await readFile(
+    new URL("../../data/battle/data-sphinx.json", import.meta.url),
+    "utf8",
+  ));
+  const config = normalizeDataSphinxConfig(document);
+  let sampleCount = 0;
+  const encounter = new DataSphinxEncounter({
+    config,
+    random: () => {
+      sampleCount += 1;
+      return 0;
+    },
+  });
+
+  encounter.init();
+  encounter.start({ attemptId: "data-sphinx:shuffle" });
+
+  assert.equal(sampleCount, 99);
+  assert.equal(encounter.getSnapshot().quizCount, 100);
+  assert.equal(encounter.getSnapshot().currentQuizId, "2");
+  assert.equal(config.quizList[0].id, "1");
 });
 
 test("selection uses the visible actor center and leaves the exact divider neutral", () => {
