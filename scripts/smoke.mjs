@@ -27,6 +27,7 @@ function expectedAssetType(pathname) {
     [".html", "text/html"],
     [".js", "text/javascript"],
     [".json", "application/json"],
+    [".mp3", "audio/mpeg"],
     [".png", "image/png"],
     [".svg", "image/svg+xml"],
     [".webp", "image/webp"],
@@ -70,6 +71,8 @@ export async function runSmokeTest({ rootDirectory = root, forbiddenPaths = [] }
     await assertResponse(baseUrl, "/data/app-config.json", "application/json");
     checks += 1;
     await assertResponse(baseUrl, "/data/asset-manifest.json", "application/json");
+    checks += 1;
+    await assertResponse(baseUrl, "/assets/bgm/main-theme.mp3", "audio/mpeg");
     checks += 1;
     for (const asset of manifestAssets) {
       if (typeof asset?.src !== "string") {

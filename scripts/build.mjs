@@ -14,6 +14,7 @@ const EXCLUDED_DIRECTORIES = new Set([
   "js/minigames/after_controlboss",
 ]);
 const EXCLUDED_PATHS = new Set([
+  "assets/bgm/intro.mp3",
   "assets/images/sample.png",
   "css/after_control_boss.css",
   "css/after_minigames.css",
@@ -106,6 +107,7 @@ async function copyPublicEntry(relativePath, copiedFiles) {
 async function verifyBuild(copiedFiles) {
   const requiredFiles = [
     "index.html",
+    "assets/bgm/main-theme.mp3",
     "assets/images/main logo.png",
     "assets/fonts/Galmuri11.woff2",
     "assets/fonts/Galmuri11-Bold.woff2",

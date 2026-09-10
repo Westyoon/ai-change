@@ -2,7 +2,7 @@
 
 ## 1. 기록 기준
 
-`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 공통 로고는 사용자가 제공한 최종 PNG를 사용하고, 나머지 등록 이미지는 프로젝트 내부에서 직접 작성한 SVG placeholder입니다. 출처와 권한이 불명확했던 AI 기능 브랜치의 `sample.png`는 내부 제작 `ai-ball-sample.svg`로 교체했고 production `dist/`에서 제외합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
+`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 공통 로고와 메인 테마 음원은 사용자가 제공한 최종 파일을 사용하고, 나머지 등록 이미지는 프로젝트 내부에서 직접 작성한 SVG placeholder입니다. 출처와 권한이 불명확했던 AI 기능 브랜치의 `sample.png`는 내부 제작 `ai-ball-sample.svg`로 교체했고 production `dist/`에서 제외합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
 
 최종 이미지·음원·폰트로 교체할 때는 실제 파일명, 종류, 제작자, 원본 URL, 라이선스, 수정 내용, 사용 위치를 확인한 뒤 이 문서와 manifest를 함께 갱신해야 합니다.
 
@@ -26,11 +26,12 @@
 | `CONTENT-BATTLE-003` | `data/battle/control-boss.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 Control Boss 프로토타입 기반 | 해당 없음 | 프로젝트 내부 제작물 | 4단계 기믹·보스/플레이어 수치·조작·결과 표시 설정 정리 | published `control-boss` |
 | `CONTENT-BATTLE-004` | `data/battle/xr-egg-trials.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 X알 미니게임 3종 기반 | 해당 없음 | 프로젝트 내부 제작물 | 무작위 시험·카드·연타 수치와 조작·결과 표시 설정 정리 | published `xr-egg-trials` |
 
-## 3. 브랜드 및 자체 제작 이미지
+## 3. 브랜드·이미지·음원
 
 | SourceRef | 실제 파일명 | 종류 | 제작자·출처 | 원본 URL | 라이선스·사용 권한 | 수정 내용 | 사용 위치 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ASSET-COMMON-001` | `assets/images/main logo.png` | PNG 브랜드 로고 | 프로젝트 사용자가 최종 원본 제공 | 해당 없음 | 프로젝트 운영 사용을 전제로 사용자 제공, 외부 재배포 권한은 사용자 확인 | 원본 그림은 수정하지 않고 비율을 유지해 반응형 축소 표시 | 로딩·메인 메뉴 |
+| `ASSET-AUDIO-001` | `assets/bgm/main-theme.mp3` | MP3 배경음 | 프로젝트 사용자가 운영 배포용 원본 제공 | 해당 없음 | 본 프로젝트의 공개 운영 사용 승인, 제3자 재배포는 별도 확인 | 음원 내용은 수정하지 않고 파일명만 kebab-case로 정리해 반복 재생 | 앱 최초 진입 이후 공통 배경음 |
 | `ASSET-DS-001` | `assets/minigames/number-baseball/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 숫자 타일과 `DS` 코드로 신규 작성 | DS 미니게임 썸네일 |
 | `ASSET-CS-001` | `assets/minigames/click-to-purify/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 방패·커서와 `CS` 코드로 신규 작성 | CS 미니게임 썸네일 |
 | `ASSET-CSE-001` | `assets/minigames/code-heart/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 코드 기호·하트와 `CSE` 코드로 신규 작성 | CSE 미니게임 썸네일 |

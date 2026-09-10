@@ -51,6 +51,7 @@ export const EXPECTED_DEPARTMENTS = Object.freeze({
 export const REQUIRED_FILES = Object.freeze([
   "package.json",
   "index.html",
+  "assets/bgm/main-theme.mp3",
   "css/common.css",
   "css/responsive.css",
   "css/dialogue.css",

@@ -7,6 +7,7 @@ function clampVolume(value) {
 
 export class AudioManager {
   #tracks = new Map();
+  #pendingGesturePlayback = new Map();
 
   constructor({ masterVolume = 1, bgmVolume = 0.7, sfxVolume = 0.8, muted = false } = {}) {
     this.settings = {
@@ -43,6 +44,7 @@ export class AudioManager {
   }
 
   unregister(id) {
+    this.#pendingGesturePlayback.get(id)?.();
     const track = this.#tracks.get(id);
     if (!track) {
       return false;
@@ -69,6 +71,7 @@ export class AudioManager {
     this.#applyTrackVolume(track);
     try {
       await track.audio.play();
+      this.#pendingGesturePlayback.get(id)?.();
       return true;
     } catch {
       // Browser autoplay policy is expected before the first user gesture.
@@ -76,13 +79,63 @@ export class AudioManager {
     }
   }
 
+  playWhenAllowed(
+    id,
+    { restart = false, eventTarget = globalThis.document } = {},
+  ) {
+    const track = this.#tracks.get(id);
+    if (!track) {
+      throw new Error(`Unknown audio track: ${String(id)}`);
+    }
+
+    this.#pendingGesturePlayback.get(id)?.();
+    if (!track.audio) {
+      return () => {};
+    }
+
+    const canListen = typeof eventTarget?.addEventListener === "function"
+      && typeof eventTarget?.removeEventListener === "function";
+    if (!canListen) {
+      void this.play(id, { restart });
+      return () => {};
+    }
+
+    const unlockEvents = ["pointerdown", "keydown", "touchstart"];
+    let active = true;
+    const cleanup = () => {
+      if (!active) return;
+      active = false;
+      for (const eventName of unlockEvents) {
+        eventTarget.removeEventListener(eventName, attempt, true);
+      }
+      if (this.#pendingGesturePlayback.get(id) === cleanup) {
+        this.#pendingGesturePlayback.delete(id);
+      }
+    };
+    const attempt = () => {
+      if (!active) return;
+      void this.play(id, { restart }).then((started) => {
+        if (started) cleanup();
+      });
+    };
+
+    this.#pendingGesturePlayback.set(id, cleanup);
+    for (const eventName of unlockEvents) {
+      eventTarget.addEventListener(eventName, attempt, true);
+    }
+    attempt();
+    return cleanup;
+  }
+
   pause(id) {
+    this.#pendingGesturePlayback.get(id)?.();
     const track = this.#tracks.get(id);
     track?.audio?.pause();
     return Boolean(track);
   }
 
   stop(id) {
+    this.#pendingGesturePlayback.get(id)?.();
     const track = this.#tracks.get(id);
     if (!track) {
       return false;

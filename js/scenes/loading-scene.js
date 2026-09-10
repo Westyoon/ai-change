@@ -27,6 +27,8 @@ function progressPercent(progress) {
 const AUTH_QUERY_KEYS = Object.freeze(["login", "error", "auth_error", "reason", "error_description"]);
 const AUTH_SESSION_RETRY_DELAYS_MS = Object.freeze([200, 500]);
 const AUTH_SESSION_REQUEST_TIMEOUT_MS = 1_800;
+const MAIN_THEME_TRACK_ID = "main-theme";
+const MAIN_THEME_SOURCE = "./assets/bgm/main-theme.mp3";
 
 function waitForAuthRetry(delayMs, signal) {
   if (signal?.aborted) return Promise.resolve(false);
@@ -108,6 +110,10 @@ export function createLoadingScene(context) {
   return {
     async mount(root, _params, { signal }) {
       mounted = true;
+      context.services.audio.register(MAIN_THEME_TRACK_ID, MAIN_THEME_SOURCE, {
+        kind: "bgm",
+        loop: true,
+      });
       const authCallback = consumeAuthCallback();
       const sessionRefresh = refreshSessionAfterAuth(context.services.account, {
         authCallback: authCallback?.authCallback === "success",
@@ -202,6 +208,7 @@ export function createLoadingScene(context) {
       });
       const saveState = context.services.save.load();
       context.services.audio.applySettings?.(saveState.settings);
+      context.services.audio.playWhenAllowed?.(MAIN_THEME_TRACK_ID, { restart: false });
       void sessionRefresh.then((accountState) => {
         if (!accountState.authenticated) return null;
         return context.services.account.importCompletedGameIds(
