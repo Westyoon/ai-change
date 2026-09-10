@@ -166,6 +166,14 @@ test("Battle result card stays above module-owned HUD and touch controls", async
   );
 });
 
+test("festival sprite is enlarged and bottom-anchored independently from its actor", async () => {
+  const css = await readFile(new URL("../../css/battle-character.css", import.meta.url), "utf8");
+  assert.match(
+    css,
+    /\.character-actor__sprite\[data-sprite-sheet="true"\]\s*\{[^}]*bottom:\s*0;[^}]*height:\s*130%;/su,
+  );
+});
+
 test("Battle layouts keep narrow landscapes contained without changing world coordinates", async () => {
   const [dataSphinxCss, statBossCss] = await Promise.all([
     readFile(new URL("../../css/data-sphinx.css", import.meta.url), "utf8"),

@@ -88,7 +88,8 @@ const SPRITE_SHEET_PROPERTIES = Object.freeze([
   "--character-sprite-duration",
 ]);
 
-function clearSpriteSheet(sprite) {
+function clearSpriteSheet(element, sprite) {
+  delete element.dataset.spriteSheet;
   delete sprite.dataset.spriteSheet;
   for (const property of SPRITE_SHEET_PROPERTIES) sprite.style.removeProperty(property);
 }
@@ -115,10 +116,11 @@ function applyAppearance(element, sprite, appearance = {}, state, direction) {
     sprite.style.setProperty("--character-sprite-duration", `${sheet.animationDurationMs}ms`);
     sprite.dataset.hasSprite = "true";
     sprite.dataset.spriteSheet = "true";
+    element.dataset.spriteSheet = "true";
     return;
   }
 
-  clearSpriteSheet(sprite);
+  clearSpriteSheet(element, sprite);
   const url = spriteUrl(appearance, state, direction);
   if (url) {
     sprite.style.backgroundImage = `url(${JSON.stringify(String(url))})`;
