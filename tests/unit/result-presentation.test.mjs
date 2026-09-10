@@ -53,16 +53,6 @@ test("result presentation joins array metrics when restoring prototype copy", ()
   }).description, "정답은 407 이었습니다.");
 });
 
-test("a connected clear story can replace the map action label without changing copy", () => {
-  const resolved = resolveResultPresentation({
-    result: { status: "CLEAR", score: null, metrics: {} },
-    mapActionLabel: "이야기 보고 맵으로",
-  });
-
-  assert.equal(resolved.mapLabel, "이야기 보고 맵으로");
-  assert.equal(resolved.description, "학과 미니게임을 성공적으로 완료했습니다.");
-});
-
 test("Battle metrics translate trial values and format every millisecond field", () => {
   assert.equal(formatResultMetric("trial", "card-match"), "카드 짝맞추기");
   assert.equal(formatResultMetric("playerHand", "rock"), "바위");

@@ -92,7 +92,7 @@ function interpolateResultText(template, result) {
   });
 }
 
-export function resolveResultPresentation({ result, outroText, presentation, mapActionLabel } = {}) {
+export function resolveResultPresentation({ result, outroText, presentation } = {}) {
   const statusKey = result?.status === "CLEAR" ? "clear" : "fail";
   const statusPresentation = presentation?.[statusKey] ?? {};
   const reasonDescription = statusPresentation.reasonDescriptions?.[result?.failureReason];
@@ -107,7 +107,7 @@ export function resolveResultPresentation({ result, outroText, presentation, map
       ?? outroText
       ?? fallbackDescription,
     retryLabel: statusPresentation.retryLabel ?? "다시 하기",
-    mapLabel: mapActionLabel ?? statusPresentation.mapLabel ?? "맵으로",
+    mapLabel: statusPresentation.mapLabel ?? "맵으로",
     menuLabel: statusPresentation.menuLabel ?? "메뉴로",
   });
 }
@@ -122,16 +122,10 @@ export function createResultOverlay({
   onRetry,
   onMap,
   onMenu,
-  mapActionLabel = null,
   primaryAction = null,
   backgroundElements = [],
 }) {
-  const resolvedPresentation = resolveResultPresentation({
-    result,
-    outroText,
-    presentation,
-    mapActionLabel,
-  });
+  const resolvedPresentation = resolveResultPresentation({ result, outroText, presentation });
   const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const backgroundState = backgroundElements.filter(Boolean).map((element) => ({
     element,

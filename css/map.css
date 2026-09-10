@@ -11,64 +11,6 @@
   margin-bottom: 24px;
 }
 
-.mission-progress {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 20px;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: clamp(16px, 3vw, 24px);
-  border: 3px solid var(--accent-alt);
-  border-radius: 18px;
-  background: rgb(54 51 103 / 86%);
-  box-shadow: 6px 6px 0 rgb(35 31 74 / 46%);
-}
-
-.mission-progress > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.mission-progress output {
-  color: var(--accent-cyan);
-  font-size: clamp(1.1rem, 3vw, 1.6rem);
-  font-weight: 1000;
-}
-
-.mission-progress__petals {
-  display: flex;
-  gap: 7px;
-  color: rgb(222 220 242 / 42%);
-  font-size: clamp(1.2rem, 3vw, 1.8rem);
-}
-
-.mission-progress__petals .is-complete {
-  color: var(--accent-cyan);
-  filter: drop-shadow(0 0 8px rgb(42 181 228 / 72%));
-}
-
-.mission-progress > p {
-  grid-column: 1;
-  margin: 0;
-  color: var(--text);
-}
-
-.mission-progress > .button {
-  grid-column: 2;
-  grid-row: 2;
-  margin: 0;
-}
-
-.mission-progress[data-complete="true"] {
-  border-color: var(--accent-cyan);
-  background:
-    radial-gradient(circle at 88% 50%, rgb(42 181 228 / 18%), transparent 18rem),
-    rgb(54 51 103 / 94%);
-}
-
 .department-map {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -81,7 +23,7 @@
   background:
     linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
     linear-gradient(90deg, rgb(255 255 255 / 3%) 1px, transparent 1px),
-    #29264f;
+    #351f32;
   background-size: 24px 24px;
   box-shadow: var(--shadow);
 }
@@ -97,7 +39,7 @@
   border: 3px solid var(--dept-color, var(--line));
   border-radius: 18px;
   color: var(--text);
-  background: rgb(54 51 103 / 94%);
+  background: rgb(43 24 38 / 92%);
   box-shadow: 6px 6px 0 color-mix(in srgb, var(--dept-color, var(--line)) 35%, transparent);
   cursor: pointer;
   text-align: left;
@@ -124,16 +66,16 @@
   border: 2px solid currentColor;
   border-radius: 50%;
   color: var(--dept-color, var(--accent));
-  background: #211e42;
+  background: #231815;
   font-size: 1.1rem;
   font-weight: 1000;
 }
 
-.npc-card[data-department-code="AI"] { --dept-color: #2ab5e4; }
-.npc-card[data-department-code="DS"] { --dept-color: #e333bb; }
-.npc-card[data-department-code="CSE"] { --dept-color: #d82f76; }
-.npc-card[data-department-code="CS"] { --dept-color: #f6d34b; }
-.npc-card[data-department-code="AIDS"] { --dept-color: #918bd7; }
+.npc-card[data-department-code="AI"] { --dept-color: #9a8cff; }
+.npc-card[data-department-code="DS"] { --dept-color: #65dbff; }
+.npc-card[data-department-code="CSE"] { --dept-color: #ff91c8; }
+.npc-card[data-department-code="CS"] { --dept-color: #ffd166; }
+.npc-card[data-department-code="AIDS"] { --dept-color: #78f0c1; }
 
 .npc-card__code {
   color: var(--dept-color, var(--accent));
@@ -152,21 +94,6 @@
 }
 
 @media (max-width: 760px) {
-  .mission-progress {
-    grid-template-columns: 1fr;
-  }
-
-  .mission-progress__petals,
-  .mission-progress > p,
-  .mission-progress > .button {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  .mission-progress > .button {
-    width: 100%;
-  }
-
   .department-map {
     grid-template-columns: 1fr;
     min-height: 0;

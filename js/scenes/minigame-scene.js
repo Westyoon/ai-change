@@ -1,4 +1,6 @@
 import { loadMiniGameModule } from "../minigames/registry.js";
+import { getPublishedBattles } from "../battle/registry.js";
+import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
 import { createResultOverlay } from "../ui/result-overlay.js";
@@ -203,14 +205,15 @@ export function createMiniGameScene(context) {
           });
         }
         const outroScriptId = result.status === "CLEAR" ? game.clearOutroScript : game.failOutroScript;
-        const outroScript = findScript(context, outroScriptId);
-        const linkedNpc = (findMap(context)?.npcs ?? []).find((npc) => npc.miniGameId === miniGameId);
-        const hasClearStory = result.status === "CLEAR" && Boolean(linkedNpc && outroScript);
-        const outroText = result.status === "FAIL" ? outroScript?.lines?.[0]?.text : null;
-        const openClearStory = () => context.router.navigate("dialogue", {
-          npcId: linkedNpc.id,
-          scriptId: outroScriptId,
-        });
+        const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
+        const unlockedBattle = result.status === "CLEAR" && context.config.features?.battleContent === true
+          ? getPublishedBattles(context.content.battles).find((battle) =>
+              getBattleUnlockStatus(
+                battle,
+                context.services.save?.getState?.() ?? {},
+                context.services.account.getState(),
+              ).unlocked)
+          : null;
         overlay = createResultOverlay({
           result,
           miniGameId,
@@ -237,15 +240,12 @@ export function createMiniGameScene(context) {
               restartInProgress = false;
             }
           },
-          onMap: hasClearStory
-            ? openClearStory
-            : () => context.router.navigate("map"),
+          onMap: () => context.router.navigate("map"),
           onMenu: () => context.router.navigate("main-menu"),
-          mapActionLabel: hasClearStory ? "이야기 보고 맵으로" : null,
-          primaryAction: hasClearStory
+          primaryAction: unlockedBattle
             ? {
-                label: "수호알 이야기 보기",
-                onClick: openClearStory,
+                label: "사후게임 열기",
+                onClick: () => context.router.navigate("battle"),
               }
             : null,
           backgroundElements: [toolbar, canvas, uiRoot],
