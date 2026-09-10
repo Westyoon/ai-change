@@ -306,7 +306,7 @@ export class AccountService {
 
   async #loadSession(authGeneration, timeoutMs) {
     try {
-      const payload = await this.#request("/session", { allowUnauthorized: true, timeoutMs });
+      const payload = await this.#request("/me", { allowUnauthorized: true, timeoutMs });
       const next = payload === null ? guestState() : sessionState(payload);
       if (authGeneration !== this.#authGeneration) return this.#state;
       if (this.#state.authenticated && !next.authenticated) this.#authGeneration += 1;

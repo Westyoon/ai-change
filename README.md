@@ -57,7 +57,7 @@ Google Cloud Console에는 Wrangler가 출력한 origin의 `/api/auth/callback`�
 
 ## 계정·스탯·랭킹 계약
 
-- `GET /api/session`: 현재 로그인 상태, 표시 이름, 본인 스탯과 서로 다른 완료 게임 ID 목록 `completedGameIds`를 반환
+- `GET /api/me`: 현재 로그인 상태, 표시 이름, 본인 스탯과 서로 다른 완료 게임 ID 목록 `completedGameIds`를 반환 (`/api/session`은 같은 응답의 호환 별칭)
 - `GET /api/auth/google`, `GET /api/auth/callback`: OAuth `state`를 검증하는 Google 로그인
 - `POST /api/auth/logout`: 현재 서버 session 폐기
 - `GET /api/ranking?criteria=clears`: 전체 누적 클리어 순위
@@ -124,7 +124,7 @@ Loading
   └─ Battle → 5종 완료 후 활성화 → 사후 콘텐츠 4종
 ```
 
-맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 배틀 해금은 로컬 완료 기록과 `/api/session`의 `completedGameIds`를 합쳐 서로 다른 5종의 완료를 확인합니다.
+맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 배틀 해금은 로컬 완료 기록과 `/api/me`의 `completedGameIds`를 합쳐 서로 다른 5종의 완료를 확인합니다.
 
 메인 테마는 앱 로딩이 끝나면 반복 재생을 시도합니다. 브라우저가 자동재생을 막는 환경에서는 첫 클릭·터치·키 입력과 동시에 시작되며, 상단 `설정`의 전체 음량·배경음·음소거 값을 따릅니다.
 

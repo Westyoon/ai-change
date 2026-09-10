@@ -610,7 +610,9 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/auth/google") return beginGoogleLogin(request, env, origin);
   if (url.pathname === "/api/auth/callback") return finishGoogleLogin(request, env, origin);
   if (url.pathname === "/api/auth/logout") return logout(request, env, origin);
-  if (url.pathname === "/api/session") return sessionResponse(request, env);
+  if (url.pathname === "/api/me" || url.pathname === "/api/session") {
+    return sessionResponse(request, env);
+  }
   if (url.pathname === "/api/ranking") return ranking(request, env);
   if (url.pathname === "/api/progress/import") return importCompletedProgress(request, env, origin);
   if (url.pathname === "/api/results") return recordResult(request, env, origin);

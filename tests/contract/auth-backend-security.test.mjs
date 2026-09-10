@@ -76,6 +76,7 @@ test("the same-origin Worker exposes only the intended account API surface", () 
     "/api/auth/google",
     "/api/auth/callback",
     "/api/auth/logout",
+    "/api/me",
     "/api/session",
     "/api/ranking",
     "/api/results",
@@ -159,6 +160,10 @@ test("the account UI and Worker share one canonical production origin", () => {
   )?.[1];
   assert.equal(clientOrigin, workerOrigin);
   assert.match(accountSceneSource, /const\s+separateAccountOrigin\s*=\s*isSeparateHostedOrigin\(\)/u);
+  assert.match(
+    accountSceneSource,
+    /params\.authCallback\s*===\s*["']success["'][\s\S]*?recoverSessionAfterAuth\s*\(\s*service/u,
+  );
 
   const awaitIndex = loadingSource.indexOf("await sessionRefresh");
   const accountRouteIndex = loadingSource.indexOf('navigate(authCallback ? "account"');

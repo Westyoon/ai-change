@@ -1,11 +1,52 @@
 import { createButton, createElement, showToast } from "./scene-utils.js";
 
 export const ACCOUNT_ORIGIN = "https://ai-change.ai-change-backend.workers.dev";
+const AUTH_RECOVERY_RETRY_DELAYS_MS = Object.freeze([0, 1_000, 3_000]);
 
 export function isSeparateHostedOrigin(locationRef = globalThis.location) {
   const origin = locationRef?.origin;
   const protocol = locationRef?.protocol;
   return protocol === "https:" && typeof origin === "string" && origin !== ACCOUNT_ORIGIN;
+}
+
+function waitForAuthRecovery(delayMs, signal) {
+  if (signal?.aborted) return Promise.resolve(false);
+  if (delayMs <= 0) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (shouldContinue) => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timeoutId);
+      signal?.removeEventListener?.("abort", abort);
+      resolve(shouldContinue);
+    };
+    const abort = () => finish(false);
+    const timeoutId = globalThis.setTimeout(() => finish(true), delayMs);
+    signal?.addEventListener?.("abort", abort, { once: true });
+  });
+}
+
+export async function recoverSessionAfterAuth(
+  service,
+  {
+    signal = null,
+    wait = waitForAuthRecovery,
+    retryDelaysMs = AUTH_RECOVERY_RETRY_DELAYS_MS,
+  } = {},
+) {
+  let state = service.getState();
+  for (const delayMs of retryDelaysMs) {
+    if (state.authenticated || signal?.aborted) return state;
+    if (!await wait(delayMs, signal)) return state;
+    state = service.getState();
+    if (state.authenticated || signal?.aborted) return state;
+    // AccountService's normal 8 second timeout is intentional here. The loading
+    // scene already performed quick checks; this pass recovers from a cold or
+    // temporarily interrupted session request without blocking game startup.
+    state = await service.refreshSession();
+  }
+  return state;
 }
 
 const STAT_DEFINITIONS = Object.freeze([
@@ -46,7 +87,7 @@ export function createAccountScene(context) {
   let progressSyncing = false;
 
   return {
-    mount(root, params = {}) {
+    mount(root, params = {}, { signal } = {}) {
       mounted = true;
       const service = context.services.account;
       const scene = createElement("section", {
@@ -272,7 +313,17 @@ export function createAccountScene(context) {
         render(state);
         void syncLocalProgress(state);
       });
-      if (service.getState().status === "idle") void service.refreshSession();
+      if (params.authCallback === "success" && !service.getState().authenticated) {
+        void recoverSessionAfterAuth(service, { signal }).catch((error) => {
+          if (!mounted || signal?.aborted) return;
+          actionError = error instanceof Error
+            ? error.message
+            : "로그인 상태를 다시 확인하지 못했습니다.";
+          render(service.getState());
+        });
+      } else if (service.getState().status === "idle") {
+        void service.refreshSession();
+      }
     },
     unmount() {
       mounted = false;

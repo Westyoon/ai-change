@@ -8,6 +8,7 @@ import {
 import {
   ACCOUNT_ORIGIN,
   isSeparateHostedOrigin,
+  recoverSessionAfterAuth,
 } from "../../js/scenes/account-scene.js";
 
 function jsonResponse(payload, status = 200) {
@@ -80,7 +81,7 @@ test("AccountService restores a same-origin session and exposes only display acc
     unspentPoints: 1,
   });
   assert.deepEqual(state.completedGameIds, ["data-number-baseball", "computer-code-heart"]);
-  assert.equal(mock.calls[0][0], "/api/session");
+  assert.equal(mock.calls[0][0], "/api/me");
   assert.equal(mock.calls[0][1].credentials, "same-origin");
   assert.equal(mock.calls[0][1].cache, "no-store");
   assert.equal(service.getLoginUrl(), "/api/auth/google");
@@ -200,6 +201,90 @@ test("a successful OAuth callback retries session discovery until the cookie is 
   assert.deepEqual(waited, [150, 500]);
 });
 
+test("the account scene recovers after all quick callback checks were unavailable", async () => {
+  const states = [
+    { authenticated: false, status: "unavailable" },
+    { authenticated: false, status: "unavailable" },
+    { authenticated: true, status: "authenticated" },
+  ];
+  const refreshCalls = [];
+  const waited = [];
+  const service = {
+    getState() {
+      return states[0];
+    },
+    async refreshSession(options) {
+      refreshCalls.push(options);
+      states.shift();
+      return states[0];
+    },
+  };
+
+  const state = await recoverSessionAfterAuth(service, {
+    retryDelaysMs: [0, 1_000, 3_000],
+    wait: async (delayMs) => {
+      waited.push(delayMs);
+      return true;
+    },
+  });
+
+  assert.equal(state.authenticated, true);
+  assert.deepEqual(refreshCalls, [undefined, undefined]);
+  assert.deepEqual(waited, [0, 1_000]);
+});
+
+test("account recovery does not refresh after another request restores the session", async () => {
+  let state = { authenticated: false, status: "unavailable" };
+  let refreshCalls = 0;
+  const service = {
+    getState() {
+      return state;
+    },
+    async refreshSession() {
+      refreshCalls += 1;
+      return state;
+    },
+  };
+
+  const recovered = await recoverSessionAfterAuth(service, {
+    retryDelaysMs: [1_000],
+    wait: async () => {
+      state = { authenticated: true, status: "authenticated" };
+      return true;
+    },
+  });
+
+  assert.equal(recovered.authenticated, true);
+  assert.equal(refreshCalls, 0);
+});
+
+test("account recovery stops before refreshing when its scene is aborted", async () => {
+  const controller = new AbortController();
+  const state = { authenticated: false, status: "unavailable" };
+  let refreshCalls = 0;
+  const service = {
+    getState() {
+      return state;
+    },
+    async refreshSession() {
+      refreshCalls += 1;
+      return state;
+    },
+  };
+
+  const recovered = await recoverSessionAfterAuth(service, {
+    signal: controller.signal,
+    retryDelaysMs: [1_000],
+    wait: async () => {
+      controller.abort();
+      return true;
+    },
+  });
+
+  assert.equal(recovered, state);
+  assert.equal(refreshCalls, 0);
+});
+
 test("an unauthenticated session remains a normal available guest", async () => {
   const mock = queuedFetch([jsonResponse({ authenticated: false }, 401)]);
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
@@ -301,7 +386,7 @@ test("guest progress import is a no-op until the player is authenticated", async
   ]);
 
   assert.equal(mock.calls.length, 1, "guest progress must not be sent to an account endpoint");
-  assert.equal(mock.calls[0][0], "/api/session");
+  assert.equal(mock.calls[0][0], "/api/me");
   assert.equal(service.getState().authenticated, false);
   assert.deepEqual(service.getState().completedGameIds, []);
 });
