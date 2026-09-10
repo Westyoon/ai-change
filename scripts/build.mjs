@@ -37,6 +37,7 @@ const PUBLIC_FILE_EXTENSIONS = new Set([
   ".otf",
   ".png",
   ".svg",
+  ".txt",
   ".ttf",
   ".wav",
   ".webm",
@@ -105,6 +106,10 @@ async function copyPublicEntry(relativePath, copiedFiles) {
 async function verifyBuild(copiedFiles) {
   const requiredFiles = [
     "index.html",
+    "assets/images/main logo.png",
+    "assets/fonts/Galmuri11.woff2",
+    "assets/fonts/Galmuri11-Bold.woff2",
+    "assets/fonts/LICENSE.txt",
     "css/account.css",
     "css/common.css",
     "css/battle-character.css",

@@ -68,9 +68,9 @@
       "id": "app-logo",
       "group": "common",
       "type": "image",
-      "src": "./assets/images/app-logo.svg",
+      "src": "./assets/images/main logo.png",
       "required": true,
-      "alt": "ai-change 로고",
+      "alt": "제2회 인공지능대학 축제 인지사전게임 로고",
       "sourceRef": "ASSET-COMMON-001"
     },
     {

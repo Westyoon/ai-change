@@ -2,7 +2,7 @@
 
 ## 1. 기록 기준
 
-`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 현재 등록된 이미지 7개는 모두 프로젝트 내부에서 직접 작성한 SVG placeholder입니다. 출처와 권한이 불명확했던 AI 기능 브랜치의 `sample.png`는 내부 제작 `ai-ball-sample.svg`로 교체했고 production `dist/`에서 제외합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
+`data/asset-manifest.json`의 모든 `sourceRef`를 이 문서에서 추적합니다. 공통 로고는 사용자가 제공한 최종 PNG를 사용하고, 나머지 등록 이미지는 프로젝트 내부에서 직접 작성한 SVG placeholder입니다. 출처와 권한이 불명확했던 AI 기능 브랜치의 `sample.png`는 내부 제작 `ai-ball-sample.svg`로 교체했고 production `dist/`에서 제외합니다. JSON 콘텐츠는 프로젝트 기획 문서와 각 기능 브랜치 설정을 바탕으로 작성했습니다.
 
 최종 이미지·음원·폰트로 교체할 때는 실제 파일명, 종류, 제작자, 원본 URL, 라이선스, 수정 내용, 사용 위치를 확인한 뒤 이 문서와 manifest를 함께 갱신해야 합니다.
 
@@ -27,11 +27,11 @@
 | `CONTENT-BATTLE-003` | `data/battle/control-boss.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 Control Boss 프로토타입 기반 | 해당 없음 | 프로젝트 내부 제작물 | 4단계 기믹·보스/플레이어 수치·조작·결과 표시 설정 정리 | published `control-boss` |
 | `CONTENT-BATTLE-004` | `data/battle/xr-egg-trials.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 X알 미니게임 3종 기반 | 해당 없음 | 프로젝트 내부 제작물 | 무작위 시험·카드·연타 수치와 조작·결과 표시 설정 정리 | published `xr-egg-trials` |
 
-## 3. 자체 제작 placeholder 이미지
+## 3. 브랜드 및 자체 제작 이미지
 
 | SourceRef | 실제 파일명 | 종류 | 제작자·출처 | 원본 URL | 라이선스·사용 권한 | 수정 내용 | 사용 위치 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ASSET-COMMON-001` | `assets/images/app-logo.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 단순 도형과 `ai-change` 문자로 신규 작성 | 로딩·메인 로고 |
+| `ASSET-COMMON-001` | `assets/images/main logo.png` | PNG 브랜드 로고 | 프로젝트 사용자가 최종 원본 제공 | 해당 없음 | 프로젝트 운영 사용을 전제로 사용자 제공, 외부 재배포 권한은 사용자 확인 | 원본 그림은 수정하지 않고 비율을 유지해 반응형 축소 표시 | 공통 헤더·로딩·메인 메뉴 |
 | `ASSET-DS-001` | `assets/minigames/number-baseball/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 숫자 타일과 `DS` 코드로 신규 작성 | DS 미니게임 썸네일 |
 | `ASSET-CS-001` | `assets/minigames/click-to-purify/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 방패·커서와 `CS` 코드로 신규 작성 | CS 미니게임 썸네일 |
 | `ASSET-CSE-001` | `assets/minigames/code-heart/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 코드 기호·하트와 `CSE` 코드로 신규 작성 | CSE 미니게임 썸네일 |
@@ -39,11 +39,13 @@
 | `ASSET-AI-002` | `assets/images/ai-ball-sample.svg` | SVG placeholder | ai-change 프로젝트 자체 제작 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 파란색·보라색 원과 자체 작성 gradient·path로 기존 PNG sample을 교체 | AI Ball Classification 목표 미리보기·목표 공·방해 공 |
 | `ASSET-AIDS-001` | `assets/minigames/ai-data-egg-sort/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 알·상자와 `AIDS` 코드로 신규 작성 | AIDS 미니게임 썸네일 |
 
-SVG 파일은 외부 이미지나 로고를 복제하지 않았으며, 단순 도형과 텍스트만으로 생성했습니다. 최종 디자인 자산이 제공되면 사용자에게 노출되는 placeholder를 교체합니다.
+나머지 SVG 파일은 외부 이미지나 로고를 복제하지 않았으며, 단순 도형과 텍스트만으로 생성했습니다.
 
 ## 4. 외부 리소스 현황
 
-현재 manifest에는 외부 이미지, 음원, 폰트, 아이콘이 등록되어 있지 않습니다. 기존 `assets/images/sample.png`는 원본과 권한이 문서화되지 않은 기능 브랜치 참고 파일로만 남아 있으며 manifest와 production `dist/`에는 포함하지 않습니다. 이후 외부 리소스를 추가할 때는 아래 항목을 모두 작성한 뒤 사용합니다.
+브랜드 UI 글꼴은 `Galmuri 2.40.4`의 `Galmuri11.woff2`와 `Galmuri11-Bold.woff2`를 수정 없이 자체 제공합니다. 제작자는 이민서(quiple), 라이선스는 SIL Open Font License 1.1이며 전문은 `assets/fonts/LICENSE.txt`에 함께 배포합니다. 원본은 [Galmuri 공식 v2.40.4 릴리스](https://github.com/quiple/galmuri/releases/tag/v2.40.4)이고, 불러오지 못하면 시스템 한글 글꼴로 대체합니다.
+
+기존 `assets/images/sample.png`는 원본과 권한이 문서화되지 않은 기능 브랜치 참고 파일로만 남아 있으며 manifest와 production `dist/`에는 포함하지 않습니다. 이후 외부 리소스를 추가할 때는 아래 항목을 모두 작성한 뒤 사용합니다.
 
 - 원본 파일명과 실제 저장 파일명
 - 리소스 종류

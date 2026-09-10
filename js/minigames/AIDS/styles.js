@@ -32,7 +32,7 @@ const CSS = `
   position:relative; width:100%; height:100%;
   display:flex; flex-direction:column;
   background: linear-gradient(180deg, #FFE9CF 0%, #FFF6EC 55%);
-  color:#241C33; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  color:#241C33; font-family:var(--font-body);
   overflow:hidden; user-select:none; -webkit-tap-highlight-color:transparent;
   box-sizing:border-box;
 }

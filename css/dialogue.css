@@ -7,8 +7,8 @@
   padding: clamp(18px, 4vw, 30px);
   border: 3px solid var(--line);
   border-radius: 18px;
-  background: #0e1528;
-  box-shadow: 8px 8px 0 rgb(53 70 111 / 42%);
+  background: var(--surface);
+  box-shadow: 8px 8px 0 rgb(109 56 86 / 42%);
   text-align: left;
 }
 
@@ -18,7 +18,7 @@
   aspect-ratio: 1;
   border: 2px solid var(--line);
   border-radius: 14px;
-  color: #0b1420;
+  color: var(--ink);
   background: var(--accent);
   font-size: clamp(1.5rem, 5vw, 3rem);
   font-weight: 1000;

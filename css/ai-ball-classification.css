@@ -45,7 +45,7 @@
   background: linear-gradient(to bottom, #1f202d 0 9.375%, transparent 9.375% 81.25%, #1f202d 81.25% 100%);
   box-shadow: 0 calc(var(--ai-frame-width) / 48) calc(var(--ai-frame-width) / 16) rgb(0 0 0 / 50%);
   color: #fff;
-  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   pointer-events: none;
   user-select: none;
 }

@@ -108,7 +108,7 @@
 
 .data-sphinx-timer__text {
   color: var(--warning);
-  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-mono);
   font-size: clamp(1rem, 3vw, 1.5rem);
   font-weight: 1000;
 }

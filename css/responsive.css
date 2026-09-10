@@ -4,7 +4,17 @@
   }
 
   .top-bar {
-    min-height: 42px;
+    min-height: 48px;
+    padding-inline: 8px;
+    border-radius: 15px;
+  }
+
+  .brand-mark__logo {
+    width: 70px;
+  }
+
+  .brand-mark__name {
+    font-size: 0.66rem;
   }
 
   .build-badge {
@@ -18,6 +28,21 @@
   .scene--panel {
     margin: 12px 0;
     padding: 24px 18px;
+  }
+
+  .scene--centered {
+    min-height: calc(100dvh - 82px);
+    border-radius: 20px;
+  }
+
+  .scene-brand-logo {
+    width: min(360px, 94%);
+    max-height: 34dvh;
+    filter: drop-shadow(0 7px 0 rgb(24 11 20 / 28%));
+  }
+
+  .scene-brand-logo--loading {
+    width: min(320px, 90%);
   }
 
   .menu-grid,
@@ -50,6 +75,15 @@
 @media (orientation: landscape) and (max-height: 560px) {
   .top-bar {
     min-height: 36px;
+    padding-block: 1px;
+  }
+
+  .brand-mark__logo {
+    width: 56px;
+  }
+
+  .brand-mark__name {
+    font-size: 0.6rem;
   }
 
   .scene--centered {
@@ -59,6 +93,14 @@
 
   .scene h1 {
     font-size: clamp(2rem, 9vh, 3.2rem);
+  }
+
+  .scene-brand-logo,
+  .scene-brand-logo--loading {
+    width: min(250px, 52vw);
+    max-height: 32dvh;
+    margin-block: 0 4px;
+    filter: drop-shadow(0 5px 0 rgb(24 11 20 / 26%));
   }
 
   .menu-grid {

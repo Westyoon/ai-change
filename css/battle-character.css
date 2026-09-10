@@ -43,8 +43,8 @@
   overflow: hidden;
   border: var(--pixel-border) solid var(--line);
   border-radius: 20px;
-  background: #0c1223;
-  box-shadow: var(--shadow), 7px 7px 0 rgb(53 70 111 / 35%);
+  background: #2b1826;
+  box-shadow: var(--shadow), 7px 7px 0 rgb(109 56 86 / 35%);
 }
 
 .character-hud {
@@ -57,7 +57,7 @@
   min-height: 54px;
   padding: 9px 12px;
   border-bottom: 2px solid var(--line);
-  background: rgb(9 13 26 / 92%);
+  background: rgb(43 24 38 / 92%);
 }
 
 .character-health {
@@ -120,8 +120,8 @@
   overflow: hidden;
   aspect-ratio: 9 / 5;
   background:
-    linear-gradient(180deg, rgb(120 240 193 / 5%), transparent 45%),
-    #111a31;
+    linear-gradient(180deg, rgb(233 95 157 / 8%), transparent 45%),
+    #321d31;
 }
 
 .character-world__grid {

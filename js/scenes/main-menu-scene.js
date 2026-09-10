@@ -23,16 +23,20 @@ export function createMainMenuScene(context) {
       const scene = createScene({
         className: "scene--centered",
         eyebrow: "EWHA AI COLLEGE FESTIVAL",
-        title: "ai-change",
         description: "다섯 학과 미니게임을 체험하고 사후 콘텐츠에 도전하세요.",
       });
       const logo = context.services.assets.get("app-logo");
       if (logo instanceof HTMLImageElement) {
         const image = logo.cloneNode(true);
-        image.width = 112;
-        image.height = 112;
-        image.alt = "ai-change 로고";
-        scene.insertBefore(image, scene.querySelector("h1"));
+        image.className = "scene-brand-logo";
+        image.removeAttribute("width");
+        image.removeAttribute("height");
+        image.alt = "";
+        const accessibleTitle = createElement("h1", {
+          className: "visually-hidden",
+          text: "인지사전게임",
+        });
+        scene.querySelector(".muted")?.before(image, accessibleTitle);
       }
 
       const codes = context.content.departments.map((department) => department.code).join(" · ");

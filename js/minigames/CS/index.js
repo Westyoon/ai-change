@@ -592,10 +592,10 @@ export function createMiniGame(context = {}) {
     canvasContext.fillStyle = coreHit ? "#fff" : ransomLocked ? "#c9a6ff" : "#37e6ff";
     canvasContext.textAlign = "center";
     if (ransomLocked) {
-      canvasContext.font = "bold 20px monospace";
+      canvasContext.font = "bold 20px Galmuri11, monospace";
       canvasContext.fillText("🔒", CENTER, CENTER + 7);
     } else {
-      canvasContext.font = "bold 11px monospace";
+      canvasContext.font = "bold 11px Galmuri11, monospace";
       canvasContext.fillText("CORE", CENTER, CENTER + 4);
     }
 
@@ -639,7 +639,7 @@ export function createMiniGame(context = {}) {
       }
 
       canvasContext.fillStyle = "#fff";
-      canvasContext.font = "bold 9px monospace";
+      canvasContext.font = "bold 9px Galmuri11, monospace";
       canvasContext.fillText(threat.type, x, y - 32);
     }
 
@@ -679,7 +679,7 @@ export function createMiniGame(context = {}) {
       const progress = Math.max(0, elapsed / effect.duration);
       canvasContext.globalAlpha = 1 - progress;
       canvasContext.fillStyle = effect.color;
-      canvasContext.font = "bold 14px monospace";
+      canvasContext.font = "bold 14px Galmuri11, monospace";
       canvasContext.textAlign = "center";
       canvasContext.fillText(effect.text, effect.x, effect.y - 40 - progress * 20);
       canvasContext.globalAlpha = 1;

@@ -564,7 +564,7 @@ export function createMiniGame(context = {}) {
     }
     canvasContext.fill();
     canvasContext.fillStyle = "#a29bfe";
-    canvasContext.font = "bold 13px sans-serif";
+    canvasContext.font = "bold 13px Galmuri11, sans-serif";
     canvasContext.textAlign = "center";
     canvasContext.textBaseline = "alphabetic";
     canvasContext.fillText("TARGET", centerX, startY + 18);
@@ -584,7 +584,7 @@ export function createMiniGame(context = {}) {
       );
     } else {
       canvasContext.fillStyle = "#ffffff";
-      canvasContext.font = "12px sans-serif";
+      canvasContext.font = "12px Galmuri11, sans-serif";
       canvasContext.fillText("Loading...", centerX, startY + 45);
     }
     canvasContext.restore();

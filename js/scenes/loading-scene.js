@@ -115,10 +115,24 @@ export function createLoadingScene(context) {
       root.setAttribute("aria-busy", "true");
       const scene = createScene({
         className: "scene--centered",
-        eyebrow: "BOOTING AI COLLEGE",
-        title: "ai-change",
+        eyebrow: "제2회 인공지능대학 축제",
         description: "게임 데이터와 계정 연결을 준비하고 있습니다.",
       });
+      const loadingLogo = createElement("img", {
+        className: "scene-brand-logo scene-brand-logo--loading",
+        attributes: {
+          src: "./assets/images/main%20logo.png",
+          width: "4335",
+          height: "2368",
+          alt: "",
+          decoding: "async",
+        },
+      });
+      const accessibleTitle = createElement("h1", {
+        className: "visually-hidden",
+        text: "인지사전게임",
+      });
+      scene.querySelector(".muted")?.before(loadingLogo, accessibleTitle);
       const track = createElement("div", {
         className: "loading-track",
         attributes: { role: "progressbar", "aria-label": "콘텐츠 로딩", "aria-valuemin": "0", "aria-valuemax": "100" },

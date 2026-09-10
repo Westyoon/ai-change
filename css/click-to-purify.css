@@ -12,7 +12,7 @@
   overflow: auto;
   background: #05070c;
   color: #eee;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .click-to-purify-stage,
@@ -63,7 +63,7 @@
   background: transparent;
   box-shadow: none;
   color: #eee;
-  font-family: monospace;
+  font-family: var(--font-mono);
   text-align: left;
 }
 
@@ -96,7 +96,7 @@
 .click-to-purify-ui-root .ctp-miss {
   margin-bottom: 8px;
   color: #e6483c;
-  font: 12px monospace;
+  font: 12px var(--font-mono);
 }
 
 .click-to-purify-ui-root .ctp-click-btn,
@@ -108,7 +108,7 @@
   border-radius: 6px;
   background: #3a3f4a;
   color: #fff;
-  font: bold 16px monospace;
+  font: bold 16px var(--font-mono);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -166,14 +166,14 @@
   border-radius: 10px;
   background: rgb(20 24 31 / 95%);
   color: #eee;
-  font: 13px monospace;
+  font: 13px var(--font-mono);
   box-shadow: 0 12px 42px rgb(0 0 0 / 42%);
 }
 
 .click-to-purify-stage .click-to-purify__intro-box h2 {
   margin: 0 0 10px;
   color: #eee;
-  font: bold 16px monospace;
+  font: bold 16px var(--font-mono);
   letter-spacing: normal;
 }
 
@@ -189,7 +189,7 @@
   border-radius: 4px;
   background: #3a3f4a;
   color: #fff;
-  font: 14px monospace;
+  font: 14px var(--font-mono);
   cursor: pointer;
 }
 
@@ -249,7 +249,7 @@
   border-radius: 10px;
   background: rgb(20 24 31 / 97%);
   color: #eee;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .result-card[data-mini-game-id="cyber-click-to-purify"] .button--primary {
