@@ -41,7 +41,19 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
 
             if (egg.target === 'box') {
                 if (egg.y + eggR >= fieldH) {
-                    resolveEgg(refs, state, egg);
+                    const centerOffset = egg.x - fieldW / 2;
+                    if (centerOffset < 0) {
+                        egg.finalDir = 'left';
+                        resolveEgg(refs, state, egg);
+                    } else if (centerOffset > 0) {
+                        egg.finalDir = 'right';
+                        resolveEgg(refs, state, egg);
+                    } else if (egg.vx !== 0) {
+                        egg.finalDir = egg.vx < 0 ? 'left' : 'right';
+                        resolveEgg(refs, state, egg);
+                    } else {
+                        resolveMiss(refs, state, egg);
+                    }
                     continue;
                 }
             } else if (egg.target === 'miss') {
@@ -70,14 +82,11 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
                 );
                 if (egg.y >= restingY) {
                     if (Math.abs(dxAtLanding) > physics.platformHalfLen) {
-                        egg.platform = plat;
-                        finalizeRelease(
-                            state,
-                            egg,
-                            dxAtLanding >= 0 ? 'right' : 'left',
-                            config,
-                            physics
-                        );
+                        // Passing beside a target is not the same as rolling off it.
+                        // Keep the current momentum and let the egg leave naturally.
+                        egg.target = 'miss';
+                        egg.targetPlatform = null;
+                        egg.platform = null;
                     } else {
                         egg.y = restingY;
                         egg.vy = 0;

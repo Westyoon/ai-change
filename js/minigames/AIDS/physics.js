@@ -1,5 +1,8 @@
-function tiltAngleRad(config, tilt) {
-    const rad = (config.physics.tiltAngleDeg * Math.PI) / 180;
+function tiltAngleRad(config, tilt, runtimePhysics = config.physics) {
+    const angleDeg = Number.isFinite(runtimePhysics.tiltAngleDeg)
+        ? runtimePhysics.tiltAngleDeg
+        : config.physics.tiltAngleDeg;
+    const rad = (angleDeg * Math.PI) / 180;
     return tilt === 'left' ? -rad : rad;
 }
 
@@ -12,7 +15,7 @@ export function platformRestingY(
     tilt,
     runtimePhysics = config.physics
 ) {
-    const theta = tiltAngleRad(config, tilt);
+    const theta = tiltAngleRad(config, tilt, runtimePhysics);
     const eggRadius = Number.isFinite(runtimePhysics.eggRadius)
         ? runtimePhysics.eggRadius
         : 0;
@@ -71,7 +74,7 @@ export function stepRolling(egg, dt, config, tilt, runtimePhysics = config.physi
     egg.x += egg.vx * dt;
 
     const dx = egg.x - egg.platform.x;
-    const theta = tiltAngleRad(config, tilt);
+    const theta = tiltAngleRad(config, tilt, p);
     egg.y = platformRestingY(egg.platform, egg.x, config, tilt, p);
     egg.vy = egg.vx * Math.tan(theta);
 

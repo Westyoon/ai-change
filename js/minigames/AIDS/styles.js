@@ -66,12 +66,13 @@ const CSS = `
 .aids-egg-de{ background: radial-gradient(circle at 35% 30%, #6FDAD3, #38B8B0 60%, #1F8E88); }
 
 .aids-platform-wrap{
+  --aids-tilt-angle:16deg;
   position:absolute; width:84px; height:22px; margin-left:-42px; margin-top:-11px;
   transform-origin:50% 50%; z-index:4;
   filter: drop-shadow(0 4px 4px rgba(0,0,0,0.18));
 }
-.aids-platform-wrap.aids-tilt-left{ transform: rotate(-16deg); }
-.aids-platform-wrap.aids-tilt-right{ transform: rotate(16deg); }
+.aids-platform-wrap.aids-tilt-left{ transform: rotate(calc(0deg - var(--aids-tilt-angle))); }
+.aids-platform-wrap.aids-tilt-right{ transform: rotate(var(--aids-tilt-angle)); }
 .aids-platform-bar{
   position:absolute; top:50%; left:0; right:0; height:16px; margin-top:-8px; border-radius:10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(160,214,255,0.55) 55%, rgba(120,190,245,0.5));

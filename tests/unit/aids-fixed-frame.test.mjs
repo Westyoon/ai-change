@@ -239,6 +239,7 @@ test("AIDS mobile field keeps the original dimensions and physics values", () =>
   assert.equal(layout.horizontalScale, 1);
   assert.equal(layout.verticalScale, 1);
   assert.equal(layout.physics.platformHalfLen, DEFAULT_CONFIG.physics.platformHalfLen);
+  assert.equal(layout.physics.tiltAngleDeg, DEFAULT_CONFIG.physics.tiltAngleDeg);
   assert.equal(layout.physics.gravity, DEFAULT_CONFIG.physics.gravity);
   assert.equal(layout.physics.releaseSpeedThreshold, 60);
   assert.equal(layout.physics.releaseSpeed, 120);
@@ -359,6 +360,10 @@ test("AIDS live desktop relayout preserves platform and active egg references", 
   assert.equal(state.fieldLayout.physics.platformHalfLen, 80);
   assert.equal(platform.el.style.width, "164px");
   assert.equal(platform.el.style.marginLeft, "-82px");
+  assert.equal(
+    platform.el.style["--aids-tilt-angle"],
+    state.fieldLayout.physics.tiltAngleDeg + "deg",
+  );
 });
 
 test("AIDS rolling stays radius-correct on both downhill platform surfaces", () => {
@@ -415,7 +420,7 @@ test("AIDS falling preserves horizontal momentum while its projected landing is 
   assert.ok(Math.abs(egg.y - DEFAULT_CONFIG.physics.gravity * dt * dt) < 1e-9);
 });
 
-test("AIDS keeps downward velocity when an egg passes a platform edge", () => {
+test("AIDS keeps downward velocity without treating a missed edge as a roll exit", () => {
   const ownerDocument = {
     createElement(tagName) {
       return new FakeElement(tagName, ownerDocument);
@@ -455,9 +460,9 @@ test("AIDS keeps downward velocity when an egg passes a platform edge", () => {
   stepFrame({ state, config: DEFAULT_CONFIG, refs: { field, timerEl }, elapsedMs: 32 });
 
   assert.equal(egg.phase, "falling");
-  assert.equal(egg.platform, missedPlatform);
-  assert.equal(egg.targetPlatform, nextPlatform);
-  assert.equal(egg.target, "platform");
+  assert.equal(egg.platform, null);
+  assert.equal(egg.targetPlatform, null);
+  assert.equal(egg.target, "miss");
   assert.equal(egg.vx, 50);
   assert.ok(Math.abs(egg.vy - 116) < 1e-9);
   assert.ok(egg.y > 80);
@@ -547,4 +552,219 @@ test("AIDS crossing either field edge classifies by side without requiring box o
   assert.equal(state.lostCount, 0);
   assert.equal(state.life, DEFAULT_CONFIG.initialLives - 2);
   assert.deepEqual(state.eggs, []);
+});
+
+test("AIDS side exits classify every falling route, not only eggs already targeting a box", () => {
+  const ownerDocument = {
+    createElement(tagName) {
+      return new FakeElement(tagName, ownerDocument);
+    },
+  };
+  const field = new FakeElement("div", ownerDocument);
+  field.clientWidth = 400;
+  field.clientHeight = 300;
+  const boxLeft = new FakeElement("div", ownerDocument);
+  const boxRight = new FakeElement("div", ownerDocument);
+  const heartsEl = new FakeElement("div", ownerDocument);
+  const timerEl = new FakeElement("div", ownerDocument);
+  const refs = { field, boxLeft, boxRight, heartsEl, timerEl };
+  const leftEggElement = new FakeElement("div", ownerDocument);
+  const rightEggElement = new FakeElement("div", ownerDocument);
+  field.append(leftEggElement, rightEggElement);
+  const state = {
+    tilt: "right",
+    life: DEFAULT_CONFIG.initialLives,
+    eggs: [
+      {
+        type: "in",
+        el: leftEggElement,
+        x: -1,
+        y: 80,
+        vx: 0,
+        vy: 0,
+        phase: "falling",
+        target: "platform",
+        targetPlatform: { rowIndex: 0, lane: "center", x: 200, y: 150 },
+        platform: null,
+        rollTime: 0,
+        finalDir: "right",
+        done: false,
+      },
+      {
+        type: "de",
+        el: rightEggElement,
+        x: field.clientWidth + 1,
+        y: 80,
+        vx: 0,
+        vy: 0,
+        phase: "falling",
+        target: "miss",
+        targetPlatform: null,
+        platform: null,
+        rollTime: 0,
+        finalDir: "left",
+        done: false,
+      },
+    ],
+    platforms: [],
+    nextSpawnAtSec: Number.POSITIVE_INFINITY,
+    lastElapsedMs: 0,
+    correctCount: 0,
+    wrongCount: 0,
+    lostCount: 0,
+  };
+
+  stepFrame({ state, config: DEFAULT_CONFIG, refs, elapsedMs: 0 });
+
+  assert.equal(state.correctCount, 2);
+  assert.equal(state.wrongCount, 0);
+  assert.equal(state.lostCount, 0);
+  assert.equal(state.life, DEFAULT_CONFIG.initialLives);
+  assert.deepEqual(state.eggs, []);
+});
+
+test("AIDS desktop floor classification follows the egg's visible field half", () => {
+  const ownerDocument = {
+    createElement(tagName) {
+      return new FakeElement(tagName, ownerDocument);
+    },
+  };
+  const field = new FakeElement("div", ownerDocument);
+  field.clientWidth = 1_200;
+  field.clientHeight = 700;
+  const boxLeft = new FakeElement("div", ownerDocument);
+  const boxRight = new FakeElement("div", ownerDocument);
+  const heartsEl = new FakeElement("div", ownerDocument);
+  const timerEl = new FakeElement("div", ownerDocument);
+  const refs = { field, boxLeft, boxRight, heartsEl, timerEl };
+  const makeEgg = ({ type, x, finalDir }) => {
+    const el = new FakeElement("div", ownerDocument);
+    field.appendChild(el);
+    return {
+      type,
+      el,
+      x,
+      y: field.clientHeight - DEFAULT_CONFIG.physics.eggRadius,
+      vx: 0,
+      vy: 0,
+      phase: "falling",
+      target: "box",
+      targetPlatform: null,
+      platform: null,
+      rollTime: 0,
+      finalDir,
+      done: false,
+    };
+  };
+  const state = {
+    tilt: "right",
+    life: DEFAULT_CONFIG.initialLives,
+    eggs: [
+      makeEgg({
+        type: "in",
+        x: field.clientWidth * 0.43,
+        finalDir: "right",
+      }),
+      makeEgg({
+        type: "de",
+        x: field.clientWidth * 0.57,
+        finalDir: "left",
+      }),
+    ],
+    fieldLayout: createFieldLayout(DEFAULT_CONFIG, field.clientWidth, field.clientHeight),
+    platforms: [],
+    nextSpawnAtSec: Number.POSITIVE_INFINITY,
+    lastElapsedMs: 0,
+    correctCount: 0,
+    wrongCount: 0,
+    lostCount: 0,
+  };
+
+  stepFrame({ state, config: DEFAULT_CONFIG, refs, elapsedMs: 0 });
+
+  assert.equal(state.correctCount, 2);
+  assert.equal(state.wrongCount, 0);
+  assert.equal(state.lostCount, 0);
+  assert.equal(state.life, DEFAULT_CONFIG.initialLives);
+  assert.deepEqual(state.eggs, []);
+});
+
+test("AIDS wide desktop layout preserves the normalized platform slope", () => {
+  const fieldWidth = 1_200;
+  const fieldHeight = 700;
+  const layout = createFieldLayout(DEFAULT_CONFIG, fieldWidth, fieldHeight);
+  const baseAngleRad = (DEFAULT_CONFIG.physics.tiltAngleDeg * Math.PI) / 180;
+  const expectedAngleRad = Math.atan(
+    Math.tan(baseAngleRad) * (layout.verticalScale / layout.horizontalScale),
+  );
+  const expectedAngleDeg = (expectedAngleRad * 180) / Math.PI;
+
+  assert.ok(
+    Math.abs(layout.physics.tiltAngleDeg - expectedAngleDeg) < 1e-9,
+    "the rendered/physical slope must account for independent desktop x/y scaling",
+  );
+  assert.ok(
+    Math.abs(
+      layout.physics.platformHalfLen * Math.tan(expectedAngleRad)
+      - DEFAULT_CONFIG.physics.platformHalfLen
+        * Math.tan(baseAngleRad)
+        * layout.verticalScale,
+    ) < 1e-9,
+  );
+});
+
+test("AIDS falling below a missed platform edge does not teleport into the opposite branch", () => {
+  const ownerDocument = {
+    createElement(tagName) {
+      return new FakeElement(tagName, ownerDocument);
+    },
+  };
+  const field = new FakeElement("div", ownerDocument);
+  field.clientWidth = 400;
+  field.clientHeight = 300;
+  const timerEl = new FakeElement("div", ownerDocument);
+  const missedPlatform = { rowIndex: 1, lane: "left", x: 100, y: 100 };
+  const oppositeBranch = { rowIndex: 2, lane: "right", x: 280, y: 180 };
+  const eggElement = new FakeElement("div", ownerDocument);
+  field.appendChild(eggElement);
+  const egg = {
+    type: "in",
+    el: eggElement,
+    x: missedPlatform.x + DEFAULT_CONFIG.physics.platformHalfLen + 10,
+    y: missedPlatform.y + 10,
+    vx: 50,
+    vy: 100,
+    phase: "falling",
+    target: "platform",
+    targetPlatform: missedPlatform,
+    platform: null,
+    rollTime: 0,
+    finalDir: null,
+    done: false,
+  };
+  const state = {
+    tilt: "right",
+    life: DEFAULT_CONFIG.initialLives,
+    eggs: [egg],
+    platforms: [missedPlatform, oppositeBranch],
+    nextSpawnAtSec: Number.POSITIVE_INFINITY,
+    lastElapsedMs: 0,
+    correctCount: 0,
+    wrongCount: 0,
+    lostCount: 0,
+  };
+
+  stepFrame({ state, config: DEFAULT_CONFIG, refs: { field, timerEl }, elapsedMs: 0 });
+
+  assert.equal(egg.phase, "falling");
+  assert.equal(egg.target, "miss");
+  assert.equal(egg.targetPlatform, null);
+  assert.equal(egg.platform, null);
+  assert.equal(egg.finalDir, null);
+  assert.equal(egg.x, 150);
+  assert.equal(egg.y, 110);
+  assert.equal(egg.vx, 50);
+  assert.equal(egg.vy, 100);
+  assert.deepEqual(state.eggs, [egg]);
+  assert.equal(state.lostCount, 0, "the miss should resolve only after free-falling out of bounds");
 });

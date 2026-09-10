@@ -20,6 +20,15 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+function responsiveTiltAngle(angleDeg, horizontalScale, verticalScale) {
+    const angleRad = (angleDeg * Math.PI) / 180;
+    return (
+        Math.atan(Math.tan(angleRad) * (verticalScale / horizontalScale))
+        * 180
+        / Math.PI
+    );
+}
+
 function measuredFieldSize(field, axis, fallback) {
     const clientValue = Number(field?.[axis === 'width' ? 'clientWidth' : 'clientHeight']);
     if (clientValue > 0) return clientValue;
@@ -67,6 +76,11 @@ export function createFieldLayout(config, fieldWidth, fieldHeight) {
         verticalScale,
         physics: Object.freeze({
             ...basePhysics,
+            tiltAngleDeg: responsiveTiltAngle(
+                basePhysics.tiltAngleDeg,
+                horizontalScale,
+                verticalScale
+            ),
             gravity: basePhysics.gravity * verticalScale,
             rollAccel: basePhysics.rollAccel * horizontalScale,
             maxRollSpeed: basePhysics.maxRollSpeed * horizontalScale,
@@ -85,6 +99,12 @@ function applyPlatformGeometry(platform, layout) {
     platform.y = (layout.fieldHeight * platform.yPct) / 100;
     platform.el.style.left = platform.x + 'px';
     platform.el.style.top = platform.y + 'px';
+    const tiltAngle = layout.physics.tiltAngleDeg + 'deg';
+    if (typeof platform.el.style.setProperty === 'function') {
+        platform.el.style.setProperty('--aids-tilt-angle', tiltAngle);
+    } else {
+        platform.el.style['--aids-tilt-angle'] = tiltAngle;
+    }
 
     const dimensions = platformOuterDimensions(layout.physics.platformHalfLen);
     platform.el.style.width = dimensions.width + 'px';

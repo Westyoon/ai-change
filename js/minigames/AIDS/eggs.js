@@ -40,7 +40,10 @@ export function finalizeRelease(state, egg, exitSide, config, runtimePhysics = c
     }
     if (wasRolling) {
         const direction = state.tilt === 'left' ? -1 : 1;
-        const theta = (direction * runtimePhysics.tiltAngleDeg * Math.PI) / 180;
+        const angleDeg = Number.isFinite(runtimePhysics.tiltAngleDeg)
+            ? runtimePhysics.tiltAngleDeg
+            : config.physics.tiltAngleDeg;
+        const theta = (direction * angleDeg * Math.PI) / 180;
         egg.vy = Math.max(0, egg.vx * Math.tan(theta));
     }
 
@@ -81,6 +84,11 @@ function loseLife(refs, state) {
 }
 
 export function resolveEgg(refs, state, egg) {
+    if (egg.finalDir !== 'left' && egg.finalDir !== 'right') {
+        resolveMiss(refs, state, egg);
+        return;
+    }
+
     egg.done = true;
     const correctSide = egg.type === 'in' ? 'left' : 'right';
     const good = egg.finalDir === correctSide;
