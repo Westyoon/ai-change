@@ -136,7 +136,7 @@ export function normalizeDataSphinxConfig(config = {}) {
     battleId: DATA_SPHINX_BATTLE_ID,
     arena,
     player,
-    timeLimitMs: positiveNumber(config.timeLimitMs, 15000, "Data Sphinx timeLimitMs"),
+    timeLimitMs: positiveNumber(config.timeLimitMs, 3000, "Data Sphinx timeLimitMs"),
     resolutionDelayMs: nonNegativeNumber(
       config.resolutionDelayMs,
       2000,

@@ -12,7 +12,7 @@
     "speed": 500,
     "maxHealth": 100
   },
-  "timeLimitMs": 15000,
+  "timeLimitMs": 3000,
   "resolutionDelayMs": 2000,
   "deathDelayMs": 1000,
   "bossMaxHealth": 100,

@@ -161,7 +161,7 @@ test("checked-in Data Sphinx config preserves the ten-question fixed-damage form
   const config = normalizeDataSphinxConfig(document);
 
   assert.equal(config.quizList.length, 10);
-  assert.equal(config.timeLimitMs, 15_000);
+  assert.equal(config.timeLimitMs, 3_000);
   assert.equal(config.bossMaxHealth, 100);
   assert.equal(config.damagePerCorrect, 10);
   assert.equal(config.player.maxHealth, 100);
