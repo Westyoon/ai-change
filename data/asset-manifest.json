@@ -38,15 +38,6 @@
       "sourceRef": "CONTENT-COMMON-004"
     },
     {
-      "id": "main-story-data",
-      "group": "common",
-      "type": "json",
-      "src": "./data/scripts/main-story.json",
-      "required": true,
-      "alt": null,
-      "sourceRef": "CONTENT-COMMON-005"
-    },
-    {
       "id": "npc-dialogues-data",
       "group": "common",
       "type": "json",

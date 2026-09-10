@@ -165,6 +165,7 @@ function validateBattles(battles, miniGameById, assetById, assets, errors) {
   const ids = new Set();
   const publishedModules = new Set();
   const knownGroups = new Set(assets.map((asset) => asset?.group).filter(Boolean));
+  const requiredMiniGameIds = new Set(Object.keys(SCAFFOLD_MINI_GAME_DEPARTMENTS));
   let runnableCount = 0;
 
   for (const battle of battles) {
@@ -219,6 +220,12 @@ function validateBattles(battles, miniGameById, assetById, assets, errors) {
       const uniqueIds = new Set(condition.miniGameIds);
       if (uniqueIds.size !== condition.miniGameIds.length) {
         invalidate(`Battle ${battle.id} unlockCondition contains duplicate miniGameIds.`);
+      }
+      if (
+        uniqueIds.size !== requiredMiniGameIds.size
+        || [...requiredMiniGameIds].some((miniGameId) => !uniqueIds.has(miniGameId))
+      ) {
+        invalidate(`Battle ${battle.id} unlockCondition must require all five mini-games.`);
       }
       for (const miniGameId of condition.miniGameIds) {
         if (typeof miniGameId !== "string" || !miniGameById.has(miniGameId)) {

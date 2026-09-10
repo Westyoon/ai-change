@@ -173,6 +173,7 @@ test("a published Battle must resolve its static loader, config group and five-g
   const errors = validateReferenceGraph(fixture);
   assert.ok(errors.some((error) => error.includes("not statically registered")));
   assert.ok(errors.some((error) => error.includes("duplicate miniGameIds")));
+  assert.ok(errors.some((error) => error.includes("all five mini games")));
   assert.ok(errors.some((error) => error.includes("does not resolve")));
 });
 

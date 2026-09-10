@@ -8,7 +8,7 @@ async function source(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-test("the final festival logo replaces visible ai-change wordmarks without changing the app id", async () => {
+test("the festival logo remains on the main and loading scenes while the top bar stays compact", async () => {
   const [html, manifestText, menu, loading] = await Promise.all([
     source("index.html"),
     source("data/asset-manifest.json"),
@@ -20,7 +20,11 @@ test("the final festival logo replaces visible ai-change wordmarks without chang
 
   assert.equal(logo?.src, "./assets/images/main logo.png");
   assert.match(logo?.alt ?? "", /인지사전게임/u);
-  assert.match(html, /class="brand-mark__logo"[^>]*[\s\S]*?main%20logo\.png/u);
+  assert.doesNotMatch(html, /class="brand-mark(?:__logo|__name)?"/u);
+  assert.match(html, /class="build-badge">LIVE · v1/u);
+  assert.match(html, /data-top-route="account"/u);
+  assert.match(html, /data-top-route="settings"/u);
+  assert.match(html, /shape-rendering="crispEdges"/u);
   assert.match(html, /class="scene-brand-logo scene-brand-logo--loading"/u);
   assert.doesNotMatch(html, />\s*ai-change\s*</u);
   assert.doesNotMatch(menu, /image\.width\s*=|image\.height\s*=/u);

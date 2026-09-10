@@ -5,6 +5,10 @@ import {
   consumeAuthCallback,
   refreshSessionAfterAuth,
 } from "../../js/scenes/loading-scene.js";
+import {
+  ACCOUNT_ORIGIN,
+  isSeparateHostedOrigin,
+} from "../../js/scenes/account-scene.js";
 
 function jsonResponse(payload, status = 200) {
   return {
@@ -107,6 +111,61 @@ test("session restore preserves a useful server failure message", async () => {
   assert.match(state.error, /잠시 응답하지 않습니다/u);
 });
 
+test("session restore times out instead of leaving the loading screen pending forever", async () => {
+  const fetchImpl = (_url, { signal }) => new Promise((_resolve, reject) => {
+    signal.addEventListener("abort", () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      reject(error);
+    }, { once: true });
+  });
+  const service = new AccountService({ fetchImpl });
+
+  const state = await service.refreshSession({ timeoutMs: 5 });
+
+  assert.equal(state.status, "unavailable");
+  assert.equal(state.available, false);
+  assert.match(state.error, /시간이 초과/u);
+});
+
+test("session restore timeout also covers a stalled response body", async () => {
+  const fetchImpl = async (_url, { signal }) => ({
+    ok: true,
+    status: 200,
+    text: () => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => {
+        const error = new Error("aborted while reading body");
+        error.name = "AbortError";
+        reject(error);
+      }, { once: true });
+    }),
+  });
+  const service = new AccountService({ fetchImpl });
+
+  const state = await service.refreshSession({ timeoutMs: 5 });
+
+  assert.equal(state.status, "unavailable");
+  assert.equal(state.available, false);
+  assert.match(state.error, /시간이 초과/u);
+});
+
+test("a failed successful-response body cannot be mistaken for a guest session", async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    status: 200,
+    async text() {
+      throw new Error("response body failed");
+    },
+  });
+  const service = new AccountService({ fetchImpl });
+
+  const state = await service.refreshSession();
+
+  assert.equal(state.status, "unavailable");
+  assert.equal(state.available, false);
+  assert.match(state.error, /운영 주소/u);
+});
+
 test("a successful OAuth callback retries session discovery until the cookie is visible", async () => {
   const states = [
     { authenticated: false, status: "unavailable" },
@@ -116,8 +175,8 @@ test("a successful OAuth callback retries session discovery until the cookie is 
   const calls = [];
   const waited = [];
   const service = {
-    async refreshSession() {
-      calls.push("refresh");
+    async refreshSession(options) {
+      calls.push(options);
       return states.shift();
     },
   };
@@ -133,6 +192,11 @@ test("a successful OAuth callback retries session discovery until the cookie is 
 
   assert.equal(state.authenticated, true);
   assert.equal(calls.length, 3);
+  assert.deepEqual(calls, [
+    { timeoutMs: 1_800 },
+    { timeoutMs: 1_800 },
+    { timeoutMs: 1_800 },
+  ]);
   assert.deepEqual(waited, [150, 500]);
 });
 
@@ -454,4 +518,19 @@ test("OAuth callback parameters route to account UI and are removed from the vis
   assert.equal(result.authCallback, "success");
   assert.match(result.notice, /인증.*확인/u);
   assert.deepEqual(replacements, [[{ preserved: true }, "", "/?campaign=festival#play"]]);
+});
+
+test("hosted copies always send account login to the canonical Worker", () => {
+  assert.equal(
+    isSeparateHostedOrigin(new URL(`${ACCOUNT_ORIGIN}/`)),
+    false,
+  );
+  assert.equal(
+    isSeparateHostedOrigin(new URL("https://preview.example/")),
+    true,
+  );
+  assert.equal(
+    isSeparateHostedOrigin(new URL("http://127.0.0.1:4173/")),
+    false,
+  );
 });

@@ -14,7 +14,6 @@
 | `CONTENT-COMMON-002` | `data/minigames.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 미니게임 registry 스캐폴드 작성 | 미니게임 메뉴·진입 |
 | `CONTENT-COMMON-003` | `data/battles.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 운영 사후 콘텐츠 4종과 5종 완료 해금 조건 등록 | Battle 목록·해금 판정 |
 | `CONTENT-COMMON-004` | `data/map-data.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 학과 NPC를 임시 좌표에 배치 | 축제 맵 스캐폴드 |
-| `CONTENT-COMMON-005` | `data/scripts/main-story.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 개발용 인트로 한 줄 작성 | Story intro |
 | `CONTENT-COMMON-006` | `data/scripts/npc-dialogues.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | NPC 최초·재방문 및 게임 안내 문구 작성 | NPC·미니게임 안내 대화 |
 | `CONTENT-COMMON-007` | `data/scripts/minigame-outros.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 성공·실패 개발용 문구 작성 | 결과 이후 outro |
 | `CONTENT-DS-001` | `data/minigames/number-baseball.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기능명세 기반 | 해당 없음 | 프로젝트 내부 제작물 | 목표와 PC·모바일 조작만 구조화 | DS 숫자 야구 |
@@ -31,7 +30,7 @@
 
 | SourceRef | 실제 파일명 | 종류 | 제작자·출처 | 원본 URL | 라이선스·사용 권한 | 수정 내용 | 사용 위치 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ASSET-COMMON-001` | `assets/images/main logo.png` | PNG 브랜드 로고 | 프로젝트 사용자가 최종 원본 제공 | 해당 없음 | 프로젝트 운영 사용을 전제로 사용자 제공, 외부 재배포 권한은 사용자 확인 | 원본 그림은 수정하지 않고 비율을 유지해 반응형 축소 표시 | 공통 헤더·로딩·메인 메뉴 |
+| `ASSET-COMMON-001` | `assets/images/main logo.png` | PNG 브랜드 로고 | 프로젝트 사용자가 최종 원본 제공 | 해당 없음 | 프로젝트 운영 사용을 전제로 사용자 제공, 외부 재배포 권한은 사용자 확인 | 원본 그림은 수정하지 않고 비율을 유지해 반응형 축소 표시 | 로딩·메인 메뉴 |
 | `ASSET-DS-001` | `assets/minigames/number-baseball/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 숫자 타일과 `DS` 코드로 신규 작성 | DS 미니게임 썸네일 |
 | `ASSET-CS-001` | `assets/minigames/click-to-purify/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 방패·커서와 `CS` 코드로 신규 작성 | CS 미니게임 썸네일 |
 | `ASSET-CSE-001` | `assets/minigames/code-heart/thumbnail.svg` | SVG placeholder | ai-change 프로젝트 자체 제작, Codex 코드 스캐폴딩 | 해당 없음 | 프로젝트 내부 사용 가능, 최종 배포 정책 확인 필요 | 코드 기호·하트와 `CSE` 코드로 신규 작성 | CSE 미니게임 썸네일 |

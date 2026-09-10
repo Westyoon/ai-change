@@ -28,17 +28,43 @@
   <body>
     <div class="app-shell">
       <header class="top-bar" aria-label="인지사전게임 공통 헤더">
-        <a class="brand-mark" href="./" aria-label="인지사전게임 처음으로">
-          <img
-            class="brand-mark__logo"
-            src="./assets/images/main%20logo.png"
-            width="4335"
-            height="2368"
-            alt=""
-          />
-          <span class="brand-mark__name">인지사전게임</span>
-        </a>
         <span class="build-badge">LIVE · v1</span>
+        <nav class="top-nav" aria-label="빠른 메뉴">
+          <button
+            class="top-nav__button"
+            type="button"
+            data-top-route="account"
+            aria-label="내 계정 열기"
+            disabled
+          >
+            <svg class="top-nav__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
+              <rect x="6" y="1" width="4" height="4" fill="currentColor" />
+              <rect x="4" y="2" width="8" height="2" fill="currentColor" />
+              <rect x="3" y="7" width="10" height="2" fill="currentColor" />
+              <rect x="2" y="9" width="12" height="5" fill="currentColor" />
+              <rect x="1" y="11" width="2" height="4" fill="currentColor" />
+              <rect x="13" y="11" width="2" height="4" fill="currentColor" />
+            </svg>
+            <span class="top-nav__label">내 계정</span>
+          </button>
+          <button
+            class="top-nav__button"
+            type="button"
+            data-top-route="settings"
+            aria-label="설정 열기"
+            disabled
+          >
+            <svg class="top-nav__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
+              <rect x="6" y="1" width="4" height="3" fill="currentColor" />
+              <rect x="6" y="12" width="4" height="3" fill="currentColor" />
+              <rect x="1" y="6" width="3" height="4" fill="currentColor" />
+              <rect x="12" y="6" width="3" height="4" fill="currentColor" />
+              <rect x="4" y="4" width="8" height="8" fill="currentColor" />
+              <rect x="6" y="6" width="4" height="4" fill="var(--paper)" />
+            </svg>
+            <span class="top-nav__label">설정</span>
+          </button>
+        </nav>
       </header>
 
       <main id="app" class="scene-root" tabindex="-1">

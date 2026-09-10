@@ -1,8 +1,8 @@
 import { createButton, createElement, showToast } from "./scene-utils.js";
 
-const ACCOUNT_ORIGIN = "https://ai-change.ai-change-backend.workers.dev";
+export const ACCOUNT_ORIGIN = "https://ai-change.ai-change-backend.workers.dev";
 
-function isSeparateHostedOrigin(locationRef = globalThis.location) {
+export function isSeparateHostedOrigin(locationRef = globalThis.location) {
   const origin = locationRef?.origin;
   const protocol = locationRef?.protocol;
   return protocol === "https:" && typeof origin === "string" && origin !== ACCOUNT_ORIGIN;
@@ -141,7 +141,7 @@ export function createAccountScene(context) {
         }
 
         if (!state.authenticated) {
-          const separateAccountOrigin = !state.available && isSeparateHostedOrigin();
+          const separateAccountOrigin = isSeparateHostedOrigin();
           const loginLink = createElement("a", {
             className: "button button--primary",
             text: "Google로 로그인",

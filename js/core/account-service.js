@@ -1,6 +1,7 @@
 const STAT_KEYS = Object.freeze(["attack", "hp", "defense"]);
 const RANKING_CRITERIA = new Set(["score", "clears"]);
 const EMPTY_GAME_IDS = Object.freeze([]);
+const ACCOUNT_REQUEST_TIMEOUT_MS = 8_000;
 
 const EMPTY_STATS = Object.freeze({
   attack: 0,
@@ -138,11 +139,11 @@ export class AccountService {
     return `${this.#apiBase}/auth/google`;
   }
 
-  refreshSession() {
+  refreshSession({ timeoutMs = ACCOUNT_REQUEST_TIMEOUT_MS } = {}) {
     if (this.#refreshPromise) return this.#refreshPromise;
 
     const authGeneration = this.#authGeneration;
-    const run = Promise.resolve().then(() => this.#loadSession(authGeneration));
+    const run = Promise.resolve().then(() => this.#loadSession(authGeneration, timeoutMs));
     const tracked = run.finally(() => {
       if (this.#refreshPromise === tracked) this.#refreshPromise = null;
     });
@@ -303,9 +304,9 @@ export class AccountService {
     return this.#state.stats;
   }
 
-  async #loadSession(authGeneration) {
+  async #loadSession(authGeneration, timeoutMs) {
     try {
-      const payload = await this.#request("/session", { allowUnauthorized: true });
+      const payload = await this.#request("/session", { allowUnauthorized: true, timeoutMs });
       const next = payload === null ? guestState() : sessionState(payload);
       if (authGeneration !== this.#authGeneration) return this.#state;
       if (this.#state.authenticated && !next.authenticated) this.#authGeneration += 1;
@@ -361,56 +362,93 @@ export class AccountService {
     await this.refreshSession();
   }
 
-  async #request(path, { method = "GET", body, signal, allowUnauthorized = false } = {}) {
-    let response;
-    try {
-      const headers = { Accept: "application/json" };
-      if (body !== undefined) headers["Content-Type"] = "application/json";
-      response = await this.#fetch(`${this.#apiBase}${path}`, {
-        method,
-        credentials: "same-origin",
-        cache: "no-store",
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal,
-      });
-    } catch (cause) {
-      if (cause?.name === "AbortError") throw cause;
-      throw new AccountServiceError("계정 서버에 연결할 수 없습니다.", {
-        code: "ACCOUNT_UNAVAILABLE",
-        cause,
-      });
-    }
+  async #request(
+    path,
+    {
+      method = "GET",
+      body,
+      signal,
+      allowUnauthorized = false,
+      timeoutMs = ACCOUNT_REQUEST_TIMEOUT_MS,
+    } = {},
+  ) {
+    const requestController = new AbortController();
+    let timedOut = false;
+    const forwardAbort = () => requestController.abort(signal?.reason);
+    if (signal?.aborted) forwardAbort();
+    else signal?.addEventListener?.("abort", forwardAbort, { once: true });
+    const timeoutId = globalThis.setTimeout(() => {
+      timedOut = true;
+      requestController.abort();
+    }, Math.max(1, Number(timeoutMs) || ACCOUNT_REQUEST_TIMEOUT_MS));
 
-    if (allowUnauthorized && response.status === 401) return null;
-
-    let payload = null;
-    let raw = "";
     try {
-      raw = await response.text();
-      payload = raw ? JSON.parse(raw) : null;
-    } catch (cause) {
-      if (response.ok && raw) {
-        throw new AccountServiceError("현재 주소에는 계정 API가 연결되어 있지 않습니다.", {
-          status: response.status,
-          code: "INVALID_RESPONSE",
+      let response;
+      try {
+        const headers = { Accept: "application/json" };
+        if (body !== undefined) headers["Content-Type"] = "application/json";
+        response = await this.#fetch(`${this.#apiBase}${path}`, {
+          method,
+          credentials: "same-origin",
+          cache: "no-store",
+          headers,
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: requestController.signal,
+        });
+      } catch (cause) {
+        if (cause?.name === "AbortError" && signal?.aborted) throw cause;
+        if (timedOut) {
+          throw new AccountServiceError("계정 서버 응답 시간이 초과되었습니다.", {
+            code: "ACCOUNT_TIMEOUT",
+            cause,
+          });
+        }
+        throw new AccountServiceError("계정 서버에 연결할 수 없습니다.", {
+          code: "ACCOUNT_UNAVAILABLE",
           cause,
         });
       }
-      payload = null;
-    }
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        this.#authGeneration += 1;
-        this.#setState(guestState());
+      if (allowUnauthorized && response.status === 401) return null;
+
+      let payload = null;
+      let raw = "";
+      try {
+        raw = await response.text();
+        payload = raw ? JSON.parse(raw) : null;
+      } catch (cause) {
+        if (cause?.name === "AbortError" && signal?.aborted) throw cause;
+        if (timedOut) {
+          throw new AccountServiceError("계정 서버 응답 시간이 초과되었습니다.", {
+            code: "ACCOUNT_TIMEOUT",
+            cause,
+          });
+        }
+        if (response.ok) {
+          throw new AccountServiceError("현재 주소에는 계정 API가 연결되어 있지 않습니다.", {
+            status: response.status,
+            code: "INVALID_RESPONSE",
+            cause,
+          });
+        }
+        payload = null;
       }
-      throw new AccountServiceError(friendlyHttpMessage(response.status), {
-        status: response.status,
-        code: text(payload?.code, "ACCOUNT_REQUEST_FAILED"),
-      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.#authGeneration += 1;
+          this.#setState(guestState());
+        }
+        throw new AccountServiceError(friendlyHttpMessage(response.status), {
+          status: response.status,
+          code: text(payload?.code, "ACCOUNT_REQUEST_FAILED"),
+        });
+      }
+      return payload;
+    } finally {
+      globalThis.clearTimeout(timeoutId);
+      signal?.removeEventListener?.("abort", forwardAbort);
     }
-    return payload;
   }
 
   #setState(next) {
@@ -429,4 +467,4 @@ export function createAccountService(options) {
   return new AccountService(options);
 }
 
-export { EMPTY_STATS, RANKING_CRITERIA, STAT_KEYS };
+export { ACCOUNT_REQUEST_TIMEOUT_MS, EMPTY_STATS, RANKING_CRITERIA, STAT_KEYS };

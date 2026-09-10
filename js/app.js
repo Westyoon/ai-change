@@ -18,7 +18,7 @@ import { createMiniGameIntroScene } from "./scenes/minigame-intro-scene.js";
 import { createMiniGameScene } from "./scenes/minigame-scene.js";
 import { createRankingScene } from "./scenes/ranking-scene.js";
 import { createSettingsScene } from "./scenes/settings-scene.js";
-import { createStoryIntroScene } from "./scenes/story-intro-scene.js";
+import { bindTopNavigation } from "./ui/top-navigation.js";
 
 async function fetchJson(path) {
   const response = await fetch(path, { cache: "no-store" });
@@ -102,7 +102,6 @@ async function bootstrap() {
       "main-menu": createMainMenuScene,
       "how-to": createHowToScene,
       settings: createSettingsScene,
-      "story-intro": createStoryIntroScene,
       map: createMapScene,
       dialogue: createDialogueScene,
       "minigame-intro": createMiniGameIntroScene,
@@ -115,10 +114,12 @@ async function bootstrap() {
     };
 
     context.router = new SceneRouter({ root, routes, context });
+    const topNavigation = bindTopNavigation(document, context.router);
     context.services.input.start?.();
     installGlobalBoundary(context);
 
-    await context.router.start(config.initialScene);
+    const started = await context.router.start(config.initialScene);
+    if (started && context.services.save) topNavigation.enable();
   } catch (error) {
     console.error(error);
     root.replaceChildren();

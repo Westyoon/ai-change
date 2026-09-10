@@ -60,7 +60,7 @@ https://ai-change.ai-change-backend.workers.dev
 
 브라우저 저장소도 origin별로 분리된다. 과거 고정 Pages 주소에서 이미 만든 로컬 진행은 canonical 주소가 자동으로 읽을 수 없다. 배포 링크는 canonical 주소만 안내하며, 과거 주소에 남은 진행을 살려야 할 때는 별도 내보내기·가져오기 절차가 필요하다.
 
-Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 네트워크 지연을 견디도록 `/api/session`을 150ms, 500ms, 1,000ms 간격으로 다시 확인한다. 성공 callback에서는 로그인 session cookie를 OAuth state 삭제 cookie보다 먼저 전송하며, `__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` 속성은 그대로 유지한다.
+Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 네트워크 지연을 견디도록 `/api/session`을 즉시 확인한 뒤 필요하면 200ms, 500ms 간격으로 다시 확인한다. 각 확인 요청에는 1.8초 제한 시간을 적용해 느리거나 끊긴 응답이 계정 화면 진입을 막지 않게 한다. 성공 callback에서는 로그인 session cookie를 OAuth state 삭제 cookie보다 먼저 전송하며, `__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` 속성은 그대로 유지한다.
 
 ## 4. API 계약
 

@@ -51,6 +51,7 @@ const [
   accountSource,
   loadingSource,
   accountSceneSource,
+  minigamesSource,
 ] =
   await Promise.all([
     read("backend/src/index.ts"),
@@ -62,6 +63,7 @@ const [
     read("js/core/account-service.js"),
     read("js/scenes/loading-scene.js"),
     read("js/scenes/account-scene.js"),
+    read("data/minigames.json"),
   ]);
 
 const rootPackage = JSON.parse(packageSource);
@@ -126,12 +128,43 @@ test("guest progress import is authenticated, allowlisted, and idempotent", () =
   assert.doesNotMatch(statsUpdate, /\bscore\s*=/iu);
 });
 
+test("the Worker progress allowlist matches every checked-in mini-game id", () => {
+  const block = workerSource.match(
+    /const\s+ALLOWED_GAME_IDS\s*=\s*new\s+Set\s*\(\s*\[([\s\S]*?)\]\s*\)/u,
+  )?.[1] ?? "";
+  const allowedGameIds = [...block.matchAll(/["']([^"']+)["']/gu)]
+    .map((match) => match[1])
+    .sort();
+  const runtimeGameIds = JSON.parse(minigamesSource).minigames
+    .map((game) => game.id)
+    .sort();
+
+  assert.deepEqual(allowedGameIds, runtimeGameIds);
+});
+
 test("authenticated UI connects normalized local completion to visible account progress", () => {
   const synchronizationSources = [loadingSource, accountSceneSource].join("\n");
   assert.match(synchronizationSources, /getCompletedMiniGameIds\s*\(\s*\)/u);
   assert.match(synchronizationSources, /importCompletedGameIds\s*\(/u);
   assert.match(accountSceneSource, /state\.completedGameIds\.filter\s*\(/u);
   assert.match(accountSceneSource, /사전게임 진행/u);
+});
+
+test("the account UI and Worker share one canonical production origin", () => {
+  const clientOrigin = accountSceneSource.match(
+    /ACCOUNT_ORIGIN\s*=\s*["']([^"']+)["']/u,
+  )?.[1];
+  const workerOrigin = wranglerConfig.match(
+    /PUBLIC_ORIGIN\s*=\s*["']([^"']+)["']/u,
+  )?.[1];
+  assert.equal(clientOrigin, workerOrigin);
+  assert.match(accountSceneSource, /const\s+separateAccountOrigin\s*=\s*isSeparateHostedOrigin\(\)/u);
+
+  const awaitIndex = loadingSource.indexOf("await sessionRefresh");
+  const accountRouteIndex = loadingSource.indexOf('navigate(authCallback ? "account"');
+  assert.ok(awaitIndex >= 0 && accountRouteIndex > awaitIndex);
+  assert.match(loadingSource, /await\s+sessionRefresh;\s*if\s*\(signal\.aborted\s*\|\|\s*!mounted\)\s*return;/u);
+  assert.doesNotMatch(loadingSource, /await\s+accountProgressSync/u);
 });
 
 test("mutations require a same-origin JSON request and wildcard CORS is absent", () => {

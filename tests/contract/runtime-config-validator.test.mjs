@@ -20,7 +20,6 @@ test("runtime config validator accepts the checked-in runtime data graph", async
     readJson("../../data/battles.json"),
     readJson("../../data/asset-manifest.json"),
     readJson("../../data/map-data.json"),
-    readJson("../../data/scripts/main-story.json"),
     readJson("../../data/scripts/npc-dialogues.json"),
     readJson("../../data/scripts/minigame-outros.json")
   ]);
@@ -48,7 +47,6 @@ test("runtime config validator rejects an unregistered or invalidly unlocked pub
     readJson("../../data/battles.json"),
     readJson("../../data/asset-manifest.json"),
     readJson("../../data/map-data.json"),
-    readJson("../../data/scripts/main-story.json"),
     readJson("../../data/scripts/npc-dialogues.json"),
     readJson("../../data/scripts/minigame-outros.json")
   ]);
@@ -70,6 +68,7 @@ test("runtime config validator rejects an unregistered or invalidly unlocked pub
 
   assert.ok(result.errors.some((error) => error.includes("module is not registered")));
   assert.ok(result.errors.some((error) => error.includes("duplicate miniGameIds")));
+  assert.ok(result.errors.some((error) => error.includes("all five mini-games")));
   assert.ok(result.errors.some((error) => error.includes("missing mini-game")));
   assert.ok(result.errors.some((error) => error.includes("runnable published Battle")));
 });

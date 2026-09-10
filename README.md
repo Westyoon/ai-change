@@ -118,10 +118,10 @@ npm run cf:deploy:production
 
 ```text
 Loading
-  ├─ Main Menu → Story Intro → 학과별 Map → 미니게임 → CLEAR / FAIL
-  ├─ 내 계정 → Google 로그인 / 스탯 확인·배분
+  ├─ Main Menu → Story → 학과별 Map → 미니게임 → CLEAR / FAIL
+  ├─ 상단 내 계정 → Google 로그인 / 스탯 확인·배분
   ├─ 랭킹보드 → 점수 / 클리어 공개 순위
-  └─ 배틀 → 5종 완료 확인 → 사후 콘텐츠 4종
+  └─ Battle → 5종 완료 후 활성화 → 사후 콘텐츠 4종
 ```
 
 맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 배틀 해금은 로컬 완료 기록과 `/api/session`의 `completedGameIds`를 합쳐 서로 다른 5종의 완료를 확인합니다.

@@ -87,7 +87,6 @@ export const REQUIRED_FILES = Object.freeze([
   "js/scenes/main-menu-scene.js",
   "js/scenes/how-to-scene.js",
   "js/scenes/settings-scene.js",
-  "js/scenes/story-intro-scene.js",
   "js/scenes/map-scene.js",
   "js/scenes/dialogue-scene.js",
   "js/scenes/minigame-intro-scene.js",
@@ -100,6 +99,7 @@ export const REQUIRED_FILES = Object.freeze([
   "js/scenes/error-scene.js",
   "js/scenes/scene-utils.js",
   "js/ui/result-overlay.js",
+  "js/ui/top-navigation.js",
   "js/minigames/registry.js",
   "js/minigames/DS/index.js",
   "js/minigames/CS/index.js",
@@ -116,7 +116,6 @@ export const REQUIRED_FILES = Object.freeze([
   "data/battle/stat-boss.json",
   "data/battle/xr-egg-trials.json",
   "data/map-data.json",
-  "data/scripts/main-story.json",
   "data/scripts/npc-dialogues.json",
   "data/scripts/minigame-outros.json",
   "data/minigames/number-baseball.json",
@@ -515,6 +514,7 @@ function validateBattleRegistry(
   const assetById = new Map(assets.filter(Boolean).map((asset) => [asset.id, asset]));
   const knownGroups = new Set(assets.flatMap((asset) => groupsForAsset(asset)));
   const publishedModules = new Set();
+  const requiredMiniGameIds = new Set(Object.keys(EXPECTED_GAMES));
 
   for (const battle of battles) {
     if (!battle || typeof battle !== "object" || typeof battle.id !== "string") continue;
@@ -573,8 +573,15 @@ function validateBattleRegistry(
       addError(errors, `Battle ${battle.id} unlockCondition requires miniGameIds`);
       continue;
     }
-    if (new Set(condition.miniGameIds).size !== condition.miniGameIds.length) {
+    const uniqueMiniGameIds = new Set(condition.miniGameIds);
+    if (uniqueMiniGameIds.size !== condition.miniGameIds.length) {
       addError(errors, `Battle ${battle.id} unlockCondition contains duplicate miniGameIds`);
+    }
+    if (
+      uniqueMiniGameIds.size !== requiredMiniGameIds.size
+      || [...requiredMiniGameIds].some((miniGameId) => !uniqueMiniGameIds.has(miniGameId))
+    ) {
+      addError(errors, `Battle ${battle.id} unlockCondition must require all five mini games`);
     }
     for (const miniGameId of condition.miniGameIds) {
       if (typeof miniGameId !== "string" || !gameIds.has(miniGameId)) {

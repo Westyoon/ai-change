@@ -57,15 +57,14 @@ npm run check
 ```text
 로딩
   → 메인 메뉴
-  → 스토리 시작
-  → 인트로
+  → Story
   → 학과별 미니게임 맵
   → 학과 카드 선택 및 즉시 실행
   → 결과 확인
   → 맵 복귀
 ```
 
-Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 published 콘텐츠 4종을 사용합니다. 해금 판정은 로컬 완료 기록과 로그인 session의 `completedGameIds`를 합쳐 서로 다른 필수 5종을 모두 완료했는지 확인하며, 누적 클리어 횟수만으로는 열리지 않습니다.
+Battle 메뉴는 `features.battleContent=true`와 `data/battles.json`의 published 콘텐츠 4종을 사용합니다. 해금 판정은 로컬 완료 기록과 로그인 session의 `completedGameIds`를 합쳐 서로 다른 필수 5종을 모두 완료했는지 확인하며, 그전에는 메뉴 버튼 자체가 비활성화됩니다. 누적 클리어 횟수만으로는 열리지 않습니다.
 
 ## 5. 공통 조작
 

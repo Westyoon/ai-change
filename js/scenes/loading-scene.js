@@ -7,7 +7,6 @@ const COMMON_CONTENT_IDS = [
   "minigames-data",
   "battles-data",
   "map-data",
-  "main-story-data",
   "npc-dialogues-data",
   "minigame-outros-data",
   "app-logo",
@@ -26,7 +25,8 @@ function progressPercent(progress) {
 }
 
 const AUTH_QUERY_KEYS = Object.freeze(["login", "error", "auth_error", "reason", "error_description"]);
-const AUTH_SESSION_RETRY_DELAYS_MS = Object.freeze([150, 500, 1_000]);
+const AUTH_SESSION_RETRY_DELAYS_MS = Object.freeze([200, 500]);
+const AUTH_SESSION_REQUEST_TIMEOUT_MS = 1_800;
 
 function waitForAuthRetry(delayMs, signal) {
   if (signal?.aborted) return Promise.resolve(false);
@@ -88,15 +88,16 @@ export async function refreshSessionAfterAuth(
     signal = null,
     wait = waitForAuthRetry,
     retryDelaysMs = AUTH_SESSION_RETRY_DELAYS_MS,
+    requestTimeoutMs = AUTH_SESSION_REQUEST_TIMEOUT_MS,
   } = {},
 ) {
-  let state = await service.refreshSession();
+  let state = await service.refreshSession({ timeoutMs: requestTimeoutMs });
   if (!authCallback) return state;
 
   for (const delayMs of retryDelaysMs) {
     if (state.authenticated || signal?.aborted) return state;
     if (!await wait(delayMs, signal)) return state;
-    state = await service.refreshSession();
+    state = await service.refreshSession({ timeoutMs: requestTimeoutMs });
   }
   return state;
 }
@@ -165,7 +166,6 @@ export function createLoadingScene(context) {
       const battlesData = context.services.assets.get("battles-data");
       const mapData = context.services.assets.get("map-data");
       const scriptGroups = [
-        context.services.assets.get("main-story-data"),
         context.services.assets.get("npc-dialogues-data"),
         context.services.assets.get("minigame-outros-data"),
       ];
@@ -213,6 +213,13 @@ export function createLoadingScene(context) {
           error instanceof Error ? error.message : "unknown error",
         );
       });
+
+      // OAuth callback 직후에는 제한 시간이 있는 세션 재확인만 기다린다.
+      // 진행 이전은 account scene에서도 이어지므로 느린 POST가 화면을 막지 않는다.
+      if (authCallback?.authCallback === "success") {
+        await sessionRefresh;
+        if (signal.aborted || !mounted) return;
+      }
 
       bar.style.width = "100%";
       track.setAttribute("aria-valuenow", "100");
