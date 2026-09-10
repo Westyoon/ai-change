@@ -197,6 +197,12 @@ export class SaveManager {
     return clone(this.#state);
   }
 
+  getCompletedMiniGameIds() {
+    return Object.freeze(
+      this.#miniGameIds.filter((id) => this.#state.minigames[id]?.completed === true),
+    );
+  }
+
   save() {
     this.lastError = null;
     if (!this.#storage || this.#readOnly) {

@@ -1,5 +1,6 @@
 const STAT_KEYS = Object.freeze(["attack", "hp", "defense"]);
 const RANKING_CRITERIA = new Set(["score", "clears"]);
+const EMPTY_GAME_IDS = Object.freeze([]);
 
 const EMPTY_STATS = Object.freeze({
   attack: 0,
@@ -109,6 +110,8 @@ export class AccountService {
   #listeners = new Set();
   #state = frozenState({ status: "idle", available: true });
   #refreshPromise = null;
+  #importPromise = null;
+  #authGeneration = 0;
 
   constructor({ fetchImpl = globalThis.fetch, apiBase = "/api" } = {}) {
     if (typeof fetchImpl !== "function") {
@@ -138,6 +141,13 @@ export class AccountService {
   refreshSession() {
     if (this.#refreshPromise) return this.#refreshPromise;
 
+    const authGeneration = this.#authGeneration;
+    const run = Promise.resolve().then(() => this.#loadSession(authGeneration));
+    const tracked = run.finally(() => {
+      if (this.#refreshPromise === tracked) this.#refreshPromise = null;
+    });
+    this.#refreshPromise = tracked;
+
     this.#setState(frozenState({
       status: "loading",
       authenticated: this.#state.authenticated,
@@ -146,21 +156,17 @@ export class AccountService {
       stats: this.#state.stats,
       completedGameIds: this.#state.completedGameIds,
     }));
-
-    this.#refreshPromise = this.#loadSession().finally(() => {
-      this.#refreshPromise = null;
-    });
     return this.#refreshPromise;
   }
 
   async logout() {
+    const authGeneration = ++this.#authGeneration;
     try {
       await this.#request("/auth/logout", { method: "POST", body: {} });
-      this.#setState(guestState());
+      if (authGeneration === this.#authGeneration) this.#setState(guestState());
       return this.#state;
     } catch (error) {
       if (error instanceof AccountServiceError && error.status === 401) {
-        this.#setState(guestState());
         return this.#state;
       }
       throw error;
@@ -192,6 +198,55 @@ export class AccountService {
     })));
   }
 
+  async importCompletedGameIds(candidate = []) {
+    const requestedGameIds = freezeCompletedGameIds(candidate);
+    if (requestedGameIds.length === 0) {
+      return Object.freeze({ submitted: false, reason: "empty", importedGameIds: EMPTY_GAME_IDS });
+    }
+
+    if (this.#importPromise) {
+      await this.#importPromise;
+      return this.importCompletedGameIds(requestedGameIds);
+    }
+
+    const run = Promise.resolve().then(() => this.#importCompletedGameIds(requestedGameIds));
+    const tracked = run.finally(() => {
+      if (this.#importPromise === tracked) this.#importPromise = null;
+    });
+    this.#importPromise = tracked;
+    return tracked;
+  }
+
+  async #importCompletedGameIds(requestedGameIds) {
+    if (this.#state.status === "idle" || this.#state.status === "loading") {
+      await this.refreshSession();
+    }
+    if (!this.#state.authenticated) {
+      return Object.freeze({ submitted: false, reason: "guest", importedGameIds: EMPTY_GAME_IDS });
+    }
+
+    const serverGameIds = new Set(this.#state.completedGameIds);
+    const missingGameIds = requestedGameIds.filter((gameId) => !serverGameIds.has(gameId));
+    if (missingGameIds.length === 0) {
+      return Object.freeze({ submitted: false, reason: "up-to-date", importedGameIds: EMPTY_GAME_IDS });
+    }
+
+    const authGeneration = this.#authGeneration;
+    const payload = await this.#request("/progress/import", {
+      method: "POST",
+      body: { completedGameIds: missingGameIds },
+    });
+    await this.#applyStatsOrRefresh(payload, {
+      authGeneration,
+      additionalCompletedGameIds: missingGameIds,
+    });
+    return Object.freeze({
+      submitted: true,
+      importedGameIds: freezeCompletedGameIds(payload?.importedGameIds),
+      stats: this.#state.stats,
+    });
+  }
+
   async recordClear({ attemptId, gameId, status, score = null } = {}) {
     if (status !== "CLEAR") {
       return Object.freeze({ submitted: false, reason: "not-clear" });
@@ -207,6 +262,7 @@ export class AccountService {
       return Object.freeze({ submitted: false, reason: "guest" });
     }
 
+    const authGeneration = this.#authGeneration;
     const payload = await this.#request("/results", {
       method: "POST",
       body: {
@@ -216,7 +272,7 @@ export class AccountService {
         score: Number.isFinite(score) ? score : 0,
       },
     });
-    await this.#applyStatsOrRefresh(payload, { completedGameId: gameId });
+    await this.#applyStatsOrRefresh(payload, { authGeneration, completedGameId: gameId });
     return Object.freeze({
       submitted: true,
       duplicate:
@@ -238,35 +294,60 @@ export class AccountService {
       });
     }
 
+    const authGeneration = this.#authGeneration;
     const payload = await this.#request("/stats/allocate", {
       method: "POST",
       body: { stat },
     });
-    await this.#applyStatsOrRefresh(payload);
+    await this.#applyStatsOrRefresh(payload, { authGeneration });
     return this.#state.stats;
   }
 
-  async #loadSession() {
+  async #loadSession(authGeneration) {
     try {
       const payload = await this.#request("/session", { allowUnauthorized: true });
       const next = payload === null ? guestState() : sessionState(payload);
+      if (authGeneration !== this.#authGeneration) return this.#state;
+      if (this.#state.authenticated && !next.authenticated) this.#authGeneration += 1;
       this.#setState(next);
       return next;
     } catch (error) {
+      const wrongHost = error instanceof AccountServiceError
+        && (error.status === 403 || error.code === "INVALID_RESPONSE");
       const unavailable = guestState({
         available: false,
-        error: "계정 서버에 연결할 수 없습니다. 게임은 게스트로 계속할 수 있습니다.",
+        error: wrongHost
+          ? "현재 주소에는 계정 서버가 연결되어 있지 않습니다. 운영 주소에서 다시 열어 주세요."
+          : "계정 서버에 연결할 수 없습니다. 게임은 게스트로 계속할 수 있습니다.",
       });
+      if (authGeneration !== this.#authGeneration) return this.#state;
+      if (this.#state.authenticated) this.#authGeneration += 1;
       this.#setState(unavailable);
       return unavailable;
     }
   }
 
-  async #applyStatsOrRefresh(payload, { completedGameId = null } = {}) {
+  async #applyStatsOrRefresh(
+    payload,
+    {
+      authGeneration = this.#authGeneration,
+      completedGameId = null,
+      additionalCompletedGameIds = [],
+    } = {},
+  ) {
+    if (authGeneration !== this.#authGeneration || !this.#state.authenticated) return;
     const stats = findStats(payload);
     if (stats) {
-      const completedGameIds = new Set(this.#state.completedGameIds);
+      const hasAuthoritativeCompletedGameIds = Array.isArray(payload?.completedGameIds);
+      const completedGameIds = new Set(
+        hasAuthoritativeCompletedGameIds
+          ? payload.completedGameIds
+          : this.#state.completedGameIds,
+      );
       if (completedGameId) completedGameIds.add(completedGameId);
+      if (!hasAuthoritativeCompletedGameIds) {
+        for (const gameId of additionalCompletedGameIds) completedGameIds.add(gameId);
+      }
       this.#setState(frozenState({
         status: "authenticated",
         authenticated: true,
@@ -309,7 +390,7 @@ export class AccountService {
       payload = raw ? JSON.parse(raw) : null;
     } catch (cause) {
       if (response.ok && raw) {
-        throw new AccountServiceError("Account server returned invalid JSON.", {
+        throw new AccountServiceError("현재 주소에는 계정 API가 연결되어 있지 않습니다.", {
           status: response.status,
           code: "INVALID_RESPONSE",
           cause,
@@ -319,7 +400,10 @@ export class AccountService {
     }
 
     if (!response.ok) {
-      if (response.status === 401) this.#setState(guestState());
+      if (response.status === 401) {
+        this.#authGeneration += 1;
+        this.#setState(guestState());
+      }
       throw new AccountServiceError(friendlyHttpMessage(response.status), {
         status: response.status,
         code: text(payload?.code, "ACCOUNT_REQUEST_FAILED"),

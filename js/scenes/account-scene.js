@@ -1,5 +1,13 @@
 import { createButton, createElement, showToast } from "./scene-utils.js";
 
+const ACCOUNT_ORIGIN = "https://ai-change.ai-change-backend.workers.dev";
+
+function isSeparateHostedOrigin(locationRef = globalThis.location) {
+  const origin = locationRef?.origin;
+  const protocol = locationRef?.protocol;
+  return protocol === "https:" && typeof origin === "string" && origin !== ACCOUNT_ORIGIN;
+}
+
 const STAT_DEFINITIONS = Object.freeze([
   Object.freeze({ key: "attack", label: "공격", description: "기본 전투 공격 스탯" }),
   Object.freeze({ key: "hp", label: "HP", description: "기본 전투 체력 스탯" }),
@@ -35,6 +43,7 @@ export function createAccountScene(context) {
   let unsubscribe = null;
   let busyAction = null;
   let actionError = null;
+  let progressSyncing = false;
 
   return {
     mount(root, params = {}) {
@@ -61,9 +70,14 @@ export function createAccountScene(context) {
       });
       scene.append(heading, content);
       root.append(scene);
+      const miniGameIds = new Set(context.content.minigames.map((game) => game.id));
+      const totalMiniGames = miniGameIds.size;
+      const localCompletedGameIds = () => (
+        context.services.save?.getCompletedMiniGameIds?.() ?? []
+      ).filter((gameId) => miniGameIds.has(gameId));
 
       const runAllocation = async (stat) => {
-        if (busyAction) return;
+        if (busyAction || progressSyncing) return;
         busyAction = stat;
         actionError = null;
         render(service.getState());
@@ -79,7 +93,7 @@ export function createAccountScene(context) {
       };
 
       const runLogout = async () => {
-        if (busyAction) return;
+        if (busyAction || progressSyncing) return;
         busyAction = "logout";
         actionError = null;
         render(service.getState());
@@ -97,8 +111,22 @@ export function createAccountScene(context) {
       const render = (state) => {
         if (!mounted) return;
         const nodes = [];
-        if (params.notice) nodes.push(notice(params.notice, params.noticeTone));
+        if (params.authCallback === "success") {
+          if (state.status === "idle" || state.status === "loading") {
+            nodes.push(notice(params.notice, params.noticeTone));
+          } else if (state.authenticated) {
+            nodes.push(notice("Google 로그인이 확인되었습니다. 계정 정보를 불러왔습니다."));
+          } else {
+            nodes.push(notice(
+              "Google 인증 응답은 받았지만 로그인 세션을 확인하지 못했습니다. 운영 주소에서 다시 로그인해 주세요.",
+              "error",
+            ));
+          }
+        } else if (params.notice) {
+          nodes.push(notice(params.notice, params.noticeTone));
+        }
         if (actionError) nodes.push(notice(actionError, "error"));
+        if (progressSyncing) nodes.push(notice("이 브라우저의 클리어 기록을 계정에 옮기고 있습니다."));
 
         if (state.status === "idle" || (state.status === "loading" && !state.authenticated)) {
           nodes.push(createElement("div", { className: "account-empty" }, [
@@ -111,10 +139,15 @@ export function createAccountScene(context) {
         }
 
         if (!state.authenticated) {
+          const separateAccountOrigin = !state.available && isSeparateHostedOrigin();
           const loginLink = createElement("a", {
             className: "button button--primary",
             text: "Google로 로그인",
-            attributes: { href: service.getLoginUrl() },
+            attributes: {
+              href: separateAccountOrigin
+                ? `${ACCOUNT_ORIGIN}/api/auth/google`
+                : service.getLoginUrl(),
+            },
           });
           const retry = createButton("연결 다시 확인", () => {
             actionError = null;
@@ -122,6 +155,19 @@ export function createAccountScene(context) {
           }, "ghost");
           const actions = createElement("div", { className: "button-row" }, [loginLink]);
           if (!state.available) actions.append(retry);
+          if (separateAccountOrigin) {
+            actions.append(
+              createElement("a", {
+                className: "button button--ghost",
+                text: "운영 주소에서 열기",
+                attributes: { href: ACCOUNT_ORIGIN },
+              }),
+            );
+          }
+          const localProgress = localCompletedGameIds().length;
+          const progressCopy = separateAccountOrigin
+            ? "이 주소에 저장된 진행은 브라우저 보안상 운영 주소로 자동 이전되지 않습니다. 운영 주소에서 플레이한 기록은 로그인할 때 자동 연결됩니다."
+            : `이 브라우저의 사전게임 진행 ${localProgress}/${totalMiniGames}도 로그인 후 계정에 연결합니다.`;
           nodes.push(createElement("div", { className: "account-empty" }, [
             createElement("strong", { text: "현재 게스트로 플레이 중입니다." }),
             createElement("span", {
@@ -130,7 +176,7 @@ export function createAccountScene(context) {
             }),
             createElement("span", {
               className: "account-privacy-note",
-              text: "로그인 연결을 위해 Google 계정 식별자와 이메일을 서버에 저장합니다. 표시 이름은 테스트 랭킹에 공개되며, 이메일과 계정 식별자는 공개하지 않습니다.",
+              text: `${progressCopy} Google 계정 식별자와 이메일은 로그인 연결에만 사용하며 공개하지 않습니다. 표시 이름은 테스트 랭킹에 공개됩니다.`,
             }),
             actions,
           ]));
@@ -139,12 +185,15 @@ export function createAccountScene(context) {
         }
 
         const stats = state.stats;
+        const completedGameCount = state.completedGameIds.filter(
+          (gameId) => miniGameIds.has(gameId),
+        ).length;
         const canAllocate = stats.unspentPoints > 0;
         const statGrid = createElement("div", { className: "account-stat-grid" });
         for (const definition of STAT_DEFINITIONS) {
           statGrid.append(statCard(definition, stats[definition.key], {
             canAllocate,
-            disabled: Boolean(busyAction),
+            disabled: Boolean(busyAction) || progressSyncing,
             onAllocate: () => void runAllocation(definition.key),
           }));
         }
@@ -155,8 +204,8 @@ export function createAccountScene(context) {
             createElement("dd", { text: stats.clears }),
           ]),
           createElement("div", {}, [
-            createElement("dt", { text: "게임별 최고 점수" }),
-            createElement("dd", { text: "랭킹에서 확인" }),
+            createElement("dt", { text: "사전게임 진행" }),
+            createElement("dd", { text: `${completedGameCount} / ${totalMiniGames}` }),
           ]),
           createElement("div", { className: "account-record-grid__points" }, [
             createElement("dt", { text: "미사용 스탯 포인트" }),
@@ -164,7 +213,7 @@ export function createAccountScene(context) {
           ]),
         ]);
         const logout = createButton(busyAction === "logout" ? "로그아웃 중…" : "로그아웃", () => void runLogout(), "ghost");
-        logout.disabled = Boolean(busyAction);
+        logout.disabled = Boolean(busyAction) || progressSyncing;
         nodes.push(
           createElement("div", { className: "account-profile" }, [
             createElement("span", { className: "status-badge", text: "SIGNED IN" }),
@@ -192,7 +241,35 @@ export function createAccountScene(context) {
         content.replaceChildren(...nodes);
       };
 
-      unsubscribe = service.subscribe(render);
+      const syncLocalProgress = async (state) => {
+        if (!mounted || progressSyncing || !state.authenticated) return;
+        const pendingGameIds = localCompletedGameIds().filter(
+          (gameId) => !state.completedGameIds.includes(gameId),
+        );
+        if (pendingGameIds.length === 0) return;
+
+        progressSyncing = true;
+        actionError = null;
+        render(state);
+        try {
+          const result = await service.importCompletedGameIds(pendingGameIds);
+          if (mounted && result.importedGameIds.length > 0) {
+            showToast(context, `게스트 클리어 ${result.importedGameIds.length}개를 계정에 옮겼습니다.`);
+          }
+        } catch (error) {
+          actionError = error instanceof Error
+            ? error.message
+            : "게스트 클리어 기록을 계정에 옮기지 못했습니다.";
+        } finally {
+          progressSyncing = false;
+          if (mounted) render(service.getState());
+        }
+      };
+
+      unsubscribe = service.subscribe((state) => {
+        render(state);
+        void syncLocalProgress(state);
+      });
       if (service.getState().status === "idle") void service.refreshSession();
     },
     unmount() {

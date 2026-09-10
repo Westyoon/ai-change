@@ -3,5 +3,6 @@
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-# Optional: set this only when the browser uses this exact origin.
-# PUBLIC_ORIGIN=http://127.0.0.1:8787
+# Required because wrangler.toml defaults to the production origin.
+# This must exactly match the local browser origin, including its port.
+PUBLIC_ORIGIN=http://127.0.0.1:8787

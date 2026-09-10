@@ -4,7 +4,7 @@
 >
 > 통합 브랜치: `integration/after-auth-stats-ranking`
 >
-> 문서 상태: 현재 통합 Worker 운영 배포, Google OAuth callback 종단 간 흐름과 운영 D1 연결을 확인했다. 아래 설정·체크리스트는 신규 환경이나 재배포 때 반복하는 기준이다.
+> 문서 상태: 2026-09-10 기준 통합 Worker의 Google OAuth callback, 운영 D1, session·ranking API를 확인했다. 운영 DB를 새로 만들 필요는 없다. 아래 생성 절차는 신규 환경에만 사용한다.
 
 ## 1. 원본 PR에서 가져오는 기능
 
@@ -50,6 +50,16 @@ PR #12는 다음 기반을 제공했다.
 - D1에는 원본 session token이 아닌 SHA-256 hash와 만료 시각을 저장한다.
 - 기존 `https://ai-change.pages.dev`는 별도 `pages-redirect/` 산출물로 같은 경로의 canonical Worker 주소에 302 이동한다. 이 규칙은 공용 `dist/`에 넣지 않는다.
 
+운영 게임과 로그인에 사용하는 주소는 아래 하나다.
+
+```text
+https://ai-change.ai-change-backend.workers.dev
+```
+
+`https://<해시>.ai-change.pages.dev` 형태의 과거 고정 배포는 배포 당시 정적 파일을 계속 제공하는 별도 origin이다. 이 주소의 `/api/session`은 계정 JSON이 아니라 SPA HTML을 반환할 수 있고, Worker가 발급한 host 전용 cookie도 공유할 수 없다. 따라서 callback 뒤에도 게스트로 표시될 수 있다. 대표 주소 `ai-change.pages.dev`의 redirect와 과거 고정 배포 주소를 같은 것으로 취급하지 않는다.
+
+브라우저 저장소도 origin별로 분리된다. 과거 고정 Pages 주소에서 이미 만든 로컬 진행은 canonical 주소가 자동으로 읽을 수 없다. 배포 링크는 canonical 주소만 안내하며, 과거 주소에 남은 진행을 살려야 할 때는 별도 내보내기·가져오기 절차가 필요하다.
+
 ## 4. API 계약
 
 ### 공개·로그인 흐름
@@ -72,6 +82,7 @@ PR #12는 다음 기반을 제공했다.
 | --- | --- | --- |
 | `GET` | `/api/session` | 로그인 여부와 본인의 표시 이름·스탯, 서로 다른 완료 게임 ID 목록 `completedGameIds` 반환 |
 | `POST` | `/api/auth/logout` | 현재 session을 폐기하고 cookie를 만료 |
+| `POST` | `/api/progress/import` | 현재 브라우저의 서로 다른 로컬 완료 게임을 본인 계정 진행에 한 번씩 병합 |
 | `POST` | `/api/results` | 본인의 CLEAR 결과를 attempt 단위로 한 번만 반영 |
 | `POST` | `/api/stats/allocate` | 남은 스탯 포인트 1개를 `attack`·`hp`·`defense` 중 하나에 배분 |
 
@@ -89,6 +100,18 @@ PR #12는 다음 기반을 제공했다.
 서버는 session에서 이용자를 찾고, 등록된 5개 미니게임 ID·`CLEAR` 상태·허용 범위의 정수 점수만 받는다. 같은 계정의 같은 `attemptId`는 `game_results`의 unique 제약으로 한 번만 처리한다. 최초 반영 때만 `clears`와 `unspent_points`를 1 증가시키고, 최고 점수 랭킹은 단위가 다른 게임끼리 섞지 않고 `game_results.game_id`별로 계산한다.
 
 `completedGameIds`는 해당 계정의 `game_results`에서 완료한 서로 다른 `game_id`를 조회한 값이다. 클라이언트는 이를 로컬 완료 ID와 합쳐 published 사후 콘텐츠의 공통 해금을 판단하며, 반복 CLEAR로 증가한 `clears` 합계만으로는 해금하지 않는다.
+
+게스트로 플레이한 뒤 로그인하면 클라이언트는 로컬에서 `completed === true`인 게임 중 계정에 아직 없는 ID만 다음처럼 전송한다.
+
+```json
+{
+  "completedGameIds": ["data-number-baseball", "computer-code-heart"]
+}
+```
+
+서버는 session·동일 origin·JSON content type을 확인하고 등록된 5개 ID만 받는다. 이미 같은 게임의 CLEAR가 있으면 건너뛰며, 새 게임만 예약된 `guest-import-v1:` attempt로 0점 기록하고 `clears`와 `unspent_points`를 각각 1 올린다. 이 예약 attempt는 일반 `/api/results`에서 사용할 수 없다. 응답은 실제 `importedGameIds`, 계정 전체 `completedGameIds`, 최신 `stats`를 반환한다. import 전용 0점 행은 게임별 최고 점수 랭킹에서 제외한다.
+
+자동 병합 범위는 완료한 서로 다른 사전게임 ID뿐이다. 실패, 재생 횟수, 원점수, 최고 지표, NPC·맵 위치, 설정은 계정으로 보내지 않는다. 정상 CLEAR 전송이 일시적으로 실패했더라도 다음 앱 시작이나 계정 화면에서 완료 여부와 포인트는 복구할 수 있지만, 당시 원점수는 복구하지 않고 0점으로 남긴다. 서버와 클라이언트 양쪽에서 중복 요청을 막으며, 로그아웃 뒤 늦게 온 응답은 화면의 guest 상태를 되돌리지 않는다.
 
 스탯 배분 요청은 다음처럼 선택할 항목만 보낸다.
 
@@ -109,7 +132,10 @@ D1 transaction 안에서 `unspent_points > 0`을 확인하고 포인트 감소�
 - 로그인 session과 본인 계정만 연결
 - 공개된 5개 `gameId`, `CLEAR`, 제한된 정수 score만 허용
 - 동일 attempt 중복 지급 방지
+- 로컬 진행 import는 계정별·게임별 한 번만 지급하고 점수 랭킹에서 제외
 - 계정 ID·스탯 증가량·클리어 증가량을 body에서 받지 않음
+
+로컬 완료 여부 자체는 이용자가 수정 가능한 `localStorage`에서 온 주장이다. 따라서 자동 병합도 실제 플레이를 서버가 증명하는 기능은 아니다. 또한 공용 브라우저에서는 남아 있는 로컬 진행이 다음 Google 계정에 연결될 수 있으므로, 행사 운영 시 계정 전환 전에 브라우저 진행 초기화 여부를 이용자에게 확인한다.
 
 경쟁성 랭킹의 신뢰 수준을 높여야 할 때는 서버가 발급한 짧은 수명의 challenge, 게임별 검증 가능한 event 요약 또는 서버 권위 판정을 별도 설계해야 한다.
 
@@ -147,11 +173,12 @@ npx wrangler dev
 ```dotenv
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+PUBLIC_ORIGIN=http://127.0.0.1:8787
 ```
 
 실제 값이 없어도 먼저 확인할 수 있는 항목은 health·비로그인 session·공개 ranking·인증 없는 변경 요청의 거부·폐기된 개인정보 API의 404이다. 실제 값이 준비된 뒤에는 OAuth `state` 불일치 거부, callback, cookie 발급, 새로고침 후 session 복구, logout, CLEAR 1회 반영, 같은 attempt 재전송 무변경, 포인트 배분까지 확인한다.
 
-현재 CLEAR 전송은 로컬 진행 저장을 먼저 끝낸 뒤 비동기로 실행한다. 서버 장애나 탭 종료로 전송이 실패하면 로컬 결과는 유지되지만 서버 클리어·포인트는 자동 복구되지 않는다. 계정이 바뀌었을 때 다른 사용자에게 적립되지 않도록, 영속 재시도 queue는 session에 묶인 서버 발급 식별자를 설계한 뒤 추가한다.
+현재 CLEAR 전송은 로컬 진행 저장을 먼저 끝낸 뒤 비동기로 실행한다. 서버 장애나 탭 종료로 전송이 실패하면 로컬 결과는 유지되고, 다음 앱 시작이나 계정 화면의 완료 진행 병합으로 클리어·포인트를 복구한다. 당시 게임 원점수까지 복구하는 영속 재시도 queue는 아직 없다.
 
 운영 DB migration은 staging 백업과 검증을 마친 뒤에만 명시적으로 실행한다.
 
@@ -159,6 +186,8 @@ GOOGLE_CLIENT_SECRET=
 cd backend
 npx wrangler d1 migrations apply ai-change --remote
 ```
+
+Worker 배포 명령은 migration을 자동 실행하지 않는다. schema 변경이 있는 릴리스만 하위 호환성과 백업을 확인한 뒤 별도로 migration을 적용한다. 이번 게스트 진행 병합은 기존 `game_results`·`stats`를 사용하므로 migration이 없다.
 
 ## 8. Cloudflare secret과 Google OAuth 설정
 
@@ -178,19 +207,39 @@ Google Cloud Console의 Authorized redirect URI는 실제 callback과 문자 단
 - staging: `https://<staging-host>/api/auth/callback`
 - production: `https://ai-change.ai-change-backend.workers.dev/api/auth/callback`
 
-스킴, host, port, 경로, trailing slash가 하나라도 다르면 callback이 거부된다. Google Console에는 실제로 사용하는 origin·redirect만 등록하고 임시 프리뷰 URL을 무제한 추가하지 않는다.
+스킴, host, port, 경로, trailing slash가 하나라도 다르면 callback이 거부된다. 현재처럼 Worker가 authorization code를 교환하는 서버 redirect 방식에는 Authorized redirect URI가 필요하다. 브라우저 Google JavaScript SDK를 별도로 도입할 때만 Authorized JavaScript origin도 등록한다. 임시 프리뷰 URL은 callback 목록에 무제한 추가하지 않는다.
+
+이 서버 redirect 방식의 OAuth client 유형은 Android가 아니라 **Web application**이어야 한다. OAuth 동의 화면이 Testing 상태라면 사용할 Google 이메일을 Test users에 추가하거나 게시 상태를 확인한다. 현재 운영 Worker에는 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` secret이 이미 등록되어 있으므로 값이 없는 경우가 아니라면 다시 넣지 않는다.
+
+### 신규 Cloudflare 환경에서만 D1을 만드는 순서
+
+현재 운영 계정에는 D1 `ai-change`와 모든 migration이 이미 있으므로 이 절차를 실행하지 않는다. 별도 staging이나 새 계정으로 처음 이전할 때만 다음 순서를 사용한다.
+
+```powershell
+cd backend
+npx wrangler whoami
+npx wrangler d1 create ai-change-staging
+# 출력된 database_id를 해당 환경의 wrangler 설정에 반영
+npx wrangler d1 migrations apply ai-change-staging --remote --config wrangler.toml
+```
+
+위 명령은 staging DB와 schema만 만들며 staging Worker 연결까지 만들지는 않는다. 먼저 `backend/wrangler.toml`에 `[env.staging]`과 별도 D1 binding을 정의하거나 별도 staging config를 만들고, 그 환경을 명시해 secret·`PUBLIC_ORIGIN`·deploy를 실행한다. 운영 DB와 staging DB는 같은 이름·ID를 재사용하지 않는다.
 
 ## 9. staging·production 재배포 체크리스트
 
 운영 계정의 Worker·D1·Google OAuth 연결은 완료된 상태다. 아래 항목은 환경 이전이나 재배포 때 다시 확인하며, 체크 결과와 개인정보 고지 담당자를 배포 기록에 남긴다.
 
+통합 운영 배포는 프로젝트 루트의 `npm run cf:deploy:production`만 사용한다. 이 명령은 검사와 build 뒤 `backend/wrangler.toml`의 ASSETS·D1·OAuth 통합 Worker를 배포한다. API 없는 레거시 정적 Pages·`wrangler.worker.jsonc` 명령을 운영 로그인 배포에 사용하지 않는다.
+
 - [ ] `wrangler whoami`로 배포 대상이 개인 테스트 계정이 아닌 운영 Cloudflare 계정인지 확인
 - [ ] 배포 대상의 D1 binding이 운영 DB 이름·ID를 가리키는지 확인하고 staging을 사용할 때는 별도 DB로 분리
 - [ ] 기존 개인 D1의 users·stats를 백업하고, Google `sub`와 스탯 값이 보존되도록 이전 rehearsal 수행
 - [ ] staging에서 migration, health, session, ranking, 결과 멱등성, 포인트 원자적 배분을 먼저 검증
+- [ ] 게스트 완료 1~2개 후 로그인해 `/api/progress/import`가 한 번만 호출되고, 재로그인·새로고침에도 중복 포인트가 생기지 않는지 확인
+- [ ] import 완료만 있는 이용자가 0점 게임별 점수 랭킹에 노출되지 않는지 확인
 - [ ] `/api/users`, `/api/stats/:userId`, 인증 없는 스탯 변경이 각각 노출·허용되지 않는지 확인
 - [ ] 환경별 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 Cloudflare secret으로 등록하고 저장소·배포 log에 값이 없는지 재확인
-- [ ] staging·production의 정확한 Google Authorized origin과 redirect URI 등록
+- [ ] staging·production의 정확한 Google Authorized redirect URI 등록
 - [ ] canonical Worker에서 SPA와 `/api/*`가 같은 origin인지 확인하고 custom domain을 추가할 때만 DNS·TLS와 `PUBLIC_ORIGIN`을 함께 변경
 - [ ] 로그인 취소, 잘못된 `state`, 만료 session, logout, 새로고침, Safari cookie 동작 확인
 - [ ] 로그인 전에 Google 표시 이름의 공개 랭킹 노출과 D1 수집·보관·삭제 범위를 고지하고 동의를 확인

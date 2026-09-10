@@ -41,7 +41,17 @@ function functionBody(source, name) {
   return nextFunction === -1 ? source.slice(start) : source.slice(start, start + 1 + nextFunction);
 }
 
-const [workerSource, wranglerConfig, packageSource, backendPackageSource, gitignore, buildSource, accountSource] =
+const [
+  workerSource,
+  wranglerConfig,
+  packageSource,
+  backendPackageSource,
+  gitignore,
+  buildSource,
+  accountSource,
+  loadingSource,
+  accountSceneSource,
+] =
   await Promise.all([
     read("backend/src/index.ts"),
     read("backend/wrangler.toml"),
@@ -50,6 +60,8 @@ const [workerSource, wranglerConfig, packageSource, backendPackageSource, gitign
     read(".gitignore"),
     read("scripts/build.mjs"),
     read("js/core/account-service.js"),
+    read("js/scenes/loading-scene.js"),
+    read("js/scenes/account-scene.js"),
   ]);
 
 const rootPackage = JSON.parse(packageSource);
@@ -65,6 +77,7 @@ test("the same-origin Worker exposes only the intended account API surface", () 
     "/api/session",
     "/api/ranking",
     "/api/results",
+    "/api/progress/import",
     "/api/stats/allocate",
   ];
 
@@ -82,6 +95,43 @@ test("the same-origin Worker exposes only the intended account API surface", () 
   assert.doesNotMatch(workerSource, /\bbody\s*(?:\.\s*|\[\s*["'])user_?id\b/iu);
   assert.doesNotMatch(workerSource, /requireMethod\s*\(\s*request\s*,\s*["']PUT["']\s*\)/u);
   assert.match(workerSource, /requireSession\s*\(\s*request\s*,\s*env\s*\)/u);
+});
+
+test("guest progress import is authenticated, allowlisted, and idempotent", () => {
+  const importProgress = functionBody(workerSource, "importCompletedProgress");
+  const recordResult = functionBody(workerSource, "recordResult");
+
+  assert.match(importProgress, /requireMethod\s*\(\s*request\s*,\s*["']POST["']\s*\)/u);
+  assert.match(importProgress, /requireMutationRequest\s*\(\s*request\s*,\s*origin\s*\)/u);
+  assert.match(importProgress, /requireSession\s*\(\s*request\s*,\s*env\s*\)/u);
+  assert.match(importProgress, /Array\.isArray\s*\([^)]*completedGameIds/u);
+  assert.match(importProgress, /Object\.keys\s*\(\s*body\s*\)/u);
+  assert.match(importProgress, /completedGameIdsInput\.length\s*>\s*ALLOWED_GAME_IDS\.size/u);
+  assert.match(importProgress, /ALLOWED_GAME_IDS\.has\s*\(/u);
+  assert.match(importProgress, /new\s+Set\s*\(/u);
+  assert.match(importProgress, /NOT\s+EXISTS/iu);
+  assert.match(importProgress, /(?:INSERT\s+OR\s+IGNORE|ON\s+CONFLICT)/iu);
+  assert.match(importProgress, /SELECT\s+\?,\s*\?,\s*\?,\s*\?,\s*['"]CLEAR['"],\s*0/iu);
+  assert.match(importProgress, /UPDATE\s+stats[\s\S]*AND\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+game_results\s+WHERE\s+id\s*=\s*\?/iu);
+  assert.match(importProgress, /GUEST_IMPORT_ATTEMPT_PREFIX/u);
+  assert.match(workerSource, /GUEST_IMPORT_ATTEMPT_PREFIX\s*=\s*["']guest-import[^"']*["']/u);
+  assert.match(importProgress, /completedGameIds/u);
+  assert.match(importProgress, /fetchStats\s*\(/u);
+  assert.match(importProgress, /fetchCompletedGameIds\s*\(/u);
+  assert.match(recordResult, /attemptId\.startsWith\s*\(\s*GUEST_IMPORT_ATTEMPT_PREFIX\s*\)/u);
+  assert.doesNotMatch(importProgress, /\bbody\s*(?:\.\s*|\[\s*["'])user_?id\b/iu);
+  assert.doesNotMatch(importProgress, /\bbody\s*(?:\.\s*|\[\s*["'])score\b/iu);
+  const statsUpdate = importProgress.match(/UPDATE\s+stats[\s\S]*?WHERE\s+user_id/iu)?.[0] ?? "";
+  assert.ok(statsUpdate, "guest import stats update could not be inspected");
+  assert.doesNotMatch(statsUpdate, /\bscore\s*=/iu);
+});
+
+test("authenticated UI connects normalized local completion to visible account progress", () => {
+  const synchronizationSources = [loadingSource, accountSceneSource].join("\n");
+  assert.match(synchronizationSources, /getCompletedMiniGameIds\s*\(\s*\)/u);
+  assert.match(synchronizationSources, /importCompletedGameIds\s*\(/u);
+  assert.match(accountSceneSource, /state\.completedGameIds\.filter\s*\(/u);
+  assert.match(accountSceneSource, /사전게임 진행/u);
 });
 
 test("mutations require a same-origin JSON request and wildcard CORS is absent", () => {
@@ -119,6 +169,11 @@ test("ranking returns display data rather than provider identity", () => {
   assert.match(ranking, /name/u);
   assert.match(ranking, /score/u);
   assert.match(ranking, /clears/u);
+  assert.match(ranking, /attempt_id\s+NOT\s+LIKE\s+\?/iu);
+  assert.match(
+    ranking,
+    /\.bind\s*\(\s*gameId\s*,\s*`\$\{GUEST_IMPORT_ATTEMPT_PREFIX\}%`\s*\)/u,
+  );
   assert.doesNotMatch(ranking, /\bemail\b/iu);
   assert.doesNotMatch(ranking, /\b(?:email|userId|user_id)\s*:/iu);
 });

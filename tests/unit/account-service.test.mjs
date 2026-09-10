@@ -35,6 +35,14 @@ function queuedFetch(responses) {
   return { calls, fetchImpl };
 }
 
+function deferredResponse() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 test("AccountService restores a same-origin session and exposes only display account fields", async () => {
   const mock = queuedFetch([jsonResponse({
     authenticated: true,
@@ -177,6 +185,181 @@ test("recordClear treats an uncredited replay as a duplicate without another rew
   assert.equal(submission.awarded, false);
 });
 
+test("guest progress import is a no-op until the player is authenticated", async () => {
+  const mock = queuedFetch([jsonResponse({ authenticated: false })]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+
+  await service.importCompletedGameIds([
+    "data-number-baseball",
+    "computer-code-heart",
+  ]);
+
+  assert.equal(mock.calls.length, 1, "guest progress must not be sent to an account endpoint");
+  assert.equal(mock.calls[0][0], "/api/session");
+  assert.equal(service.getState().authenticated, false);
+  assert.deepEqual(service.getState().completedGameIds, []);
+});
+
+test("guest progress import sends only missing unique games and becomes a repeat no-op", async () => {
+  const initialStats = {
+    attack: 1,
+    hp: 100,
+    defense: 2,
+    clears: 1,
+    score: 450,
+    unspentPoints: 0,
+  };
+  const importedStats = {
+    ...initialStats,
+    clears: 2,
+    unspentPoints: 1,
+  };
+  const mock = queuedFetch([
+    jsonResponse({
+      authenticated: true,
+      user: { name: "진행 이전 테스터" },
+      stats: initialStats,
+      completedGameIds: ["data-number-baseball"],
+    }),
+    jsonResponse({
+      importedGameIds: ["computer-code-heart"],
+      stats: importedStats,
+      completedGameIds: [
+        "data-number-baseball",
+        "computer-code-heart",
+        "ai-ball-classification",
+      ],
+    }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  const imported = await service.importCompletedGameIds([
+    "data-number-baseball",
+    "computer-code-heart",
+    "computer-code-heart",
+  ]);
+
+  assert.equal(mock.calls.length, 2);
+  const request = mock.calls[1];
+  assert.equal(request[0], "/api/progress/import");
+  assert.equal(request[1].method, "POST");
+  assert.equal(request[1].credentials, "same-origin");
+  assert.equal(request[1].headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(request[1].body), {
+    completedGameIds: ["computer-code-heart"],
+  });
+  assert.deepEqual(imported.importedGameIds, ["computer-code-heart"]);
+  assert.equal(Object.isFrozen(imported), true);
+  assert.equal(Object.isFrozen(imported.importedGameIds), true);
+  assert.equal(service.getState().stats.clears, 2);
+  assert.equal(service.getState().stats.unspentPoints, 1);
+  assert.deepEqual(service.getState().user, { name: "진행 이전 테스터" });
+  assert.deepEqual(service.getState().completedGameIds, [
+    "data-number-baseball",
+    "computer-code-heart",
+    "ai-ball-classification",
+  ]);
+
+  await service.importCompletedGameIds([
+    "data-number-baseball",
+    "computer-code-heart",
+  ]);
+  assert.equal(mock.calls.length, 2, "already imported progress must not be posted again");
+});
+
+test("concurrent imports share one request and recheck completion after it finishes", async () => {
+  const pendingImport = deferredResponse();
+  const stats = {
+    attack: 0,
+    hp: 100,
+    defense: 0,
+    clears: 0,
+    score: 0,
+    unspentPoints: 0,
+  };
+  const mock = queuedFetch([
+    jsonResponse({
+      authenticated: true,
+      user: { name: "동시 요청 테스터" },
+      stats,
+      completedGameIds: [],
+    }),
+    pendingImport.promise,
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  const first = service.importCompletedGameIds(["computer-code-heart"]);
+  const second = service.importCompletedGameIds(["computer-code-heart"]);
+  await Promise.resolve();
+
+  assert.equal(mock.calls.length, 2, "session plus exactly one import request is expected");
+  assert.equal(
+    mock.calls.filter(([url]) => url === "/api/progress/import").length,
+    1,
+  );
+
+  pendingImport.resolve(jsonResponse({
+    importedGameIds: ["computer-code-heart"],
+    stats: { ...stats, clears: 1, unspentPoints: 1 },
+    completedGameIds: ["computer-code-heart"],
+  }));
+  const results = await Promise.all([first, second]);
+
+  assert.deepEqual(results.map((result) => result.submitted), [true, false]);
+  assert.deepEqual(service.getState().completedGameIds, ["computer-code-heart"]);
+  assert.equal(
+    mock.calls.filter(([url]) => url === "/api/progress/import").length,
+    1,
+  );
+});
+
+test("a late import response cannot restore authentication after logout", async () => {
+  const pendingImport = deferredResponse();
+  const initialStats = {
+    attack: 2,
+    hp: 100,
+    defense: 1,
+    clears: 1,
+    score: 500,
+    unspentPoints: 0,
+  };
+  const mock = queuedFetch([
+    jsonResponse({
+      authenticated: true,
+      user: { name: "로그아웃 테스터" },
+      stats: initialStats,
+      completedGameIds: ["data-number-baseball"],
+    }),
+    pendingImport.promise,
+    jsonResponse({ authenticated: false }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  const importing = service.importCompletedGameIds(["computer-code-heart"]);
+  await Promise.resolve();
+  assert.equal(mock.calls[1][0], "/api/progress/import");
+
+  await service.logout();
+  assert.equal(mock.calls[2][0], "/api/auth/logout");
+  assert.equal(service.getState().status, "guest");
+  assert.equal(service.getState().authenticated, false);
+
+  pendingImport.resolve(jsonResponse({
+    importedGameIds: ["computer-code-heart"],
+    stats: { ...initialStats, clears: 2, unspentPoints: 1 },
+    completedGameIds: ["data-number-baseball", "computer-code-heart"],
+  }));
+  await importing;
+
+  assert.equal(service.getState().status, "guest");
+  assert.equal(service.getState().authenticated, false);
+  assert.equal(service.getState().user, null);
+  assert.deepEqual(service.getState().completedGameIds, []);
+});
+
 test("allocateStat uses the authenticated account and never accepts arbitrary columns", async () => {
   const mock = queuedFetch([
     jsonResponse({
@@ -226,6 +409,7 @@ test("OAuth callback parameters route to account UI and are removed from the vis
   );
 
   assert.equal(result.noticeTone, "info");
-  assert.match(result.notice, /완료/u);
+  assert.equal(result.authCallback, "success");
+  assert.match(result.notice, /인증.*확인/u);
   assert.deepEqual(replacements, [[{ preserved: true }, "", "/?campaign=festival#play"]]);
 });

@@ -54,6 +54,7 @@ const LOCAL_OAUTH_STATE_COOKIE = "ai-change-oauth-state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
 const MAX_SCORE = 1_000_000;
+const GUEST_IMPORT_ATTEMPT_PREFIX = "guest-import-v1:";
 const ALLOWED_GAME_IDS = new Set([
   "data-number-baseball",
   "cyber-click-to-purify",
@@ -419,11 +420,12 @@ async function ranking(request: Request, env: Env): Promise<Response> {
          JOIN users u ON u.id = g.user_id
          JOIN stats s ON s.user_id = g.user_id
         WHERE g.game_id = ?
+          AND g.attempt_id NOT LIKE ?
         GROUP BY u.id, u.name, s.clears, u.created_at
         ORDER BY score DESC, s.clears DESC, u.created_at ASC
         LIMIT 10`,
     )
-      .bind(gameId)
+      .bind(gameId, `${GUEST_IMPORT_ATTEMPT_PREFIX}%`)
       .all<{ name: string | null; score: number; clears: number }>();
     results = query.results;
   } else {
@@ -447,6 +449,82 @@ async function ranking(request: Request, env: Env): Promise<Response> {
   );
 }
 
+async function importCompletedProgress(
+  request: Request,
+  env: Env,
+  origin: string,
+): Promise<Response> {
+  requireMethod(request, "POST");
+  requireMutationRequest(request, origin);
+  const session = await requireSession(request, env);
+  const body = await readJsonObject(request);
+  const completedGameIdsInput = body.completedGameIds;
+
+  if (
+    Object.keys(body).some((key) => key !== "completedGameIds")
+    || !Array.isArray(completedGameIdsInput)
+    || completedGameIdsInput.length > ALLOWED_GAME_IDS.size
+  ) {
+    throw new HttpError(400, "Invalid completedGameIds");
+  }
+  if (
+    completedGameIdsInput.some(
+      (gameId) => typeof gameId !== "string" || !ALLOWED_GAME_IDS.has(gameId),
+    )
+  ) {
+    throw new HttpError(400, "Invalid completedGameIds");
+  }
+  const requestedGameIds = [...new Set(completedGameIdsInput as string[])];
+
+  const existingGameIds = new Set(await fetchCompletedGameIds(env, session.user_id));
+  const missingGameIds = requestedGameIds.filter((gameId) => !existingGameIds.has(gameId));
+  const statements: D1PreparedStatement[] = [];
+
+  for (const gameId of missingGameIds) {
+    const resultId = crypto.randomUUID();
+    statements.push(
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO game_results (id, user_id, attempt_id, game_id, status, score)
+         SELECT ?, ?, ?, ?, 'CLEAR', 0
+          WHERE NOT EXISTS (
+            SELECT 1 FROM game_results
+             WHERE user_id = ? AND game_id = ? AND status = 'CLEAR'
+          )`,
+      ).bind(
+        resultId,
+        session.user_id,
+        `${GUEST_IMPORT_ATTEMPT_PREFIX}${gameId}`,
+        gameId,
+        session.user_id,
+        gameId,
+      ),
+      env.DB.prepare(
+        `UPDATE stats
+            SET clears = COALESCE(clears, 0) + 1,
+                unspent_points = COALESCE(unspent_points, 0) + 1,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE user_id = ?
+            AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
+      ).bind(session.user_id, resultId, session.user_id),
+    );
+  }
+
+  const batchResults = statements.length > 0 ? await env.DB.batch(statements) : [];
+  const importedGameIds = missingGameIds.filter(
+    (_gameId, index) => Number(batchResults[index * 2]?.meta.changes ?? 0) === 1,
+  );
+  const [stats, completedGameIds] = await Promise.all([
+    fetchStats(env, session.user_id),
+    fetchCompletedGameIds(env, session.user_id),
+  ]);
+
+  return json({
+    importedGameIds,
+    completedGameIds,
+    stats: statPayload(stats),
+  });
+}
+
 async function recordResult(request: Request, env: Env, origin: string): Promise<Response> {
   requireMethod(request, "POST");
   requireMutationRequest(request, origin);
@@ -458,6 +536,9 @@ async function recordResult(request: Request, env: Env, origin: string): Promise
   const status = body.status;
   const score = body.score;
   if (!/^[A-Za-z0-9:_-]{8,160}$/u.test(attemptId)) {
+    throw new HttpError(400, "Invalid attemptId");
+  }
+  if (attemptId.startsWith(GUEST_IMPORT_ATTEMPT_PREFIX)) {
     throw new HttpError(400, "Invalid attemptId");
   }
   if (!ALLOWED_GAME_IDS.has(gameId)) throw new HttpError(400, "Invalid gameId");
@@ -531,6 +612,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/auth/logout") return logout(request, env, origin);
   if (url.pathname === "/api/session") return sessionResponse(request, env);
   if (url.pathname === "/api/ranking") return ranking(request, env);
+  if (url.pathname === "/api/progress/import") return importCompletedProgress(request, env, origin);
   if (url.pathname === "/api/results") return recordResult(request, env, origin);
   if (url.pathname === "/api/stats/allocate") return allocateStat(request, env, origin);
 

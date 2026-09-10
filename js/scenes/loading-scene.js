@@ -51,11 +51,13 @@ export function consumeAuthCallback(locationRef = globalThis.location, historyRe
 
   if (login === "success" && !error) {
     return Object.freeze({
-      notice: "로그인이 완료되었습니다. 계정 스탯을 불러오고 있습니다.",
+      authCallback: "success",
+      notice: "Google 인증 응답을 받았습니다. 계정 연결을 확인하고 있습니다.",
       noticeTone: "info",
     });
   }
   return Object.freeze({
+    authCallback: "error",
     notice: authErrorMessage(error ?? login),
     noticeTone: "error",
   });
@@ -68,7 +70,7 @@ export function createLoadingScene(context) {
     async mount(root, _params, { signal }) {
       mounted = true;
       const authCallback = consumeAuthCallback();
-      void context.services.account.refreshSession();
+      const sessionRefresh = context.services.account.refreshSession();
       root.setAttribute("aria-busy", "true");
       const scene = createScene({
         className: "scene--centered",
@@ -145,6 +147,17 @@ export function createLoadingScene(context) {
       });
       const saveState = context.services.save.load();
       context.services.audio.applySettings?.(saveState.settings);
+      void sessionRefresh.then((accountState) => {
+        if (!accountState.authenticated) return null;
+        return context.services.account.importCompletedGameIds(
+          context.services.save.getCompletedMiniGameIds(),
+        );
+      }).catch((error) => {
+        console.warn(
+          "Guest progress sync failed",
+          error instanceof Error ? error.message : "unknown error",
+        );
+      });
 
       bar.style.width = "100%";
       track.setAttribute("aria-valuenow", "100");

@@ -114,6 +114,40 @@ test("SaveManager persists game and NPC completion in one write and keeps QUIT a
   assert.equal(save.getState().revision, 1);
 });
 
+test("SaveManager exposes only distinct configured games completed by CLEAR", () => {
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  const save = new SaveManager({
+    appId: "ai-change",
+    storageChannel: "test",
+    miniGameIds: ["data-number-baseball", "computer-code-heart"],
+    storage,
+  });
+  save.load();
+
+  save.applyResult("computer-code-heart", { status: "FAIL" });
+  save.applyResult("data-number-baseball", { status: "CLEAR" });
+  const completed = save.getCompletedMiniGameIds();
+
+  assert.deepEqual(completed, ["data-number-baseball"]);
+  assert.equal(Object.isFrozen(completed), true);
+  assert.throws(() => completed.push("computer-code-heart"), TypeError);
+  assert.deepEqual(
+    save.getCompletedMiniGameIds(),
+    ["data-number-baseball"],
+    "callers must not be able to mutate SaveManager completion state",
+  );
+
+  save.applyResult("computer-code-heart", { status: "CLEAR" });
+  assert.deepEqual(save.getCompletedMiniGameIds(), [
+    "data-number-baseball",
+    "computer-code-heart",
+  ]);
+});
+
 test("SaveManager copies the legacy development save into production without deleting it", () => {
   const values = new Map();
   const legacyKey = "ai-change:development:save:v1";
@@ -150,6 +184,7 @@ test("SaveManager copies the legacy development save into production without del
   assert.equal(state.story.introSeen, true);
   assert.equal(state.settings.muted, true);
   assert.equal(state.revision, 8);
+  assert.deepEqual(save.getCompletedMiniGameIds(), ["data-number-baseball"]);
   assert.ok(values.has(productionKey));
   assert.ok(values.has(legacyKey), "legacy progress remains recoverable after migration");
 });
