@@ -5,7 +5,6 @@ import { runSmokeTest } from "./smoke.mjs";
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const distRoot = path.resolve(scriptDirectory, "..", "dist");
 const forbiddenPaths = [
-  "/assets/bgm/intro.mp3",
   "/data/drafts/app-config.draft.json",
   "/assets/images/sample.png",
   "/css/after_control_boss.css",

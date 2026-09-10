@@ -9,6 +9,7 @@ import {
   VirtualJoystick,
   createCharacterActorElement,
 } from "../battle/character/index.js";
+import { DEFAULT_PLAYER_APPEARANCE } from "../battle/player-config.js";
 import { createButton, createElement } from "./scene-utils.js";
 
 const WORLD_SIZE = Object.freeze({ width: 720, height: 400 });
@@ -231,7 +232,7 @@ export function createCharacterPreviewScene(context) {
           speed: 180,
           maxHealth: 100,
           currentHealth: 100,
-          appearance: { id: "placeholder", label: "YOU", color: "#78f0c1", accentColor: "#28c99a" },
+          appearance: DEFAULT_PLAYER_APPEARANCE,
         },
         world: {
           bounds: WORLD_BOUNDS,

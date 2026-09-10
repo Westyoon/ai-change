@@ -70,6 +70,7 @@ test("account stats map from D1 baselines to stat-boss baselines exactly once", 
   assert.equal(baseline.attackStat, 1);
   assert.equal(baseline.healthStat, 1);
   assert.equal(baseline.defenseStat, 1);
+  assert.equal(baseline.appearance.spriteSheet.src, "./assets/images/character-walk.png");
   assert.equal(calcPlayerDamage(baseline.attackStat), 10);
   assert.equal(calcMaxHp(baseline.healthStat), 100);
   assert.equal(calcIncomingDamage(34, baseline.defenseStat), 34);

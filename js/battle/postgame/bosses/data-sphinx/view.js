@@ -60,9 +60,7 @@ export class DataSphinxView {
     this.bossHealthTrack.setAttribute("aria-valuemax", String(snapshot.bossMaxHealth));
     this.bossHealthTrack.setAttribute("aria-valuenow", String(snapshot.bossHealth));
 
-    const questionNumber = snapshot.currentQuestion
-      ? `${snapshot.currentQuizIndex + 1} / ${snapshot.quizCount}`
-      : `0 / ${snapshot.quizCount}`;
+    const questionNumber = snapshot.currentQuestion ? snapshot.currentQuizIndex + 1 : 0;
     this.questionProgress.textContent = `QUESTION ${questionNumber}`;
     this.questionText.textContent = snapshot.currentQuestion ?? "전투 시작을 기다리고 있습니다.";
     this.selectionText.textContent = selectionLabel(snapshot.playerLocation);

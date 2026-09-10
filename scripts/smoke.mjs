@@ -74,6 +74,10 @@ export async function runSmokeTest({ rootDirectory = root, forbiddenPaths = [] }
     checks += 1;
     await assertResponse(baseUrl, "/assets/bgm/main-theme.mp3", "audio/mpeg");
     checks += 1;
+    await assertResponse(baseUrl, "/assets/bgm/intro.mp3", "audio/mpeg");
+    checks += 1;
+    await assertResponse(baseUrl, "/assets/images/character-walk.png", "image/png");
+    checks += 1;
     for (const asset of manifestAssets) {
       if (typeof asset?.src !== "string") {
         throw new Error(`Manifest asset ${asset?.id ?? "<unknown>"} has no src`);

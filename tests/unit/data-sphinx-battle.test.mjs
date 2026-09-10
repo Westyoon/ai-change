@@ -153,7 +153,7 @@ function installFrameHarness() {
   };
 }
 
-test("checked-in Data Sphinx config provides a balanced hundred-question bank", async () => {
+test("checked-in Data Sphinx config provides a short, easy, balanced hundred-question bank", async () => {
   const document = JSON.parse(await readFile(
     new URL("../../data/battle/data-sphinx.json", import.meta.url),
     "utf8",
@@ -172,7 +172,8 @@ test("checked-in Data Sphinx config provides a balanced hundred-question bank", 
     ),
     { O: 50, X: 50 },
   );
-  assert.ok(config.quizList.every(({ question }) => question.length <= 45));
+  assert.ok(config.quizList.every(({ question }) => question.length <= 32));
+  assert.ok(config.quizList.every(({ question }) => !/NIST|NumPy|TCP|HTTP|MFA|SHA|정밀도|교차검증|Imputer|Encoder|멱등/u.test(question)));
   assert.equal(config.timeLimitMs, 3_000);
   assert.equal(config.bossMaxHealth, 100);
   assert.equal(config.damagePerCorrect, 10);

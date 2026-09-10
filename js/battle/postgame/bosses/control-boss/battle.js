@@ -1,5 +1,6 @@
 import { GameLoop } from "../../../../core/game-loop.js";
 import { CharacterSystem, VirtualJoystick, CHARACTER_EVENTS } from "../../../character/index.js";
+import { DEFAULT_PLAYER_APPEARANCE } from "../../../player-config.js";
 import { resolveControlBossConfig } from "./config.js";
 import { ControlBossEncounter, CONTROL_BOSS_STATES } from "./encounter.js";
 import { ControlBossView } from "./view.js";
@@ -24,12 +25,7 @@ function defaultPlayer() {
     defenseStat: 1,
     healthStat: 1,
     accountStats: Object.freeze({ attack: 0, hp: 100, defense: 0 }),
-    appearance: Object.freeze({
-      id: "control-boss-player",
-      label: "YOU",
-      color: "#2e7d32",
-      accentColor: "#69db7c",
-    }),
+    appearance: DEFAULT_PLAYER_APPEARANCE,
   });
 }
 

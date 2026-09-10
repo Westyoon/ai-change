@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Character } from "../../js/battle/character/character.js";
 import { CharacterController } from "../../js/battle/character/character-controller.js";
+import { resolveSpriteSheetPresentation } from "../../js/battle/character/character-view.js";
 import {
   CHARACTER_CONTACT_PHASES,
   CHARACTER_DIRECTIONS,
@@ -9,6 +10,7 @@ import {
   CHARACTER_STATES,
 } from "../../js/battle/character/constants.js";
 import { EventBus } from "../../js/core/event-bus.js";
+import { DEFAULT_PLAYER_APPEARANCE } from "../../js/battle/player-config.js";
 
 function assertClose(actual, expected, message = "values should be close") {
   assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} !== ${expected}`);
@@ -20,6 +22,18 @@ function stationaryInput() {
     consumeAttack: () => null,
   };
 }
+
+test("festival character sheet selects four walk frames and the requested direction row", () => {
+  const presentation = resolveSpriteSheetPresentation(DEFAULT_PLAYER_APPEARANCE, CHARACTER_DIRECTIONS.RIGHT);
+  assert.equal(presentation.src, "./assets/images/character-walk.png");
+  assert.equal(presentation.frameCount, 4);
+  assert.equal(presentation.animationDurationMs, 520);
+  assertClose(presentation.backgroundSizeX, 560.8);
+  assertClose(presentation.backgroundSizeY, (1122 / 280) * 100);
+  assertClose(presentation.frameStartX, (201 / (1402 - 250)) * 100);
+  assertClose(presentation.frameEndX, ((201 + 1000) / (1402 - 250)) * 100);
+  assertClose(presentation.directionY, ((1 + 560) / (1122 - 280)) * 100);
+});
 
 test("character movement normalizes diagonals, selects one of four directions, and returns to idle", () => {
   const character = new Character({

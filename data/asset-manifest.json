@@ -65,6 +65,15 @@
       "sourceRef": "ASSET-COMMON-001"
     },
     {
+      "id": "player-walk-sprite",
+      "group": "common",
+      "type": "image",
+      "src": "./assets/images/character-walk.png",
+      "required": true,
+      "alt": "네 방향으로 걷는 플레이어 캐릭터",
+      "sourceRef": "ASSET-COMMON-002"
+    },
+    {
       "id": "number-baseball-config",
       "group": "data-number-baseball",
       "type": "json",

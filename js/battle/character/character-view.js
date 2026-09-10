@@ -44,6 +44,55 @@ function spriteUrl(appearance, state, direction) {
   return appearance?.sprites?.[motion]?.[direction] ?? null;
 }
 
+function positiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+export function resolveSpriteSheetPresentation(appearance = {}, direction = CHARACTER_DIRECTIONS.DOWN) {
+  const sheet = appearance?.spriteSheet;
+  if (!sheet || typeof sheet.src !== "string" || sheet.src.length === 0) return null;
+
+  const sourceWidth = positiveNumber(sheet.sourceWidth);
+  const sourceHeight = positiveNumber(sheet.sourceHeight);
+  const frameWidth = positiveNumber(sheet.frameWidth);
+  const frameHeight = positiveNumber(sheet.frameHeight);
+  const frameCount = Math.max(1, Math.trunc(positiveNumber(sheet.frameCount) ?? 1));
+  if (!sourceWidth || !sourceHeight || !frameWidth || !frameHeight) return null;
+
+  const sourceX = Math.max(0, finite(Number(sheet.sourceX)));
+  const sourceY = Math.max(0, finite(Number(sheet.sourceY)));
+  const row = Math.max(0, Math.trunc(finite(Number(sheet.directionRows?.[safeDirection(direction)]))));
+  const frameDurationMs = Math.max(60, positiveNumber(sheet.frameDurationMs) ?? 130);
+  return Object.freeze({
+    src: sheet.src,
+    backgroundSizeX: (sourceWidth / frameWidth) * 100,
+    backgroundSizeY: (sourceHeight / frameHeight) * 100,
+    frameStartX: (sourceX / Math.max(1, sourceWidth - frameWidth)) * 100,
+    frameEndX: ((sourceX + frameWidth * frameCount) / Math.max(1, sourceWidth - frameWidth)) * 100,
+    directionY: ((sourceY + frameHeight * row) / Math.max(1, sourceHeight - frameHeight)) * 100,
+    aspectRatio: `${frameWidth} / ${frameHeight}`,
+    frameCount,
+    animationDurationMs: frameDurationMs * frameCount,
+  });
+}
+
+const SPRITE_SHEET_PROPERTIES = Object.freeze([
+  "--character-sprite-size-x",
+  "--character-sprite-size-y",
+  "--character-sprite-x-start",
+  "--character-sprite-x-end",
+  "--character-sprite-y",
+  "--character-sprite-aspect",
+  "--character-sprite-timing",
+  "--character-sprite-duration",
+]);
+
+function clearSpriteSheet(sprite) {
+  delete sprite.dataset.spriteSheet;
+  for (const property of SPRITE_SHEET_PROPERTIES) sprite.style.removeProperty(property);
+}
+
 function applyAppearance(element, sprite, appearance = {}, state, direction) {
   const label = element.querySelector(".character-actor__name");
   if (label) label.textContent = String(appearance.label ?? appearance.id ?? "PLAYER");
@@ -53,6 +102,23 @@ function applyAppearance(element, sprite, appearance = {}, state, direction) {
   if (typeof appearance.accentColor === "string") {
     element.style.setProperty("--character-accent", appearance.accentColor);
   }
+  const sheet = resolveSpriteSheetPresentation(appearance, direction);
+  if (sheet) {
+    sprite.style.backgroundImage = `url(${JSON.stringify(String(sheet.src))})`;
+    sprite.style.setProperty("--character-sprite-size-x", `${sheet.backgroundSizeX}%`);
+    sprite.style.setProperty("--character-sprite-size-y", `${sheet.backgroundSizeY}%`);
+    sprite.style.setProperty("--character-sprite-x-start", `${sheet.frameStartX}%`);
+    sprite.style.setProperty("--character-sprite-x-end", `${sheet.frameEndX}%`);
+    sprite.style.setProperty("--character-sprite-y", `${sheet.directionY}%`);
+    sprite.style.setProperty("--character-sprite-aspect", sheet.aspectRatio);
+    sprite.style.setProperty("--character-sprite-timing", `steps(${sheet.frameCount}, end)`);
+    sprite.style.setProperty("--character-sprite-duration", `${sheet.animationDurationMs}ms`);
+    sprite.dataset.hasSprite = "true";
+    sprite.dataset.spriteSheet = "true";
+    return;
+  }
+
+  clearSpriteSheet(sprite);
   const url = spriteUrl(appearance, state, direction);
   if (url) {
     sprite.style.backgroundImage = `url(${JSON.stringify(String(url))})`;

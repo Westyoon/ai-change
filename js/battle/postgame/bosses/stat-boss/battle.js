@@ -26,6 +26,7 @@
 
 import { GameLoop } from "../../../../core/game-loop.js";
 import { CharacterSystem, VirtualJoystick, CHARACTER_EVENTS } from "../../../character/index.js";
+import { DEFAULT_PLAYER_APPEARANCE } from "../../../player-config.js";
 import { StatBossEncounter } from "./encounter.js";
 import { STATE } from "./state.js";
 import { StatBossView } from "./view.js";
@@ -49,6 +50,7 @@ function defaultPlayers(arena) {
       defenseStat: 1,
       healthStat: 1,
       position: { x: arena.width / 2, y: arena.height * 0.8 },
+      appearance: DEFAULT_PLAYER_APPEARANCE,
     },
   ];
 }
@@ -164,7 +166,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
         maxHealth: initialMaxHp,
         currentHealth: initialMaxHp,
         stats: localPlayer.accountStats,
-        appearance: { id: "placeholder", label: "YOU", color: "#78f0c1", accentColor: "#28c99a" },
+        appearance: localPlayer.appearance ?? DEFAULT_PLAYER_APPEARANCE,
       },
       // colliders/triggers 없음: 격자 바닥은 뻥 뚫린 평지라 장애물이 없다.
       world: { bounds: { x: 0, y: 0, width: arena.width, height: arena.height } },
