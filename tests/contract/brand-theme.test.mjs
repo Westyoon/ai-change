@@ -47,6 +47,14 @@ test("the shared theme uses the logo palette, responsive plaid, and self-hosted 
   assert.match(common, /\.scene-brand-logo\s*\{[\s\S]*?height:\s*auto/u);
   assert.match(common, /font-family:\s*var\(--font-body\)/u);
   assert.match(responsive, /\.scene-brand-logo/u);
+  assert.match(
+    responsive,
+    /@media \(max-width: 720px\)\s*\{[\s\S]*?\.top-nav__button\s*\{[^}]*min-height:\s*44px/u,
+  );
+  assert.match(
+    responsive,
+    /@media \(max-width: 430px\)\s*\{[\s\S]*?\.top-nav__button\s*\{[^}]*min-width:\s*44px/u,
+  );
   assert.match(build, /"assets\/fonts\/Galmuri11\.woff2"/u);
   assert.match(build, /"assets\/fonts\/LICENSE\.txt"/u);
   assert.match(build, /font-src 'self'/u);

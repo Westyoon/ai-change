@@ -354,37 +354,114 @@ test("AI keeps the prototype start overlay before beginning its single countdown
   const configs = await loadGameConfigs();
   const uiRoot = createFakeUiRoot();
   const gameplayStarts = [];
+  const scheduledFrames = new Map();
+  let nextFrameId = 1;
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    const id = nextFrameId++;
+    scheduledFrames.set(id, callback);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => scheduledFrames.delete(id);
   let now = 0;
+  const drawContext = new Proxy({}, {
+    get(target, key) {
+      if (!(key in target)) target[key] = () => {};
+      return target[key];
+    },
+    set(target, key, value) {
+      target[key] = value;
+      return true;
+    },
+  });
+  const stage = { className: "minigame-stage" };
+  const canvas = {
+    width: 960,
+    height: 540,
+    className: "minigame-canvas",
+    parentElement: stage,
+    getContext: () => drawContext,
+  };
+
+  try {
+    const instance = module.createMiniGame({
+      canvas,
+      uiRoot,
+      clock: { now: () => now },
+      onGameplayStart(attemptId) {
+        gameplayStarts.push(attemptId);
+      },
+    });
+
+    await instance.init(configs.get("ai-ball-classification"));
+    instance.start({ attemptId: "ai-ball-classification:start-overlay" });
+    assert.equal(instance.getState().awaitingStart, true);
+    assert.equal(instance.getState().countdownRemaining, 3);
+    assert.deepEqual(gameplayStarts, []);
+    assert.equal(scheduledFrames.size, 0, "the static start gate must not keep a RAF loop alive");
+    now = 5_000;
+    assert.equal(instance.getState().elapsedMs, 0);
+
+    assert.equal(instance.pause("VISIBILITY"), true);
+    assert.equal(instance.resume(), true);
+    assert.equal(
+      scheduledFrames.size,
+      0,
+      "resuming at the static start gate must not create a RAF loop",
+    );
+
+    const startButton = findByClass(uiRoot, "btn-primary");
+    const rulesOverlay = findByClass(uiRoot, "rules-overlay");
+    const lidButton = findByClass(uiRoot, "btn-lid");
+    assert.ok(startButton);
+    assert.equal(rulesOverlay.attributes.get("role"), "dialog");
+    assert.equal(rulesOverlay.attributes.get("aria-modal"), "true");
+    assert.equal(lidButton.attributes.get("aria-pressed"), "false");
+    startButton.dispatchEvent("click");
+    assert.equal(instance.getState().awaitingStart, false);
+    assert.equal(instance.getState().countdownRemaining, 3);
+    assert.deepEqual(gameplayStarts, ["ai-ball-classification:start-overlay"]);
+    assert.equal(scheduledFrames.size, 1, "gameplay starts exactly one RAF loop");
+    now = 6_000;
+    assert.equal(instance.getState().elapsedMs, 1_000);
+    startButton.dispatchEvent("click");
+    assert.equal(gameplayStarts.length, 1);
+    instance.destroy();
+    assert.equal(scheduledFrames.size, 0);
+  } finally {
+    if (originalRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    if (originalCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+  }
+});
+
+test("AI turns a failing gameplay-start host callback into an attempt error", async () => {
+  const module = await import("../../js/minigames/AI/index.js");
+  const configs = await loadGameConfigs();
+  const uiRoot = createFakeUiRoot();
+  const errors = [];
+  const expected = new Error("host start failed");
   const instance = module.createMiniGame({
     uiRoot,
-    clock: { now: () => now },
-    onGameplayStart(attemptId) {
-      gameplayStarts.push(attemptId);
+    onGameplayStart() {
+      throw expected;
+    },
+    onError(attemptId, error) {
+      errors.push({ attemptId, error });
     },
   });
 
   await instance.init(configs.get("ai-ball-classification"));
-  instance.start({ attemptId: "ai-ball-classification:start-overlay" });
-  assert.equal(instance.getState().awaitingStart, true);
-  assert.equal(instance.getState().countdownRemaining, 3);
-  assert.deepEqual(gameplayStarts, []);
-  now = 5_000;
-  assert.equal(instance.getState().elapsedMs, 0);
+  instance.start({ attemptId: "ai-ball-classification:start-error" });
+  findByClass(uiRoot, "btn-primary").dispatchEvent("click");
 
-  const startButton = findByClass(uiRoot, "btn-primary");
-  const rulesOverlay = findByClass(uiRoot, "rules-overlay");
-  const lidButton = findByClass(uiRoot, "btn-lid");
-  assert.ok(startButton);
-  assert.equal(rulesOverlay.attributes.get("role"), "dialog");
-  assert.equal(rulesOverlay.attributes.get("aria-modal"), "true");
-  assert.equal(lidButton.attributes.get("aria-pressed"), "false");
-  startButton.dispatchEvent("click");
-  assert.equal(instance.getState().awaitingStart, false);
-  assert.equal(instance.getState().countdownRemaining, 3);
-  assert.deepEqual(gameplayStarts, ["ai-ball-classification:start-overlay"]);
-  now = 6_000;
-  assert.equal(instance.getState().elapsedMs, 1_000);
-  startButton.dispatchEvent("click");
-  assert.equal(gameplayStarts.length, 1);
+  assert.equal(instance.getState().state, "ERROR");
+  assert.equal(instance.getState().terminal, true);
+  assert.deepEqual(errors, [{
+    attemptId: "ai-ball-classification:start-error",
+    error: expected,
+  }]);
   instance.destroy();
 });

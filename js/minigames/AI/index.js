@@ -443,8 +443,14 @@ export function createMiniGame(context = {}) {
     clock.resume("START_GATE");
     lastElapsedMs = clock.getElapsedMs();
     feedbackText = "목표 공을 확인하세요.";
-    context.onGameplayStart?.(currentAttemptId);
+    try {
+      context.onGameplayStart?.(currentAttemptId);
+    } catch (error) {
+      reportRuntimeError(error);
+      return false;
+    }
     updateUi();
+    scheduleGameplayFrame();
     return true;
   }
 
@@ -637,6 +643,21 @@ export function createMiniGame(context = {}) {
     renderTargetPreview(scene);
   }
 
+  function scheduleGameplayFrame() {
+    if (
+      !canvasContext
+      || frameHandle !== null
+      || disposed
+      || terminal
+      || lifecycleState !== "RUNNING"
+      || awaitingStart
+    ) {
+      return false;
+    }
+    frameHandle = requestFrame(frame);
+    return true;
+  }
+
   function frame() {
     frameHandle = null;
     if (disposed || terminal || lifecycleState !== "RUNNING") return;
@@ -650,7 +671,7 @@ export function createMiniGame(context = {}) {
       reportRuntimeError(error);
       return;
     }
-    if (!terminal && lifecycleState === "RUNNING") frameHandle = requestFrame(frame);
+    scheduleGameplayFrame();
   }
 
   function beginAttempt(attemptId) {
@@ -666,7 +687,6 @@ export function createMiniGame(context = {}) {
     ui.startButton?.focus?.();
     try {
       render();
-      if (canvasContext) frameHandle = requestFrame(frame);
     } catch (error) {
       reportRuntimeError(error);
     }
@@ -729,7 +749,7 @@ export function createMiniGame(context = {}) {
       inputLock.clear();
       lastElapsedMs = clock.getElapsedMs();
       setState("RUNNING");
-      if (canvasContext) frameHandle = requestFrame(frame);
+      scheduleGameplayFrame();
       return true;
     },
 

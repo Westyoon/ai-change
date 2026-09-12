@@ -65,6 +65,12 @@ export class SceneRouter {
         return false;
       }
 
+      try {
+        globalThis.scrollTo?.(0, 0);
+      } catch {
+        // Scroll restoration is a progressive enhancement; a patched browser API
+        // must not turn an otherwise successful scene mount into a route failure.
+      }
       requestAnimationFrame(() => this.root.focus({ preventScroll: true }));
       return true;
     } catch (error) {

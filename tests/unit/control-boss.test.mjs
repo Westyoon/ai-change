@@ -6,10 +6,12 @@ import { EventBus } from "../../js/core/event-bus.js";
 import { INPUT_ACTIONS } from "../../js/core/input-manager.js";
 import { validateMiniGameCandidate } from "../../js/core/config-validator.js";
 import {
+  CONTROL_BOSS_BULLET_RADIUS,
   CONTROL_BOSS_FAILURES,
   CONTROL_BOSS_PHASES,
   CONTROL_BOSS_STATES,
   ControlBossEncounter,
+  ControlBossView,
   calcControlBossAttackDamage,
   calcControlBossIncomingDamage,
   calcControlBossMaxHp,
@@ -338,6 +340,106 @@ function installFrameHarness() {
     },
   };
 }
+
+test("Control Boss hazards share one logical size between collision and responsive rendering", () => {
+  const hazardConfig = resolveControlBossConfig({
+    ...configSource,
+    boss: {
+      ...configSource.boss,
+      phase1FirstAttackDelaySec: 0,
+      shockwaveInitialDelaySec: 0,
+    },
+  });
+
+  const edgeHit = new ControlBossEncounter({ config: hazardConfig });
+  edgeHit.init();
+  edgeHit.start({ attemptId: "control-boss:bullet-edge" });
+  edgeHit.setPlayerBounds({ x: 231, y: 115, width: 32, height: 42 });
+  const edgeSnapshot = edgeHit.tick(0);
+  assert.equal(
+    edgeSnapshot.playerHp,
+    edgeSnapshot.playerMaxHp - hazardConfig.boss.bulletDamage,
+    "a visible projectile touching the player at its logical radius is a hit",
+  );
+
+  const outsideMiss = new ControlBossEncounter({ config: hazardConfig });
+  outsideMiss.init();
+  outsideMiss.start({ attemptId: "control-boss:bullet-outside" });
+  outsideMiss.setPlayerBounds({ x: 232, y: 115, width: 32, height: 42 });
+  const outsideSnapshot = outsideMiss.tick(0);
+  assert.equal(
+    outsideSnapshot.playerHp,
+    outsideSnapshot.playerMaxHp,
+    "a projectile one logical pixel beyond its visible radius is not a hit",
+  );
+
+  const encounter = new ControlBossEncounter({ config: hazardConfig });
+  encounter.init();
+  encounter.start({ attemptId: "control-boss:hazard-render" });
+  let snapshot = encounter.tick(0);
+  assert.equal(snapshot.bullets.length, 1);
+  assert.equal(snapshot.bullets[0].radius, CONTROL_BOSS_BULLET_RADIUS);
+
+  const frames = installFrameHarness();
+  try {
+    const root = frames.document.createElement("div");
+    const view = new ControlBossView({ config: hazardConfig, document: frames.document });
+    view.mount(root);
+    view.render(snapshot);
+
+    const bullet = root.querySelector(".control-boss-bullet");
+    assert.ok(bullet);
+    assert.equal(
+      bullet.style.width,
+      `${(CONTROL_BOSS_BULLET_RADIUS * 2 / hazardConfig.world.bounds.width) * 100}%`,
+    );
+    assert.equal(
+      bullet.style.height,
+      `${(CONTROL_BOSS_BULLET_RADIUS * 2 / hazardConfig.world.bounds.height) * 100}%`,
+    );
+
+    encounter.enterPhase3();
+    encounter.setPlayerBounds({ x: 10, y: 700, width: 32, height: 42 });
+    encounter.tick(0);
+    snapshot = encounter.tick(100);
+    view.render(snapshot);
+    const shockwave = root.querySelector(".control-boss-shockwave");
+    assert.ok(shockwave);
+
+    const wave = snapshot.shockwaves[0];
+    const thickness = hazardConfig.boss.shockwaveThickness;
+    const outerRadius = wave.radius + thickness;
+    assert.equal(shockwave.style.width, `${(outerRadius * 2 / hazardConfig.world.bounds.width) * 100}%`);
+    assert.equal(shockwave.style.height, `${(outerRadius * 2 / hazardConfig.world.bounds.height) * 100}%`);
+    assert.equal(
+      shockwave.style["--control-boss-shockwave-inner"],
+      `${(Math.max(0, wave.radius - thickness) / outerRadius) * 100}%`,
+      "the rendered band spans the same radius +/- thickness used by collision",
+    );
+
+    view.destroy();
+    assert.equal(root.children.length, 0);
+  } finally {
+    encounter.destroy();
+    edgeHit.destroy();
+    outsideMiss.destroy();
+    frames.restore();
+  }
+});
+
+test("Control Boss shockwave gradient measures stops from the visible circle radius", async () => {
+  const stylesheet = await readFile(
+    new URL("../../css/control-boss.css", import.meta.url),
+    "utf8",
+  );
+  const rule = stylesheet.match(
+    /(?:^|\})\s*\.control-boss-shockwave\s*\{([^}]*)\}/u,
+  )?.[1] ?? "";
+  assert.match(
+    rule,
+    /radial-gradient\(\s*(?:circle closest-side|closest-side circle),/u,
+  );
+});
 
 test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup without an internal result modal", async () => {
   const frames = installFrameHarness();

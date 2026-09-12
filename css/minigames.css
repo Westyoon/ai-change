@@ -894,6 +894,201 @@
   font-size: 12.5px;
 }
 
+/* Phone portrait: reflow the original cards instead of shrinking their controls. */
+.minigame-ui-root.cse-ui-root.cse-mobile-layout {
+  scrollbar-gutter: auto;
+}
+
+.cse-ui-root.cse-mobile-layout .cse-fixed-frame-viewport {
+  width: 100%;
+  max-width: 520px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 100%;
+  max-height: none;
+  padding: 12px;
+  gap: 10px;
+  border-width: 2px;
+  border-radius: 20px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-header {
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-timer {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-counter-scene {
+  display: grid;
+  grid-template-areas:
+    "customer order"
+    "recipe recipe";
+  grid-template-columns: 72px minmax(0, 1fr);
+  min-height: 0;
+  padding: 12px;
+  gap: 10px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-customer-unit {
+  grid-area: customer;
+  width: 72px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-person-silhouette {
+  width: 64px;
+  height: 78px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-customer-name {
+  font-size: 13px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-order-bubble {
+  grid-area: order;
+  min-width: 0;
+  padding: 12px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-recipe-trigger {
+  position: static;
+  grid-area: recipe;
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-book-icon {
+  font-size: 16px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-book-text {
+  font-size: 13px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace {
+  padding: 10px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace-top {
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-reset {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-slots-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-tile {
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px 4px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-type {
+  font-size: 12px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-val {
+  font-size: 14px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-feedback {
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-tray-section {
+  flex-direction: column;
+  height: auto;
+  gap: 10px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-materials-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(44px, auto));
+  gap: 6px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-material {
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 3px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-unlock {
+  flex-direction: row;
+  gap: 6px;
+  width: 100%;
+  min-height: 52px;
+  height: 52px;
+  font-size: 14px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-unlock small {
+  margin-top: 0;
+  font-size: 12px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-backdrop {
+  position: fixed;
+  padding: 12px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-card {
+  max-height: calc(100dvh - 24px);
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-card h3 {
+  font-size: 17px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-recipe-list {
+  max-height: none;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-recipe-row {
+  font-size: 14px;
+}
+
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-close,
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-action {
+  min-height: 44px;
+  font-size: 14px;
+}
+
 /* A wide host uses the same CSE cards in a true landscape workspace. */
 .minigame-ui-root.cse-ui-root.cse-desktop-layout {
   align-content: stretch;

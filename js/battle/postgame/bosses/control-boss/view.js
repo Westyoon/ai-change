@@ -2,7 +2,10 @@ import {
   CharacterView,
   createCharacterActorElement,
 } from "../../../character/character-view.js";
-import { CONTROL_BOSS_PHASES } from "./encounter.js";
+import {
+  CONTROL_BOSS_BULLET_RADIUS,
+  CONTROL_BOSS_PHASES,
+} from "./encounter.js";
 
 const PHASE_LABELS = Object.freeze({
   [CONTROL_BOSS_PHASES.SHIELD]: "Phase 1 · 실드 파괴",
@@ -163,8 +166,11 @@ export class ControlBossView {
         this.bulletLayer.append(node);
         this.bulletElements.set(bullet.id, node);
       }
+      const radius = Math.max(0, Number(bullet.radius) || CONTROL_BOSS_BULLET_RADIUS);
       node.style.left = percent(bullet.x, this.arena.width);
       node.style.top = percent(bullet.y, this.arena.height);
+      node.style.width = percent(radius * 2, this.arena.width);
+      node.style.height = percent(radius * 2, this.arena.height);
     }
     for (const [id, node] of this.bulletElements) {
       if (active.has(id)) continue;
@@ -184,10 +190,16 @@ export class ControlBossView {
         this.shockwaveLayer.append(node);
         this.shockwaveElements.set(shockwave.id, node);
       }
+      const radius = Math.max(0, Number(shockwave.radius) || 0);
+      const thickness = Math.max(0, Number(this.config.boss.shockwaveThickness) || 0);
+      const outerRadius = radius + thickness;
+      const innerRadius = Math.max(0, radius - thickness);
+      const innerStop = outerRadius > 0 ? (innerRadius / outerRadius) * 100 : 0;
       node.style.left = percent(shockwave.x, this.arena.width);
       node.style.top = percent(shockwave.y, this.arena.height);
-      node.style.width = percent(shockwave.radius * 2, this.arena.width);
-      node.style.height = percent(shockwave.radius * 2, this.arena.height);
+      node.style.width = percent(outerRadius * 2, this.arena.width);
+      node.style.height = percent(outerRadius * 2, this.arena.height);
+      node.style.setProperty("--control-boss-shockwave-inner", `${innerStop}%`);
     }
     for (const [id, node] of this.shockwaveElements) {
       if (active.has(id)) continue;

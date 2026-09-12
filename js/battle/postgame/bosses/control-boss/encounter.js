@@ -28,6 +28,11 @@ export const CONTROL_BOSS_FAILURES = Object.freeze({
   FALL_HOLE: "FALL_HOLE",
 });
 
+// The projectile radius lives in logical 450x800 world units. The view uses
+// the same value, so the visible orb and its collision area stay aligned at
+// every responsive scale.
+export const CONTROL_BOSS_BULLET_RADIUS = 6;
+
 function finite(value, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
@@ -57,13 +62,10 @@ function overlaps(left, right) {
   );
 }
 
-function pointInside(point, bounds) {
-  return (
-    point.x >= bounds.x &&
-    point.x <= bounds.x + bounds.width &&
-    point.y >= bounds.y &&
-    point.y <= bounds.y + bounds.height
-  );
+function circleOverlapsRect(circle, bounds) {
+  const nearestX = Math.max(bounds.x, Math.min(circle.x, bounds.x + bounds.width));
+  const nearestY = Math.max(bounds.y, Math.min(circle.y, bounds.y + bounds.height));
+  return Math.hypot(circle.x - nearestX, circle.y - nearestY) <= circle.radius;
 }
 
 function rounded(value) {
@@ -469,6 +471,7 @@ export class ControlBossEncounter {
       id: `bullet-${++this.projectileSequence}`,
       x: origin.x,
       y: origin.y,
+      radius: CONTROL_BOSS_BULLET_RADIUS,
       vx: ((target.x - origin.x) / length) * speed,
       vy: ((target.y - origin.y) / length) * speed,
     });
@@ -481,15 +484,14 @@ export class ControlBossEncounter {
     for (const bullet of this.bullets) {
       bullet.x += bullet.vx * seconds;
       bullet.y += bullet.vy * seconds;
-      const point = { x: bullet.x, y: bullet.y };
-      if (pointInside(point, cover)) continue;
-      if (pointInside(point, this.playerBounds)) {
+      if (circleOverlapsRect(bullet, cover)) continue;
+      if (circleOverlapsRect(bullet, this.playerBounds)) {
         this.#damagePlayer(this.config.boss.bulletDamage, "BULLET");
         continue;
       }
       if (
-        bullet.x < -20 || bullet.x > bounds.width + 20 ||
-        bullet.y < -20 || bullet.y > bounds.height + 20
+        bullet.x + bullet.radius < 0 || bullet.x - bullet.radius > bounds.width ||
+        bullet.y + bullet.radius < 0 || bullet.y - bullet.radius > bounds.height
       ) {
         continue;
       }

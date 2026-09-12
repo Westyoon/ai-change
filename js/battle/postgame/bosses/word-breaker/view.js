@@ -18,6 +18,27 @@ function positionRect(node, bounds, arena) {
   node.style.height = percent(bounds?.height, arena.height);
 }
 
+function positionPhraseTarget(node, phrase, horizontalPadding) {
+  const phraseWidth = Math.max(1, finite(phrase?.width, 1));
+  const phraseHeight = Math.max(1, finite(phrase?.height, 1));
+  const target = phrase?.targetBounds;
+  if (!target) return;
+
+  const contentPadding = Math.max(0, Math.min(phraseWidth / 2, finite(horizontalPadding)));
+  node.style.setProperty("--word-breaker-content-left", percent(contentPadding, phraseWidth));
+  node.style.setProperty("--word-breaker-content-right", percent(contentPadding, phraseWidth));
+  node.style.setProperty(
+    "--word-breaker-target-left",
+    percent(finite(target.x) - finite(phrase.x), phraseWidth),
+  );
+  node.style.setProperty(
+    "--word-breaker-target-top",
+    percent(finite(target.y) - finite(phrase.y), phraseHeight),
+  );
+  node.style.setProperty("--word-breaker-target-width", percent(target.width, phraseWidth));
+  node.style.setProperty("--word-breaker-target-height", percent(target.height, phraseHeight));
+}
+
 function createElementFactory(documentRef) {
   if (!documentRef?.createElement) throw new Error("WordBreakerView requires a DOM document.");
   return function element(
@@ -153,9 +174,9 @@ export class WordBreakerView {
     const element = this.createElement;
     const parts = splitTarget(phrase.negative, phrase.target);
     const line = element("p", { className: "word-breaker-phrase__text" }, [
-      element("span", { text: parts.before }),
+      element("span", { className: "word-breaker-phrase__before", text: parts.before }),
       element("mark", { className: "word-breaker-phrase__target", text: parts.target }),
-      element("span", { text: parts.after }),
+      element("span", { className: "word-breaker-phrase__after", text: parts.after }),
     ]);
     const fill = element("span", { className: "word-breaker-phrase__hp-fill", attributes: { "aria-hidden": "true" } });
     const hp = element("span", {
@@ -180,6 +201,7 @@ export class WordBreakerView {
         this.phraseElements.set(phrase.id, node);
       }
       positionRect(node, phrase, this.arena);
+      positionPhraseTarget(node, phrase, this.config.phrase.horizontalPadding);
       const maxHp = Math.max(1, finite(phrase.maxHp, 1));
       const hp = Math.max(0, Math.min(maxHp, finite(phrase.hp, maxHp)));
       node._wordBreakerFill.style.width = `${(hp / maxHp) * 100}%`;

@@ -14,7 +14,7 @@
   }
 
   .top-nav__button {
-    min-height: 38px;
+    min-height: 44px;
     padding: 6px 9px;
     font-size: 0.7rem;
   }
@@ -124,7 +124,7 @@
   }
 
   .top-nav__button {
-    min-width: 38px;
+    min-width: 44px;
     padding-inline: 8px;
   }
 

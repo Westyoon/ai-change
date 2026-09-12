@@ -201,6 +201,10 @@ function treeText(node) {
   return [node.textContent, ...node.children.map(treeText)].filter(Boolean).join(" ");
 }
 
+function relativePercent(value, total) {
+  return `${(value / total) * 100}%`;
+}
+
 test("Word Breaker adapter mounts the deathless five-guardian UI and satisfies its lifecycle", async () => {
   const frames = installFrameHarness();
   try {
@@ -231,7 +235,34 @@ test("Word Breaker adapter mounts the deathless five-guardian UI and satisfies i
 
     battle.start({ attemptId: "word-breaker:lifecycle-1" });
     frames.step(0);
-    const initialX = battle.getState().playerBounds.x;
+    const initialState = battle.getState();
+    const initialX = initialState.playerBounds.x;
+    const phrase = initialState.phrases[0];
+    const phraseNode = root.querySelector(".word-breaker-phrase");
+    assert.ok(phraseNode, "the initial falling phrase is rendered");
+    assert.ok(phraseNode.querySelector(".word-breaker-phrase__before"));
+    assert.ok(phraseNode.querySelector(".word-breaker-phrase__target"));
+    assert.ok(phraseNode.querySelector(".word-breaker-phrase__after"));
+    assert.equal(
+      phraseNode.style["--word-breaker-target-left"],
+      relativePercent(phrase.targetBounds.x - phrase.x, phrase.width),
+      "the visible target starts at the collision target's horizontal position",
+    );
+    assert.equal(
+      phraseNode.style["--word-breaker-target-top"],
+      relativePercent(phrase.targetBounds.y - phrase.y, phrase.height),
+      "the visible target starts at the collision target's vertical position",
+    );
+    assert.equal(
+      phraseNode.style["--word-breaker-target-width"],
+      relativePercent(phrase.targetBounds.width, phrase.width),
+      "the visible target width matches the collision target",
+    );
+    assert.equal(
+      phraseNode.style["--word-breaker-target-height"],
+      relativePercent(phrase.targetBounds.height, phrase.height),
+      "the visible target height matches the collision target",
+    );
     input.vector = { x: 1, y: 0 };
     frames.step(100);
     assert.ok(battle.getState().playerBounds.x > initialX, "injected PC movement reaches CharacterSystem");
@@ -289,4 +320,13 @@ test("Word Breaker runtime delegates shared loop/input and contains no private m
   assert.match(viewSource, /config\.finalPhrase\.negative/u);
   assert.match(viewSource, /round\?\.collapseMessage/u);
   assert.match(viewSource, /round\?\.recoveryMessage/u);
+  for (const variable of [
+    "--word-breaker-target-left",
+    "--word-breaker-target-top",
+    "--word-breaker-target-width",
+    "--word-breaker-target-height",
+  ]) {
+    assert.ok(viewSource.includes(variable));
+    assert.match(cssSource, new RegExp(`var\\(${variable}\\)`, "u"));
+  }
 });

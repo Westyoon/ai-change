@@ -8,6 +8,15 @@ const LOGICAL_FRAME_WIDTH = 440;
 const LOGICAL_FRAME_HEIGHT = 920;
 const MAX_DISPLAY_SCALE = 1.25;
 const MINIMUM_READABLE_SCALE = 0.9;
+const DESKTOP_LAYOUT_MIN_WIDTH = 760;
+
+function toggleClassName(element, className, force) {
+  if (!element || !className) return;
+  const classNames = new Set(String(element.className ?? '').split(/\s+/u).filter(Boolean));
+  if (force) classNames.add(className);
+  else classNames.delete(className);
+  element.className = [...classNames].join(' ');
+}
 
 function createAbortError() {
   if (typeof DOMException === 'function') {
@@ -496,9 +505,29 @@ export function createMiniGame(context = {}) {
       maxScale: MAX_DISPLAY_SCALE,
       minimumScale: MINIMUM_READABLE_SCALE,
       fluidLayout: {
-        minWidth: 760,
+        minWidth: DESKTOP_LAYOUT_MIN_WIDTH,
         minHeight: 540,
         className: 'cse-desktop-layout',
+      },
+      onLayout: ({ mode, availableWidth }) => {
+        const mobileLayout = mode === 'fixed' && availableWidth < DESKTOP_LAYOUT_MIN_WIDTH;
+        toggleClassName(context.uiRoot, 'cse-mobile-layout', mobileLayout);
+        if (!mobileLayout) return;
+
+        // Do not shrink interactive controls with the legacy 440px frame on phones.
+        // The scoped mobile CSS reflows the same visual components and the host scrolls
+        // vertically when the full game does not fit in the available portrait height.
+        viewport.style.position = 'relative';
+        viewport.style.flex = '0 0 auto';
+        viewport.style.width = '100%';
+        viewport.style.height = 'auto';
+        viewport.dataset.scale = '1';
+        viewport.dataset.layout = 'mobile';
+        root.style.position = 'relative';
+        root.style.inset = 'auto';
+        root.style.width = '100%';
+        root.style.height = 'auto';
+        root.style.transform = 'none';
       },
     });
   }

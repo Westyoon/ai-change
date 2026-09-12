@@ -134,7 +134,7 @@ async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
 }
 
-test("CSE keeps the original portrait frame on small hosts and switches to a fluid desktop layout", async () => {
+test("CSE reflows phone portrait hosts without scaled controls and keeps the fluid desktop layout", async () => {
   const config = await readJson("../../data/minigames/code-heart.json");
   const { observers, uiRoot } = createFakeEnvironment({ width: 400, height: 480 });
   uiRoot.className = "minigame-ui-root host-class";
@@ -149,21 +149,50 @@ test("CSE keeps the original portrait frame on small hosts and switches to a flu
   assert.ok(viewport);
   assert.ok(frame);
   assert.equal(frame.parentNode, viewport);
-  assert.equal(frame.style.width, "440px");
-  assert.equal(frame.style.height, "920px");
-  assert.equal(frame.style.transform, "scale(0.9)");
-  assert.equal(viewport.style.width, "396px");
-  assert.equal(Number(viewport.dataset.scale), 0.9);
+  assert.equal(frame.style.width, "100%");
+  assert.equal(frame.style.height, "auto");
+  assert.equal(frame.style.transform, "none");
+  assert.equal(viewport.style.width, "100%");
+  assert.equal(viewport.style.height, "auto");
+  assert.equal(viewport.dataset.scale, "1");
+  assert.equal(viewport.dataset.layout, "mobile");
+  assert.match(uiRoot.className, /\bcse-mobile-layout\b/u);
   assert.equal(observers.length, 1);
   assert.deepEqual(observers[0].observed, [uiRoot]);
 
+  for (const width of [320, 360, 390, 430, 520, 521, 600, 759]) {
+    uiRoot.clientWidth = width;
+    uiRoot.clientHeight = 800;
+    observers[0].callback();
+    assert.equal(frame.style.transform, "none", `${width}px must not scale touch controls`);
+    assert.equal(frame.style.width, "100%", `${width}px must use the host width`);
+    assert.equal(viewport.style.width, "100%", `${width}px must use a fluid viewport`);
+    assert.equal(viewport.dataset.layout, "mobile", `${width}px must use mobile reflow`);
+    assert.match(uiRoot.className, /\bcse-mobile-layout\b/u);
+  }
+
+  uiRoot.clientWidth = 760;
+  uiRoot.clientHeight = 600;
+  observers[0].callback();
+  assert.equal(viewport.dataset.layout, "fluid", "760px activates the desktop layout");
+  assert.match(uiRoot.className, /\bcse-desktop-layout\b/u);
+  assert.doesNotMatch(uiRoot.className, /\bcse-mobile-layout\b/u);
+
+  uiRoot.clientHeight = 539;
+  observers[0].callback();
+  assert.equal(viewport.dataset.layout, "fixed", "a short 760px host keeps the fixed desktop frame");
+  assert.equal(frame.style.transform, "scale(0.9)");
+  assert.doesNotMatch(uiRoot.className, /\bcse-mobile-layout\b/u);
+
   uiRoot.clientWidth = 800;
+  uiRoot.clientHeight = 480;
   observers[0].callback();
   assert.equal(frame.style.transform, "scale(0.9)");
   assert.equal(viewport.style.width, "396px");
   assert.equal(viewport.style.height, "828px");
   assert.equal(viewport.dataset.layout, "fixed");
   assert.doesNotMatch(uiRoot.className, /\bcse-desktop-layout\b/u);
+  assert.doesNotMatch(uiRoot.className, /\bcse-mobile-layout\b/u);
 
   uiRoot.clientHeight = 600;
   observers[0].callback();
@@ -176,12 +205,13 @@ test("CSE keeps the original portrait frame on small hosts and switches to a flu
   assert.equal(viewport.dataset.layout, "fluid");
   assert.match(uiRoot.className, /\bcse-desktop-layout\b/u);
 
-  uiRoot.clientWidth = 220;
+  uiRoot.clientWidth = 600;
   observers[0].callback();
-  assert.equal(frame.style.transform, "scale(0.5)");
-  assert.equal(viewport.style.width, "220px");
-  assert.equal(viewport.dataset.layout, "fixed");
+  assert.equal(frame.style.transform, "none");
+  assert.equal(viewport.style.width, "100%");
+  assert.equal(viewport.dataset.layout, "mobile");
   assert.doesNotMatch(uiRoot.className, /\bcse-desktop-layout\b/u);
+  assert.match(uiRoot.className, /\bcse-mobile-layout\b/u);
 
   instance.destroy();
   instance.destroy();
@@ -331,6 +361,23 @@ test("CSE and DS expose host-bounded layouts without replacing their original vi
   );
   assert.doesNotMatch(stylesheet, /\.minigame-frame\s*\{[^}]*width:\s*min\(1440px,/u);
   assert.match(stylesheet, /\.minigame-toolbar\s*>\s*\.button-row\s*\{[^}]*min-width:\s*0[^}]*margin-top:\s*0/u);
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-btn-recipe-trigger\s*\{[^}]*min-height:\s*44px[^}]*height:\s*44px/su,
+  );
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-mobile-layout \.cse-fixed-frame-viewport\s*\{[^}]*width:\s*100%[^}]*max-width:\s*520px/su,
+  );
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-materials-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)[^}]*repeat\(4, minmax\(44px, auto\)\)/su,
+  );
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-btn-unlock\s*\{[^}]*width:\s*100%[^}]*min-height:\s*52px/su,
+  );
+  assert.match(stylesheet, /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-order-bubble\s*\{[^}]*font-size:\s*14px/su);
   assert.match(
     stylesheet,
     /\.cse-ui-root\.cse-desktop-layout \.code-heart-game\s*\{[^}]*grid-template-areas:[^}]*"counter tray"[^}]*"workspace tray"[^}]*"feedback tray"/su,

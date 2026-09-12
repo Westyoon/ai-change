@@ -194,6 +194,10 @@ test("Battle layouts keep narrow landscapes contained without changing world coo
     /\.stat-boss-battlefield\s*\{[^}]*width:\s*min\(100%, 960px, max\(480px, calc\(\(100dvh - 520px\) \* 8 \/ 5\)\)\)/su,
   );
   assert.match(statBossCss, /\.stat-boss-arena\s*\{[^}]*aspect-ratio:\s*8 \/ 5/su);
+  assert.doesNotMatch(
+    statBossCss,
+    /@media \(hover: none\), \(pointer: coarse\), \(max-width: 720px\)\s*\{[\s\S]*?\.stat-boss-arena\s*\{[^}]*aspect-ratio:/u,
+  );
 
   assert.match(controlBossCss, /\.control-boss-world\s*\{[^}]*aspect-ratio:\s*9 \/ 16/su);
   assert.match(
