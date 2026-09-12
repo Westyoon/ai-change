@@ -21,7 +21,7 @@ const EXPECTED_MODULE_KEYS = [
   "ai-ball-classification",
   "ai-data-egg-sort"
 ];
-const EXPECTED_BATTLE_MODULE_KEYS = ["control-boss", "data-sphinx", "stat-boss", "xr-egg-trials"];
+const EXPECTED_BATTLE_MODULE_KEYS = ["control-boss", "data-sphinx", "stat-boss", "word-breaker", "xr-egg-trials"];
 
 class FakeElement {
   constructor(tagName, ownerDocument) {
@@ -149,12 +149,14 @@ test("the independent Battle registry exposes every published post-game through 
       { id: "stat-boss", status: "published", module: "stat-boss" },
       { id: "data-sphinx", status: "published", module: "data-sphinx" },
       { id: "control-boss", status: "published", module: "control-boss" },
+      { id: "word-breaker", status: "published", module: "word-breaker" },
       { id: "xr-egg-trials", status: "published", module: "xr-egg-trials" },
     ]),
     [
       { id: "stat-boss", status: "published", module: "stat-boss" },
       { id: "data-sphinx", status: "published", module: "data-sphinx" },
       { id: "control-boss", status: "published", module: "control-boss" },
+      { id: "word-breaker", status: "published", module: "word-breaker" },
       { id: "xr-egg-trials", status: "published", module: "xr-egg-trials" },
     ]
   );

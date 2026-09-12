@@ -65,6 +65,7 @@ export const REQUIRED_FILES = Object.freeze([
   "css/data-sphinx.css",
   "css/stat-boss.css",
   "css/xr-egg-trials.css",
+  "css/word-breaker.css",
   "css/account.css",
   "js/app.js",
   "js/router.js",
@@ -85,6 +86,13 @@ export const REQUIRED_FILES = Object.freeze([
   "js/battle/postgame/bosses/control-boss/index.js",
   "js/battle/postgame/bosses/data-sphinx/index.js",
   "js/battle/postgame/bosses/stat-boss/index.js",
+  "js/battle/postgame/bosses/word-breaker/battle.js",
+  "js/battle/postgame/bosses/word-breaker/collision.js",
+  "js/battle/postgame/bosses/word-breaker/config.js",
+  "js/battle/postgame/bosses/word-breaker/encounter.js",
+  "js/battle/postgame/bosses/word-breaker/index.js",
+  "js/battle/postgame/bosses/word-breaker/patterns.js",
+  "js/battle/postgame/bosses/word-breaker/view.js",
   "js/battle/postgame/challenges/xr-egg-trials/index.js",
   "js/scenes/loading-scene.js",
   "js/scenes/main-menu-scene.js",
@@ -117,6 +125,7 @@ export const REQUIRED_FILES = Object.freeze([
   "data/battle/control-boss.json",
   "data/battle/data-sphinx.json",
   "data/battle/stat-boss.json",
+  "data/battle/word-breaker.json",
   "data/battle/xr-egg-trials.json",
   "data/map-data.json",
   "data/scripts/npc-dialogues.json",
@@ -131,6 +140,14 @@ export const REQUIRED_FILES = Object.freeze([
 const RUNTIME_TEXT_EXTENSIONS = new Set([".css", ".html", ".js", ".json", ".mjs"]);
 const SKIPPED_DIRECTORIES = new Set([".git", ".wrangler", "dist", "node_modules", "releases"]);
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const WORD_BREAKER_GUARDIANS = Object.freeze([
+  Object.freeze({ code: "DS", color: "#d82f76" }),
+  Object.freeze({ code: "CS", color: "#363367" }),
+  Object.freeze({ code: "CSE", color: "#e333bb" }),
+  Object.freeze({ code: "AI", color: "#2ab5e4" }),
+  Object.freeze({ code: "AIDS", color: "#fac804" }),
+]);
+const UNSAFE_WORD_BREAKER_COPY = /자해|극단적\s*선택|죽고\s*싶|죽어\s*버|혐오|살\s*가치가\s*없/u;
 const REQUIRED_NPM_SCRIPTS = Object.freeze({
   dev: "node scripts/serve.mjs",
   validate: "node scripts/validate.mjs",
@@ -562,6 +579,12 @@ function validateBattleRegistry(
       } else if (config.battleId !== battle.id) {
         addError(errors, `${configPath} battleId must be ${battle.id}; received ${config.battleId}`);
       }
+      if (battle.id === "word-breaker" && config && typeof config === "object") {
+        if (configAsset.sourceRef !== "CONTENT-BATTLE-005") {
+          addError(errors, "Battle word-breaker config asset sourceRef must be CONTENT-BATTLE-005");
+        }
+        validateWordBreakerConfig(config, battle, errors);
+      }
     }
     if (typeof battle.assetGroup !== "string" || !knownGroups.has(battle.assetGroup)) {
       addError(errors, `Battle ${battle.id} references missing asset group: ${battle.assetGroup}`);
@@ -590,6 +613,117 @@ function validateBattleRegistry(
       if (typeof miniGameId !== "string" || !gameIds.has(miniGameId)) {
         addError(errors, `Battle ${battle.id} unlockCondition miniGameId does not resolve: ${miniGameId}`);
       }
+    }
+  }
+}
+
+function validateWordBreakerConfig(config, battle, errors) {
+  const label = "data/battle/word-breaker.json";
+  const requireExactNumber = (value, expected, field) => {
+    if (value !== expected) {
+      addError(errors, `${label} ${field} must be ${expected}; received ${value}`);
+    }
+  };
+
+  if (config.implementationStatus !== "MVP") {
+    addError(errors, `${label} implementationStatus must be MVP`);
+  }
+  if (battle.usesAccountStats !== false) {
+    addError(errors, "Battle word-breaker must keep usesAccountStats=false");
+  }
+  requireExactNumber(config.arena?.width, 450, "arena.width");
+  requireExactNumber(config.arena?.height, 800, "arena.height");
+  requireExactNumber(config.player?.width, 34, "player.width");
+  requireExactNumber(config.player?.height, 46, "player.height");
+  requireExactNumber(config.player?.speed, 220, "player.speed");
+  requireExactNumber(config.player?.startPosition?.x, 208, "player.startPosition.x");
+  requireExactNumber(config.player?.startPosition?.y, 700, "player.startPosition.y");
+  requireExactNumber(config.shot?.speed, 520, "shot.speed");
+  requireExactNumber(config.shot?.intervalMs, 180, "shot.intervalMs");
+  requireExactNumber(config.shot?.damage, 20, "shot.damage");
+  requireExactNumber(config.collapseImpactMs, 520, "collapseImpactMs");
+  requireExactNumber(config.magnetDelayMs, 1200, "magnetDelayMs");
+  requireExactNumber(config.finaleDurationMs, 4000, "finaleDurationMs");
+  requireExactNumber(config.finalPhrase?.maxHp, 5, "finalPhrase.maxHp");
+
+  if (!Number.isFinite(config.roundDurationMs) || config.roundDurationMs < 12000 || config.roundDurationMs > 15000) {
+    addError(errors, `${label} roundDurationMs must be between 12000 and 15000`);
+  }
+  for (const field of ["speed", "spawnIntervalMs"]) {
+    if (!Number.isFinite(config.phrase?.[field]) || config.phrase[field] <= 0) {
+      addError(errors, `${label} phrase.${field} must be a positive finite number`);
+    }
+  }
+  requireExactNumber(config.phrase?.maxHp, 60, "phrase.maxHp");
+
+  if (!Array.isArray(config.rounds) || config.rounds.length !== WORD_BREAKER_GUARDIANS.length) {
+    addError(errors, `${label} rounds must contain exactly five guardian rounds`);
+    return;
+  }
+
+  const phrases = [];
+  for (const [index, expectedGuardian] of WORD_BREAKER_GUARDIANS.entries()) {
+    const round = config.rounds[index];
+    if (!round || typeof round !== "object") {
+      addError(errors, `${label} rounds[${index}] must be an object`);
+      continue;
+    }
+    if (round.guardian?.code !== expectedGuardian.code || round.guardian?.color !== expectedGuardian.color) {
+      addError(
+        errors,
+        `${label} rounds[${index}] guardian must be ${expectedGuardian.code} ${expectedGuardian.color}`,
+      );
+    }
+    for (const field of ["collapseMessage", "recoveryMessage"]) {
+      if (typeof round[field] !== "string" || round[field].trim() === "") {
+        addError(errors, `${label} rounds[${index}].${field} must be non-empty`);
+      }
+    }
+    if (!Array.isArray(round.phrases) || round.phrases.length === 0) {
+      addError(errors, `${label} rounds[${index}].phrases must not be empty`);
+    } else {
+      phrases.push(...round.phrases);
+    }
+  }
+
+  if (phrases.length < 25) {
+    addError(errors, `${label} must contain at least 25 round phrases; received ${phrases.length}`);
+  }
+  if (config.finalPhrase && typeof config.finalPhrase === "object") {
+    phrases.push(config.finalPhrase);
+  } else {
+    addError(errors, `${label} finalPhrase must be an object`);
+  }
+
+  const phraseIds = new Set();
+  for (const [index, phrase] of phrases.entries()) {
+    const phraseLabel = `${label} phrase[${index}]`;
+    if (!phrase || typeof phrase !== "object") {
+      addError(errors, `${phraseLabel} must be an object`);
+      continue;
+    }
+    if (typeof phrase.id !== "string" || phrase.id.trim() === "" || phraseIds.has(phrase.id)) {
+      addError(errors, `${phraseLabel} requires a unique non-empty id`);
+    } else {
+      phraseIds.add(phrase.id);
+    }
+    for (const field of ["negative", "target", "reframe"]) {
+      if (typeof phrase[field] !== "string" || phrase[field].trim() === "") {
+        addError(errors, `${phraseLabel}.${field} must be non-empty`);
+      }
+    }
+    if (typeof phrase.negative === "string" && typeof phrase.target === "string" && phrase.target !== "") {
+      const occurrenceCount = phrase.negative.split(phrase.target).length - 1;
+      if (occurrenceCount !== 1) {
+        addError(errors, `${phraseLabel}.target must occur exactly once in negative`);
+      }
+    }
+    if (!Number.isFinite(phrase.maxHp) || phrase.maxHp <= 0) {
+      addError(errors, `${phraseLabel}.maxHp must be a positive finite number`);
+    }
+    const combinedCopy = `${phrase.negative ?? ""} ${phrase.reframe ?? ""}`;
+    if (UNSAFE_WORD_BREAKER_COPY.test(combinedCopy)) {
+      addError(errors, `${phraseLabel} contains prohibited self-harm or hate wording`);
     }
   }
 }

@@ -42,7 +42,7 @@
   {
     "id": "control-boss",
     "title": "컨트롤 보스",
-    "description": "실드 파괴, 엄폐, 순서 발판, 그로기 공격을 차례로 수행하는 최종 전투입니다.",
+    "description": "실드 파괴, 엄폐, 순서 발판, 그로기 공격을 차례로 수행하는 4단계 보스전입니다.",
     "module": "control-boss",
     "status": "published",
     "usesAccountStats": true,
@@ -68,6 +68,26 @@
     "usesAccountStats": false,
     "configAssetId": "xr-egg-trials-config",
     "assetGroup": "xr-egg-trials",
+    "unlockCondition": {
+      "type": "ALL_MINIGAMES_CLEAR",
+      "miniGameIds": [
+        "data-number-baseball",
+        "cyber-click-to-purify",
+        "computer-code-heart",
+        "ai-ball-classification",
+        "ai-data-egg-sort"
+      ]
+    }
+  },
+  {
+    "id": "word-breaker",
+    "title": "마음의 말 깨부수기",
+    "description": "내려오는 부정적인 말의 핵심을 깨고 다섯 수호알과 함께 회복의 문장으로 바꾸는 최종전입니다.",
+    "module": "word-breaker",
+    "status": "published",
+    "usesAccountStats": false,
+    "configAssetId": "word-breaker-config",
+    "assetGroup": "word-breaker",
     "unlockCondition": {
       "type": "ALL_MINIGAMES_CLEAR",
       "miniGameIds": [

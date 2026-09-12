@@ -37,6 +37,55 @@ test("runtime config validator accepts the checked-in runtime data graph", async
 
   assert.deepEqual(result.errors, []);
   assert.equal(result.warnings.length, 5);
+
+  const wordBreaker = battles.find((battle) => battle.id === "word-breaker");
+  assert.ok(wordBreaker);
+  assert.equal(wordBreaker.status, "published");
+  assert.equal(wordBreaker.usesAccountStats, false);
+  assert.equal(wordBreaker.configAssetId, "word-breaker-config");
+  assert.equal(wordBreaker.assetGroup, "word-breaker");
+  assert.deepEqual(wordBreaker.unlockCondition.miniGameIds, [
+    "data-number-baseball",
+    "cyber-click-to-purify",
+    "computer-code-heart",
+    "ai-ball-classification",
+    "ai-data-egg-sort",
+  ]);
+  assert.deepEqual(
+    manifest.assets.find((asset) => asset.id === "word-breaker-config"),
+    {
+      id: "word-breaker-config",
+      group: "word-breaker",
+      type: "json",
+      src: "./data/battle/word-breaker.json",
+      required: true,
+      alt: null,
+      sourceRef: "CONTENT-BATTLE-005",
+    },
+  );
+
+  const wordBreakerConfig = await readJson("../../data/battle/word-breaker.json");
+  const roundPhrases = wordBreakerConfig.rounds.flatMap((round) => round.phrases);
+  assert.equal(wordBreakerConfig.implementationStatus, "MVP");
+  assert.equal(wordBreakerConfig.finalPhrase.maxHp, 5);
+  assert.equal(wordBreakerConfig.collapseImpactMs, 520);
+  assert.equal(wordBreakerConfig.controls.pc.length, 4);
+  assert.equal(wordBreakerConfig.controls.mobile.length, 2);
+  assert.equal(wordBreakerConfig.resultPresentation.clear.title, "마음의 말 정화 완료");
+  assert.equal(roundPhrases.length >= 25, true);
+  assert.deepEqual(
+    wordBreakerConfig.rounds.map(({ guardian }) => [guardian.code, guardian.color]),
+    [
+      ["DS", "#d82f76"],
+      ["CS", "#363367"],
+      ["CSE", "#e333bb"],
+      ["AI", "#2ab5e4"],
+      ["AIDS", "#fac804"],
+    ],
+  );
+  for (const phrase of [...roundPhrases, wordBreakerConfig.finalPhrase]) {
+    assert.equal(phrase.negative.split(phrase.target).length - 1, 1, phrase.id);
+  }
 });
 
 test("runtime config validator rejects an unregistered or invalidly unlocked published Battle", async () => {

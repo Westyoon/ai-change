@@ -52,6 +52,17 @@ const METRIC_LABELS = Object.freeze({
   presses: "입력 횟수",
   targetPresses: "목표 입력",
   remainingMs: "남은 시간",
+  phrasesSpawned: "등장한 마음의 말",
+  purifiedCount: "정화한 말",
+  missedCount: "흘려보낸 말",
+  hitCount: "전체 흔들림",
+  forcedHitCount: "피할 수 없는 흔들림",
+  combo: "마지막 콤보",
+  maxCombo: "최대 콤보",
+  shotsFired: "발사한 빛",
+  guardiansCollected: "모은 수호알",
+  roundsCollapsed: "회복한 라운드",
+  elapsedMs: "전투 시간",
 });
 
 const METRIC_VALUE_LABELS = Object.freeze({

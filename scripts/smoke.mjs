@@ -3,6 +3,18 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createStaticServer, root } from "./serve.mjs";
 
+const REQUIRED_RUNTIME_PATHS = Object.freeze([
+  "/css/word-breaker.css",
+  "/data/battle/word-breaker.json",
+  "/js/battle/postgame/bosses/word-breaker/battle.js",
+  "/js/battle/postgame/bosses/word-breaker/collision.js",
+  "/js/battle/postgame/bosses/word-breaker/config.js",
+  "/js/battle/postgame/bosses/word-breaker/encounter.js",
+  "/js/battle/postgame/bosses/word-breaker/index.js",
+  "/js/battle/postgame/bosses/word-breaker/patterns.js",
+  "/js/battle/postgame/bosses/word-breaker/view.js",
+]);
+
 function unwrapAssets(manifest) {
   return Array.isArray(manifest) ? manifest : manifest?.assets;
 }
@@ -34,7 +46,11 @@ function expectedAssetType(pathname) {
   ]).get(extension);
 }
 
-export async function runSmokeTest({ rootDirectory = root, forbiddenPaths = [] } = {}) {
+export async function runSmokeTest({
+  rootDirectory = root,
+  forbiddenPaths = [],
+  requiredPaths = REQUIRED_RUNTIME_PATHS,
+} = {}) {
   const manifestPath = path.join(rootDirectory, "data", "asset-manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const indexHtml = await readFile(path.join(rootDirectory, "index.html"), "utf8");
@@ -78,6 +94,10 @@ export async function runSmokeTest({ rootDirectory = root, forbiddenPaths = [] }
     checks += 1;
     await assertResponse(baseUrl, "/assets/images/character-walk.png", "image/png");
     checks += 1;
+    for (const requiredPath of requiredPaths) {
+      await assertResponse(baseUrl, requiredPath, expectedAssetType(requiredPath));
+      checks += 1;
+    }
     for (const asset of manifestAssets) {
       if (typeof asset?.src !== "string") {
         throw new Error(`Manifest asset ${asset?.id ?? "<unknown>"} has no src`);

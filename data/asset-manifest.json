@@ -207,6 +207,15 @@
       "required": true,
       "alt": null,
       "sourceRef": "CONTENT-BATTLE-004"
+    },
+    {
+      "id": "word-breaker-config",
+      "group": "word-breaker",
+      "type": "json",
+      "src": "./data/battle/word-breaker.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-BATTLE-005"
     }
   ]
 }

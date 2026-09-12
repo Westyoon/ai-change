@@ -1,0 +1,365 @@
+{
+  "battleId": "word-breaker",
+  "implementationStatus": "MVP",
+  "arena": {
+    "x": 0,
+    "y": 0,
+    "width": 450,
+    "height": 800
+  },
+  "roundDurationMs": 14000,
+  "collapseImpactMs": 520,
+  "magnetDelayMs": 1200,
+  "finaleDurationMs": 4000,
+  "simulationStepMs": 16,
+  "maxActivePhrases": 6,
+  "controls": {
+    "pc": [
+      "WASD 또는 방향키로 이동",
+      "빛은 자동 발사되며 강조된 핵심 표현에 맞습니다",
+      "피할 수 없는 말에 흔들린 뒤 수호알을 먹고 계속 진행",
+      "Esc 또는 P로 일시정지"
+    ],
+    "mobile": [
+      "화면 왼쪽 아래 조이스틱으로 이동",
+      "빛은 자동 발사되며 수호알을 먹으면 계속 진행"
+    ]
+  },
+  "resultPresentation": {
+    "clear": {
+      "title": "마음의 말 정화 완료",
+      "description": "다섯 수호알과 함께 피할 수 없는 말을 지나, 다시 이어갈 마음을 찾았습니다.",
+      "retryLabel": "다시 마주하기",
+      "mapLabel": "배틀 목록으로",
+      "menuLabel": "메뉴로"
+    }
+  },
+  "player": {
+    "width": 34,
+    "height": 46,
+    "speed": 220,
+    "startPosition": {
+      "x": 208,
+      "y": 700
+    },
+    "invulnerableMs": 700
+  },
+  "shot": {
+    "width": 6,
+    "height": 14,
+    "speed": 520,
+    "intervalMs": 180,
+    "damage": 20
+  },
+  "phrase": {
+    "width": 310,
+    "height": 58,
+    "targetHeight": 24,
+    "speed": 58,
+    "spawnIntervalMs": 1600,
+    "maxHp": 60,
+    "reframeDurationMs": 900,
+    "horizontalPadding": 24
+  },
+  "guardian": {
+    "width": 38,
+    "height": 38,
+    "speed": 150,
+    "spawnY": 90
+  },
+  "scoring": {
+    "phraseBase": 100,
+    "comboStep": 20,
+    "guardianBonus": 500,
+    "finaleBonus": 1500
+  },
+  "rounds": [
+    {
+      "id": "ds-round",
+      "label": "데이터의 시선",
+      "guardian": {
+        "id": "ds-guardian",
+        "code": "DS",
+        "label": "데이터 수호알",
+        "color": "#d82f76"
+      },
+      "collapseMessage": "정답이 보이지 않아도 여기서 끝난 것은 아닙니다.",
+      "recoveryMessage": "데이터 수호알이 흩어진 단서를 차분히 이어 줍니다.",
+      "phrases": [
+        {
+          "id": "ds-01",
+          "negative": "이번에도 정답을 찾지 못할 거야.",
+          "target": "찾지 못할",
+          "reframe": "한 단계씩 살피면 답에 가까워질 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ds-02",
+          "negative": "숫자가 많으면 나는 금방 헷갈려.",
+          "target": "헷갈려",
+          "reframe": "기준을 나누면 복잡한 숫자도 읽을 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ds-03",
+          "negative": "실수한 기록은 모두 실패야.",
+          "target": "실패",
+          "reframe": "실수한 기록도 다음 판단을 돕는 데이터야.",
+          "maxHp": 60
+        },
+        {
+          "id": "ds-04",
+          "negative": "데이터를 보면 늘 겁부터 나.",
+          "target": "겁부터",
+          "reframe": "익숙한 항목부터 보면 차분히 시작할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ds-05",
+          "negative": "내 판단은 믿을 수 없어.",
+          "target": "믿을 수 없어",
+          "reframe": "근거를 확인하며 내 판단을 다듬을 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ds-06",
+          "negative": "천천히 확인하면 이미 늦어.",
+          "target": "늦어",
+          "reframe": "정확히 확인하는 시간도 과정의 일부야.",
+          "maxHp": 60
+        }
+      ]
+    },
+    {
+      "id": "cs-round",
+      "label": "안전한 연결",
+      "guardian": {
+        "id": "cs-guardian",
+        "code": "CS",
+        "label": "보안 수호알",
+        "color": "#363367"
+      },
+      "collapseMessage": "경고가 겹쳐 보여도 하나씩 구분할 수 있습니다.",
+      "recoveryMessage": "보안 수호알이 위험한 말 사이에 안전한 틈을 만듭니다.",
+      "phrases": [
+        {
+          "id": "cs-01",
+          "negative": "낯선 링크는 구분하기 너무 어려워.",
+          "target": "너무 어려워",
+          "reframe": "주소와 맥락을 확인하면 안전하게 구분할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "cs-02",
+          "negative": "한 번 놓치면 전부 망가질 거야.",
+          "target": "전부 망가질",
+          "reframe": "놓친 뒤에도 차단하고 복구하는 방법이 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "cs-03",
+          "negative": "도움을 요청하면 방해가 될 거야.",
+          "target": "방해",
+          "reframe": "빠른 도움 요청은 함께 지키는 행동이야.",
+          "maxHp": 60
+        },
+        {
+          "id": "cs-04",
+          "negative": "보안을 배우기엔 나는 부족해.",
+          "target": "부족해",
+          "reframe": "기본 원칙부터 익히며 충분히 성장할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "cs-05",
+          "negative": "작은 경고는 무시해도 괜찮아.",
+          "target": "무시해도",
+          "reframe": "작은 경고를 확인하는 습관이 큰 위험을 줄여.",
+          "maxHp": 60
+        },
+        {
+          "id": "cs-06",
+          "negative": "침착하게 대응할 자신이 없어.",
+          "target": "자신이 없어",
+          "reframe": "대응 순서를 따라가면 차분히 해결할 수 있어.",
+          "maxHp": 60
+        }
+      ]
+    },
+    {
+      "id": "cse-round",
+      "label": "다시 쓰는 코드",
+      "guardian": {
+        "id": "cse-guardian",
+        "code": "CSE",
+        "label": "컴퓨터공학 수호알",
+        "color": "#e333bb"
+      },
+      "collapseMessage": "오류가 나타나도 지금까지의 시도는 사라지지 않습니다.",
+      "recoveryMessage": "컴퓨터공학 수호알이 문제를 작은 단계로 나눠 줍니다.",
+      "phrases": [
+        {
+          "id": "cse-01",
+          "negative": "코드가 길어지면 아무것도 이해 못 해.",
+          "target": "이해 못 해",
+          "reframe": "기능을 나누어 읽으면 흐름을 이해할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "cse-02",
+          "negative": "오류가 나면 처음부터 다 잘못된 거야.",
+          "target": "다 잘못된",
+          "reframe": "오류는 고칠 위치를 알려 주는 신호야.",
+          "maxHp": 60
+        },
+        {
+          "id": "cse-03",
+          "negative": "질문하면 실력이 없어 보일 거야.",
+          "target": "실력이 없어",
+          "reframe": "좋은 질문은 문제를 정확히 이해하는 방법이야.",
+          "maxHp": 60
+        },
+        {
+          "id": "cse-04",
+          "negative": "나는 문제를 끝까지 풀 수 없어.",
+          "target": "풀 수 없어",
+          "reframe": "작은 부분부터 풀면 끝까지 이어 갈 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "cse-05",
+          "negative": "작은 기능은 만들 가치가 없어.",
+          "target": "가치가 없어",
+          "reframe": "작은 기능도 전체를 움직이는 중요한 조각이야.",
+          "maxHp": 60
+        },
+        {
+          "id": "cse-06",
+          "negative": "다시 고쳐도 똑같이 틀릴 거야.",
+          "target": "똑같이 틀릴",
+          "reframe": "수정할 때마다 원인을 더 분명히 알게 돼.",
+          "maxHp": 60
+        }
+      ]
+    },
+    {
+      "id": "ai-round",
+      "label": "배우는 마음",
+      "guardian": {
+        "id": "ai-guardian",
+        "code": "AI",
+        "label": "인공지능 수호알",
+        "color": "#2ab5e4"
+      },
+      "collapseMessage": "예측이 빗나가도 배움의 과정은 계속됩니다.",
+      "recoveryMessage": "인공지능 수호알이 틀린 예측을 새로운 학습으로 바꿉니다.",
+      "phrases": [
+        {
+          "id": "ai-01",
+          "negative": "새로운 개념은 나와 맞지 않아.",
+          "target": "맞지 않아",
+          "reframe": "낯선 개념도 예시를 만나면 익숙해질 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ai-02",
+          "negative": "예측이 빗나가면 배운 게 소용없어.",
+          "target": "소용없어",
+          "reframe": "빗나간 예측도 다음 학습을 위한 정보가 돼.",
+          "maxHp": 60
+        },
+        {
+          "id": "ai-03",
+          "negative": "모델이 복잡하면 시작조차 못 해.",
+          "target": "시작조차 못 해",
+          "reframe": "단순한 모델부터 만들며 차근차근 시작할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ai-04",
+          "negative": "결과가 느리면 노력은 의미가 없어.",
+          "target": "의미가 없어",
+          "reframe": "느린 결과도 과정을 이해하는 데 도움이 돼.",
+          "maxHp": 60
+        },
+        {
+          "id": "ai-05",
+          "negative": "모르는 용어가 나오면 포기해야 해.",
+          "target": "포기해야",
+          "reframe": "모르는 용어는 찾아보며 하나씩 익힐 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "ai-06",
+          "negative": "나는 새로운 도구에 적응할 수 없어.",
+          "target": "적응할 수 없어",
+          "reframe": "작은 기능부터 써 보면 새로운 도구도 익숙해져.",
+          "maxHp": 60
+        }
+      ]
+    },
+    {
+      "id": "aids-round",
+      "label": "함께 보는 흐름",
+      "guardian": {
+        "id": "aids-guardian",
+        "code": "AIDS",
+        "label": "AI·데이터 수호알",
+        "color": "#fac804"
+      },
+      "collapseMessage": "여러 길 앞에서 잠시 멈춰도 괜찮습니다.",
+      "recoveryMessage": "AI·데이터 수호알이 흩어진 배움을 하나의 흐름으로 연결합니다.",
+      "phrases": [
+        {
+          "id": "aids-01",
+          "negative": "여러 분야를 함께 배우면 집중할 수 없어.",
+          "target": "집중할 수 없어",
+          "reframe": "한 번에 한 주제를 연결하며 집중할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "aids-02",
+          "negative": "선택지가 많으면 아무것도 결정 못 해.",
+          "target": "결정 못 해",
+          "reframe": "기준을 하나 정하면 다음 선택을 할 수 있어.",
+          "maxHp": 60
+        },
+        {
+          "id": "aids-03",
+          "negative": "다른 사람보다 느리면 뒤처진 거야.",
+          "target": "뒤처진",
+          "reframe": "내 속도로 이해한 배움도 분명한 진전이야.",
+          "maxHp": 60
+        },
+        {
+          "id": "aids-04",
+          "negative": "작은 진전은 성과라고 할 수 없어.",
+          "target": "성과라고 할 수 없어",
+          "reframe": "작은 진전이 모여 다음 도전을 가능하게 해.",
+          "maxHp": 60
+        },
+        {
+          "id": "aids-05",
+          "negative": "잠깐 쉬면 흐름을 잃어버릴 거야.",
+          "target": "잃어버릴",
+          "reframe": "짧은 휴식은 다시 집중할 힘을 채워 줘.",
+          "maxHp": 60
+        },
+        {
+          "id": "aids-06",
+          "negative": "불확실한 길은 선택하면 안 돼.",
+          "target": "선택하면 안 돼",
+          "reframe": "작게 시험하며 나에게 맞는 길을 찾을 수 있어.",
+          "maxHp": 60
+        }
+      ]
+    }
+  ],
+  "finalPhrase": {
+    "id": "final-01",
+    "negative": "나는 결국 변할 수 없을 거야.",
+    "target": "변할 수 없을",
+    "reframe": "나는 내 속도로 배우며 조금씩 달라질 수 있어.",
+    "maxHp": 5
+  }
+}

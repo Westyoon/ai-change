@@ -12,7 +12,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `CONTENT-COMMON-001` | `data/departments.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, 기획 문서 기반 | 해당 없음 | 프로젝트 내부 제작물 | 학과 코드·표시명 SSOT로 구조화 | 학과 표시와 참조 검증 |
 | `CONTENT-COMMON-002` | `data/minigames.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 미니게임 registry 스캐폴드 작성 | 미니게임 메뉴·진입 |
-| `CONTENT-COMMON-003` | `data/battles.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 운영 사후 콘텐츠 4종과 5종 완료 해금 조건 등록 | Battle 목록·해금 판정 |
+| `CONTENT-COMMON-003` | `data/battles.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 운영 사후 콘텐츠 5종과 5종 완료 해금 조건 등록 | Battle 목록·해금 판정 |
 | `CONTENT-COMMON-004` | `data/map-data.json` | JSON 콘텐츠 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 5개 학과 NPC를 임시 좌표에 배치 | 축제 맵 스캐폴드 |
 | `CONTENT-COMMON-006` | `data/scripts/npc-dialogues.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | NPC 최초·재방문 및 게임 안내 문구 작성 | NPC·미니게임 안내 대화 |
 | `CONTENT-COMMON-007` | `data/scripts/minigame-outros.json` | JSON 대사 | ai-change 프로젝트 자체 작성, PLAN 기반 | 해당 없음 | 프로젝트 내부 제작물 | 성공·실패 개발용 문구 작성 | 결과 이후 outro |
@@ -25,6 +25,7 @@
 | `CONTENT-BATTLE-002` | `data/battle/data-sphinx.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 Data Sphinx 프로토타입 기반 | 해당 없음 | 프로젝트 내부 제작물 | O/X 문제·제한 시간·고정 피해·결과 표시 설정 정리 | published `data-sphinx` |
 | `CONTENT-BATTLE-003` | `data/battle/control-boss.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 Control Boss 프로토타입 기반 | 해당 없음 | 프로젝트 내부 제작물 | 4단계 기믹·보스/플레이어 수치·조작·결과 표시 설정 정리 | published `control-boss` |
 | `CONTENT-BATTLE-004` | `data/battle/xr-egg-trials.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 기존 X알 미니게임 3종 기반 | 해당 없음 | 프로젝트 내부 제작물 | 무작위 시험·카드·연타 수치와 조작·결과 표시 설정 정리 | published `xr-egg-trials` |
+| `CONTENT-BATTLE-005` | `data/battle/word-breaker.json` | JSON 게임 설정 | ai-change 프로젝트 자체 작성, 최종전 기획안 기반 | 해당 없음 | 프로젝트 내부 제작물 | 다섯 수호알 라운드·부정/회복 문장·세로 슈팅 수치 구조화 | published `word-breaker` |
 
 ## 3. 브랜드·이미지·음원
 
