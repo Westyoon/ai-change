@@ -314,7 +314,7 @@ export default class AfterControlBossMiniGame {
     this.clearBulletsDOM();
     this.clearShockwavesDOM();
     this.updateUI();
-    this.setStatus("⚠️ 보스 즉사기 캐스팅 (3초)! 중앙 엄폐벽 안으로 대피하세요!", "error", true);
+    this.setStatus("⚠️ 보스 즉사기 준비 (3초)! 중앙 엄폐벽 안으로 대피하세요!", "error", true);
   }
 
   enterPhase3() {
@@ -345,7 +345,7 @@ export default class AfterControlBossMiniGame {
     if (this.currentHp <= 0) return;
 
     this.updateUI();
-    this.setStatus("✨ 기믹 성공! 보스 그로기 10초 다운! 가까이 가서 극딜하세요!", "success");
+    this.setStatus("✨ 공격 성공! 보스가 기절했습니다! 가까이 가서 공격하세요!", "success");
   }
 
   spawnShockwave() {
