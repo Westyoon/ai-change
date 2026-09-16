@@ -46,7 +46,7 @@
       "orderId": "order_01",
       "customerTitle": "타락한 아무",
       "targetProgram": "3D 액션 게임",
-      "dialogue": "멋진 3D 그래픽의 게임을 빌드하고 싶었는데 코드가 꼬였어!",
+      "dialogue": "멋진 3D 그래픽의 게임을 만들고 싶었는데 코드가 꼬였어...",
       "expected": {
         "lang": "cpp",
         "engine": "unity",
@@ -58,7 +58,7 @@
       "orderId": "order_02",
       "customerTitle": "수호알 쿠스쿠스",
       "targetProgram": "지능형 AI 챗봇",
-      "dialogue": "자연어를 분석하는 AI 서버를 배포하고 싶어!",
+      "dialogue": "사람과 대화하는 AI 서비스를 배포하고 싶어!",
       "expected": {
         "lang": "python",
         "engine": "fastapi",
@@ -70,7 +70,7 @@
       "orderId": "order_03",
       "customerTitle": "꿈을 잃은 학생",
       "targetProgram": "웹 쇼핑몰",
-      "dialogue": "안전하게 결제되는 백엔드 서비스를 완성해줘!",
+      "dialogue": "어떻게 해야 안전하게 결제되는 쇼핑 서비스를 만들 수 있을까?",
       "expected": {
         "lang": "java",
         "engine": "spring",
@@ -81,8 +81,8 @@
     {
       "orderId": "order_04",
       "customerTitle": "타락한 다이아",
-      "targetProgram": "데이터 파이프라인",
-      "dialogue": "대용량 데이터를 정제하는 자동화 파이프라인을 복구해줘!",
+      "targetProgram": "데이터 처리 시스템",
+      "dialogue": "대용량 데이터를 정제하는 자동화 시스템을 복구해줘!",
       "expected": {
         "lang": "python",
         "engine": "spring",
