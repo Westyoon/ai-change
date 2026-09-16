@@ -14,7 +14,7 @@
 //   - players: [{ id, cell: {row, col} }, ...] 지금 참여 중인 플레이어들의 위치(칸 기준)
 //   - random: random.js의 createRandom()으로 만든 난수 생성기
 
-import { cell, column, diagonal, block, inverse, allCells, GRID } from "./grid.js";
+import { cell, column, diagonal, block, inverse, allCells, isCellInSet, GRID } from "./grid.js";
 
 export const PATTERNS = [
   {
@@ -50,16 +50,34 @@ export const PATTERNS = [
       // 이동하면 닿을 수 있는 칸"으로 좁혀서 그 안에서만 뽑도록 수정.
       // REACH_RADIUS_CELLS=1은 위 계산에서 나온 보수적인(타이트한 쪽) 값 - 밸런싱 대상.
       const REACH_RADIUS_CELLS = 1;
-      const reachable = allCells().filter((c) =>
-        ctx.players.some(
-          (p) =>
-            Math.abs(c.row - p.cell.row) <= REACH_RADIUS_CELLS &&
-            Math.abs(c.col - p.cell.col) <= REACH_RADIUS_CELLS,
-        ),
-      );
-      // reachable엔 항상 각 플레이어 자기 칸 자체가 포함되므로 비는 일은 이론상 없지만,
-      // 만약을 대비해 비었을 때는(설정 오류 등) 기존처럼 전체 격자에서 뽑는다.
-      const pool = reachable.length > 0 ? reachable : allCells();
+      // 2026-09-16 버그 수정: "이미 계속 위험한 칸(누적형 단일 저격이 쌓아온
+      // accumulatedHazardCells)"이 안전 칸 후보에 섞여 들어가고 있었음 - 이 패턴은
+      // "여기로 이동하면 안전하다"고 알려주는 칸인데, 그 칸이 사실 영구 위험 칸이면
+      // 화면엔 안전한 것처럼(빗금 없이) 보여도 실제로는 맞는다(안 닿인 것 같은데
+      // 죽는 것처럼 보임). 그래서 후보 단계에서부터 hazard 칸을 아예 제외한다.
+      const hazard = ctx.accumulatedHazardCells ?? [];
+      const nonHazardCells = allCells().filter((c) => !isCellInSet(c, hazard));
+
+      // 2026-09-16 버그 수정 2탄: 위 hazard 제외 수정을 처음 넣었을 때, 반경
+      // REACH_RADIUS_CELLS 안이 전부 이미 위험 칸이면 곧바로 "격자 전체의 아무
+      // non-hazard 칸"으로 폴백했는데, 그 칸이 반대편 구석처럼 아주 멀 수 있어서
+      // "안전 칸이 1~2개 있긴 한데 예고시간 안에 절대 못 닿는" 새로운 회피 불가
+      // 상황을 만들어버렸다("가끔 도달할 시간이 안 되는 경우가 있다" 리포트로 발견).
+      // 그래서 반경을 한 칸씩(1→2→3…) 넓혀가며 "지금 닿을 수 있는 범위 중 가장
+      // 가까운 non-hazard 칸"을 찾도록 바꿨다 - 반경1에 후보가 있으면 기존과 동일하게
+      // 동작하고, 없을 때만 딱 필요한 만큼만 더 멀리 찾는다(무작정 아무 데나 뽑지 않음).
+      let reachable = [];
+      const maxRadius = Math.max(GRID.columns, GRID.rows);
+      for (let radius = REACH_RADIUS_CELLS; radius <= maxRadius && reachable.length === 0; radius++) {
+        reachable = nonHazardCells.filter((c) =>
+          ctx.players.some(
+            (p) => Math.abs(c.row - p.cell.row) <= radius && Math.abs(c.col - p.cell.col) <= radius,
+          ),
+        );
+      }
+      // 이론상 여기까지도 비면(격자 전체가 위험 칸인 경우 - 60% 상한 때문에 실제로는
+      // 일어나지 않아야 함) 그래도 게임이 멈추는 것보단 전체 격자에서라도 뽑는다.
+      const pool = reachable.length > 0 ? reachable : nonHazardCells.length > 0 ? nonHazardCells : allCells();
       const safeCount = ctx.random.int(1, 2);
       const safeCells = ctx.random.sample(pool, Math.min(safeCount, pool.length));
       return [{ dangerCells: inverse(safeCells) }];
@@ -99,6 +117,13 @@ export const PATTERNS = [
     id: "combo-strike",
     name: "연속 콤보",
     minPlayers: 1,
+    // 2026-09-16 버그 수정: 2번째 step(사각 블록)이 1번째 step(대각선)과 완전히
+    // 다른/무관한 위치에 나타나는데, 기존 전역 최소 간격(400ms)으로는 "인지할 수도
+    // 없이 짧은 사이에 겹쳐서 나온다"는 버그 리포트가 나올 정도로 부족했다(좌우
+    // 스윕은 바로 옆 칸으로 이어져서 예측 가능하지만, 이건 완전히 새로 봐야 함).
+    // "짧은 간격" 자체는 v3 스펙 의도(콤보 챌린지)라 없애지 않고, 최소 시간만
+    // 이 패턴 한정으로 늘렸다.
+    minStepIntervalMs: 700,
     getSteps(ctx) {
       // 이중 균열이 짧은 간격으로 발생 -> 서로 다른 모양으로 2번, 회피 2회 요구.
       const dir = ctx.random.pick(["main", "anti"]);

@@ -94,6 +94,37 @@ const comboSteps = getPatternById("combo-strike").getSteps({
 });
 check("연속 콤보는 step이 2개 = 회피 2회 요구", comboSteps.length, 2);
 
+// 2026-09-16 버그 수정: 광역 확산(area-burst)이 "안전 칸"으로 골라주는 칸이 이미
+// 영구 위험 칸(누적형 단일 저격이 쌓아온 accumulatedHazardCells)과 겹치면 안 된다 -
+// 겹치면 화면엔 안전해 보여도 실제로는 맞는다("안 닿았는데 왜 죽었지" 버그 리포트로 발견).
+// 반경 1칸(REACH_RADIUS_CELLS) 안이 전부 이미 위험 칸인 극단적인 경우(폴백 경로)까지
+// 확인한다.
+{
+  const hazardBlock = block(1, 1, 3, 3); // 플레이어(2,2) 기준 반경 1칸 전부를 미리 위험 칸으로 채움
+  const rng2 = createRandom(11);
+  const steps = getPatternById("area-burst").getSteps({
+    players: [{ id: "p1", cell: { row: 2, col: 2 } }],
+    random: rng2,
+    accumulatedHazardCells: hazardBlock,
+  });
+  const dangerCells = steps[0].dangerCells;
+  const safeCells = allCells().filter((c) => !isCellInSet(c, dangerCells));
+  const safeOverlapsHazard = safeCells.some((c) => isCellInSet(c, hazardBlock));
+  check("반경 내가 전부 이미 위험 칸이어도(폴백 경로) 안전 칸은 위험 칸과 안 겹침", safeOverlapsHazard, false);
+  check("그래도 안전 칸이 최소 1개는 남음", safeCells.length >= 1, true);
+
+  // 2026-09-16 버그 수정 2탄: "안전 칸이 있긴 한데 예고시간 안에 도달할 시간이 안
+  // 된다"는 리포트로 발견 - 반경1이 전부 막히면 곧장 격자 전체(먼 칸 포함)에서
+  // 뽑던 걸, 반경을 한 칸씩만 넓혀서 "가장 가까운" non-hazard 칸을 찾도록 고쳤다.
+  // 이 시나리오(반경1 = 3x3 블록 전체가 hazard)에서는 반경2(체비셰프 거리 2)까지만
+  // 넓히면 non-hazard 칸이 있으므로, 뽑힌 안전 칸이 딱 그 범위 안에 있어야 한다 -
+  // 반대편 구석처럼 먼 칸이 뽑히면 안 됨.
+  const allWithinRadius2 = safeCells.every(
+    (c) => Math.max(Math.abs(c.row - 2), Math.abs(c.col - 2)) <= 2
+  );
+  check("반경1이 막히면 그 다음으로 가까운 반경2 안에서만 안전 칸을 찾음(먼 칸으로 안 건너뜀)", allWithinRadius2, true);
+}
+
 console.log("\n[judge.js]");
 check(
   "위험 칸 밖에 있으면 회피 성공",
@@ -300,6 +331,75 @@ check(
   [isCellInSet(cellA, enc5.accumulatedHazardCells), isCellInSet(cellB, enc5.accumulatedHazardCells)],
   [true, true]
 );
+
+// --- 시나리오 7: 패턴 셔플 백(다양성) - 2026-09-16 추가 (윤서 피드백: "공격 패턴이
+//     단조롭다"). 40초 이후(5종 패턴 전부 후보인 구간)부터, 같은 패턴이 연달아
+//     나오지 않고 5종이 골고루 나오는지 확인한다. 데미지는 0으로 고정해서 팀 전멸로
+//     조기 종료되지 않고 오래 돌려볼 수 있게 한다(패턴이 뭘로 뽑히는지만 보는 테스트). ---
+const patternPickLog = []; // { id, atMs }
+const enc6 = new StatBossEncounter({
+  arena: ARENA,
+  players: [
+    { id: "p1", attackStat: 0, defenseStat: 0, healthStat: 0, position: cellCenter(0, 0) },
+    { id: "p2", attackStat: 0, defenseStat: 0, healthStat: 0, position: cellCenter(0, 1) },
+  ],
+  bossAttack: 0,
+  staggerDurationMs: 100,
+  seed: 99,
+  onEvent(event) {
+    if (event.type === "telegraph-start" && event.stepIndex === 0) {
+      patternPickLog.push({ id: event.patternId, atMs: enc6.elapsedMs });
+    }
+  },
+});
+enc6.init();
+enc6.start();
+for (let i = 0; i < 6000 && enc6.state === STATE.RUNNING; i++) enc6.tick(50);
+
+// 40초 이후(5종 전부 후보인 구간)만 뽑아서 검사한다 - 그 전 구간은 후보 자체가 적어서
+// (예: 0~15초는 단일 저격 하나뿐) 이 테스트의 관심사가 아니다.
+const fullPoolPicks = patternPickLog.filter((p) => p.atMs >= 40000).map((p) => p.id);
+
+let hasConsecutiveRepeat = false;
+for (let i = 1; i < fullPoolPicks.length; i++) {
+  if (fullPoolPicks[i] === fullPoolPicks[i - 1]) hasConsecutiveRepeat = true;
+}
+check("40초 이후 구간엔 같은 패턴이 두 번 연달아 나오지 않음(셔플 백)", hasConsecutiveRepeat, false);
+
+const pickCounts = {};
+for (const id of fullPoolPicks) pickCounts[id] = (pickCounts[id] ?? 0) + 1;
+const pickCountValues = Object.values(pickCounts);
+const countSpreadOk =
+  fullPoolPicks.length >= 20 &&
+  Object.keys(pickCounts).length === 5 &&
+  Math.max(...pickCountValues) - Math.min(...pickCountValues) <= 1;
+check("5종 패턴이 전부 등장하고, 등장 횟수가 서로 최대 1개 차이로 고르게 분배됨", countSpreadOk, true);
+
+// --- 시나리오 8: 연속 콤보 2번째 step 최소 예고시간 - 2026-09-16 버그 리포트
+//     ("대각선 끝나자마자 인지도 못 할 만큼 짧게 네모 공격이 겹쳐서 나온다") 수정. ---
+{
+  const stepTelegraphs = [];
+  const enc7 = new StatBossEncounter({
+    arena: ARENA,
+    players: [{ id: "p1", attackStat: 0, defenseStat: 0, healthStat: 0, position: cellCenter(0, 0) }],
+    bossAttack: 0,
+    patternIds: ["combo-strike"],
+    seed: 5,
+    onEvent(event) {
+      if (event.type === "telegraph-start") stepTelegraphs.push(event.telegraphMs);
+    },
+  });
+  enc7.init();
+  enc7.elapsedMs = 40000; // 40초 이후(연속 콤보가 후보에 포함되는) 구간으로 미리 이동
+  enc7.start();
+  enc7.tick(800); // 1번째 step(대각선) 예고 종료 -> 2번째 step(블록) 예고 시작
+  check("연속 콤보 1번째 step(대각선)은 그 구간 기본 예고시간(800ms)", stepTelegraphs[0], 800);
+  check(
+    "연속 콤보 2번째 step(사각 블록)은 최소 700ms 이상 (고치기 전엔 400ms였음)",
+    stepTelegraphs[1] >= 700,
+    true
+  );
+}
 
 console.log(`\n총 ${passCount + failCount}개 중 ${passCount}개 통과, ${failCount}개 실패\n`);
 if (failCount > 0) process.exitCode = 1;

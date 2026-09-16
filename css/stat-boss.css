@@ -164,6 +164,53 @@
   text-align: center;
 }
 
+/* 2026-09-16: 지안 피드백("반격 방법을 이해하기 힘들었다") 반영 - 조작 방법을
+ * 항상 보이는 한 줄로 안내한다. patternTag 바로 아래, 조이스틱/공격 버튼 위에
+ * 위치해서 플레이 중 언제든 눈에 들어오게 한다. */
+.stat-boss-control-hint {
+  margin: 0;
+  padding: 2px 12px 8px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 2026-09-16: 경직(STAGGER) 중엔 문구(counter-prompt)뿐 아니라 실제로 눌러야 할
+ * 공격 버튼 자체를 펄스로 강조한다 - "어디를 눌러야 하는지"가 시각적으로도 바로
+ * 보이게 하기 위함. .stat-boss-stage로 범위를 좁혀서 다른 보스전(예: control-boss)의
+ * 공격 버튼에는 영향이 없다. */
+.stat-boss-stage .character-attack-button[data-ready="true"] {
+  animation: stat-boss-attack-ready-pulse 700ms ease-in-out infinite;
+}
+
+@keyframes stat-boss-attack-ready-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgb(120 240 193 / 65%);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(120 240 193 / 0%);
+  }
+}
+
+/* 2026-09-16 버그 수정: 캐릭터 액터가 격자 칸(z-index 1)보다 위 레이어(z-index 20)라,
+ * 지금 서 있는 칸이 위험/누적위험 칸이어도 그 표시가 캐릭터에 가려 안 보이는 문제가
+ * 있었다("안 닿았는데 왜 죽었지" 피드백의 원인 중 하나로 추정). 무엇이 가리든 항상
+ * 보이도록 캐릭터 자체에 빨간 경고 광채를 켠다(view.js render()가 dataset을 갱신).
+ * .stat-boss-stage로 범위를 좁혀서 다른 화면의 캐릭터 액터에는 영향 없다. */
+.stat-boss-stage .character-actor[data-on-hazard="true"] {
+  animation: stat-boss-hazard-warning-pulse 500ms ease-in-out infinite;
+}
+
+@keyframes stat-boss-hazard-warning-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgb(255 111 145 / 40%));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgb(255 111 145 / 95%));
+  }
+}
+
 /* 보스 존과 격자를 세로로 쌓는 틀. 보스는 여기서 격자와 분리된 자기 구역을 갖는다. */
 .stat-boss-battlefield {
   position: relative;
@@ -230,6 +277,11 @@
 
   .stat-boss-pattern-tag {
     padding: 2px 12px;
+  }
+
+  .stat-boss-control-hint {
+    padding: 0 10px 6px;
+    font-size: 0.62rem;
   }
 
   .stat-boss-boss-zone {

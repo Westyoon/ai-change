@@ -52,9 +52,16 @@ const MIN_STEP_INTERVAL_MS = 400;
 // 플레이테스트로 조정될 수 있음.
 const MAX_ACCUMULATED_HAZARD_RATIO = 0.6;
 
-function getStepTelegraphMs(tierTelegraphMs, stepIndex) {
+// 2026-09-16 버그 리포트: "대각선 끝나자마자 인지도 못 할 만큼 짧게 네모 공격이
+// 겹쳐서 나온다" - 연속 콤보(combo-strike)의 2번째 step은 좌우 스윕처럼 바로 옆
+// 칸으로 이어지는 예측 가능한 움직임이 아니라, 완전히 다른/무관한 위치로 갑자기
+// 넘어가는 형태라 같은 최소 시간(400ms)으로는 인지할 시간이 부족했다. 그래서
+// 패턴별로 다른 최소 시간을 쓸 수 있게 하고(pattern.minStepIntervalMs), 지정 안
+// 하면 기존처럼 전역 MIN_STEP_INTERVAL_MS(좌우 스윕 등)를 그대로 쓴다.
+function getStepTelegraphMs(tierTelegraphMs, stepIndex, pattern) {
   if (stepIndex === 0) return tierTelegraphMs;
-  return Math.max(MIN_STEP_INTERVAL_MS, Math.round(tierTelegraphMs / STEP_INTERVAL_DIVISOR));
+  const minMs = pattern?.minStepIntervalMs ?? MIN_STEP_INTERVAL_MS;
+  return Math.max(minMs, Math.round(tierTelegraphMs / STEP_INTERVAL_DIVISOR));
 }
 
 let attemptSeq = 0; // 모듈 전체에서 attemptId가 겹치지 않게 부여하기 위한 카운터
@@ -98,6 +105,8 @@ export class StatBossEncounter {
     this.currentStepIndex = 0;
     this.currentDangerCells = [];
     this.accumulatedHazardCells = []; // 누적형 패턴(단일 저격)이 쌓아온 영구 위험 칸
+    this._patternBag = []; // 셔플 백(2026-09-16, 패턴 다양성 개선) - 자세한 설명은 _pickNextPattern() 참고
+    this._patternBagKey = null;
     this.phaseRemainingMs = 0;
     this.staggerStartedAt = null;
     this.metrics = null;
@@ -151,6 +160,8 @@ export class StatBossEncounter {
     this.currentStepIndex = 0;
     this.currentDangerCells = [];
     this.accumulatedHazardCells = [];
+    this._patternBag = [];
+    this._patternBagKey = null;
     this.phaseRemainingMs = 0;
     this.staggerStartedAt = null;
     this.metrics = {
@@ -285,10 +296,52 @@ export class StatBossEncounter {
     const fallback = () => getAvailablePatterns(tier.patternIds, this.players.size);
     const pickFrom = available.length > 0 ? available : fallback();
 
-    this.currentPattern = this.random.pick(pickFrom);
+    this.currentPattern = this._pickNextPattern(pickFrom);
     this.currentStepIndex = 0;
     this._tierTelegraphMs = tier.telegraphMs;
     this._beginStep();
+  }
+
+  /**
+   * 2026-09-16: 윤서 피드백("공격 패턴이 너무 단조로운 느낌") 반영.
+   * 기존엔 매번 pickFrom 전체에서 완전 독립적으로 랜덤을 뽑았음 - 그러다 보니 후보가
+   * 2~3개뿐인 초중반 구간에서는 운 나쁘면 같은 패턴이 여러 번 연달아 나올 수 있어서
+   * "단조롭다"는 인상으로 이어졌을 가능성이 큼.
+   * "셔플 백(shuffle bag)" 방식으로 바꿔서, 지금 후보 목록에 있는 패턴을 전부 한 번씩
+   * 다 쓰기 전까지는 같은 패턴이 다시 나오지 않게 한다(카드 게임에서 "한 벌 다 돌기
+   * 전엔 같은 카드가 다시 안 나온다"는 것과 같은 방식) - 매번 뽑을 때마다 확률로만
+   * 다양성을 기대하는 대신, 다양성 자체를 구조적으로 보장한다.
+   * 후보 목록이 바뀌면(시간 구간이 넘어가서 새 패턴이 후보에 추가/제외되는 경우 등)
+   * 그 시점에 새로 셔플한다. 새로 섞은 백의 첫 패턴이 하필 직전 패턴과 같으면(백
+   * 경계에서 같은 패턴이 두 번 연달아 나오는 경우) 후보가 2개 이상일 때 다른 자리와
+   * 맞바꿔서 피한다.
+   * @param {object[]} pickFrom - 지금 시점에 등장 가능한 패턴 정의 목록 (patterns.js)
+   */
+  _pickNextPattern(pickFrom) {
+    const bagKey = pickFrom
+      .map((p) => p.id)
+      .slice()
+      .sort()
+      .join(",");
+
+    if (this._patternBag.length === 0 || this._patternBagKey !== bagKey) {
+      this._patternBag = this._shuffle(pickFrom);
+      this._patternBagKey = bagKey;
+
+      const prevId = this.currentPattern?.id;
+      if (this._patternBag.length > 1 && this._patternBag[0].id === prevId) {
+        const swapWith = this.random.int(1, this._patternBag.length - 1);
+        [this._patternBag[0], this._patternBag[swapWith]] = [this._patternBag[swapWith], this._patternBag[0]];
+      }
+    }
+
+    return this._patternBag.shift();
+  }
+
+  /** random.sample(list, list.length)는 중복 없이 목록 전체를 뽑으므로, 결과적으로
+   *  완전히 뒤섞인 순서(셔플)와 같다. */
+  _shuffle(list) {
+    return this.random.sample(list, list.length);
   }
 
   _beginStep() {
@@ -302,6 +355,10 @@ export class StatBossEncounter {
           cell: this._getArenaCell(p.position),
         })),
         random: this.random,
+        // 2026-09-16 버그 수정: 광역 확산(area-burst)이 "안전 칸"을 고를 때 이미
+        // 영구 위험 칸(누적형 단일 저격이 쌓아온 칸)을 후보로 잘못 포함시키는 문제가
+        // 있어서, 패턴이 참고할 수 있게 넘겨준다 (patterns.js area-burst 참고).
+        accumulatedHazardCells: [...this.accumulatedHazardCells],
       };
       this._steps = this.currentPattern.getSteps(ctx);
     }
@@ -309,7 +366,7 @@ export class StatBossEncounter {
     const step = this._steps[this.currentStepIndex];
     this.currentDangerCells = step.dangerCells;
     this.phase = "TELEGRAPH";
-    this.phaseRemainingMs = getStepTelegraphMs(this._tierTelegraphMs, this.currentStepIndex);
+    this.phaseRemainingMs = getStepTelegraphMs(this._tierTelegraphMs, this.currentStepIndex, this.currentPattern);
 
     this._emit({
       type: "telegraph-start",
