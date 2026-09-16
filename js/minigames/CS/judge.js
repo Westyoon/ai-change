@@ -56,7 +56,14 @@ export function resolveTerminalState({
     return { status: "FAIL", failureReason: "MISS_LIMIT", purification };
   }
   if (allWavesSpawned && Array.isArray(activeThreats) && activeThreats.length === 0) {
-    return { status: "CLEAR", failureReason: null, purification };
+    // 미스 제한에 안 걸렸다고 무조건 클리어는 아니에요 — 정화도가 기준치를 넘어야 진짜 클리어예요.
+    const clearThreshold = Number.isFinite(config.clearPurificationThreshold)
+      ? Math.min(100, Math.max(0, config.clearPurificationThreshold))
+      : 0;
+    if (Number(purification) >= clearThreshold) {
+      return { status: "CLEAR", failureReason: null, purification };
+    }
+    return { status: "FAIL", failureReason: "LOW_PURIFICATION", purification };
   }
   return null;
 }

@@ -4,8 +4,8 @@
   "implementationStatus": "MVP",
   "goal": "몰려드는 악성코드로부터 CORE를 지키고 올바른 타이밍에 위협을 정화합니다.",
   "controls": {
-    "pc": ["CLICK 버튼 또는 Space로 정화"],
-    "mobile": ["CLICK 버튼을 터치해 정화"]
+    "pc": ["CLICK 버튼(또는 Space)으로 정화", "스파이웨어는 깜빡이는 순간에 CLICK", "랜섬웨어 감염 시 연타로 해제"],
+    "mobile": ["CLICK 버튼을 터치해 정화", "스파이웨어는 깜빡이는 순간에 터치", "랜섬웨어 감염 시 연타로 해제"]
   },
   "resultPresentation": {
     "clear": {
@@ -16,25 +16,38 @@
     "fail": {
       "title": "💥 방어 실패",
       "description": "MISS {missCount}회로 시스템이 뚫렸습니다",
-      "retryLabel": "RESTART"
+      "retryLabel": "RESTART",
+      "reasonDescriptions": {
+        "MISS_LIMIT": "MISS {missCount}회로 시스템이 뚫렸습니다",
+        "LOW_PURIFICATION": "위협은 다 막았지만 정화도가 부족해요 (정화도 {score}%)"
+      }
     }
   },
-  "totalWaves": 22,
-  "learningWaveCount": 4,
-  "learningOrder": ["TROJAN", "WORM", "RANSOM", "SPYWARE"],
-  "learningIntervalMs": 2600,
-  "mixedIntervalStartMs": 1300,
-  "mixedIntervalEndMs": 750,
+  "totalWaves": 30,
+  "mixedIntervalStartMs": 1100,
+  "mixedIntervalEndMs": 650,
   "approachDurationMs": 1400,
-  "learningApproachDurationMs": 1800,
   "perfectWindowMs": 200,
-  "goodWindowMs": 500,
+  "goodWindowMs": 300,
   "goodScoreWeight": 0.7,
   "trojanRevealLeadMs": 500,
-  "ransomMinCount": 2,
-  "ransomMaxCount": 3,
-  "ransomLockMs": 1500,
   "clickIgnoreMs": 900,
+  "pressEfficiencyAllowance": 1.5,
   "missLimit": 3,
-  "openBalanceDecisions": ["D-04", "D-05"]
+  "clearPurificationThreshold": 60,
+  "wormSplitProgress": 0,
+  "wormMinGapMs": 1400,
+  "wormChildAngleOffset": 0.5,
+  "wormZigzagAmplitude": 0.32,
+  "wormZigzagCycles": 2.5,
+  "spywareFlickerCount": 3,
+  "spywareFlickerOnMs": 180,
+  "ransomAmbushCount": 3,
+  "ransomMinGapMs": 3500,
+  "ransomArrivalGapMs": 600,
+  "ransomApproachDurationMs": 900,
+  "ransomMashRequired": 10,
+  "ransomLockSlowFactor": 0.15,
+  "ransomLockSpawnFactor": 0.5,
+  "openBalanceDecisions": ["D-05"]
 }
