@@ -44,14 +44,14 @@ function check(description, actual, expected) {
 }
 
 console.log("\n[grid.js]");
-check("7x5 격자 크기", [GRID.columns, GRID.rows], [7, 5]);
+check("9x6 격자 크기", [GRID.columns, GRID.rows], [9, 6]);
 check(
   "좌표(200,130)는 아레나 960x600에서 col1/row1 칸",
   positionToCell(200, 130, { width: 960, height: 600 }),
   { row: 1, col: 1 }
 );
-check("row(1)은 7칸 반환 (열 수만큼)", row(1).length, 7);
-check("column(2)는 5칸 반환 (행 수만큼)", column(2).length, 5);
+check("row(1)은 9칸 반환 (열 수만큼)", row(1).length, 9);
+check("column(2)는 6칸 반환 (행 수만큼)", column(2).length, 6);
 check("block(0,0,2,2)는 4칸 반환", block(0, 0, 2, 2).length, 4);
 check(
   "inverse([{row:0,col:0}])는 전체 칸 수 - 1",
@@ -119,11 +119,19 @@ console.log("\n[encounter.js] - 2단계: 웨이브 진행 · 게임 상태 흐�
 // 아레나는 1단계 테스트와 동일하게 960x600을 기준으로 쓴다.
 const ARENA = { width: 960, height: 600 };
 
+// 2026-09-16: 격자 크기가 바뀌어도(9x6, 나중에 또 바뀌어도) 테스트가 안 깨지게,
+// 좌표를 하드코딩하지 않고 GRID 기준으로 "그 칸의 한가운데" 좌표를 계산하는 헬퍼를 쓴다.
+const CELL_W = ARENA.width / GRID.columns;
+const CELL_H = ARENA.height / GRID.rows;
+function cellCenter(cellRow, cellCol) {
+  return { x: CELL_W * cellCol + CELL_W / 2, y: CELL_H * cellRow + CELL_H / 2 };
+}
+
 // --- 시나리오 1: 1인 플레이, 패턴을 단일 저격 하나로 고정해서 예고->회피실패(피격)
 //     ->경직->반격->다음 패턴까지 한 사이클을 전부 확인한다. ---
 const p1Cell = { row: 2, col: 3 };
-// positionToCell이 그 칸으로 판정하도록, 칸 한가운데 좌표를 넣는다 (960/7≈137, 600/5=120 기준).
-const p1Position = { x: 137 * p1Cell.col + 68, y: 120 * p1Cell.row + 60 };
+// positionToCell이 그 칸으로 판정하도록, 칸 한가운데 좌표를 넣는다.
+const p1Position = cellCenter(p1Cell.row, p1Cell.col);
 
 let lastCandidate1 = null;
 const enc1 = new StatBossEncounter({
@@ -252,6 +260,46 @@ try {
   threwOnRestartAfterDestroy = true;
 }
 check("DESTROYED 이후 restart()는 에러를 던짐 (허용 안 된 전이)", threwOnRestartAfterDestroy, true);
+
+// --- 시나리오 6: 누적형 위험 칸(단일 저격 accumulates) - 2026-09-16 추가.
+//     예전에 판정된 칸이, 지금 패턴의 타겟이 아니어도 계속 위험하게 남는지 확인한다. ---
+const cellA = { row: 0, col: 0 };
+const cellB = { row: 1, col: 1 };
+const enc5 = new StatBossEncounter({
+  arena: ARENA,
+  players: [
+    { id: "p1", attackStat: 0, defenseStat: 100, healthStat: 10, position: cellCenter(cellA.row, cellA.col) },
+  ],
+  bossAttack: 20,
+  bossBaseHp: 100000, // 반격을 안 해서 중간에 클리어되지 않도록 크게 잡음
+  staggerDurationMs: 1200,
+  patternIds: ["single-snipe"],
+  seed: 3,
+});
+enc5.init();
+enc5.start();
+
+enc5.tick(1500); // 1차 예고 종료 -> cellA에서 맞음 (방어100이라 최소 1데미지)
+check("1차 피격 후 누적 위험 칸에 cellA 포함", isCellInSet(cellA, enc5.accumulatedHazardCells), true);
+
+enc5.setPlayerPosition("p1", cellCenter(cellB.row, cellB.col).x, cellCenter(cellB.row, cellB.col).y);
+enc5.tick(1200); // 경직 종료 -> 다음 패턴 시작, 이 시점 위치(cellB)가 타겟으로 잡힘
+check("이동한 cellB가 다음 패턴 타겟으로 잡힘", enc5.currentDangerCells, [cellB]);
+
+const hpBeforeReturn = enc5.players.get("p1").hp;
+// 지금 타겟(cellB)은 피하지만, 예전에 쌓인 위험 칸(cellA)으로 돌아간다.
+enc5.setPlayerPosition("p1", cellCenter(cellA.row, cellA.col).x, cellCenter(cellA.row, cellA.col).y);
+enc5.tick(1500); // 이번 예고 종료
+check(
+  "현재 타겟(cellB)은 피해도 누적 위험 칸(cellA) 위에 있으면 맞는다",
+  enc5.players.get("p1").hp,
+  hpBeforeReturn - 1 // 방어100 vs 보스공격20 -> 최소 데미지 1
+);
+check(
+  "누적 위험 칸에 cellA, cellB 둘 다 남아있음",
+  [isCellInSet(cellA, enc5.accumulatedHazardCells), isCellInSet(cellB, enc5.accumulatedHazardCells)],
+  [true, true]
+);
 
 console.log(`\n총 ${passCount + failCount}개 중 ${passCount}개 통과, ${failCount}개 실패\n`);
 if (failCount > 0) process.exitCode = 1;

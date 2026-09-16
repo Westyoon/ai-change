@@ -21,6 +21,11 @@ export const PATTERNS = [
     id: "single-snipe",
     name: "단일 저격",
     minPlayers: 1,
+    // 2026-09-16: 유정 피드백("첫 패턴이 한 칸만 공격해서 너무 쉬움") 반영 - 이 패턴으로
+    // 판정된 칸은 회피 성공/실패와 상관없이 그 이후로도 계속 위험한 칸으로 남는다(누적).
+    // 실제 누적/판정 로직은 encounter.js(accumulatedHazardCells)가 담당하고, 여기서는
+    // "이 패턴이 누적형이다"라는 플래그만 들고 있는다.
+    accumulates: true,
     getSteps(ctx) {
       // 플레이어 중 한 명을 골라 그 칸 하나만 위험하게 만든다 (기본 패턴, 좁은 범위).
       const target = ctx.random.pick(ctx.players);

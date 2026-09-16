@@ -22,7 +22,7 @@
 // candidate 객체만 onComplete로 돌려주고, 그걸 실제 세이브 데이터에 반영할지 말지는
 // 호출하는 쪽(상위 시스템) 책임으로 남겨둔다.
 
-import { positionToCell } from "./grid.js";
+import { positionToCell, GRID, isCellInSet } from "./grid.js";
 import { getAvailablePatterns } from "./patterns.js";
 import { calcPlayerDamage, calcIncomingDamage, calcMaxHp, DEFAULT_BALANCE } from "./stats.js";
 import { getDifficultyTier, getBossHpMultiplier } from "./difficulty.js";
@@ -44,6 +44,13 @@ import { STATE, assertTransition } from "./state.js";
 // 이 두 상수를 더 키우면 됨.
 const STEP_INTERVAL_DIVISOR = 2;
 const MIN_STEP_INTERVAL_MS = 400;
+
+// 2026-09-16: 누적형 위험 칸(단일 저격 accumulates) 상한. 계속 쌓이기만 하면 이론상
+// 격자 전체가 위험해져서 클리어 자체가 불가능해질 수 있어서, 격자 전체 칸 수의 일정
+// 비율(60%)까지만 쌓이게 막아둔다 - 그 이상은 새로 안 쌓이고 기존 위험 칸만 유지된다.
+// 60%는 "생존 공간이 줄어드는 압박은 주되 항상 갈 곳은 남겨둔다"는 감으로 정한 값이라
+// 플레이테스트로 조정될 수 있음.
+const MAX_ACCUMULATED_HAZARD_RATIO = 0.6;
 
 function getStepTelegraphMs(tierTelegraphMs, stepIndex) {
   if (stepIndex === 0) return tierTelegraphMs;
@@ -90,6 +97,7 @@ export class StatBossEncounter {
     this.currentPattern = null;
     this.currentStepIndex = 0;
     this.currentDangerCells = [];
+    this.accumulatedHazardCells = []; // 누적형 패턴(단일 저격)이 쌓아온 영구 위험 칸
     this.phaseRemainingMs = 0;
     this.staggerStartedAt = null;
     this.metrics = null;
@@ -142,6 +150,7 @@ export class StatBossEncounter {
     this.currentPattern = null;
     this.currentStepIndex = 0;
     this.currentDangerCells = [];
+    this.accumulatedHazardCells = [];
     this.phaseRemainingMs = 0;
     this.staggerStartedAt = null;
     this.metrics = {
@@ -314,7 +323,12 @@ export class StatBossEncounter {
 
   _resolveTelegraph() {
     const arena = this.config.arena;
-    const results = judgeDodgeForAll(Array.from(this.players.values()), this.currentDangerCells, arena);
+    // 2026-09-16: 이번 step의 위험 칸뿐 아니라, 그동안 누적된 영구 위험 칸
+    // (accumulatedHazardCells) 위에 서 있어도 맞는다 - "이번 패턴은 피했는데 예전에
+    // 쌓인 위험 칸 위에 있어서 맞는다"가 의도된 동작(유정 피드백: 생존 공간이 점점
+    // 줄어드는 기믹).
+    const combinedDangerCells = [...this.currentDangerCells, ...this.accumulatedHazardCells];
+    const results = judgeDodgeForAll(Array.from(this.players.values()), combinedDangerCells, arena);
 
     for (const result of results) {
       if (result.dodged) continue;
@@ -323,6 +337,8 @@ export class StatBossEncounter {
       player.hp = Math.max(0, player.hp - damage);
       this.metrics.damageTaken += damage;
     }
+
+    if (this.currentPattern.accumulates) this._accumulateHazard(this.currentDangerCells);
 
     // dangerCells를 같이 실어 보낸다: 3단계 화면에서 "지금 막 판정된 칸"을
     // 잠깐 빨갛게 플래시해주는 연출에 쓴다(예고=빗금, 실제 판정 순간=단색 빨강).
@@ -339,6 +355,16 @@ export class StatBossEncounter {
     this.currentStepIndex++;
     if (this.currentStepIndex < this._steps.length) this._beginStep(); // 같은 패턴의 다음 step
     else this._beginStagger();
+  }
+
+  /** 누적형 패턴(단일 저격)이 판정한 칸을 영구 위험 칸 목록에 더한다. 이미 있는 칸은
+   *  중복 추가 안 하고, MAX_ACCUMULATED_HAZARD_RATIO 상한을 넘기면 더 안 쌓는다. */
+  _accumulateHazard(cells) {
+    const cap = Math.floor(GRID.columns * GRID.rows * MAX_ACCUMULATED_HAZARD_RATIO);
+    for (const c of cells) {
+      if (this.accumulatedHazardCells.length >= cap) break;
+      if (!isCellInSet(c, this.accumulatedHazardCells)) this.accumulatedHazardCells.push(c);
+    }
   }
 
   _beginStagger() {
@@ -401,6 +427,7 @@ export class StatBossEncounter {
       currentPatternId: this.currentPattern?.id ?? null,
       currentPatternName: this.currentPattern?.name ?? null, // 3단계 화면 표시용 (patterns.js의 name)
       dangerCells: this.currentDangerCells,
+      accumulatedHazardCells: [...this.accumulatedHazardCells],
       staggerRemainingMs: this.phase === "STAGGER" ? Math.max(0, this.phaseRemainingMs) : 0,
       boss: this.boss ? { ...this.boss } : null,
       players: this.players ? Object.fromEntries(this.players) : null,

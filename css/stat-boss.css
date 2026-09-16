@@ -251,8 +251,8 @@
   inset: 0;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(5, 1fr);
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(6, 1fr);
   gap: 2px;
   padding: 2px;
 }
@@ -263,6 +263,14 @@
   border-radius: 4px;
   background: rgb(179 191 220 / 4%);
   transition: background 80ms linear, border-color 80ms linear;
+}
+
+/* 누적된 영구 위험 칸(단일 저격이 계속 쌓아온 칸): 예고(빗금)·판정 플래시(단색)와는
+   다른, "이제 계속 위험한 바닥"이라는 느낌으로 어둡게 남겨둔다. 이 규칙이 danger/impact
+   보다 먼저(=우선순위 낮게) 와야, 같은 칸이 지금 또 예고/판정 중일 때는 그쪽이 보인다. */
+.stat-boss-cell[data-hazard="true"] {
+  border-color: rgb(120 40 50 / 70%);
+  background: rgb(90 20 28 / 55%);
 }
 
 /* 예고 중: 빗금 무늬 = "여기 위험해질 예정" */

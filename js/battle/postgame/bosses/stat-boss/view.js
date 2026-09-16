@@ -120,8 +120,13 @@ export class StatBossView {
     // 위험 칸 하이라이트: TELEGRAPH일 때만 빗금으로 "예정"을 보여준다.
     // (실제 판정 순간의 단색 빨강 플래시는 flashImpact()가 따로 처리한다.)
     const danger = snapshot.phase === "TELEGRAPH" ? snapshot.dangerCells : [];
+    // 2026-09-16: 누적된 영구 위험 칸(단일 저격이 계속 쌓아온 칸)은 phase와 상관없이
+    // 항상 보여준다 - "지금 예고 중이라 위험한 것"과 "이제 계속 위험한 곳"을 구분하려고
+    // danger와는 별개 속성(hazard)을 쓴다 (css에서 각각 다른 스타일).
+    const hazard = snapshot.accumulatedHazardCells ?? [];
     for (const { row, col, el } of this.cells) {
       el.dataset.danger = String(isCellInSet({ row, col }, danger));
+      el.dataset.hazard = String(isCellInSet({ row, col }, hazard));
     }
 
     // 상단 phase 배지 + 패턴 이름 태그
@@ -245,7 +250,7 @@ export class StatBossView {
       for (let col = 0; col < GRID.columns; col++) {
         const el = createElement("div", {
           className: "stat-boss-cell",
-          dataset: { row: String(row), col: String(col), danger: "false", impact: "false" },
+          dataset: { row: String(row), col: String(col), danger: "false", impact: "false", hazard: "false" },
         });
         this.cells.push({ row, col, el });
         gridEl.append(el);

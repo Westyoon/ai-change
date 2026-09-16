@@ -34,9 +34,9 @@ import { STATE } from "./state.js";
 import { StatBossView } from "./view.js";
 
 const DEFAULT_ARENA = Object.freeze({ width: 960, height: 600 });
-// self-check.mjs가 검증한 좌표계(960x600, 7x5)와 반드시 같은 값을 써야 한다.
-// view.js도 이 값을 그대로 받아서 격자를 그리기 때문에, 여기서만 바꾸면 화면도
-// 판정도 같이 맞는다.
+// self-check.mjs가 검증한 좌표계(960x600, 9x6 - 2026-09-16 격자 밀도 상향)와 반드시
+// 같은 값을 써야 한다. view.js도 이 값을 그대로 받아서 격자를 그리기 때문에, 여기서만
+// 바꾸면 화면도 판정도 같이 맞는다.
 
 function defaultPlayers(arena) {
   // 계정 시스템이 아직 안 붙어 있을 때 쓰는 fixture. 격자 아래쪽 중앙에서 시작.
