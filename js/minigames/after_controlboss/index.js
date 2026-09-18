@@ -314,7 +314,7 @@ export default class AfterControlBossMiniGame {
     this.clearBulletsDOM();
     this.clearShockwavesDOM();
     this.updateUI();
-    this.setStatus("⚠️ 보스 즉사기 캐스팅 (3초)! 중앙 엄폐벽 안으로 대피하세요!", "error", true);
+    this.setStatus("⚠️ 보스 즉사기 준비 (3초)! 중앙의 벽 안으로 대피하세요!", "error", true);
   }
 
   enterPhase3() {
@@ -328,7 +328,7 @@ export default class AfterControlBossMiniGame {
     this.renderTilesVisual();
     this.rebuildDynamicTriggers();
     this.updateUI();
-    this.setStatus("Phase 3: 발판 순서대로 밟기! 원형 파동이 오면 엄폐벽 뒤로 숨으세요!", "warning");
+    this.setStatus("Phase 3: 발판 순서대로 밟기! 원형 파동이 오면 벽 뒤로 숨으세요!", "warning");
   }
 
   enterPhase4() {
@@ -345,7 +345,7 @@ export default class AfterControlBossMiniGame {
     if (this.currentHp <= 0) return;
 
     this.updateUI();
-    this.setStatus("✨ 기믹 성공! 보스 그로기 10초 다운! 가까이 가서 극딜하세요!", "success");
+    this.setStatus("✨ 발판 성공! 보스가 기절했습니다! 가까이 가서 공격하세요!", "success");
   }
 
   spawnShockwave() {
@@ -385,7 +385,7 @@ export default class AfterControlBossMiniGame {
       el: ringEl
     });
 
-    this.setStatus("⚠️ 보스 원형 충격파 방출! 엄폐벽 안으로 숨으세요!", "error", true);
+    this.setStatus("⚠️ 보스가 충격파를 방출합니다! 벽 안으로 숨으세요!", "error", true);
   }
 
   updateShockwaves(dt) {
@@ -404,11 +404,11 @@ export default class AfterControlBossMiniGame {
         if (Math.abs(dist - sw.radius) < sw.thickness) {
           sw.hasHitPlayer = true;
           if (this.isCovered) {
-            this.setStatus("🛡️ 엄폐벽이 원형 충격파를 막아냈습니다!", "success");
+            this.setStatus("🛡️ 벽이 원형 충격파를 막아냈습니다!", "success");
           } else {
             this.applyDirectPlayerDamage(25);
             this.applyStunPenalty();
-            this.setStatus("💥 원형 충격파에 피격되었습니다! (엄폐 실패)", "error", true);
+            this.setStatus("💥 충격파에 피격되었습니다!", "error", true);
           }
         }
       }
@@ -687,7 +687,7 @@ export default class AfterControlBossMiniGame {
 
     const maxAttackRange = 130;
     if (distance > maxAttackRange) {
-      this.setStatus("⚠️ 사거리 부족! 보스 바로 밑으로 다가가세요.", "warning");
+      this.setStatus("⚠️ 사거리 부족! 보스에게 더 가까이 다가가세요.", "warning");
       return;
     }
 
@@ -725,7 +725,7 @@ export default class AfterControlBossMiniGame {
 
     if (metadata?.type === "FALL_HOLE" && (phase === "enter" || phase === "stay")) {
       this.applyDirectPlayerDamage(999999);
-      this.triggerGameOver("붕괴된 낙사 홀로 추락했습니다!");
+      this.triggerGameOver("붕괴된 구덩이로 추락했습니다!");
       return;
     }
 
