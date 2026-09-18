@@ -172,15 +172,15 @@ export default class AfterControlBossMiniGame {
   }
 
   buildWorldTriggers() {
-    const { startX, startY, tileW, tileH, rows, cols } = this.config.world.altarArea;
+    const { startX, startY, tileW, tileH, rows, cols, gapX, gapY } = this.config.world.altarArea;
     this.tileBoundsMap.clear();
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const id = `tile_${r}_${c}`;
         this.tileBoundsMap.set(id, {
-          x: startX + c * (tileW + 18),
-          y: startY + r * (tileH + 12),
+          x: startX + c * (tileW + gapX),
+          y: startY + r * (tileH + gapY),
           width: tileW,
           height: tileH
         });
@@ -493,7 +493,6 @@ export default class AfterControlBossMiniGame {
       b.el.style.top = `${b.y}px`;
     }
   }
-
   updatePlayerMovement(dt) {
     if (this.isStunned || this.isGameOver) return;
 
@@ -521,9 +520,10 @@ export default class AfterControlBossMiniGame {
       this.playerEl.style.top = `${this.playerPos.y}px`;
     }
 
+    // 플레이어 히트박스 원상 복구
     const playerBox = { x: this.playerPos.x - 16, y: this.playerPos.y - 21, width: 32, height: 42 };
-
     const coverBounds = this.config.world.coverZone;
+
     const isOverCover = this.checkOverlap(playerBox, coverBounds);
     if (isOverCover && !this.activeTriggers.has('COVER')) {
       this.activeTriggers.add('COVER');
@@ -535,25 +535,47 @@ export default class AfterControlBossMiniGame {
 
     if (this.phase === 3) {
       this.collapsedTileIds.forEach(id => {
-        const bounds = this.tileBoundsMap.get(id);
-        if (bounds && this.checkOverlap(playerBox, bounds)) {
-          this.eventBus.emit(CHARACTER_EVENTS.CONTACT, { phase: 'enter', metadata: { type: 'FALL_HOLE' } });
+        const tBounds = this.tileBoundsMap.get(id);
+        if (tBounds) {
+          // 낙사 홀 인식 범위 대폭 축소 (상하좌우 마진 추가)
+          const holeBounds = {
+            x: tBounds.x + tBounds.width * 0.2,
+            y: tBounds.y + tBounds.height * 0.2,
+            width: tBounds.width * 0.6,
+            height: tBounds.height * 0.6
+          };
+          if (this.checkOverlap(playerBox, holeBounds)) {
+            this.eventBus.emit(CHARACTER_EVENTS.CONTACT, { phase: 'enter', metadata: { type: 'FALL_HOLE' } });
+          }
         }
       });
 
       this.platesSequence.forEach((id, step) => {
-        const bounds = this.tileBoundsMap.get(id);
+        // 이미 밟은 발판은 판정 로직 자체를 무시 (일반 평지화)
+        if (step < this.currentPlateStep) return;
+
+        const tBounds = this.tileBoundsMap.get(id);
         const trigKey = `PLATE_${id}`;
-        if (bounds && this.checkOverlap(playerBox, bounds)) {
-          if (!this.activeTriggers.has(trigKey)) {
-            this.activeTriggers.add(trigKey);
-            this.eventBus.emit(CHARACTER_EVENTS.CONTACT, {
-              phase: 'enter',
-              metadata: { type: 'ORDER_PLATE', targetStep: step }
-            });
+        if (tBounds) {
+          // 발판 인식 범위를 상하좌우 10px씩 깎아내어 시각적 크기보다 안쪽만 판정
+          const plateBounds = {
+            x: tBounds.x + 10,
+            y: tBounds.y + 10,
+            width: tBounds.width - 20,
+            height: tBounds.height - 20
+          };
+
+          if (this.checkOverlap(playerBox, plateBounds)) {
+            if (!this.activeTriggers.has(trigKey)) {
+              this.activeTriggers.add(trigKey);
+              this.eventBus.emit(CHARACTER_EVENTS.CONTACT, {
+                phase: 'enter',
+                metadata: { type: 'ORDER_PLATE', targetStep: step }
+              });
+            }
+          } else {
+            this.activeTriggers.delete(trigKey);
           }
-        } else {
-          this.activeTriggers.delete(trigKey);
         }
       });
     }
@@ -701,17 +723,25 @@ export default class AfterControlBossMiniGame {
 
     if (this.phase !== 3) return;
 
-    if (metadata?.type === "FALL_HOLE" && phase === "enter") {
+    if (metadata?.type === "FALL_HOLE" && (phase === "enter" || phase === "stay")) {
       this.applyDirectPlayerDamage(999999);
       this.triggerGameOver("붕괴된 낙사 홀로 추락했습니다!");
       return;
     }
 
-    if (metadata?.type === "ORDER_PLATE" && phase === "enter") {
+    if (metadata?.type === "ORDER_PLATE" && (phase === "enter" || phase === "stay")) {
       if (this.isStunned) return;
-      if (metadata.targetStep === this.currentPlateStep) {
+
+      const target = Number(metadata.targetStep);
+      if (isNaN(target) || target < this.currentPlateStep) return;
+
+      if (target === this.currentPlateStep) {
         this.currentPlateStep++;
-        this.highlightTileCleared(this.platesSequence[metadata.targetStep]);
+        this.highlightTileCleared(this.platesSequence[target]);
+        
+        // 💡 발판 성공 즉시 트리거를 다시 빌드하여 방금 밟은 타일을 영구적으로 평지화시킴
+        this.rebuildDynamicTriggers();
+
         if (this.currentPlateStep >= 4) {
           this.enterPhase4();
         } else {
@@ -790,19 +820,34 @@ export default class AfterControlBossMiniGame {
 
     if (this.phase === 3) {
       this.collapsedTileIds.forEach(id => {
+        const tBounds = this.tileBoundsMap.get(id);
         triggers.push({
           id: `trigger_hole_${id}`,
           kind: trapKind,
-          bounds: this.tileBoundsMap.get(id),
+          bounds: {
+            x: tBounds.x + tBounds.width * 0.2,
+            y: tBounds.y + tBounds.height * 0.2,
+            width: tBounds.width * 0.6,
+            height: tBounds.height * 0.6
+          },
           metadata: { type: "FALL_HOLE" }
         });
       });
 
       this.platesSequence.forEach((id, idx) => {
+        // 이미 밟은 발판은 트리거 리스트에서 완전히 제외시킴 (평지화)
+        if (idx < this.currentPlateStep) return;
+
+        const tBounds = this.tileBoundsMap.get(id);
         triggers.push({
           id: `trigger_plate_${id}`,
           kind: plateKind,
-          bounds: this.tileBoundsMap.get(id),
+          bounds: {
+            x: tBounds.x + 10,
+            y: tBounds.y + 10,
+            width: tBounds.width - 20,
+            height: tBounds.height - 20
+          },
           metadata: { type: "ORDER_PLATE", targetStep: idx }
         });
       });
