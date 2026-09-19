@@ -59,7 +59,12 @@ test("the coordinator uses hibernating sockets and keeps private account keys ou
   assert.match(coordinatorSource, /player\.playerKey\s*!==\s*recipient\.playerKey/u);
 });
 
-test("room authority enforces 1-5 seats, host-only start, host transfer, and persisted state", () => {
+test("room authority validates public room names and preserves 1-5 seats, host transfer, and persistence", () => {
+  assert.match(coordinatorSource, /MAX_ROOM_NAME_LENGTH\s*=\s*32/u);
+  assert.match(coordinatorSource, /hasExactKeys\s*\(\s*parsed,\s*\[[^\]]*["']roomName["']/u);
+  assert.match(coordinatorSource, /normalize\s*\(\s*["']NFKC["']\s*\)/u);
+  assert.match(coordinatorSource, /invalid_room_name/u);
+  assert.match(coordinatorSource, /roomName:\s*room\.roomName/u);
   assert.match(coordinatorSource, /parsed\.capacity\s*<\s*1/u);
   assert.match(coordinatorSource, /parsed\.capacity\s*>\s*5/u);
   assert.match(coordinatorSource, /memberPlayerIds\.length\s*>=\s*room\.capacity/u);

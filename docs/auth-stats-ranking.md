@@ -102,8 +102,9 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 현재 단일 `PostgameCoordinator`가 다음 상태를 조정한다.
 
 - `entry-field`·`plaza`의 로그인 사용자 presence. 공개 payload에는 임시 플레이어 ID, 표시 이름, 구역, 정규화 좌표, 방향·이동 여부만 포함한다.
-- `data-sphinx`·`stat-boss`·`control-boss`별 공개 방 목록. 방 정원은 최소 1명·최대 5명이다.
-- 방 생성·참가·이탈·시작. 방장만 시작할 수 있고 1명부터 시작 가능하며, 방장 이탈 시 남은 첫 참가자에게 위임한다.
+- `data-sphinx`·`stat-boss`·`control-boss`별 공개 방 목록. 생성자는 공개 방 이름과 최소 1명·최대 5명의 정원을 정한다.
+- 방 이름은 NFKC 정규화와 제어 문자·연속 공백 제거 후 Unicode code point 기준 1~32자만 허용한다. 기존 저장 방에 이름이 없거나 유효하지 않으면 `보스 대기실`로 복구한다.
+- 방 생성·참가·이탈·시작. 정원은 참가 상한이며 최소 시작 인원은 1명이다. 정원이 차도 자동 시작하지 않고 방장만 원하는 시점에 시작할 수 있으며, 방장 이탈 시 남은 첫 참가자에게 위임한다.
 - session 계정에서 파생한 내부 키로 같은 계정의 여러 탭이 방 좌석을 중복 점유하지 못하게 차단한다. 이 내부 키는 공개 payload로 보내지 않는다.
 - 방 시작 시 모든 참가자에게 공통 `battleId`, `roomId`, `seed`, `startedAt`, `roster`를 보내고 시작된 방을 공개 목록에서 제거한다.
 
@@ -210,11 +211,12 @@ PUBLIC_ORIGIN=http://127.0.0.1:8787
 1. 같은 origin의 `/api/postgame/socket`만 upgrade되고 게스트·다른 `Origin`은 거부되는지 확인한다.
 2. 입장 필드와 광장에서 같은 구역 사용자만 보이고 구역 이동·연결 종료가 반영되는지 확인한다.
 3. 보스별 방 목록이 분리되고 정원 1·5는 허용, 0·6은 거부되는지 확인한다.
-4. 방장이 1명부터 시작할 수 있고 비방장은 기다리며, 방장 이탈 시 위임되는지 확인한다.
-5. 같은 계정의 다른 탭이 방 좌석을 중복 점유하지 못하는지 확인한다.
-6. 휴면·재기동 뒤 Hibernation attachment와 Durable Object storage로 연결·방 상태가 안전하게 정리 또는 복구되는지 확인한다.
-7. 시작한 모든 참가자가 같은 `seed`·`startedAt`·`roster`를 받고 같은 보스로 이동하는지 확인한다.
-8. WebSocket을 차단하거나 끊어도 게스트·로그인 사용자 모두 기존 솔로 전투에 직접 입장할 수 있는지 확인한다.
+4. 정규화된 1자·32자 방 이름은 목록과 참가 화면에 그대로 보이고, 공백뿐인 이름·33자 이름·제어 문자는 계약에 맞게 거부 또는 제거되는지 확인한다.
+5. 방장이 1명부터 수동으로 시작할 수 있고, 정원이 차도 자동 시작하지 않으며, 비방장은 기다리고 방장 이탈 시 권한이 위임되는지 확인한다.
+6. 같은 계정의 다른 탭이 방 좌석을 중복 점유하지 못하는지 확인한다.
+7. 휴면·재기동 뒤 Hibernation attachment와 Durable Object storage로 연결·방 이름·정원·참가자 상태가 안전하게 정리 또는 복구되는지 확인한다.
+8. 시작한 모든 참가자가 같은 `seed`·`startedAt`·`roster`를 받고 같은 보스로 이동하는지 확인한다.
+9. WebSocket을 차단하거나 끊어도 게스트·로그인 사용자 모두 기존 솔로 전투에 직접 입장할 수 있는지 확인한다.
 
 현재 CLEAR 전송은 로컬 진행 저장을 먼저 끝낸 뒤 비동기로 실행한다. 서버 장애나 탭 종료로 전송이 실패하면 로컬 결과는 유지되고, 다음 앱 시작이나 계정 화면의 완료 진행 병합으로 클리어·포인트를 복구한다. 당시 게임 원점수까지 복구하는 영속 재시도 queue는 아직 없다.
 
@@ -282,7 +284,8 @@ Durable Object는 D1과 별도다. 새 환경의 Wrangler 설정에는 `POSTGAME
 - [ ] 환경별 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 Cloudflare secret으로 등록하고 저장소·배포 log에 값이 없는지 재확인
 - [ ] staging·production의 정확한 Google Authorized redirect URI 등록
 - [ ] canonical Worker에서 SPA와 `/api/*`가 같은 origin인지 확인하고 custom domain을 추가할 때만 DNS·TLS와 `PUBLIC_ORIGIN`을 함께 변경
-- [ ] 로그인 WebSocket의 same-origin·session 거부, 두 구역 presence, 보스별 공개 방, 1~5명 경계, 같은 계정 중복 좌석 차단과 방장 위임을 staging에서 확인
+- [ ] 로그인 WebSocket의 same-origin·session 거부, 두 구역 presence, 보스별 공개 방, 방 이름 1~32자 정규화, 1~5명 경계, 같은 계정 중복 좌석 차단과 방장 위임을 staging에서 확인
+- [ ] 방이 가득 차도 자동 시작하지 않고 방장만 1명 이상인 방을 수동 시작할 수 있으며, 비방장은 시작할 수 없는지 확인
 - [ ] Durable Object 휴면·재기동 뒤 attachment와 방 directory가 복구되고, 시작 참가자들이 같은 `seed`·`startedAt`·`roster`를 받는지 확인
 - [ ] WebSocket 장애·게스트 상태에서 온라인 UI가 전체 Battle 진입을 막지 않고 솔로 직접 입장을 유지하는지 확인
 - [ ] 공유 HP·원격 피격·팀 결과가 없는 현재 상태를 서버 권위 협동 전투로 안내하지 않는지 확인

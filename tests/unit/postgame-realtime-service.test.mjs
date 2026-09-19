@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PostgameRealtimeService,
   asWebSocketUrl,
+  normalizeRoomName,
 } from "../../js/core/postgame-realtime-service.js";
 
 class FakeWebSocket {
@@ -103,6 +104,11 @@ test("same-origin HTTP endpoints become secure WebSocket URLs", () => {
   );
 });
 
+test("room names use the same Unicode normalization as the server", () => {
+  assert.equal(normalizeRoomName("  Ａ팀   같이 가요\t\n\u0000\u200b  "), "A팀 같이 가요");
+  assert.equal([...normalizeRoomName("😀".repeat(32))].length, 32);
+});
+
 test("connect opens the authenticated endpoint and sends validated room commands", () => {
   const { service } = makeService();
   const observed = [];
@@ -115,12 +121,12 @@ test("connect opens the authenticated endpoint and sends validated room commands
 
   socket.open();
   assert.equal(service.getState().connected, true);
-  assert.equal(service.createRoom("stat-boss", 5), true);
+  assert.equal(service.createRoom("stat-boss", 5, "  스탯 원정대  "), true);
   assert.equal(service.joinRoom("room:abc-123"), true);
   assert.equal(service.startRoom(), true);
   assert.equal(service.leaveRoom(), true);
   assert.deepEqual(socket.sent, [
-    { type: "room.create", battleId: "stat-boss", capacity: 5 },
+    { type: "room.create", battleId: "stat-boss", capacity: 5, roomName: "스탯 원정대" },
     { type: "room.join", roomId: "room:abc-123" },
     { type: "room.start" },
     { type: "room.leave" },
@@ -128,6 +134,8 @@ test("connect opens the authenticated endpoint and sends validated room commands
   assert.deepEqual(observed, ["idle", "connecting", "connected"]);
   assert.throws(() => service.createRoom("stat-boss", 0), /1 to 5/u);
   assert.throws(() => service.createRoom("bad room", 2), /battleId/u);
+  assert.throws(() => service.createRoom("stat-boss", 2, "  "), /roomName/u);
+  assert.throws(() => service.createRoom("stat-boss", 2, "😀".repeat(33)), /1 to 32/u);
   assert.throws(() => service.joinRoom(""), /roomId/u);
 });
 
@@ -237,6 +245,7 @@ test("room snapshots, membership, updates, starts, and removals form a small imm
   socket.open();
   const room = {
     id: "room-1",
+    roomName: "컨트롤 보스 초행 환영",
     battleId: "control-boss",
     capacity: 5,
     hostId: "host",
@@ -253,6 +262,7 @@ test("room snapshots, membership, updates, starts, and removals form a small imm
   socket.receive({ type: "room.joined", room });
   assert.equal(service.getState().currentRoomId, "room-1");
   assert.equal(service.getState().currentRoom.id, "room-1");
+  assert.equal(service.getState().currentRoom.roomName, "컨트롤 보스 초행 환영");
   assert.deepEqual(service.getState().rooms[0].members, [
     { id: "host", name: "방장" },
     { id: "guest", name: "참가자" },

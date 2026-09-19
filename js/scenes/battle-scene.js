@@ -608,8 +608,8 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       };
 
       roomLobby = createPostgameRoomLobby({
-        onCreate: (battleId, capacity) => runRealtimeCommand(
-          () => realtimeService?.createRoom(battleId, capacity),
+        onCreate: (battleId, capacity, roomName) => runRealtimeCommand(
+          () => realtimeService?.createRoom(battleId, capacity, roomName),
           "실시간 서버가 연결된 뒤 다시 시도해 주세요.",
         ),
         onJoin: (roomId) => runRealtimeCommand(

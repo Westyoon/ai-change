@@ -1,7 +1,9 @@
 import { createButton, createElement } from "../../scenes/scene-utils.js";
+import { normalizeRoomName } from "../../core/postgame-realtime-service.js";
 
 const MIN_ROOM_CAPACITY = 1;
 const MAX_ROOM_CAPACITY = 5;
+const MAX_ROOM_NAME_LENGTH = 32;
 
 function clearChildren(element) {
   if (typeof element.replaceChildren === "function") {
@@ -27,6 +29,17 @@ function roomId(room) {
 
 function roomHostId(room) {
   return typeof room?.hostId === "string" ? room.hostId : "";
+}
+
+function validRoomName(value) {
+  const length = [...normalizeRoomName(value)].length;
+  return length >= 1 && length <= MAX_ROOM_NAME_LENGTH;
+}
+
+function roomName(room) {
+  const explicitName = normalizeRoomName(room?.roomName ?? room?.name);
+  if (explicitName) return [...explicitName].slice(0, MAX_ROOM_NAME_LENGTH).join("");
+  return `${roomMembers(room)[0]?.name || "플레이어"}의 방`;
 }
 
 function currentRoomFromState(state) {
@@ -84,6 +97,23 @@ export function createPostgameRoomLobby({
   });
   const membership = createElement("div", { className: "postgame-room-lobby__membership" });
 
+  const roomNameInput = createElement("input", {
+    className: "postgame-room-lobby__name",
+    type: "text",
+    attributes: {
+      id: "postgame-room-name",
+      autocomplete: "off",
+      placeholder: "예: 스탯 보스 같이 잡아요!",
+      "aria-label": "보스방 이름",
+      "aria-describedby": "postgame-room-name-hint",
+    },
+  });
+  const roomNameHint = createElement("small", {
+    className: "postgame-room-lobby__name-hint",
+    text: `0/${MAX_ROOM_NAME_LENGTH}자`,
+    attributes: { id: "postgame-room-name-hint", "aria-live": "polite" },
+  });
+
   const capacitySelect = createElement("select", {
     className: "postgame-room-lobby__capacity",
     attributes: { "aria-label": "보스방 최대 인원" },
@@ -96,15 +126,38 @@ export function createPostgameRoomLobby({
   }
   capacitySelect.value = String(MAX_ROOM_CAPACITY);
 
-  const createRoomButton = createButton("방 만들기", () => {
-    if (!selectedBattle || latestState.status !== "connected") return;
+  const submitCreateRoom = () => {
+    if (!selectedBattle || latestState.status !== "connected") return false;
+    const name = normalizeRoomName(roomNameInput.value);
+    if (!validRoomName(name) || currentRoomFromState(latestState)) return false;
     const capacity = Math.min(
       MAX_ROOM_CAPACITY,
       Math.max(MIN_ROOM_CAPACITY, Math.trunc(Number(capacitySelect.value)) || MAX_ROOM_CAPACITY),
     );
-    onCreate?.(selectedBattle.id, capacity);
-  }, "primary");
+    onCreate?.(selectedBattle.id, capacity, name);
+    return true;
+  };
+  const createRoomButton = createButton("방 만들기", submitCreateRoom, "primary");
   createRoomButton.className += " postgame-room-lobby__create";
+
+  const updateCreateControls = () => {
+    const hasCurrentRoom = Boolean(currentRoomFromState(latestState));
+    const connected = latestState.status === "connected";
+    const normalizedLength = [...normalizeRoomName(roomNameInput.value)].length;
+    roomNameHint.textContent = normalizedLength > MAX_ROOM_NAME_LENGTH
+      ? `${MAX_ROOM_NAME_LENGTH}자 이하로 입력해 주세요.`
+      : `${normalizedLength}/${MAX_ROOM_NAME_LENGTH}자`;
+    roomNameHint.dataset.invalid = String(normalizedLength > MAX_ROOM_NAME_LENGTH);
+    roomNameInput.disabled = hasCurrentRoom || !connected;
+    capacitySelect.disabled = hasCurrentRoom || !connected;
+    createRoomButton.disabled = hasCurrentRoom || !connected || !validRoomName(roomNameInput.value);
+  };
+  roomNameInput.addEventListener("input", updateCreateControls);
+  roomNameInput.addEventListener("keydown", (event) => {
+    if (event?.key !== "Enter" || createRoomButton.disabled) return;
+    event.preventDefault?.();
+    submitCreateRoom();
+  });
 
   const closeButton = createButton("닫기", () => {
     if (currentRoomFromState(latestState)) onLeave?.();
@@ -130,10 +183,17 @@ export function createPostgameRoomLobby({
       connectionStatus,
       soloFallbackButton,
       createElement("div", { className: "postgame-room-lobby__create-row" }, [
-        createElement("label", { text: "최대 인원" }),
-        capacitySelect,
+        createElement("label", { className: "postgame-room-lobby__field postgame-room-lobby__field--name" }, [
+          createElement("span", { text: "방 이름" }),
+          roomNameInput,
+        ]),
+        createElement("label", { className: "postgame-room-lobby__field" }, [
+          createElement("span", { text: "최대 인원" }),
+          capacitySelect,
+        ]),
         createRoomButton,
       ]),
+      roomNameHint,
       membership,
       createElement("section", { className: "postgame-room-lobby__directory" }, [
         createElement("h3", { text: "공개 방" }),
@@ -176,7 +236,7 @@ export function createPostgameRoomLobby({
 
     membership.append(
       createElement("div", { className: "postgame-room-lobby__membership-heading" }, [
-        createElement("strong", { text: `현재 방 · ${members.length}/${roomCapacity(currentRoom)}명` }),
+        createElement("strong", { text: `${roomName(currentRoom)} · ${members.length}/${roomCapacity(currentRoom)}명` }),
         createElement("span", { text: isHost ? "내가 방장" : "참가 중" }),
       ]),
       memberList,
@@ -211,8 +271,11 @@ export function createPostgameRoomLobby({
       joinButton.disabled = joined || full || Boolean(currentRoom) || state.status !== "connected";
       roomList.append(createElement("article", { className: "postgame-room-card" }, [
         createElement("div", {}, [
-          createElement("strong", { text: `${members[0]?.name || "플레이어"}의 방` }),
-          createElement("span", { text: `${members.length}/${capacity}명` }),
+          createElement("strong", { text: roomName(room) }),
+          createElement("span", {
+            className: "postgame-room-card__host",
+            text: `방장 ${members[0]?.name || "플레이어"} · ${members.length}/${capacity}명`,
+          }),
         ]),
         joinButton,
       ]));
@@ -224,10 +287,9 @@ export function createPostgameRoomLobby({
     connectionStatus.textContent = state.error || statusCopy(state.status);
     connectionStatus.dataset.status = state.status ?? "idle";
     const currentRoom = currentRoomFromState(state);
-    capacitySelect.disabled = Boolean(currentRoom) || state.status !== "connected";
-    createRoomButton.disabled = Boolean(currentRoom) || state.status !== "connected";
     soloFallbackButton.hidden = state.status === "connected" || Boolean(currentRoom);
     soloFallbackButton.disabled = Boolean(currentRoom);
+    updateCreateControls();
     renderMembership(state);
     renderRooms(state);
   }
@@ -238,8 +300,9 @@ export function createPostgameRoomLobby({
       if (!battle?.id) return false;
       selectedBattle = battle;
       returnSpawn = spawn;
+      if (!currentRoomFromState(latestState)) roomNameInput.value = "";
       title.textContent = `${battle.title} · 보스방`;
-      subtitle.textContent = "1명부터 5명까지 함께 입장할 수 있습니다.";
+      subtitle.textContent = "방 이름과 최대 인원을 정한 뒤, 참가자가 모이면 방장이 직접 시작합니다.";
       element.hidden = false;
       element.dataset.open = "true";
       render(latestState);
@@ -260,7 +323,10 @@ export function createPostgameRoomLobby({
 
 export {
   MAX_ROOM_CAPACITY,
+  MAX_ROOM_NAME_LENGTH,
   MIN_ROOM_CAPACITY,
   currentRoomFromState,
+  normalizeRoomName,
   roomCapacity,
+  roomName,
 };

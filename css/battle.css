@@ -440,6 +440,10 @@
   inset: 0;
   display: grid;
   padding: clamp(12px, 4vw, 36px);
+  padding-top: max(clamp(12px, 4vw, 36px), env(safe-area-inset-top));
+  padding-right: max(clamp(12px, 4vw, 36px), env(safe-area-inset-right));
+  padding-bottom: max(clamp(12px, 4vw, 36px), env(safe-area-inset-bottom));
+  padding-left: max(clamp(12px, 4vw, 36px), env(safe-area-inset-left));
   overflow: auto;
   place-items: center;
   background: rgb(18 8 20 / 76%);
@@ -453,7 +457,10 @@
 .postgame-room-lobby__panel {
   display: grid;
   width: min(680px, 100%);
-  max-height: min(760px, calc(100dvh - 24px));
+  max-height: min(
+    760px,
+    calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)))
+  );
   gap: 14px;
   padding: clamp(16px, 3vw, 26px);
   overflow: auto;
@@ -521,15 +528,25 @@
 
 .postgame-room-lobby__create-row {
   display: grid;
-  grid-template-columns: auto minmax(88px, 1fr) minmax(132px, auto);
+  grid-template-columns: minmax(220px, 1fr) minmax(96px, 0.32fr) minmax(132px, auto);
+  align-items: end;
 }
 
-.postgame-room-lobby__create-row label {
+.postgame-room-lobby__field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.postgame-room-lobby__field > span {
   font-size: 0.72rem;
   font-weight: 900;
 }
 
+.postgame-room-lobby__name,
 .postgame-room-lobby__capacity {
+  box-sizing: border-box;
+  width: 100%;
   min-height: 44px;
   padding: 8px 10px;
   border: 2px solid var(--line);
@@ -537,6 +554,35 @@
   color: var(--text);
   background: var(--surface-strong);
   font: inherit;
+}
+
+.postgame-room-lobby__name::placeholder {
+  color: var(--muted);
+  opacity: 0.78;
+}
+
+.postgame-room-lobby__name-hint {
+  margin-top: -8px;
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.postgame-room-lobby__name-hint[data-invalid="true"] {
+  color: #ff91b8;
+}
+
+.postgame-room-lobby__name:focus-visible,
+.postgame-room-lobby__capacity:focus-visible {
+  border-color: #2ab5e4;
+  outline: 3px solid rgb(42 181 228 / 24%);
+  outline-offset: 1px;
+}
+
+.postgame-room-lobby__name:disabled,
+.postgame-room-lobby__capacity:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .postgame-room-lobby__membership {
@@ -590,6 +636,11 @@
   display: grid;
   gap: 3px;
   min-width: 0;
+}
+
+.postgame-room-card strong,
+.postgame-room-card__host {
+  overflow-wrap: anywhere;
 }
 
 .postgame-room-card .button,
@@ -819,10 +870,16 @@
 
   .postgame-room-lobby {
     padding: 8px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(8px, env(safe-area-inset-left));
   }
 
   .postgame-room-lobby__panel {
-    max-height: calc(100dvh - 16px);
+    max-height: calc(
+      100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom))
+    );
     padding: 14px;
     border-width: 2px;
     border-radius: 16px;
@@ -836,8 +893,21 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .postgame-room-lobby__create-row label {
+  .postgame-room-lobby__field--name {
     grid-column: 1 / -1;
+  }
+
+  .postgame-room-lobby__create {
+    width: 100%;
+    align-self: end;
+  }
+
+  .postgame-room-card {
+    align-items: stretch;
+  }
+
+  .postgame-room-card .button {
+    flex: 0 0 auto;
   }
 
   .postgame-room-lobby__membership-actions {

@@ -258,7 +258,10 @@ class FakeRealtime {
   connect() { this.connected += 1; }
   disconnect() { this.disconnected += 1; }
   updatePresence(payload) { this.commands.push({ type: "presence.update", ...payload }); return true; }
-  createRoom(battleId, capacity) { this.commands.push({ type: "room.create", battleId, capacity }); return true; }
+  createRoom(battleId, capacity, roomName) {
+    this.commands.push({ type: "room.create", battleId, capacity, roomName });
+    return true;
+  }
   joinRoom(roomId) { this.commands.push({ type: "room.join", roomId }); return true; }
   leaveRoom() { this.commands.push({ type: "room.leave" }); return true; }
   startRoom() { this.commands.push({ type: "room.start" }); return true; }
@@ -558,13 +561,21 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
 
     const createButton = mounted.root.querySelectorAll("button")
       .find((button) => button.textContent === "방 만들기");
+    const roomNameInput = mounted.root.querySelector(".postgame-room-lobby__name");
+    assert.equal(createButton.disabled, true, "a room name is required before creation");
+    roomNameInput.value = "스탯 보스 원정대";
+    roomNameInput.dispatchEvent({ type: "input" });
     createButton.dispatchEvent({ type: "click", detail: 1 });
     assert.ok(realtime.commands.some((command) => (
-      command.type === "room.create" && command.battleId === "stat-boss" && command.capacity === 5
+      command.type === "room.create"
+      && command.battleId === "stat-boss"
+      && command.capacity === 5
+      && command.roomName === "스탯 보스 원정대"
     )));
 
     const room = Object.freeze({
       id: "ROOM123456",
+      roomName: "스탯 보스 원정대",
       battleId: "stat-boss",
       capacity: 5,
       hostId: "self-online",

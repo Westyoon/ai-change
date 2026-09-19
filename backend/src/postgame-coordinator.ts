@@ -2,6 +2,8 @@ const ROOM_STORAGE_KEY = "postgame:rooms:v1";
 const MAX_MESSAGE_BYTES = 4_096;
 const MAX_MESSAGES_PER_SECOND = 30;
 const MIN_PRESENCE_INTERVAL_MS = 40;
+const MAX_ROOM_NAME_LENGTH = 32;
+const DEFAULT_ROOM_NAME = "보스 대기실";
 
 const ZONES = ["entry-field", "plaza"] as const;
 const DIRECTIONS = ["up", "down", "left", "right"] as const;
@@ -31,6 +33,7 @@ interface SocketAttachment {
 interface RoomRecord {
   version: 1;
   roomId: string;
+  roomName: string;
   battleId: BattleId;
   capacity: number;
   hostPlayerId: string;
@@ -55,6 +58,7 @@ interface PublicRoomPlayer {
 
 interface PublicRoom {
   id: string;
+  roomName: string;
   battleId: BattleId;
   capacity: number;
   memberCount: number;
@@ -72,7 +76,7 @@ type ClientMessage =
       direction: Direction;
       moving: boolean;
     }
-  | { type: "room.create"; battleId: BattleId; capacity: number }
+  | { type: "room.create"; battleId: BattleId; capacity: number; roomName: string }
   | { type: "room.join"; roomId: string }
   | { type: "room.leave" }
   | { type: "room.start" };
@@ -102,6 +106,19 @@ function isOneOf<T extends string>(value: unknown, options: readonly T[]): value
 
 function isUnitCoordinate(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function normalizeRoomName(raw: string): string {
+  return raw
+    .normalize("NFKC")
+    .replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function isValidRoomName(value: string): boolean {
+  const length = Array.from(value).length;
+  return length >= 1 && length <= MAX_ROOM_NAME_LENGTH;
 }
 
 function parseClientMessage(raw: string): ClientMessage {
@@ -139,16 +156,23 @@ function parseClientMessage(raw: string): ClientMessage {
 
     case "room.create":
       if (
-        !hasExactKeys(parsed, ["type", "battleId", "capacity"]) ||
+        !hasExactKeys(parsed, ["type", "battleId", "capacity", "roomName"]) ||
         !isOneOf(parsed.battleId, BATTLE_IDS) ||
         typeof parsed.capacity !== "number" ||
         !Number.isInteger(parsed.capacity) ||
         parsed.capacity < 1 ||
-        parsed.capacity > 5
+        parsed.capacity > 5 ||
+        typeof parsed.roomName !== "string"
       ) {
         throw new ProtocolError("invalid_room", "보스방은 1명부터 5명까지 만들 수 있습니다.");
       }
-      return { type: parsed.type, battleId: parsed.battleId, capacity: parsed.capacity };
+      {
+        const roomName = normalizeRoomName(parsed.roomName);
+        if (!isValidRoomName(roomName)) {
+          throw new ProtocolError("invalid_room_name", "방 이름은 1자부터 32자까지 입력해 주세요.");
+        }
+        return { type: parsed.type, battleId: parsed.battleId, capacity: parsed.capacity, roomName };
+      }
 
     case "room.join":
       if (
@@ -222,9 +246,11 @@ function sanitizeRoom(value: unknown): RoomRecord | null {
 
   const memberPlayerIds = [...new Set(value.memberPlayerIds)].slice(0, value.capacity);
   if (memberPlayerIds.length === 0) return null;
+  const storedRoomName = typeof value.roomName === "string" ? normalizeRoomName(value.roomName) : "";
   return {
     version: 1,
     roomId: value.roomId,
+    roomName: isValidRoomName(storedRoomName) ? storedRoomName : DEFAULT_ROOM_NAME,
     battleId: value.battleId,
     capacity: value.capacity,
     hostPlayerId: memberPlayerIds.includes(value.hostPlayerId) ? value.hostPlayerId : memberPlayerIds[0],
@@ -342,7 +368,9 @@ export class PostgameCoordinator {
           this.updatePresence(socket, attachment, parsed);
           return;
         case "room.create":
-          await this.enqueueRoomMutation(() => this.createRoom(socket, attachment, parsed.battleId, parsed.capacity));
+          await this.enqueueRoomMutation(() =>
+            this.createRoom(socket, attachment, parsed.battleId, parsed.capacity, parsed.roomName),
+          );
           return;
         case "room.join":
           await this.enqueueRoomMutation(() => this.joinRoom(socket, attachment, parsed.roomId));
@@ -447,6 +475,7 @@ export class PostgameCoordinator {
     attachment: SocketAttachment,
     battleId: BattleId,
     capacity: number,
+    roomName: string,
   ): Promise<void> {
     this.assertCanJoinRoom(attachment);
     let roomId = this.generateRoomId();
@@ -455,6 +484,7 @@ export class PostgameCoordinator {
     const room: RoomRecord = {
       version: 1,
       roomId,
+      roomName,
       battleId,
       capacity,
       hostPlayerId: attachment.playerId,
@@ -574,6 +604,7 @@ export class PostgameCoordinator {
     const seed = crypto.randomUUID();
     const startedRoom: PublicRoom = {
       id: room.roomId,
+      roomName: room.roomName,
       battleId: room.battleId,
       capacity: room.capacity,
       memberCount: roster.length,
@@ -643,6 +674,7 @@ export class PostgameCoordinator {
     });
     return {
       id: room.roomId,
+      roomName: room.roomName,
       battleId: room.battleId,
       capacity: room.capacity,
       memberCount: members.length,

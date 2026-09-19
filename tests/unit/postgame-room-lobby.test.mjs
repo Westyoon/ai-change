@@ -3,10 +3,13 @@ import test from "node:test";
 
 import {
   MAX_ROOM_CAPACITY,
+  MAX_ROOM_NAME_LENGTH,
   MIN_ROOM_CAPACITY,
   createPostgameRoomLobby,
   currentRoomFromState,
+  normalizeRoomName,
   roomCapacity,
+  roomName,
 } from "../../js/battle/postgame/room-lobby.js";
 
 class FakeNode {
@@ -74,6 +77,13 @@ class FakeElement extends FakeNode {
       listener.call(this, { type: "click", target: this, currentTarget: this });
     }
   }
+
+  dispatchEvent(event) {
+    event.target ??= this;
+    event.currentTarget ??= this;
+    for (const listener of this.listeners.get(event.type) ?? []) listener.call(this, event);
+    return true;
+  }
 }
 
 function descendants(root, predicate) {
@@ -123,13 +133,14 @@ function installFakeDom() {
 
 function room({
   id,
+  roomName = "테스트 원정대",
   battleId = "stat-boss",
   capacity = 5,
   hostId = "host",
   members = [{ id: hostId, name: "방장" }],
   status = "waiting",
 } = {}) {
-  return { id, battleId, capacity, hostId, members, status };
+  return { id, roomName, battleId, capacity, hostId, members, status };
 }
 
 test("room capacity accepts 1-5 and defaults missing or invalid values to 5", () => {
@@ -143,24 +154,36 @@ test("room capacity accepts 1-5 and defaults missing or invalid values to 5", ()
   assert.equal(roomCapacity({ capacity: 99 }), 5);
 });
 
-test("room creation defaults to five players and clamps UI submissions to 1-5", () => {
+test("room creation requires a title, defaults to five players, and clamps UI submissions to 1-5", () => {
   const restore = installFakeDom();
   try {
     const created = [];
     const lobby = createPostgameRoomLobby({
-      onCreate: (battleId, capacity) => created.push({ battleId, capacity }),
+      onCreate: (battleId, capacity, roomName) => created.push({ battleId, capacity, roomName }),
     });
     assert.equal(lobby.open({ battle: null }), false);
     assert.equal(lobby.open({ battle: { id: "stat-boss", title: "스탯 보스" } }), true);
     lobby.render({ status: "connected", selfId: "self", rooms: [] });
 
     const capacity = byClass(lobby.element, "postgame-room-lobby__capacity")[0];
+    const name = byClass(lobby.element, "postgame-room-lobby__name")[0];
+    const nameHint = byClass(lobby.element, "postgame-room-lobby__name-hint")[0];
     const create = button(lobby.element, "방 만들기");
     assert.equal(capacity.value, "5");
     assert.equal(capacity.disabled, false);
-    assert.equal(create.disabled, false);
+    assert.equal(name.value, "");
+    assert.equal(create.disabled, true, "blank room names cannot be submitted");
 
-    create.click();
+    name.value = "  스탯 보스 같이 잡아요!  ";
+    name.dispatchEvent({ type: "input" });
+    assert.equal(create.disabled, false);
+    let prevented = false;
+    name.dispatchEvent({
+      type: "keydown",
+      key: "Enter",
+      preventDefault: () => { prevented = true; },
+    });
+    assert.equal(prevented, true, "Enter submits the completed room form");
     capacity.value = "1";
     create.click();
     capacity.value = "99";
@@ -168,20 +191,39 @@ test("room creation defaults to five players and clamps UI submissions to 1-5", 
     capacity.value = "invalid";
     create.click();
     assert.deepEqual(created, [
-      { battleId: "stat-boss", capacity: 5 },
-      { battleId: "stat-boss", capacity: 1 },
-      { battleId: "stat-boss", capacity: 5 },
-      { battleId: "stat-boss", capacity: 5 },
+      { battleId: "stat-boss", capacity: 5, roomName: "스탯 보스 같이 잡아요!" },
+      { battleId: "stat-boss", capacity: 1, roomName: "스탯 보스 같이 잡아요!" },
+      { battleId: "stat-boss", capacity: 5, roomName: "스탯 보스 같이 잡아요!" },
+      { battleId: "stat-boss", capacity: 5, roomName: "스탯 보스 같이 잡아요!" },
     ]);
+
+    name.value = "가".repeat(33);
+    name.dispatchEvent({ type: "input" });
+    assert.equal(create.disabled, true, "more than 32 Unicode characters cannot be submitted");
+    assert.equal(nameHint.dataset.invalid, "true");
+    assert.equal(nameHint.textContent, "32자 이하로 입력해 주세요.");
 
     lobby.render({ status: "reconnecting", selfId: "self", rooms: [] });
     assert.equal(capacity.disabled, true);
+    assert.equal(name.disabled, true);
     assert.equal(create.disabled, true);
     create.click();
     assert.equal(created.length, 4);
   } finally {
     restore();
   }
+});
+
+test("room names normalize safely, cap display text, and retain a legacy fallback", () => {
+  assert.equal(MAX_ROOM_NAME_LENGTH, 32);
+  assert.equal(normalizeRoomName("  같이   가요\t\n  "), "같이 가요");
+  assert.equal(normalizeRoomName("Ａ\u0000 방\u200b"), "A 방");
+  assert.equal(normalizeRoomName("가".repeat(33)), "가".repeat(33));
+  assert.equal([...normalizeRoomName("😀".repeat(40))].length, 40);
+  assert.equal(normalizeRoomName("   "), "");
+  assert.equal(roomName({ roomName: "  공개 원정대 " }), "공개 원정대");
+  assert.equal([...roomName({ roomName: "😀".repeat(40) })].length, 32);
+  assert.equal(roomName({ members: [{ name: "이화" }] }), "이화의 방");
 });
 
 test("directory filters by battle and marks full, joined, and current-room states", () => {
@@ -191,7 +233,7 @@ test("directory filters by battle and marks full, joined, and current-room state
     const lobby = createPostgameRoomLobby({ onJoin: (id) => joinedRoomIds.push(id) });
     lobby.open({ battle: { id: "stat-boss", title: "스탯 보스" } });
 
-    const available = room({ id: "available", capacity: undefined });
+    const available = room({ id: "available", roomName: "스탯 초행 환영", capacity: undefined });
     const full = room({
       id: "full",
       capacity: 2,
@@ -209,10 +251,11 @@ test("directory filters by battle and marks full, joined, and current-room state
 
     let cards = byClass(lobby.element, "postgame-room-card");
     assert.equal(cards.length, 3, "started and other-battle rooms stay out of this directory");
+    assert.ok(descendants(cards[0], (node) => node.textContent === "스탯 초행 환영").length > 0);
     assert.equal(button(cards[0], "참가").disabled, false);
     assert.equal(button(cards[1], "가득 참").disabled, true);
     assert.equal(button(cards[2], "참가").disabled, false);
-    assert.ok(descendants(cards[0], (node) => node.textContent === "1/5명").length > 0);
+    assert.ok(descendants(cards[0], (node) => node.textContent === "방장 방장 · 1/5명").length > 0);
 
     button(cards[0], "참가").click();
     button(cards[1], "가득 참").click();
@@ -228,6 +271,10 @@ test("directory filters by battle and marks full, joined, and current-room state
     assert.equal(button(cards[0], "참가 중").disabled, true);
     assert.equal(button(cards[2], "참가").disabled, true, "joining another room is blocked");
     assert.equal(byClass(lobby.element, "postgame-room-lobby__membership")[0].hidden, false);
+    assert.ok(descendants(
+      byClass(lobby.element, "postgame-room-lobby__membership")[0],
+      (node) => node.textContent === "스탯 초행 환영 · 1/5명",
+    ).length > 0);
     assert.equal(byClass(lobby.element, "postgame-room-lobby__capacity")[0].disabled, true);
     assert.equal(button(lobby.element, "방 만들기").disabled, true);
 

@@ -14,6 +14,15 @@ function cleanText(value, { fallback = "", maxLength = 80 } = {}) {
     : fallback;
 }
 
+function normalizeRoomName(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .normalize("NFKC")
+    .replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 function finiteNumber(value, fallback = 0) {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -79,9 +88,12 @@ function publicRoom(candidate) {
       .slice(0, 5),
   );
   const capacity = Math.min(5, Math.max(1, Math.trunc(finiteNumber(candidate.capacity, 1))));
+  const normalizedRoomName = normalizeRoomName(candidate.roomName ?? candidate.name);
+  const explicitRoomName = [...normalizedRoomName].slice(0, 32).join("");
   return Object.freeze({
     id,
     battleId,
+    roomName: explicitRoomName || `${members[0]?.name || "플레이어"}의 방`,
     capacity,
     hostId: cleanText(candidate.hostId ?? candidate.hostPlayerId, { maxLength: 128 }),
     memberCount: Math.min(capacity, Math.max(
@@ -149,6 +161,15 @@ function validateIdentifier(value, label) {
   const normalized = cleanText(value, { maxLength: 80 });
   if (!normalized || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]*$/u.test(normalized)) {
     throw new TypeError(`${label} is invalid.`);
+  }
+  return normalized;
+}
+
+function validateRoomName(value) {
+  const normalized = normalizeRoomName(value);
+  const length = [...normalized].length;
+  if (length < 1 || length > 32) {
+    throw new TypeError("roomName must contain 1 to 32 characters.");
   }
   return normalized;
 }
@@ -280,7 +301,7 @@ export class PostgameRealtimeService {
     this.#queuePresence();
   }
 
-  createRoom(battleId, capacity = 5) {
+  createRoom(battleId, capacity = 5, roomName) {
     const normalizedBattleId = validateIdentifier(battleId, "battleId");
     const normalizedCapacity = Number(capacity);
     if (!Number.isInteger(normalizedCapacity) || normalizedCapacity < 1 || normalizedCapacity > 5) {
@@ -290,6 +311,7 @@ export class PostgameRealtimeService {
       type: "room.create",
       battleId: normalizedBattleId,
       capacity: normalizedCapacity,
+      roomName: validateRoomName(roomName),
     });
   }
 
@@ -674,4 +696,5 @@ export {
   DEFAULT_PRESENCE_INTERVAL_MS,
   PUBLIC_ZONES,
   asWebSocketUrl,
+  normalizeRoomName,
 };
