@@ -172,15 +172,15 @@ export default class AfterControlBossMiniGame {
   }
 
   buildWorldTriggers() {
-    const { startX, startY, tileW, tileH, rows, cols } = this.config.world.altarArea;
+    const { startX, startY, tileW, tileH, rows, cols, gapX, gapY } = this.config.world.altarArea;
     this.tileBoundsMap.clear();
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const id = `tile_${r}_${c}`;
         this.tileBoundsMap.set(id, {
-          x: startX + c * (tileW + 18),
-          y: startY + r * (tileH + 12),
+          x: startX + c * (tileW + gapX),
+          y: startY + r * (tileH + gapY),
           width: tileW,
           height: tileH
         });
@@ -314,7 +314,7 @@ export default class AfterControlBossMiniGame {
     this.clearBulletsDOM();
     this.clearShockwavesDOM();
     this.updateUI();
-    this.setStatus("⚠️ 보스 즉사기 캐스팅 (3초)! 중앙 엄폐벽 안으로 대피하세요!", "error", true);
+    this.setStatus("⚠️ 보스 즉사기 준비 (3초)! 중앙의 벽 안으로 대피하세요!", "error", true);
   }
 
   enterPhase3() {
@@ -328,7 +328,7 @@ export default class AfterControlBossMiniGame {
     this.renderTilesVisual();
     this.rebuildDynamicTriggers();
     this.updateUI();
-    this.setStatus("Phase 3: 발판 순서대로 밟기! 원형 파동이 오면 엄폐벽 뒤로 숨으세요!", "warning");
+    this.setStatus("Phase 3: 발판 순서대로 밟기! 원형 파동이 오면 벽 뒤로 숨으세요!", "warning");
   }
 
   enterPhase4() {
@@ -345,7 +345,7 @@ export default class AfterControlBossMiniGame {
     if (this.currentHp <= 0) return;
 
     this.updateUI();
-    this.setStatus("✨ 기믹 성공! 보스 그로기 10초 다운! 가까이 가서 극딜하세요!", "success");
+    this.setStatus("✨ 발판 성공! 보스가 기절했습니다! 가까이 가서 공격하세요!", "success");
   }
 
   spawnShockwave() {
@@ -385,7 +385,7 @@ export default class AfterControlBossMiniGame {
       el: ringEl
     });
 
-    this.setStatus("⚠️ 보스 원형 충격파 방출! 엄폐벽 안으로 숨으세요!", "error", true);
+    this.setStatus("⚠️ 보스가 충격파를 방출합니다! 벽 안으로 숨으세요!", "error", true);
   }
 
   updateShockwaves(dt) {
@@ -404,11 +404,11 @@ export default class AfterControlBossMiniGame {
         if (Math.abs(dist - sw.radius) < sw.thickness) {
           sw.hasHitPlayer = true;
           if (this.isCovered) {
-            this.setStatus("🛡️ 엄폐벽이 원형 충격파를 막아냈습니다!", "success");
+            this.setStatus("🛡️ 벽이 원형 충격파를 막아냈습니다!", "success");
           } else {
             this.applyDirectPlayerDamage(25);
             this.applyStunPenalty();
-            this.setStatus("💥 원형 충격파에 피격되었습니다! (엄폐 실패)", "error", true);
+            this.setStatus("💥 충격파에 피격되었습니다!", "error", true);
           }
         }
       }
@@ -493,7 +493,6 @@ export default class AfterControlBossMiniGame {
       b.el.style.top = `${b.y}px`;
     }
   }
-
   updatePlayerMovement(dt) {
     if (this.isStunned || this.isGameOver) return;
 
@@ -521,9 +520,10 @@ export default class AfterControlBossMiniGame {
       this.playerEl.style.top = `${this.playerPos.y}px`;
     }
 
+    // 플레이어 히트박스 원상 복구
     const playerBox = { x: this.playerPos.x - 16, y: this.playerPos.y - 21, width: 32, height: 42 };
-
     const coverBounds = this.config.world.coverZone;
+
     const isOverCover = this.checkOverlap(playerBox, coverBounds);
     if (isOverCover && !this.activeTriggers.has('COVER')) {
       this.activeTriggers.add('COVER');
@@ -535,25 +535,47 @@ export default class AfterControlBossMiniGame {
 
     if (this.phase === 3) {
       this.collapsedTileIds.forEach(id => {
-        const bounds = this.tileBoundsMap.get(id);
-        if (bounds && this.checkOverlap(playerBox, bounds)) {
-          this.eventBus.emit(CHARACTER_EVENTS.CONTACT, { phase: 'enter', metadata: { type: 'FALL_HOLE' } });
+        const tBounds = this.tileBoundsMap.get(id);
+        if (tBounds) {
+          // 낙사 홀 인식 범위 대폭 축소 (상하좌우 마진 추가)
+          const holeBounds = {
+            x: tBounds.x + tBounds.width * 0.2,
+            y: tBounds.y + tBounds.height * 0.2,
+            width: tBounds.width * 0.6,
+            height: tBounds.height * 0.6
+          };
+          if (this.checkOverlap(playerBox, holeBounds)) {
+            this.eventBus.emit(CHARACTER_EVENTS.CONTACT, { phase: 'enter', metadata: { type: 'FALL_HOLE' } });
+          }
         }
       });
 
       this.platesSequence.forEach((id, step) => {
-        const bounds = this.tileBoundsMap.get(id);
+        // 이미 밟은 발판은 판정 로직 자체를 무시 (일반 평지화)
+        if (step < this.currentPlateStep) return;
+
+        const tBounds = this.tileBoundsMap.get(id);
         const trigKey = `PLATE_${id}`;
-        if (bounds && this.checkOverlap(playerBox, bounds)) {
-          if (!this.activeTriggers.has(trigKey)) {
-            this.activeTriggers.add(trigKey);
-            this.eventBus.emit(CHARACTER_EVENTS.CONTACT, {
-              phase: 'enter',
-              metadata: { type: 'ORDER_PLATE', targetStep: step }
-            });
+        if (tBounds) {
+          // 발판 인식 범위를 상하좌우 10px씩 깎아내어 시각적 크기보다 안쪽만 판정
+          const plateBounds = {
+            x: tBounds.x + 10,
+            y: tBounds.y + 10,
+            width: tBounds.width - 20,
+            height: tBounds.height - 20
+          };
+
+          if (this.checkOverlap(playerBox, plateBounds)) {
+            if (!this.activeTriggers.has(trigKey)) {
+              this.activeTriggers.add(trigKey);
+              this.eventBus.emit(CHARACTER_EVENTS.CONTACT, {
+                phase: 'enter',
+                metadata: { type: 'ORDER_PLATE', targetStep: step }
+              });
+            }
+          } else {
+            this.activeTriggers.delete(trigKey);
           }
-        } else {
-          this.activeTriggers.delete(trigKey);
         }
       });
     }
@@ -665,7 +687,7 @@ export default class AfterControlBossMiniGame {
 
     const maxAttackRange = 130;
     if (distance > maxAttackRange) {
-      this.setStatus("⚠️ 사거리 부족! 보스 바로 밑으로 다가가세요.", "warning");
+      this.setStatus("⚠️ 사거리 부족! 보스에게 더 가까이 다가가세요.", "warning");
       return;
     }
 
@@ -701,17 +723,25 @@ export default class AfterControlBossMiniGame {
 
     if (this.phase !== 3) return;
 
-    if (metadata?.type === "FALL_HOLE" && phase === "enter") {
+    if (metadata?.type === "FALL_HOLE" && (phase === "enter" || phase === "stay")) {
       this.applyDirectPlayerDamage(999999);
-      this.triggerGameOver("붕괴된 낙사 홀로 추락했습니다!");
+      this.triggerGameOver("붕괴된 구덩이로 추락했습니다!");
       return;
     }
 
-    if (metadata?.type === "ORDER_PLATE" && phase === "enter") {
+    if (metadata?.type === "ORDER_PLATE" && (phase === "enter" || phase === "stay")) {
       if (this.isStunned) return;
-      if (metadata.targetStep === this.currentPlateStep) {
+
+      const target = Number(metadata.targetStep);
+      if (isNaN(target) || target < this.currentPlateStep) return;
+
+      if (target === this.currentPlateStep) {
         this.currentPlateStep++;
-        this.highlightTileCleared(this.platesSequence[metadata.targetStep]);
+        this.highlightTileCleared(this.platesSequence[target]);
+        
+        // 💡 발판 성공 즉시 트리거를 다시 빌드하여 방금 밟은 타일을 영구적으로 평지화시킴
+        this.rebuildDynamicTriggers();
+
         if (this.currentPlateStep >= 4) {
           this.enterPhase4();
         } else {
@@ -790,19 +820,34 @@ export default class AfterControlBossMiniGame {
 
     if (this.phase === 3) {
       this.collapsedTileIds.forEach(id => {
+        const tBounds = this.tileBoundsMap.get(id);
         triggers.push({
           id: `trigger_hole_${id}`,
           kind: trapKind,
-          bounds: this.tileBoundsMap.get(id),
+          bounds: {
+            x: tBounds.x + tBounds.width * 0.2,
+            y: tBounds.y + tBounds.height * 0.2,
+            width: tBounds.width * 0.6,
+            height: tBounds.height * 0.6
+          },
           metadata: { type: "FALL_HOLE" }
         });
       });
 
       this.platesSequence.forEach((id, idx) => {
+        // 이미 밟은 발판은 트리거 리스트에서 완전히 제외시킴 (평지화)
+        if (idx < this.currentPlateStep) return;
+
+        const tBounds = this.tileBoundsMap.get(id);
         triggers.push({
           id: `trigger_plate_${id}`,
           kind: plateKind,
-          bounds: this.tileBoundsMap.get(id),
+          bounds: {
+            x: tBounds.x + 10,
+            y: tBounds.y + 10,
+            width: tBounds.width - 20,
+            height: tBounds.height - 20
+          },
           metadata: { type: "ORDER_PLATE", targetStep: idx }
         });
       });
