@@ -256,12 +256,13 @@
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: calc(var(--ai-frame-width) / 16);
+  padding: calc(var(--ai-frame-width) / 20);
   background: rgb(15 16 25 / 92%);
   color: #00cec9;
-  font-size: clamp(3.75rem, calc(var(--ai-frame-width) * 0.1875), 7.5rem);
+  /* 글자 크기를 화면에 맞게 대폭 줄여서 잘림 방지 */
+  font-size: clamp(1.5rem, calc(var(--ai-frame-width) * 0.08), 3rem);
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.2;
   text-align: center;
 }
 
@@ -271,16 +272,18 @@
 }
 
 .ai-ball-classification .countdown-card h3 {
-  margin: 0 0 calc(var(--ai-frame-width) / 24);
-  color: #dfe6e9;
-  font-size: clamp(0.76rem, calc(var(--ai-frame-width) / 24), 1.667rem);
+  margin: 0 0 calc(var(--ai-frame-width) / 40);
+  color: #a29bfe;
+  font-size: clamp(0.9rem, calc(var(--ai-frame-width) / 20), 1.4rem);
 }
 
 .ai-ball-classification .target-preview-box {
-  display: grid;
-  width: min(83.333%, 400px);
-  aspect-ratio: 4 / 3;
-  place-items: center;
+  display: flex;
+  width: min(50%, 180px);
+  aspect-ratio: 1 / 1;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: calc(var(--ai-frame-width) / 30);
 }
 
 .ai-ball-classification .target-preview-box img {
