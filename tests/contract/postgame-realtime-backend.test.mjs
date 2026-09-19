@@ -56,7 +56,9 @@ test("the coordinator uses hibernating sockets and keeps private account keys ou
   );
   assert.ok(publicPlayerBody.length > 0);
   assert.doesNotMatch(publicPlayerBody, /playerKey/u);
-  assert.match(coordinatorSource, /player\.playerKey\s*!==\s*recipient\.playerKey/u);
+  assert.match(coordinatorSource, /player\.playerId\s*!==\s*recipient\.playerId/u);
+  assert.match(coordinatorSource, /attachment\.playerId\s*!==\s*excludedPlayerId/u);
+  assert.doesNotMatch(coordinatorSource, /attachment\.playerKey\s*!==\s*excludedPlayerKey/u);
 });
 
 test("room authority enforces 1-5 seats, host-only start, host transfer, and persisted state", () => {

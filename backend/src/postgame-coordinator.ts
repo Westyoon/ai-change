@@ -435,7 +435,7 @@ export class PostgameCoordinator {
       this.broadcastToZone(
         previousZone,
         { type: "presence.leave", playerId: attachment.playerId, zone: previousZone },
-        attachment.playerKey,
+        attachment.playerId,
       );
       this.sendPresenceSnapshot(socket, attachment);
     }
@@ -664,7 +664,6 @@ export class PostgameCoordinator {
       .filter(
         (player) =>
           player.playerId !== recipient.playerId &&
-          player.playerKey !== recipient.playerKey &&
           player.zone === recipient.zone,
       )
       .map((player) => this.publicPlayer(player));
@@ -672,12 +671,12 @@ export class PostgameCoordinator {
   }
 
   private broadcastPresence(sender: SocketAttachment, payload: unknown): void {
-    this.broadcastToZone(sender.zone, payload, sender.playerKey);
+    this.broadcastToZone(sender.zone, payload, sender.playerId);
   }
 
-  private broadcastToZone(zone: Zone, payload: unknown, excludedPlayerKey?: string): void {
+  private broadcastToZone(zone: Zone, payload: unknown, excludedPlayerId?: string): void {
     for (const { socket, attachment } of this.activeSockets()) {
-      if (attachment.zone === zone && attachment.playerKey !== excludedPlayerKey) this.send(socket, payload);
+      if (attachment.zone === zone && attachment.playerId !== excludedPlayerId) this.send(socket, payload);
     }
   }
 
@@ -731,7 +730,7 @@ export class PostgameCoordinator {
     this.broadcastToZone(
       attachment.zone,
       { type: "presence.leave", playerId: attachment.playerId, zone: attachment.zone },
-      attachment.playerKey,
+      attachment.playerId,
     );
     await this.enqueueRoomMutation(() => this.leaveRoom(socket, attachment, false));
   }
