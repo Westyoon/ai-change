@@ -7,6 +7,7 @@
  * 사용법:
  *   1) 아무 빈 브라우저 탭을 하나 엽니다 (about:blank 등).
  *   2) 개발자 도구 콘솔을 열고 이 파일 전체 내용을 붙여넣어 실행합니다.
+ *      (붙여넣기가 막혀 있으면 콘솔에 "allow pasting" 을 먼저 입력 후 Enter)
  *   3) 화면에 생성된 엑스알을 클릭해 미니게임을 테스트합니다.
  */
 (function bootstrapDevHarness() {
@@ -284,6 +285,8 @@
         const resultEl = container.querySelector('#rpsResult');
         const choiceButtons = Array.from(container.querySelectorAll('.rps-choice'));
         ModalManager.setClosable(true);
+        const REVEAL_DELAY_MS = 700; // 플레이어 선택 후 상대 손이 공개되기까지의 대기 시간
+        const RESULT_DELAY_MS = 500; // 상대 손 공개 후 결과 문구가 뜨기까지의 대기 시간
         let decided = false;
         choiceButtons.forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -294,20 +297,25 @@
                 const playerHand = findHand(playerKey);
                 const opponentHand = HANDS[Math.floor(Math.random() * HANDS.length)];
                 playerSlot.textContent = playerHand.emoji;
-                opponentSlot.textContent = opponentHand.emoji;
-                const outcome = judge(playerKey, opponentHand.key);
+                opponentSlot.textContent = '🤔';
+                resultEl.textContent = '상대가 손을 고르는 중...';
+                resultEl.className = 'mg-result';
                 window.setTimeout(() => {
-                    if (outcome === 'win') {
-                        resultEl.textContent = `승리! 이겼다!`;
-                        resultEl.className = 'mg-result mg-result--win';
-                        window.setTimeout(() => onClear && onClear(), 700);
-                    } else {
-                        const reason = outcome === 'draw' ? '비겼다' : `졌다..`;
-                        resultEl.textContent = `실패... ${reason}.`;
-                        resultEl.className = 'mg-result mg-result--lose';
-                        window.setTimeout(() => onFail && onFail(), 700);
-                    }
-                }, 350);
+                    opponentSlot.textContent = opponentHand.emoji;
+                    const outcome = judge(playerKey, opponentHand.key);
+                    window.setTimeout(() => {
+                        if (outcome === 'win') {
+                            resultEl.textContent = `승리! 이겼다!`;
+                            resultEl.className = 'mg-result mg-result--win';
+                            window.setTimeout(() => onClear && onClear(), 700);
+                        } else {
+                            const reason = outcome === 'draw' ? '비겼다' : `졌다..`;
+                            resultEl.textContent = `실패... ${reason}.`;
+                            resultEl.className = 'mg-result mg-result--lose';
+                            window.setTimeout(() => onFail && onFail(), 700);
+                        }
+                    }, RESULT_DELAY_MS);
+                }, REVEAL_DELAY_MS);
             });
         });
     }
