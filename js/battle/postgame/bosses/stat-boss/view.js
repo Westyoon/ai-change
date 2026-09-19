@@ -24,7 +24,7 @@
 // [렌더링 방식] 팀 공용 캐릭터 시스템(character-view.js)과 통일해서 Canvas가 아니라
 // <div> + 퍼센트(%) 좌표 기반으로 그린다.
 
-import { GRID, isCellInSet } from "./grid.js";
+import { GRID, isCellInSet, positionToCell } from "./grid.js";
 import { CharacterView, RemoteCharacterView, createCharacterActorElement } from "../../../character/index.js";
 import { createElement } from "../../../../scenes/scene-utils.js";
 
@@ -120,8 +120,13 @@ export class StatBossView {
     // 위험 칸 하이라이트: TELEGRAPH일 때만 빗금으로 "예정"을 보여준다.
     // (실제 판정 순간의 단색 빨강 플래시는 flashImpact()가 따로 처리한다.)
     const danger = snapshot.phase === "TELEGRAPH" ? snapshot.dangerCells : [];
+    // 2026-09-16: 누적된 영구 위험 칸(단일 저격이 계속 쌓아온 칸)은 phase와 상관없이
+    // 항상 보여준다 - "지금 예고 중이라 위험한 것"과 "이제 계속 위험한 곳"을 구분하려고
+    // danger와는 별개 속성(hazard)을 쓴다 (css에서 각각 다른 스타일).
+    const hazard = snapshot.accumulatedHazardCells ?? [];
     for (const { row, col, el } of this.cells) {
       el.dataset.danger = String(isCellInSet({ row, col }, danger));
+      el.dataset.hazard = String(isCellInSet({ row, col }, hazard));
     }
 
     // 상단 phase 배지 + 패턴 이름 태그
@@ -136,6 +141,9 @@ export class StatBossView {
 
     // 화면 중앙 "반격!" 프롬프트: STAGGER 중에만 보인다.
     this.counterPrompt.dataset.visible = String(snapshot.phase === "STAGGER");
+    // 2026-09-16: 프롬프트 텍스트뿐 아니라 실제 눌러야 할 버튼 자체를 강조해서,
+    // "어디를 눌러야 하는지" 시각적으로도 바로 보이게 한다 (css의 [data-ready] 참고).
+    this.attackButton.dataset.ready = String(snapshot.phase === "STAGGER");
 
     // 좌상단 내 스탯 카드 (경과 시간 / 공격력 / 방어력 / HP)
     this.timerText.textContent = formatClock(snapshot.elapsedMs);
@@ -144,6 +152,17 @@ export class StatBossView {
       this.statAtk.textContent = String(me.attackStat);
       this.statDef.textContent = String(me.defenseStat);
       this.statHp.textContent = `${Math.max(0, Math.round(me.hp))}/${me.maxHp}`;
+
+      // 2026-09-16 버그 수정: 캐릭터 액터(z-index 20)가 격자 칸(z-index 1)보다
+      // 위에 그려져서, 내가 지금 서 있는 칸이 위험/누적위험 칸이어도 그 빗금·색이
+      // 내 캐릭터에 가려 안 보이는 문제가 있었다("안 닿았는데 왜 죽었지" 피드백의
+      // 원인 중 하나로 추정). 무엇이 가리든 항상 보이도록 캐릭터 자체에 경고
+      // 테두리를 켠다 (css의 [data-on-hazard] 참고).
+      if (me.position) {
+        const myCell = positionToCell(me.position.x, me.position.y, this.arena);
+        const onHazard = isCellInSet(myCell, danger) || isCellInSet(myCell, hazard);
+        this.playerActorEl.dataset.onHazard = String(onHazard);
+      }
     }
   }
 
@@ -225,6 +244,15 @@ export class StatBossView {
 
     this.patternTag = createElement("p", { className: "stat-boss-pattern-tag", text: "-" });
 
+    // 2026-09-16: 지안 피드백("반격 어떻게 하는지 방법 이해가 힘들었어요") 반영.
+    // 화면 한쪽에 늘 보이는 조작 안내 한 줄 - "경직 = 반격 타이밍"이라는 것과 어느
+    // 버튼/키를 눌러야 하는지를 텍스트로 명시한다. STAGGER 중엔 counterPrompt와
+    // attackButton 하이라이트(아래 render() 참고)가 순간적으로 한 번 더 강조해준다.
+    this.controlHint = createElement("p", {
+      className: "stat-boss-control-hint",
+      text: "이동: 조이스틱 · 보스가 굳었을 때(경직) 공격 버튼(PC는 Space)으로 반격!",
+    });
+
     // ---- 보스 존: 격자와 절대 겹치지 않는 별도 구역 (2026-09-06: "그리드가 보스를
     // 뚫는다" 피드백으로 격자 밖으로 분리함) ----
     const bossSprite = createElement("span", { className: "stat-boss-boss-actor__sprite" });
@@ -245,7 +273,7 @@ export class StatBossView {
       for (let col = 0; col < GRID.columns; col++) {
         const el = createElement("div", {
           className: "stat-boss-cell",
-          dataset: { row: String(row), col: String(col), danger: "false", impact: "false" },
+          dataset: { row: String(row), col: String(col), danger: "false", impact: "false", hazard: "false" },
         });
         this.cells.push({ row, col, el });
         gridEl.append(el);
@@ -257,7 +285,7 @@ export class StatBossView {
 
     this.counterPrompt = createElement("div", {
       className: "stat-boss-counter-prompt",
-      text: "반격!",
+      text: "공격 버튼으로 반격!", // 2026-09-16: 지안 피드백 - 그냥 "반격!"만으로는 뭘 눌러야 하는지 안 보여서 구체화
       attributes: { "aria-hidden": "true" },
     });
     this.counterFlashEl = createElement("div", {
@@ -321,6 +349,7 @@ export class StatBossView {
     return createElement("section", { className: "stat-boss-stage character-stage" }, [
       hud,
       this.patternTag,
+      this.controlHint,
       playerHud,
       battlefield,
       touchControls,

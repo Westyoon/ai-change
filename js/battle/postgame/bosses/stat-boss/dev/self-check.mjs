@@ -44,14 +44,14 @@ function check(description, actual, expected) {
 }
 
 console.log("\n[grid.js]");
-check("7x5 격자 크기", [GRID.columns, GRID.rows], [7, 5]);
+check("9x6 격자 크기", [GRID.columns, GRID.rows], [9, 6]);
 check(
   "좌표(200,130)는 아레나 960x600에서 col1/row1 칸",
   positionToCell(200, 130, { width: 960, height: 600 }),
   { row: 1, col: 1 }
 );
-check("row(1)은 7칸 반환 (열 수만큼)", row(1).length, 7);
-check("column(2)는 5칸 반환 (행 수만큼)", column(2).length, 5);
+check("row(1)은 9칸 반환 (열 수만큼)", row(1).length, 9);
+check("column(2)는 6칸 반환 (행 수만큼)", column(2).length, 6);
 check("block(0,0,2,2)는 4칸 반환", block(0, 0, 2, 2).length, 4);
 check(
   "inverse([{row:0,col:0}])는 전체 칸 수 - 1",
@@ -94,6 +94,37 @@ const comboSteps = getPatternById("combo-strike").getSteps({
 });
 check("연속 콤보는 step이 2개 = 회피 2회 요구", comboSteps.length, 2);
 
+// 2026-09-16 버그 수정: 광역 확산(area-burst)이 "안전 칸"으로 골라주는 칸이 이미
+// 영구 위험 칸(누적형 단일 저격이 쌓아온 accumulatedHazardCells)과 겹치면 안 된다 -
+// 겹치면 화면엔 안전해 보여도 실제로는 맞는다("안 닿았는데 왜 죽었지" 버그 리포트로 발견).
+// 반경 1칸(REACH_RADIUS_CELLS) 안이 전부 이미 위험 칸인 극단적인 경우(폴백 경로)까지
+// 확인한다.
+{
+  const hazardBlock = block(1, 1, 3, 3); // 플레이어(2,2) 기준 반경 1칸 전부를 미리 위험 칸으로 채움
+  const rng2 = createRandom(11);
+  const steps = getPatternById("area-burst").getSteps({
+    players: [{ id: "p1", cell: { row: 2, col: 2 } }],
+    random: rng2,
+    accumulatedHazardCells: hazardBlock,
+  });
+  const dangerCells = steps[0].dangerCells;
+  const safeCells = allCells().filter((c) => !isCellInSet(c, dangerCells));
+  const safeOverlapsHazard = safeCells.some((c) => isCellInSet(c, hazardBlock));
+  check("반경 내가 전부 이미 위험 칸이어도(폴백 경로) 안전 칸은 위험 칸과 안 겹침", safeOverlapsHazard, false);
+  check("그래도 안전 칸이 최소 1개는 남음", safeCells.length >= 1, true);
+
+  // 2026-09-16 버그 수정 2탄: "안전 칸이 있긴 한데 예고시간 안에 도달할 시간이 안
+  // 된다"는 리포트로 발견 - 반경1이 전부 막히면 곧장 격자 전체(먼 칸 포함)에서
+  // 뽑던 걸, 반경을 한 칸씩만 넓혀서 "가장 가까운" non-hazard 칸을 찾도록 고쳤다.
+  // 이 시나리오(반경1 = 3x3 블록 전체가 hazard)에서는 반경2(체비셰프 거리 2)까지만
+  // 넓히면 non-hazard 칸이 있으므로, 뽑힌 안전 칸이 딱 그 범위 안에 있어야 한다 -
+  // 반대편 구석처럼 먼 칸이 뽑히면 안 됨.
+  const allWithinRadius2 = safeCells.every(
+    (c) => Math.max(Math.abs(c.row - 2), Math.abs(c.col - 2)) <= 2
+  );
+  check("반경1이 막히면 그 다음으로 가까운 반경2 안에서만 안전 칸을 찾음(먼 칸으로 안 건너뜀)", allWithinRadius2, true);
+}
+
 console.log("\n[judge.js]");
 check(
   "위험 칸 밖에 있으면 회피 성공",
@@ -119,11 +150,19 @@ console.log("\n[encounter.js] - 2단계: 웨이브 진행 · 게임 상태 흐�
 // 아레나는 1단계 테스트와 동일하게 960x600을 기준으로 쓴다.
 const ARENA = { width: 960, height: 600 };
 
+// 2026-09-16: 격자 크기가 바뀌어도(9x6, 나중에 또 바뀌어도) 테스트가 안 깨지게,
+// 좌표를 하드코딩하지 않고 GRID 기준으로 "그 칸의 한가운데" 좌표를 계산하는 헬퍼를 쓴다.
+const CELL_W = ARENA.width / GRID.columns;
+const CELL_H = ARENA.height / GRID.rows;
+function cellCenter(cellRow, cellCol) {
+  return { x: CELL_W * cellCol + CELL_W / 2, y: CELL_H * cellRow + CELL_H / 2 };
+}
+
 // --- 시나리오 1: 1인 플레이, 패턴을 단일 저격 하나로 고정해서 예고->회피실패(피격)
 //     ->경직->반격->다음 패턴까지 한 사이클을 전부 확인한다. ---
 const p1Cell = { row: 2, col: 3 };
-// positionToCell이 그 칸으로 판정하도록, 칸 한가운데 좌표를 넣는다 (960/7≈137, 600/5=120 기준).
-const p1Position = { x: 137 * p1Cell.col + 68, y: 120 * p1Cell.row + 60 };
+// positionToCell이 그 칸으로 판정하도록, 칸 한가운데 좌표를 넣는다.
+const p1Position = cellCenter(p1Cell.row, p1Cell.col);
 
 let lastCandidate1 = null;
 const enc1 = new StatBossEncounter({
@@ -252,6 +291,115 @@ try {
   threwOnRestartAfterDestroy = true;
 }
 check("DESTROYED 이후 restart()는 에러를 던짐 (허용 안 된 전이)", threwOnRestartAfterDestroy, true);
+
+// --- 시나리오 6: 누적형 위험 칸(단일 저격 accumulates) - 2026-09-16 추가.
+//     예전에 판정된 칸이, 지금 패턴의 타겟이 아니어도 계속 위험하게 남는지 확인한다. ---
+const cellA = { row: 0, col: 0 };
+const cellB = { row: 1, col: 1 };
+const enc5 = new StatBossEncounter({
+  arena: ARENA,
+  players: [
+    { id: "p1", attackStat: 0, defenseStat: 100, healthStat: 10, position: cellCenter(cellA.row, cellA.col) },
+  ],
+  bossAttack: 20,
+  bossBaseHp: 100000, // 반격을 안 해서 중간에 클리어되지 않도록 크게 잡음
+  staggerDurationMs: 1200,
+  patternIds: ["single-snipe"],
+  seed: 3,
+});
+enc5.init();
+enc5.start();
+
+enc5.tick(1500); // 1차 예고 종료 -> cellA에서 맞음 (방어100이라 최소 1데미지)
+check("1차 피격 후 누적 위험 칸에 cellA 포함", isCellInSet(cellA, enc5.accumulatedHazardCells), true);
+
+enc5.setPlayerPosition("p1", cellCenter(cellB.row, cellB.col).x, cellCenter(cellB.row, cellB.col).y);
+enc5.tick(1200); // 경직 종료 -> 다음 패턴 시작, 이 시점 위치(cellB)가 타겟으로 잡힘
+check("이동한 cellB가 다음 패턴 타겟으로 잡힘", enc5.currentDangerCells, [cellB]);
+
+const hpBeforeReturn = enc5.players.get("p1").hp;
+// 지금 타겟(cellB)은 피하지만, 예전에 쌓인 위험 칸(cellA)으로 돌아간다.
+enc5.setPlayerPosition("p1", cellCenter(cellA.row, cellA.col).x, cellCenter(cellA.row, cellA.col).y);
+enc5.tick(1500); // 이번 예고 종료
+check(
+  "현재 타겟(cellB)은 피해도 누적 위험 칸(cellA) 위에 있으면 맞는다",
+  enc5.players.get("p1").hp,
+  hpBeforeReturn - 1 // 방어100 vs 보스공격20 -> 최소 데미지 1
+);
+check(
+  "누적 위험 칸에 cellA, cellB 둘 다 남아있음",
+  [isCellInSet(cellA, enc5.accumulatedHazardCells), isCellInSet(cellB, enc5.accumulatedHazardCells)],
+  [true, true]
+);
+
+// --- 시나리오 7: 패턴 셔플 백(다양성) - 2026-09-16 추가 (윤서 피드백: "공격 패턴이
+//     단조롭다"). 40초 이후(5종 패턴 전부 후보인 구간)부터, 같은 패턴이 연달아
+//     나오지 않고 5종이 골고루 나오는지 확인한다. 데미지는 0으로 고정해서 팀 전멸로
+//     조기 종료되지 않고 오래 돌려볼 수 있게 한다(패턴이 뭘로 뽑히는지만 보는 테스트). ---
+const patternPickLog = []; // { id, atMs }
+const enc6 = new StatBossEncounter({
+  arena: ARENA,
+  players: [
+    { id: "p1", attackStat: 0, defenseStat: 0, healthStat: 0, position: cellCenter(0, 0) },
+    { id: "p2", attackStat: 0, defenseStat: 0, healthStat: 0, position: cellCenter(0, 1) },
+  ],
+  bossAttack: 0,
+  staggerDurationMs: 100,
+  seed: 99,
+  onEvent(event) {
+    if (event.type === "telegraph-start" && event.stepIndex === 0) {
+      patternPickLog.push({ id: event.patternId, atMs: enc6.elapsedMs });
+    }
+  },
+});
+enc6.init();
+enc6.start();
+for (let i = 0; i < 6000 && enc6.state === STATE.RUNNING; i++) enc6.tick(50);
+
+// 40초 이후(5종 전부 후보인 구간)만 뽑아서 검사한다 - 그 전 구간은 후보 자체가 적어서
+// (예: 0~15초는 단일 저격 하나뿐) 이 테스트의 관심사가 아니다.
+const fullPoolPicks = patternPickLog.filter((p) => p.atMs >= 40000).map((p) => p.id);
+
+let hasConsecutiveRepeat = false;
+for (let i = 1; i < fullPoolPicks.length; i++) {
+  if (fullPoolPicks[i] === fullPoolPicks[i - 1]) hasConsecutiveRepeat = true;
+}
+check("40초 이후 구간엔 같은 패턴이 두 번 연달아 나오지 않음(셔플 백)", hasConsecutiveRepeat, false);
+
+const pickCounts = {};
+for (const id of fullPoolPicks) pickCounts[id] = (pickCounts[id] ?? 0) + 1;
+const pickCountValues = Object.values(pickCounts);
+const countSpreadOk =
+  fullPoolPicks.length >= 20 &&
+  Object.keys(pickCounts).length === 5 &&
+  Math.max(...pickCountValues) - Math.min(...pickCountValues) <= 1;
+check("5종 패턴이 전부 등장하고, 등장 횟수가 서로 최대 1개 차이로 고르게 분배됨", countSpreadOk, true);
+
+// --- 시나리오 8: 연속 콤보 2번째 step 최소 예고시간 - 2026-09-16 버그 리포트
+//     ("대각선 끝나자마자 인지도 못 할 만큼 짧게 네모 공격이 겹쳐서 나온다") 수정. ---
+{
+  const stepTelegraphs = [];
+  const enc7 = new StatBossEncounter({
+    arena: ARENA,
+    players: [{ id: "p1", attackStat: 0, defenseStat: 0, healthStat: 0, position: cellCenter(0, 0) }],
+    bossAttack: 0,
+    patternIds: ["combo-strike"],
+    seed: 5,
+    onEvent(event) {
+      if (event.type === "telegraph-start") stepTelegraphs.push(event.telegraphMs);
+    },
+  });
+  enc7.init();
+  enc7.elapsedMs = 40000; // 40초 이후(연속 콤보가 후보에 포함되는) 구간으로 미리 이동
+  enc7.start();
+  enc7.tick(800); // 1번째 step(대각선) 예고 종료 -> 2번째 step(블록) 예고 시작
+  check("연속 콤보 1번째 step(대각선)은 그 구간 기본 예고시간(800ms)", stepTelegraphs[0], 800);
+  check(
+    "연속 콤보 2번째 step(사각 블록)은 최소 700ms 이상 (고치기 전엔 400ms였음)",
+    stepTelegraphs[1] >= 700,
+    true
+  );
+}
 
 console.log(`\n총 ${passCount + failCount}개 중 ${passCount}개 통과, ${failCount}개 실패\n`);
 if (failCount > 0) process.exitCode = 1;

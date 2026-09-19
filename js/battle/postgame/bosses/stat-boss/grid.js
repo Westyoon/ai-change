@@ -7,8 +7,8 @@
  * rows: 세로 칸 수 (행, row 인덱스: 0 ~ rows-1)
  */
 export const GRID = {
-  columns: 7,
-  rows: 5,
+  columns: 9,
+  rows: 6,
 };
 
 /**
