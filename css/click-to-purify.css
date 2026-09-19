@@ -99,6 +99,49 @@
   font: 12px var(--font-mono);
 }
 
+.click-to-purify-ui-root .ctp-efficiency-warning {
+  height: 16px;
+  margin: 0 0 8px;
+  overflow: hidden;
+  color: #ffb454;
+  font: bold 12px monospace;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* lockStatus/mashGaugeShell과 동일한 이유로 visibility만 켜고 꺼요 — 항상 자리를
+     차지해야 경고가 뜨고 사라질 때 CLICK 버튼이 위아래로 밀리지 않아요. */
+  visibility: hidden;
+}
+
+.click-to-purify-ui-root .ctp-lock-status {
+  height: 16px;
+  margin: 0 0 8px;
+  overflow: hidden;
+  color: #c9a6ff;
+  font: bold 12px monospace;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.click-to-purify-ui-root .ctp-mash-gauge-shell {
+  position: relative;
+  height: 14px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid #8b3fd1;
+  border-radius: 4px;
+  background: #241a30;
+  /* 잠금 여부는 JS가 visibility로만 켜고 꺼요(display는 안 건드림) — 이 박스가 항상
+     자리를 차지해야 잠길 때마다 아래 CLICK 버튼이 위아래로 밀리지 않아요. */
+  visibility: hidden;
+}
+
+.click-to-purify-ui-root .ctp-mash-gauge {
+  width: 0;
+  height: 100%;
+  background: #c9a6ff;
+  transition: width 80ms linear;
+}
+
 .click-to-purify-ui-root .ctp-click-btn,
 .click-to-purify-ui-root .ctp-start-btn {
   width: 100%;
@@ -256,6 +299,11 @@
   border-color: #37e6ff;
   background: #3a3f4a;
   color: #fff;
+}
+
+.result-card[data-mini-game-id="cyber-click-to-purify"] h2 {
+  white-space: nowrap;
+  font-size: clamp(1.05rem, 5.5vw, 1.4rem);
 }
 
 @media (max-width: 600px) {
