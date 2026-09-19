@@ -1,5 +1,5 @@
 import { loadMiniGameModule } from "../minigames/registry.js";
-import { getPublishedBattles } from "../battle/registry.js";
+import { FINAL_BATTLE_ID, getPublishedBattles } from "../battle/registry.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
@@ -206,8 +206,9 @@ export function createMiniGameScene(context) {
         }
         const outroScriptId = result.status === "CLEAR" ? game.clearOutroScript : game.failOutroScript;
         const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
-        const unlockedBattle = result.status === "CLEAR" && context.config.features?.battleContent === true
+        const unlockedFinalBattle = result.status === "CLEAR" && context.config.features?.battleContent === true
           ? getPublishedBattles(context.content.battles).find((battle) =>
+              battle.id === FINAL_BATTLE_ID &&
               getBattleUnlockStatus(
                 battle,
                 context.services.save?.getState?.() ?? {},
@@ -242,10 +243,10 @@ export function createMiniGameScene(context) {
           },
           onMap: () => context.router.navigate("map"),
           onMenu: () => context.router.navigate("main-menu"),
-          primaryAction: unlockedBattle
+          primaryAction: unlockedFinalBattle
             ? {
-                label: "사후게임 열기",
-                onClick: () => context.router.navigate("battle"),
+                label: "최종전 확인하기",
+                onClick: () => context.router.navigate("map"),
               }
             : null,
           backgroundElements: [toolbar, canvas, uiRoot],

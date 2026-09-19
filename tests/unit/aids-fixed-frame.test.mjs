@@ -175,6 +175,7 @@ test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and
     ownerDocument.head.children[0].textContent,
     /\.aids-ui-root\s*\{[^}]*overflow-y:auto[^}]*align-items:safe center/su,
   );
+  assert.doesNotMatch(ownerDocument.head.children[0].textContent, /\.aids-desktop-layout/u);
   assert.equal(frame.style.width, "390px");
   assert.equal(frame.style.height, "740px");
   assert.equal(frame.style.transform, "scale(0.5)");
@@ -203,14 +204,15 @@ test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and
   uiRoot.clientWidth = 1_200;
   uiRoot.clientHeight = 700;
   observers[0].callback();
-  assert.equal(uiRoot.classList.contains("aids-desktop-layout"), true);
-  assert.equal(frame.style.width, "100%");
-  assert.equal(frame.style.height, "100%");
-  assert.equal(frame.style.transform, "none");
-  assert.equal(viewport.style.width, "100%");
-  assert.equal(viewport.style.height, "100%");
-  assert.equal(viewport.dataset.scale, "fluid");
-  assert.equal(viewport.dataset.layout, "fluid");
+  const desktopScale = 700 / AIDS_LOGICAL_HEIGHT;
+  assert.equal(uiRoot.classList.contains("aids-desktop-layout"), false);
+  assert.equal(frame.style.width, "390px");
+  assert.equal(frame.style.height, "740px");
+  assert.equal(frame.style.transform, `scale(${desktopScale})`);
+  assert.ok(Math.abs(Number.parseFloat(viewport.style.width) - AIDS_LOGICAL_WIDTH * desktopScale) < 1e-9);
+  assert.equal(viewport.style.height, "700px");
+  assert.equal(viewport.dataset.scale, String(desktopScale));
+  assert.equal(viewport.dataset.layout, "fixed");
 
   instance.destroy();
 
@@ -224,7 +226,7 @@ test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and
   uiRoot.clientWidth = 195;
   uiRoot.clientHeight = 370;
   observers[0].callback();
-  assert.equal(frame.style.transform, "none");
+  assert.equal(frame.style.transform, `scale(${desktopScale})`);
 });
 
 test("AIDS mobile field keeps the original dimensions and physics values", () => {

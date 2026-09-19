@@ -9,7 +9,10 @@ import {
   calcPlayerDamage,
 } from "../../js/battle/postgame/bosses/stat-boss/stats.js";
 import { getCharacterJudgementPosition } from "../../js/battle/postgame/bosses/stat-boss/battle.js";
-import { finalizeBattleCandidate } from "../../js/scenes/battle-scene.js";
+import {
+  finalizeBattleCandidate,
+  getBattleReturnDestination,
+} from "../../js/scenes/battle-scene.js";
 
 const MINI_GAME_IDS = ["ds", "cs", "cse", "ai", "aids"];
 const DEFINITION = Object.freeze({
@@ -156,6 +159,17 @@ test("Battle host validates candidates and owns identity and duration fields", (
       sessionId: "module-owned",
     },
   }), /host-owned/u);
+});
+
+test("the final battle returns to the pre-game map while after-games return to their node map", () => {
+  assert.deepEqual(
+    getBattleReturnDestination({ id: "word-breaker" }),
+    { sceneId: "map", label: "사전게임 맵으로" },
+  );
+  assert.deepEqual(
+    getBattleReturnDestination({ id: "control-boss" }),
+    { sceneId: "battle", label: "구역 맵으로" },
+  );
 });
 
 test("Battle result card stays above module-owned HUD and touch controls", async () => {

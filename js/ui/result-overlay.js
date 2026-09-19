@@ -56,7 +56,7 @@ const METRIC_LABELS = Object.freeze({
   purifiedCount: "정화한 말",
   missedCount: "흘려보낸 말",
   hitCount: "전체 흔들림",
-  forcedHitCount: "피할 수 없는 흔들림",
+  forcedHitCount: "고밀도 공격 접촉",
   combo: "마지막 콤보",
   maxCombo: "최대 콤보",
   shotsFired: "발사한 빛",

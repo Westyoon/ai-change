@@ -1,26 +1,404 @@
 .battle-entry {
-  max-width: 980px;
+  width: min(1180px, calc(100% - 24px));
+  max-width: 1180px;
 }
 
-.battle-list {
-  display: grid;
-  gap: 16px;
-  margin-top: 28px;
+.battle-node-map-scene {
+  padding: clamp(16px, 2.5vw, 30px);
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
-.battle-card {
-  padding: clamp(18px, 4vw, 30px);
+.battle-node-map-scene > h1 {
+  font-size: clamp(2rem, 4.6vw, 3.4rem);
+}
+
+.battle-node-map {
+  min-width: 0;
+  margin-top: 20px;
+}
+
+.aftergame-world-shell {
+  padding: clamp(12px, 1.8vw, 20px);
+  overflow: hidden;
+  border: 3px solid var(--line);
+  border-radius: 22px;
+  background: rgb(43 24 38 / 82%);
+  box-shadow: 0 8px 0 rgb(109 56 86 / 36%);
+}
+
+.aftergame-world__header {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.aftergame-world__heading {
+  min-width: 0;
+}
+
+.aftergame-world__zone-kicker,
+.aftergame-world__boss-door-type {
+  color: var(--accent-strong);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.aftergame-world__zone-title {
+  margin: 4px 0 0;
+  font-size: clamp(1.22rem, 2.6vw, 1.9rem);
+}
+
+.aftergame-world__zone-badge {
+  flex: 0 0 auto;
+  padding: 5px 10px;
   border: 2px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-strong);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.aftergame-world__help {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.battle-field-stage {
+  overflow: hidden;
+  border: 2px solid var(--line-strong);
   border-radius: 18px;
+  background: #241523;
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 4%);
+}
+
+.battle-field-world {
+  width: 100%;
+  height: clamp(360px, calc(100vh - 400px), 620px);
+  height: clamp(360px, calc(100dvh - 400px), 620px);
+  min-height: 0;
+  overflow: hidden;
+  aspect-ratio: auto;
+  touch-action: none;
+  overscroll-behavior: contain;
+  transition: background-color 160ms ease;
+}
+
+.battle-field-world[data-zone-id="entry-field"] {
+  background:
+    radial-gradient(circle at 18% 23%, rgb(250 200 4 / 36%) 0 4px, transparent 5px),
+    radial-gradient(circle at 76% 30%, rgb(233 95 157 / 40%) 0 5px, transparent 6px),
+    radial-gradient(circle at 58% 76%, rgb(250 200 4 / 28%) 0 4px, transparent 5px),
+    linear-gradient(25deg, transparent 47%, rgb(255 228 237 / 13%) 48% 52%, transparent 53%),
+    linear-gradient(155deg, transparent 47%, rgb(255 228 237 / 9%) 48% 52%, transparent 53%),
+    linear-gradient(180deg, #54334e 0 44%, #432b42 44% 100%);
+}
+
+.battle-field-world[data-zone-id="plaza"] {
+  background:
+    radial-gradient(circle at 50% 58%, rgb(250 200 4 / 14%) 0 16%, transparent 16.5%),
+    radial-gradient(circle at 50% 58%, transparent 0 24%, rgb(233 95 157 / 12%) 24.5% 25.5%, transparent 26%),
+    linear-gradient(90deg, transparent 47%, rgb(255 228 237 / 10%) 48% 52%, transparent 53%),
+    linear-gradient(180deg, #63364f 0 30%, #4a2b45 30% 100%);
+}
+
+.battle-field-world__grid {
+  opacity: 0.58;
+  background-size: 32px 32px;
+}
+
+.battle-field-world[data-unlocked="false"] {
+  filter: grayscale(0.72);
+  opacity: 0.65;
+}
+
+.aftergame-world__zone {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aftergame-world__zone[hidden] {
+  display: none !important;
+}
+
+.aftergame-world__zone button {
+  pointer-events: auto;
+}
+
+.aftergame-world__field-sign {
+  position: absolute;
+  top: 9%;
+  left: 50%;
+  padding: 7px 11px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  background: rgb(43 24 38 / 88%);
+  box-shadow: 0 4px 0 rgb(109 56 86 / 46%);
+  font-size: clamp(0.62rem, 1.5vw, 0.78rem);
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+.aftergame-world__field-path {
+  position: absolute;
+  top: 37%;
+  right: 8%;
+  bottom: 8%;
+  left: 8%;
+  border: 2px dashed rgb(255 228 237 / 18%);
+  border-radius: 46% 54% 45% 55%;
+  transform: rotate(-5deg);
+}
+
+.aftergame-world__field-spark {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 14px rgb(250 200 4 / 58%);
+}
+
+.aftergame-world__field-spark--one {
+  top: 28%;
+  left: 27%;
+}
+
+.aftergame-world__field-spark--two {
+  top: 64%;
+  left: 58%;
+}
+
+.aftergame-world__field-spark--three {
+  top: 41%;
+  right: 19%;
+  background: var(--accent);
+  box-shadow: 0 0 14px rgb(233 95 157 / 58%);
+}
+
+.aftergame-world__plaza-emblem {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  display: grid;
+  width: clamp(82px, 16vw, 132px);
+  aspect-ratio: 1;
+  place-items: center;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  color: var(--warning);
   background: rgb(43 24 38 / 72%);
+  box-shadow: inset 0 0 0 6px rgb(250 200 4 / 8%);
+  font-size: clamp(0.62rem, 1.6vw, 0.82rem);
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  transform: translate(-50%, -50%);
 }
 
-.battle-card[data-unlocked="true"] {
-  border-color: var(--accent);
+.aftergame-world__plaza-path {
+  position: absolute;
+  z-index: -1;
+  background: rgb(255 228 237 / 8%);
 }
 
-.battle-card h2 {
-  margin-top: 14px;
+.aftergame-world__plaza-path--north {
+  top: 8%;
+  bottom: 42%;
+  left: 47%;
+  width: 6%;
+}
+
+.aftergame-world__plaza-path--east {
+  top: 55%;
+  right: 0;
+  left: 50%;
+  height: 6%;
+}
+
+.aftergame-world__edge-gate,
+.aftergame-world__boss-door {
+  position: absolute;
+  z-index: 1200;
+  box-sizing: border-box;
+  border: 2px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 900;
+}
+
+.aftergame-world__edge-gate {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 0 12px 12px 0;
+  background: rgb(30 15 28 / 88%);
+  font-size: clamp(0.52rem, 1.2vw, 0.7rem);
+  writing-mode: vertical-rl;
+}
+
+.aftergame-world__edge-gate--east {
+  border-radius: 12px 0 0 12px;
+  writing-mode: vertical-lr;
+}
+
+.aftergame-world__boss-door {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 5px;
+  border-width: 0 3px 3px;
+  border-radius: 0 0 13px 13px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 18%), transparent 48%),
+    #efd4df;
+  box-shadow: 0 5px 0 rgb(109 56 86 / 45%);
+  color: var(--ink);
+  text-align: center;
+}
+
+.aftergame-world__boss-door[data-battle-id="stat-boss"] {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 20%), transparent 48%),
+    #e9e0ff;
+}
+
+.aftergame-world__boss-door[data-battle-id="control-boss"] {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 20%), transparent 48%),
+    #fff0b8;
+}
+
+.aftergame-world__boss-door:not(:disabled):hover,
+.aftergame-world__edge-gate:not(:disabled):hover {
+  border-color: var(--warning);
+  filter: brightness(1.08);
+}
+
+.aftergame-world__boss-door:disabled,
+.aftergame-world__edge-gate:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+  opacity: 0.54;
+}
+
+.aftergame-world__boss-door-type {
+  font-size: clamp(0.38rem, 0.85vw, 0.56rem);
+}
+
+.aftergame-world__boss-door-title {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(0.5rem, 1.2vw, 0.72rem);
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aftergame-world__boss-door-arrow {
+  color: var(--ink-muted);
+  font-size: clamp(0.4rem, 0.9vw, 0.58rem);
+}
+
+.battle-field-status {
+  min-height: 42px;
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  background: rgb(30 15 28 / 74%);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.battle-field-status[data-active="true"] {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.battle-field-encounter {
+  position: absolute;
+  z-index: 2400;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  overflow: visible;
+  border: 3px solid var(--warning);
+  border-radius: 50% 50% 45% 45% / 58% 58% 42% 42%;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 32% 26%, #5f4a70 0 8%, transparent 9%),
+    radial-gradient(circle at 45% 34%, #31213d, #130d19 68%);
+  box-shadow: 0 0 0 5px rgb(250 200 4 / 16%), 0 10px 20px rgb(0 0 0 / 45%);
+  cursor: pointer;
+  animation: battle-field-encounter-bob 850ms ease-in-out infinite alternate;
+}
+
+.battle-field-encounter:hover {
+  filter: brightness(1.15);
+}
+
+.battle-field-encounter__egg {
+  font-size: clamp(1rem, 3vw, 1.55rem);
+  font-weight: 900;
+}
+
+.battle-field-encounter__label {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  width: max-content;
+  max-width: 132px;
+  padding: 4px 7px;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 3px 0 rgb(109 56 86 / 45%);
+  font-size: 0.58rem;
+  line-height: 1.2;
+  transform: translateX(-50%);
+}
+
+.battle-field-touch-controls {
+  justify-content: center;
+}
+
+.battle-field-joystick[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.aftergame-world__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.aftergame-world__actions .button {
+  min-width: 112px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 0.68rem;
 }
 
 .battle-progress,
@@ -36,8 +414,15 @@
 }
 
 .battle-unlock-source {
-  margin: 18px auto 0;
+  margin: 16px auto 0;
+  font-size: 0.7rem;
   text-align: center;
+}
+
+@keyframes battle-field-encounter-bob {
+  to {
+    translate: 0 -7px;
+  }
 }
 
 .battle-frame {
@@ -109,7 +494,101 @@
   }
 }
 
+@media (max-width: 900px) {
+  .battle-entry {
+    width: min(1180px, calc(100% - 16px));
+  }
+
+  .aftergame-world-shell {
+    border-radius: 18px;
+  }
+}
+
 @media (max-width: 720px) {
+  .battle-entry {
+    width: calc(100% - 10px);
+    margin: 8px auto 18px;
+  }
+
+  .battle-node-map-scene {
+    padding: 12px;
+  }
+
+  .battle-node-map-scene > h1 {
+    font-size: clamp(1.72rem, 9vw, 2.45rem);
+  }
+
+  .battle-node-map {
+    margin-top: 15px;
+  }
+
+  .aftergame-world-shell {
+    padding: 10px;
+    border-width: 2px;
+    border-radius: 16px;
+  }
+
+  .aftergame-world__header {
+    align-items: flex-start;
+  }
+
+  .aftergame-world__zone-title {
+    font-size: clamp(1.08rem, 5.8vw, 1.4rem);
+  }
+
+  .aftergame-world__zone-badge {
+    padding: 4px 7px;
+    font-size: 0.52rem;
+  }
+
+  .aftergame-world__help {
+    margin: 7px 0 9px;
+    font-size: 0.66rem;
+  }
+
+  .battle-field-world {
+    height: clamp(400px, 54vh, 540px);
+    height: clamp(400px, 54dvh, 540px);
+    min-width: 0;
+  }
+
+  .battle-field-touch-controls {
+    padding: 9px;
+  }
+
+  .battle-field-joystick {
+    width: 100px;
+    height: 100px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .aftergame-world__boss-door-type {
+    display: none;
+  }
+
+  .aftergame-world__boss-door-title {
+    font-size: clamp(0.45rem, 2.3vw, 0.62rem);
+  }
+
+  .aftergame-world__boss-door-arrow {
+    font-size: 0.42rem;
+  }
+
+  .aftergame-world__edge-gate {
+    font-size: 0.5rem;
+  }
+
+  .aftergame-world__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .aftergame-world__actions .button {
+    width: 100%;
+    min-width: 0;
+  }
+
   .battle-controls {
     padding: 8px 10px;
   }
@@ -126,12 +605,24 @@
   .battle-controls__list {
     gap: 3px 16px;
   }
+}
 
-  .battle-card .button-row {
-    align-items: stretch;
+@media (orientation: landscape) and (max-height: 560px) {
+  .battle-node-map-scene {
+    padding: 10px 14px;
   }
 
-  .battle-card .button {
-    width: 100%;
+  .battle-field-world {
+    height: 260px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-field-world,
+  .battle-field-encounter,
+  .aftergame-world__boss-door,
+  .aftergame-world__edge-gate {
+    animation: none;
+    transition: none;
   }
 }

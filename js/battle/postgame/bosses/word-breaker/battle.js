@@ -5,6 +5,8 @@ import { normalizeWordBreakerConfig } from "./config.js";
 import { WordBreakerEncounter, WORD_BREAKER_STATES } from "./encounter.js";
 import { WordBreakerView } from "./view.js";
 
+const EPSILON = 1e-7;
+
 function createAbortError() {
   if (typeof DOMException === "function") {
     return new DOMException("Word Breaker initialization was aborted.", "AbortError");
@@ -58,6 +60,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   let initialized = false;
   let destroyed = false;
   let lastState = Object.freeze({ state: WORD_BREAKER_STATES.CREATED, disposed: false });
+  let simulationRemainderMs = 0;
 
   function render() {
     if (!encounter || !view || !system) return;
@@ -67,7 +70,16 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   }
 
   function handleEncounterEvent(event) {
-    if (event.type === "finale") {
+    if (event.type === "round-start") {
+      system?.setControlLocked(false, "word-breaker-transition");
+    } else if (event.type === "player-knockout") {
+      system?.setControlLocked(true, "word-breaker-knockout");
+    } else if (event.type === "recovery-start") {
+      system?.setControlLocked(false, "word-breaker-knockout");
+    } else if (event.type === "guardian-collected") {
+      system?.setControlLocked(true, "word-breaker-transition");
+    } else if (event.type === "finale") {
+      system?.setControlLocked(false, "word-breaker-transition");
       system?.setControlLocked(true, "word-breaker-finale");
     } else if (event.type === "complete") {
       loop?.pause();
@@ -77,14 +89,27 @@ export function createBattle({ root, input = null, events = null, onComplete = n
 
   function tick(deltaMs) {
     if (!encounter || !system) return;
-    const character = system.update(deltaMs);
-    encounter.setPlayerBounds(character);
-    encounter.tick(deltaMs);
+    const simulationStepMs = config.simulationStepMs;
+    const incomingMs = Math.max(0, Number.isFinite(deltaMs) ? deltaMs : 0);
+    const accumulatedMs = simulationRemainderMs + incomingMs;
+    const completedSteps = Math.floor((accumulatedMs + EPSILON) / simulationStepMs);
+    const simulatedMs = completedSteps * simulationStepMs;
+    simulationRemainderMs = Math.max(0, accumulatedMs - simulatedMs);
+    for (let remainingMs = simulatedMs; remainingMs > 0; remainingMs -= simulationStepMs) {
+      const character = system.update(simulationStepMs);
+      encounter.setPlayerBounds(character);
+      const snapshot = encounter.tick(simulationStepMs);
+      if (snapshot.state !== WORD_BREAKER_STATES.RUNNING) {
+        simulationRemainderMs = 0;
+        break;
+      }
+    }
     render();
   }
 
   function setup(source) {
     config = normalizeWordBreakerConfig(source);
+    simulationRemainderMs = 0;
     const player = Array.isArray(source?.players) && source.players.length > 0
       ? source.players[0]
       : defaultPlayer();
@@ -152,6 +177,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     encounter = null;
     view = null;
     initialized = false;
+    simulationRemainderMs = 0;
   }
 
   function destroy() {

@@ -7,30 +7,36 @@
     "width": 450,
     "height": 800
   },
-  "roundDurationMs": 14000,
-  "collapseImpactMs": 520,
-  "magnetDelayMs": 1200,
-  "finaleDurationMs": 4000,
+  "roundDurationMs": 13500,
+  "omenDurationMs": 2400,
+  "overloadGraceMs": 4200,
+  "overloadAttackLeadMs": 600,
+  "collapseImpactMs": 1800,
+  "guardianRevealMs": 3000,
+  "magnetDelayMs": 1100,
+  "recoveryFailsafeMs": 6500,
+  "recoveryHoldMs": 1500,
+  "finaleDurationMs": 3200,
   "simulationStepMs": 16,
   "maxActivePhrases": 6,
   "controls": {
     "pc": [
       "WASD 또는 방향키로 이동",
       "빛은 자동 발사되며 강조된 핵심 표현에 맞습니다",
-      "피할 수 없는 말에 흔들린 뒤 수호알을 먹고 계속 진행",
+      "붕괴 전조를 지나 점점 빽빽해지는 글자와 실제로 부딪힌 뒤 수호알과 다시 이어가기",
       "Esc 또는 P로 일시정지"
     ],
     "mobile": [
       "화면 왼쪽 아래 조이스틱으로 이동",
-      "빛은 자동 발사되며 수호알을 먹으면 계속 진행"
+      "빛은 자동 발사되며 수호알이 나타나면 다가가 다시 이어가기"
     ]
   },
   "resultPresentation": {
     "clear": {
       "title": "마음의 말 정화 완료",
-      "description": "다섯 수호알과 함께 피할 수 없는 말을 지나, 다시 이어갈 마음을 찾았습니다.",
+      "description": "다섯 수호알과 함께 고밀도 글자 쇄도를 지나, 다시 이어갈 마음을 찾았습니다.",
       "retryLabel": "다시 마주하기",
-      "mapLabel": "배틀 목록으로",
+      "mapLabel": "사전게임 맵으로",
       "menuLabel": "메뉴로"
     }
   },
@@ -57,14 +63,18 @@
     "targetHeight": 24,
     "speed": 58,
     "spawnIntervalMs": 1600,
-    "maxHp": 60,
-    "reframeDurationMs": 900,
-    "horizontalPadding": 24
+    "maxHp": 100,
+    "reframeDurationMs": 650,
+    "horizontalPadding": 24,
+    "letterSpacing": 1.5,
+    "wobbleAmplitudeX": 4,
+    "wobbleAmplitudeY": 3,
+    "wobbleWavelength": 96
   },
   "guardian": {
     "width": 38,
     "height": 38,
-    "speed": 150,
+    "speed": 300,
     "spawnY": 90
   },
   "scoring": {
@@ -83,50 +93,110 @@
         "label": "데이터 수호알",
         "color": "#d82f76"
       },
-      "collapseMessage": "정답이 보이지 않아도 여기서 끝난 것은 아닙니다.",
-      "recoveryMessage": "데이터 수호알이 흩어진 단서를 차분히 이어 줍니다.",
+      "gimmick": {
+        "type": "lane-rain",
+        "name": "결측치·이상치 폭주",
+        "cue": "결측값과 이상치 글자가 데이터 축의 상하좌우에서 교차해 날아옵니다.",
+        "telegraphMs": 1600,
+        "forceAtMs": 6400,
+        "spawnIntervalMs": 130,
+        "glyphSpeed": 360,
+        "maxGlyphs": 28,
+        "contactThreshold": 1,
+        "laneCount": 5
+      },
+      "omenMessage": "정렬돼 있던 기록 사이에 결측값과 이상치가 섞이기 시작합니다.",
+      "collapseMessage": "기준을 잃은 데이터가 열마다 뒤엉켰지만 여기서 끝난 것은 아닙니다.",
+      "guardianMessage": "데이터 수호알은 결측치와 이상치를 구분하고 판단의 근거를 다시 잇는 마음을 지켜 줍니다.",
+      "recoveryMessage": "완벽한 답 말고, 확인한 근거부터 챙기자. 같이 가.",
       "phrases": [
         {
           "id": "ds-01",
-          "negative": "이번에도 정답을 찾지 못할 거야.",
-          "target": "찾지 못할",
-          "reframe": "한 단계씩 살피면 답에 가까워질 수 있어.",
-          "maxHp": 60
+          "negative": "전처리만 하다 오늘도 다 끝났네.",
+          "target": "다 끝났네",
+          "reframe": "일단 한 열만 정리해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ds-02",
-          "negative": "숫자가 많으면 나는 금방 헷갈려.",
-          "target": "헷갈려",
-          "reframe": "기준을 나누면 복잡한 숫자도 읽을 수 있어.",
-          "maxHp": 60
+          "negative": "통계 수업만 들어가면 머리가 하얘져.",
+          "target": "하얘져",
+          "reframe": "모르는 식은 표시해 두고 예제부터 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ds-03",
-          "negative": "실수한 기록은 모두 실패야.",
-          "target": "실패",
-          "reframe": "실수한 기록도 다음 판단을 돕는 데이터야.",
-          "maxHp": 60
+          "negative": "이 결과가 맞는지 나도 모르겠어.",
+          "target": "모르겠어",
+          "reframe": "검증 하나만 더 돌려 보면 돼.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ds-04",
-          "negative": "데이터를 보면 늘 겁부터 나.",
-          "target": "겁부터",
-          "reframe": "익숙한 항목부터 보면 차분히 시작할 수 있어.",
-          "maxHp": 60
+          "negative": "다들 분석은 척척하는데 나만 느려.",
+          "target": "느려",
+          "reframe": "느려도 이유를 아는 게 먼저야.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ds-05",
-          "negative": "내 판단은 믿을 수 없어.",
-          "target": "믿을 수 없어",
-          "reframe": "근거를 확인하며 내 판단을 다듬을 수 있어.",
-          "maxHp": 60
+          "negative": "결측치만 보면 어디부터 볼지 막막해.",
+          "target": "막막해",
+          "reframe": "분포부터 보고 하나씩 정하면 돼.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ds-06",
-          "negative": "천천히 확인하면 이미 늦어.",
-          "target": "늦어",
-          "reframe": "정확히 확인하는 시간도 과정의 일부야.",
-          "maxHp": 60
+          "negative": "그래프를 그려도 도저히 의미를 모르겠어.",
+          "target": "모르겠어",
+          "reframe": "축이랑 단위부터 다시 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "ds-07",
+          "negative": "내가 세운 가설만 또 틀렸네.",
+          "target": "틀렸네",
+          "reframe": "틀린 가설도 다음 질문은 좁혀 줘.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "ds-08",
+          "negative": "코딩도 통계도 어중간한 것 같아.",
+          "target": "어중간",
+          "reframe": "둘을 같이 해 본 것도 경험이야.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "ds-09",
+          "negative": "포트폴리오에 넣을 만한 게 하나도 없어.",
+          "target": "하나도 없어",
+          "reframe": "작은 분석 하나라도 끝까지 정리해 두자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "ds-10",
+          "negative": "같은 데이터를 돌렸는데 결과가 자꾸 달라.",
+          "target": "자꾸 달라",
+          "reframe": "설정과 시드를 적고 다시 비교해 보자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "ds-11",
+          "negative": "졸업 뒤 진로가 너무 막막해.",
+          "target": "막막해",
+          "reframe": "관심 가는 역할 하나부터 찾아보자.",
+          "targetHits": 6,
+          "maxHp": 120
         }
       ]
     },
@@ -139,50 +209,110 @@
         "label": "보안 수호알",
         "color": "#363367"
       },
-      "collapseMessage": "경고가 겹쳐 보여도 하나씩 구분할 수 있습니다.",
-      "recoveryMessage": "보안 수호알이 위험한 말 사이에 안전한 틈을 만듭니다.",
+      "gimmick": {
+        "type": "firewall-gates",
+        "name": "악성 패킷·포트 스캔",
+        "cue": "악성 패킷이 한 곳의 넓은 탈출구만 남긴 원형 방화벽으로 좁혀 오며, 폭주하면 열린 포트까지 닫힙니다.",
+        "telegraphMs": 1800,
+        "forceAtMs": 6800,
+        "spawnIntervalMs": 1500,
+        "glyphSpeed": 380,
+        "maxGlyphs": 28,
+        "contactThreshold": 1,
+        "laneCount": 7
+      },
+      "omenMessage": "정상 연결 사이로 위장한 악성 패킷이 열린 포트를 탐색합니다.",
+      "collapseMessage": "방화벽 규칙이 무너져도 위험한 연결은 다시 구분할 수 있습니다.",
+      "guardianMessage": "보안 수호알은 패킷을 확인하고 안전한 연결 규칙을 다시 세울 용기를 지켜 줍니다.",
+      "recoveryMessage": "혼자 다 막지 않아도 돼. 필요한 순간엔 같이 확인하자.",
       "phrases": [
         {
           "id": "cs-01",
-          "negative": "낯선 링크는 구분하기 너무 어려워.",
-          "target": "너무 어려워",
-          "reframe": "주소와 맥락을 확인하면 안전하게 구분할 수 있어.",
-          "maxHp": 60
+          "negative": "패킷을 봐도 뭐가 수상한지 모르겠어.",
+          "target": "모르겠어",
+          "reframe": "시간대랑 출발지부터 좁혀 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cs-02",
-          "negative": "한 번 놓치면 전부 망가질 거야.",
-          "target": "전부 망가질",
-          "reframe": "놓친 뒤에도 차단하고 복구하는 방법이 있어.",
-          "maxHp": 60
+          "negative": "CTF 문제를 열면 시작부터 막혀.",
+          "target": "막혀",
+          "reframe": "아는 유형부터 하나 풀어 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cs-03",
-          "negative": "도움을 요청하면 방해가 될 거야.",
-          "target": "방해",
-          "reframe": "빠른 도움 요청은 함께 지키는 행동이야.",
-          "maxHp": 60
+          "negative": "내 실수로 팀 서버가 망가질까 겁나.",
+          "target": "겁나",
+          "reframe": "백업부터 확인하고 작은 변경만 해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cs-04",
-          "negative": "보안을 배우기엔 나는 부족해.",
-          "target": "부족해",
-          "reframe": "기본 원칙부터 익히며 충분히 성장할 수 있어.",
-          "maxHp": 60
+          "negative": "보안은 알아야 할 게 계속 늘어나.",
+          "target": "계속 늘어나",
+          "reframe": "지금 필요한 범위까지만 잡아도 돼.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cs-05",
-          "negative": "작은 경고는 무시해도 괜찮아.",
-          "target": "무시해도",
-          "reframe": "작은 경고를 확인하는 습관이 큰 위험을 줄여.",
-          "maxHp": 60
+          "negative": "공격 기법은 계속 바뀌는데 난 제자리야.",
+          "target": "제자리야",
+          "reframe": "오늘 익힌 한 가지도 쌓이고 있어.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cs-06",
-          "negative": "침착하게 대응할 자신이 없어.",
-          "target": "자신이 없어",
-          "reframe": "대응 순서를 따라가면 차분히 해결할 수 있어.",
-          "maxHp": 60
+          "negative": "로그가 쏟아지면 중요한 걸 다 놓쳐.",
+          "target": "다 놓쳐",
+          "reframe": "조건 하나씩 걸어서 양부터 줄여 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "cs-07",
+          "negative": "네트워크 기초도 자꾸 헷갈려.",
+          "target": "헷갈려",
+          "reframe": "흐름을 그림으로 다시 그려 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "cs-08",
+          "negative": "자격증도 프로젝트도 없어서 불안해.",
+          "target": "불안해",
+          "reframe": "이번 학기엔 하나만 정해서 해 보자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "cs-09",
+          "negative": "취약점을 못 찾으면 내가 너무 답답해.",
+          "target": "답답해",
+          "reframe": "막힌 지점을 적으면 물어볼 것도 선명해져.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "cs-10",
+          "negative": "팀원들은 다 아는 것 같은데 나만 뒤처져.",
+          "target": "뒤처져",
+          "reframe": "모르는 부분을 묻는 것도 팀 작업이야.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "cs-11",
+          "negative": "실무 보안 생각만 하면 막막해.",
+          "target": "막막해",
+          "reframe": "실습 하나씩 해 보며 경험을 만들자.",
+          "targetHits": 6,
+          "maxHp": 120
         }
       ]
     },
@@ -195,50 +325,110 @@
         "label": "컴퓨터공학 수호알",
         "color": "#e333bb"
       },
-      "collapseMessage": "오류가 나타나도 지금까지의 시도는 사라지지 않습니다.",
-      "recoveryMessage": "컴퓨터공학 수호알이 문제를 작은 단계로 나눠 줍니다.",
+      "gimmick": {
+        "type": "recursive-fork",
+        "name": "무한 재귀·스택 오버플로",
+        "cue": "하나의 오류 호출이 1→2→4→8개로 복제되며 스택을 반복해서 채웁니다.",
+        "telegraphMs": 1600,
+        "forceAtMs": 6600,
+        "spawnIntervalMs": 360,
+        "glyphSpeed": 300,
+        "maxGlyphs": 28,
+        "contactThreshold": 1,
+        "laneCount": 8
+      },
+      "omenMessage": "하나의 작은 오류가 재귀 호출을 따라 1개, 2개, 4개, 8개로 복제됩니다.",
+      "collapseMessage": "호출이 끝나지 않아 스택이 넘쳤지만 코드는 고쳐 다시 실행할 수 있습니다.",
+      "guardianMessage": "컴퓨터공학 수호알은 무한 재귀를 멈추고 큰 문제를 작은 호출 단위로 나누는 마음을 지켜 줍니다.",
+      "recoveryMessage": "오늘 안 풀려도 괜찮아. 막힌 한 줄부터 다시 보자.",
       "phrases": [
         {
           "id": "cse-01",
-          "negative": "코드가 길어지면 아무것도 이해 못 해.",
-          "target": "이해 못 해",
-          "reframe": "기능을 나누어 읽으면 흐름을 이해할 수 있어.",
-          "maxHp": 60
+          "negative": "에러 하나 고치면 두 개가 더 생겨.",
+          "target": "더 생겨",
+          "reframe": "바뀐 부분부터 다시 보면 돼.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cse-02",
-          "negative": "오류가 나면 처음부터 다 잘못된 거야.",
-          "target": "다 잘못된",
-          "reframe": "오류는 고칠 위치를 알려 주는 신호야.",
-          "maxHp": 60
+          "negative": "빈 화면만 보면 뭘 짜야 할지 모르겠어.",
+          "target": "모르겠어",
+          "reframe": "입력과 출력부터 적어 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cse-03",
-          "negative": "질문하면 실력이 없어 보일 거야.",
-          "target": "실력이 없어",
-          "reframe": "좋은 질문은 문제를 정확히 이해하는 방법이야.",
-          "maxHp": 60
+          "negative": "알고리즘 문제만 풀면 늘 시간이 모자라.",
+          "target": "모자라",
+          "reframe": "풀이 흐름부터 잡고 시간을 재 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cse-04",
-          "negative": "나는 문제를 끝까지 풀 수 없어.",
-          "target": "풀 수 없어",
-          "reframe": "작은 부분부터 풀면 끝까지 이어 갈 수 있어.",
-          "maxHp": 60
+          "negative": "깃 충돌만 나면 괜히 손대기 무서워.",
+          "target": "무서워",
+          "reframe": "내 브랜치부터 확인하고 천천히 합치자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "cse-05",
-          "negative": "작은 기능은 만들 가치가 없어.",
-          "target": "가치가 없어",
-          "reframe": "작은 기능도 전체를 움직이는 중요한 조각이야.",
-          "maxHp": 60
+          "negative": "팀플에서 내 코드만 민폐인 것 같아.",
+          "target": "민폐인 것 같아",
+          "reframe": "막힌 부분을 공유하면 같이 고칠 수 있어.",
+          "targetHits": 6,
+          "maxHp": 120
         },
         {
           "id": "cse-06",
-          "negative": "다시 고쳐도 똑같이 틀릴 거야.",
-          "target": "똑같이 틀릴",
-          "reframe": "수정할 때마다 원인을 더 분명히 알게 돼.",
-          "maxHp": 60
+          "negative": "남들은 개인 프로젝트도 있는데 난 없어.",
+          "target": "난 없어",
+          "reframe": "작게 만든 것도 README부터 정리해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "cse-07",
+          "negative": "언어만 바뀌면 아는 것도 헷갈려.",
+          "target": "헷갈려",
+          "reframe": "문법보다 익숙한 개념부터 연결해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "cse-08",
+          "negative": "참고할 코드가 없으면 바로 막혀버려.",
+          "target": "막혀버려",
+          "reframe": "참고한 뒤 내 말로 설명하면 내 것이 돼.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "cse-09",
+          "negative": "코테 생각만 하면 벌써 긴장돼.",
+          "target": "긴장돼",
+          "reframe": "한 문제씩 풀이 유형부터 익혀 보자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "cse-10",
+          "negative": "운영체제는 읽어도 개념이 자꾸 흩어져.",
+          "target": "흩어져",
+          "reframe": "그림 하나로 관계부터 묶어 보자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "cse-11",
+          "negative": "개발자로 취업할 자신이 없어.",
+          "target": "자신이 없어",
+          "reframe": "지금 할 수 있는 걸 쌓으며 확인해 보자.",
+          "targetHits": 6,
+          "maxHp": 120
         }
       ]
     },
@@ -251,50 +441,110 @@
         "label": "인공지능 수호알",
         "color": "#2ab5e4"
       },
-      "collapseMessage": "예측이 빗나가도 배움의 과정은 계속됩니다.",
-      "recoveryMessage": "인공지능 수호알이 틀린 예측을 새로운 학습으로 바꿉니다.",
+      "gimmick": {
+        "type": "prediction-lock",
+        "name": "오분류·신뢰도 락온",
+        "cue": "여러 예측 후보가 점점 좁아지며 마지막에는 하나의 틀린 확신으로 고정됩니다.",
+        "telegraphMs": 1800,
+        "forceAtMs": 6400,
+        "spawnIntervalMs": 350,
+        "glyphSpeed": 520,
+        "maxGlyphs": 28,
+        "contactThreshold": 1,
+        "laneCount": 5
+      },
+      "omenMessage": "여러 예측 후보가 하나의 오분류로 좁혀지며 틀린 확신이 굳어집니다.",
+      "collapseMessage": "신뢰도가 높아도 예측은 틀릴 수 있고 배움의 과정은 계속됩니다.",
+      "guardianMessage": "인공지능 수호알은 오분류와 과신을 다음 학습을 위한 피드백으로 바꾸는 마음을 지켜 줍니다.",
+      "recoveryMessage": "결과가 별로여도 네가 별로인 건 아니야. 하나만 바꿔 보자.",
       "phrases": [
         {
           "id": "ai-01",
-          "negative": "새로운 개념은 나와 맞지 않아.",
-          "target": "맞지 않아",
-          "reframe": "낯선 개념도 예시를 만나면 익숙해질 수 있어.",
-          "maxHp": 60
+          "negative": "논문 첫 장부터 무슨 말인지 모르겠어.",
+          "target": "모르겠어",
+          "reframe": "초록이랑 그림부터 먼저 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ai-02",
-          "negative": "예측이 빗나가면 배운 게 소용없어.",
-          "target": "소용없어",
-          "reframe": "빗나간 예측도 다음 학습을 위한 정보가 돼.",
-          "maxHp": 60
+          "negative": "수식이 나오면 바로 읽기를 포기하게 돼.",
+          "target": "포기하게 돼",
+          "reframe": "기호 하나의 뜻만 찾아도 다음 줄은 보여.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ai-03",
-          "negative": "모델이 복잡하면 시작조차 못 해.",
-          "target": "시작조차 못 해",
-          "reframe": "단순한 모델부터 만들며 차근차근 시작할 수 있어.",
-          "maxHp": 60
+          "negative": "학습은 오래 걸리는데 결과는 또 별로야.",
+          "target": "별로야",
+          "reframe": "이번 실행에서 바뀐 값부터 확인해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ai-04",
-          "negative": "결과가 느리면 노력은 의미가 없어.",
-          "target": "의미가 없어",
-          "reframe": "느린 결과도 과정을 이해하는 데 도움이 돼.",
-          "maxHp": 60
+          "negative": "GPU 시간까지 신경 쓰려니 버거워.",
+          "target": "버거워",
+          "reframe": "작은 데이터로 먼저 확인해도 돼.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ai-05",
-          "negative": "모르는 용어가 나오면 포기해야 해.",
-          "target": "포기해야",
-          "reframe": "모르는 용어는 찾아보며 하나씩 익힐 수 있어.",
-          "maxHp": 60
+          "negative": "모델은 돌아가는데 결과 설명은 막막해.",
+          "target": "막막해",
+          "reframe": "틀린 예시부터 보면 단서가 보여.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "ai-06",
-          "negative": "나는 새로운 도구에 적응할 수 없어.",
-          "target": "적응할 수 없어",
-          "reframe": "작은 기능부터 써 보면 새로운 도구도 익숙해져.",
-          "maxHp": 60
+          "negative": "다들 최신 모델을 아는데 나만 뒤처진 느낌이야.",
+          "target": "뒤처진",
+          "reframe": "전부 따라가기보다 지금 쓸 것부터 알면 돼.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "ai-07",
+          "negative": "튜토리얼 없으면 혼자서는 바로 막혀.",
+          "target": "막혀",
+          "reframe": "한 단계만 바꿔서 다시 돌려 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "ai-08",
+          "negative": "정확도가 안 오르면 내가 뭘 잘못했나 싶어.",
+          "target": "잘못했나",
+          "reframe": "데이터와 기준부터 따로 확인해 보자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "ai-09",
+          "negative": "비슷한 챗봇만 만들어서 포폴이 될까.",
+          "target": "포폴이 될까",
+          "reframe": "왜 그렇게 만들었는지 설명하면 차이가 생겨.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "ai-10",
+          "negative": "AI가 너무 빨리 바뀌어서 따라가기 벅차.",
+          "target": "벅차",
+          "reframe": "기초 하나는 새 도구가 나와도 남아.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "ai-11",
+          "negative": "채용 공고를 보면 요구하는 게 너무 많아.",
+          "target": "너무 많아",
+          "reframe": "전부 말고 겹치는 준비부터 시작하자.",
+          "targetHits": 6,
+          "maxHp": 120
         }
       ]
     },
@@ -307,59 +557,119 @@
         "label": "AI·데이터 수호알",
         "color": "#fac804"
       },
-      "collapseMessage": "여러 길 앞에서 잠시 멈춰도 괜찮습니다.",
-      "recoveryMessage": "AI·데이터 수호알이 흩어진 배움을 하나의 흐름으로 연결합니다.",
+      "gimmick": {
+        "type": "convergence-ring",
+        "name": "데이터↔AI 피드백 폭주",
+        "cue": "데이터 입력이 모델을 거쳐 예측이 되고, 되돌아온 피드백이 양쪽에서 증폭됩니다.",
+        "telegraphMs": 2000,
+        "forceAtMs": 7000,
+        "spawnIntervalMs": 850,
+        "glyphSpeed": 105,
+        "maxGlyphs": 28,
+        "contactThreshold": 1,
+        "laneCount": 12
+      },
+      "omenMessage": "데이터 입력과 AI 예측이 피드백 고리 안에서 서로를 증폭하기 시작합니다.",
+      "collapseMessage": "뒤엉킨 파이프라인 앞에서 잠시 멈춰도 흐름은 다시 연결할 수 있습니다.",
+      "guardianMessage": "AI·데이터 수호알은 입력, 모델, 예측, 피드백을 차례로 연결해 나만의 흐름을 찾는 마음을 지켜 줍니다.",
+      "recoveryMessage": "아직 방향을 못 정해도 괜찮아. 해 본 것부터 이어 가자.",
       "phrases": [
         {
           "id": "aids-01",
-          "negative": "여러 분야를 함께 배우면 집중할 수 없어.",
-          "target": "집중할 수 없어",
-          "reframe": "한 번에 한 주제를 연결하며 집중할 수 있어.",
-          "maxHp": 60
+          "negative": "AI도 데이터도 다 어설퍼 보여.",
+          "target": "어설퍼",
+          "reframe": "둘을 연결해 본 경험부터 내 것으로 만들자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "aids-02",
-          "negative": "선택지가 많으면 아무것도 결정 못 해.",
-          "target": "결정 못 해",
-          "reframe": "기준을 하나 정하면 다음 선택을 할 수 있어.",
-          "maxHp": 60
+          "negative": "배울 건 많은데 뭘 먼저 해야 할지 모르겠어.",
+          "target": "모르겠어",
+          "reframe": "이번 주에 할 한 가지만 정해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "aids-03",
-          "negative": "다른 사람보다 느리면 뒤처진 거야.",
-          "target": "뒤처진",
-          "reframe": "내 속도로 이해한 배움도 분명한 진전이야.",
-          "maxHp": 60
+          "negative": "그 무엇도 내 전공이 아닌 것 같아",
+          "target": "아닌 것",
+          "reframe": "하나씩 차근차근 탐구해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "aids-04",
-          "negative": "작은 진전은 성과라고 할 수 없어.",
-          "target": "성과라고 할 수 없어",
-          "reframe": "작은 진전이 모여 다음 도전을 가능하게 해.",
-          "maxHp": 60
+          "negative": "두 분야 과제를 같이 하려니 너무 벅차.",
+          "target": "벅차",
+          "reframe": "오늘 마칠 한 부분만 골라 보자.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "aids-05",
-          "negative": "잠깐 쉬면 흐름을 잃어버릴 거야.",
-          "target": "잃어버릴",
-          "reframe": "짧은 휴식은 다시 집중할 힘을 채워 줘.",
-          "maxHp": 60
+          "negative": "한쪽을 고르면 다른 쪽을 놓칠까 봐 불안해.",
+          "target": "놓칠까 봐",
+          "reframe": "지금 고른다고 다른 길이 닫히진 않아.",
+          "targetHits": 5,
+          "maxHp": 100
         },
         {
           "id": "aids-06",
-          "negative": "불확실한 길은 선택하면 안 돼.",
-          "target": "선택하면 안 돼",
-          "reframe": "작게 시험하며 나에게 맞는 길을 찾을 수 있어.",
-          "maxHp": 60
+          "negative": "이것저것 듣다 보니 전부 얕아 보여.",
+          "target": "얕아 보여",
+          "reframe": "연결하고 싶은 한 주제부터 깊게 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "aids-07",
+          "negative": "팀 프로젝트에서 내가 맡을 역할이 애매해.",
+          "target": "애매해",
+          "reframe": "내가 할 수 있는 일을 먼저 말해 보자.",
+          "targetHits": 5,
+          "maxHp": 100
+        },
+        {
+          "id": "aids-08",
+          "negative": "당장 내년의 모습을 그리지 못하겠어.",
+          "target": "못하겠어",
+          "reframe": "내년의 모습보다 지금 당장의 나를 살펴 보자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "aids-09",
+          "negative": "통계도 코딩도 놓치면 따라가기 힘들어.",
+          "target": "힘들어",
+          "reframe": "둘 다 완벽할 필요 없이 필요한 만큼 배우자.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "aids-10",
+          "negative": "다른 전공 친구들은 정했는데 나만 늦어.",
+          "target": "나만 늦어",
+          "reframe": "해 보면서 정해도 내 일정엔 늦지 않아.",
+          "targetHits": 6,
+          "maxHp": 120
+        },
+        {
+          "id": "aids-11",
+          "negative": "쉬는 날에도 밀린 공부 생각에 마음이 무거워.",
+          "target": "마음이 무거워",
+          "reframe": "오늘 쉴 시간을 먼저 정해 두자.",
+          "targetHits": 6,
+          "maxHp": 120
         }
       ]
     }
   ],
   "finalPhrase": {
     "id": "final-01",
-    "negative": "나는 결국 변할 수 없을 거야.",
-    "target": "변할 수 없을",
-    "reframe": "나는 내 속도로 배우며 조금씩 달라질 수 있어.",
+    "negative": "이렇게 해도 달라지는 건 없을 것 같아.",
+    "target": "없을 것 같아",
+    "reframe": "당장 다르지 않아도 오늘 해낸 건 남아 있어.",
     "maxHp": 5
   }
 }

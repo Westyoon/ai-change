@@ -77,6 +77,19 @@
 .npc-card[data-department-code="CS"] { --dept-color: #ffd166; }
 .npc-card[data-department-code="AIDS"] { --dept-color: #78f0c1; }
 
+.npc-card--final {
+  --dept-color: #ffd166;
+  grid-column: 1 / -1;
+  min-height: 176px;
+  background:
+    linear-gradient(135deg, rgb(216 47 118 / 38%), rgb(54 51 103 / 88%)),
+    #351f32;
+}
+
+.npc-card--final .npc-card__name {
+  font-size: clamp(1.15rem, 2.4vw, 1.65rem);
+}
+
 .npc-card__code {
   color: var(--dept-color, var(--accent));
   font-size: 1.35rem;
@@ -101,7 +114,8 @@
 
   .npc-card,
   .npc-card:nth-child(4),
-  .npc-card:nth-child(5) {
+  .npc-card:nth-child(5),
+  .npc-card--final {
     grid-column: auto;
   }
 }

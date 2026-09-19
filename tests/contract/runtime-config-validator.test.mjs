@@ -7,6 +7,15 @@ import {
   validateMiniGameCandidate,
   validateScaffoldContent
 } from "../../js/core/config-validator.js";
+import { normalizeWordBreakerConfig } from "../../js/battle/postgame/bosses/word-breaker/config.js";
+
+const WORD_BREAKER_GIMMICK_TYPES = [
+  "lane-rain",
+  "firewall-gates",
+  "recursive-fork",
+  "prediction-lock",
+  "convergence-ring",
+];
 
 async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
@@ -66,13 +75,28 @@ test("runtime config validator accepts the checked-in runtime data graph", async
 
   const wordBreakerConfig = await readJson("../../data/battle/word-breaker.json");
   const roundPhrases = wordBreakerConfig.rounds.flatMap((round) => round.phrases);
+  const normalizedWordBreaker = normalizeWordBreakerConfig(wordBreakerConfig);
+  const normalizedRoundPhrases = normalizedWordBreaker.rounds.flatMap((round) => round.phrases);
   assert.equal(wordBreakerConfig.implementationStatus, "MVP");
+  assert.equal(wordBreakerConfig.phrase.maxHp, 100);
   assert.equal(wordBreakerConfig.finalPhrase.maxHp, 5);
-  assert.equal(wordBreakerConfig.collapseImpactMs, 520);
+  assert.equal(normalizedWordBreaker.finalPhrase.maxHp, 5);
+  assert.equal(wordBreakerConfig.roundDurationMs, 13500);
+  assert.equal(wordBreakerConfig.omenDurationMs, 2400);
+  assert.equal(wordBreakerConfig.overloadGraceMs, 4200);
+  assert.equal(wordBreakerConfig.overloadAttackLeadMs, 600);
+  assert.equal(wordBreakerConfig.collapseImpactMs, 1800);
+  assert.equal(wordBreakerConfig.guardianRevealMs, 3000);
+  assert.equal(wordBreakerConfig.magnetDelayMs, 1100);
+  assert.equal(wordBreakerConfig.recoveryFailsafeMs, 6500);
+  assert.equal(wordBreakerConfig.recoveryHoldMs, 1500);
+  assert.equal(wordBreakerConfig.finaleDurationMs, 3200);
+  assert.equal(wordBreakerConfig.guardian.speed, 300);
   assert.equal(wordBreakerConfig.controls.pc.length, 4);
   assert.equal(wordBreakerConfig.controls.mobile.length, 2);
   assert.equal(wordBreakerConfig.resultPresentation.clear.title, "마음의 말 정화 완료");
-  assert.equal(roundPhrases.length >= 25, true);
+  assert.deepEqual(wordBreakerConfig.rounds.map(({ phrases }) => phrases.length), [11, 11, 11, 11, 11]);
+  assert.equal(roundPhrases.length, 55);
   assert.deepEqual(
     wordBreakerConfig.rounds.map(({ guardian }) => [guardian.code, guardian.color]),
     [
@@ -83,6 +107,51 @@ test("runtime config validator accepts the checked-in runtime data graph", async
       ["AIDS", "#fac804"],
     ],
   );
+  assert.deepEqual(
+    wordBreakerConfig.rounds.map(({ gimmick }) => gimmick.type),
+    WORD_BREAKER_GIMMICK_TYPES,
+  );
+  assert.deepEqual(
+    wordBreakerConfig.rounds.map(({ gimmick }) => gimmick.name),
+    [
+      "결측치·이상치 폭주",
+      "악성 패킷·포트 스캔",
+      "무한 재귀·스택 오버플로",
+      "오분류·신뢰도 락온",
+      "데이터↔AI 피드백 폭주",
+    ],
+  );
+  assert.equal(new Set(wordBreakerConfig.rounds.map(({ gimmick }) => gimmick.type)).size, 5);
+  for (const { gimmick } of wordBreakerConfig.rounds) {
+    assert.ok(typeof gimmick.name === "string" && gimmick.name.length > 0);
+    assert.ok(typeof gimmick.cue === "string" && gimmick.cue.length > 0);
+    assert.ok(Number.isFinite(gimmick.telegraphMs) && gimmick.telegraphMs >= 0);
+    assert.ok(Number.isFinite(gimmick.forceAtMs) && gimmick.forceAtMs > gimmick.telegraphMs);
+    assert.ok(Number.isFinite(gimmick.spawnIntervalMs) && gimmick.spawnIntervalMs > 0);
+    assert.ok(Number.isFinite(gimmick.glyphSpeed) && gimmick.glyphSpeed > 0);
+    assert.ok(Number.isInteger(gimmick.maxGlyphs) && gimmick.maxGlyphs >= 1 && gimmick.maxGlyphs <= 64);
+    assert.ok(Number.isInteger(gimmick.contactThreshold) && gimmick.contactThreshold >= 1 && gimmick.contactThreshold <= 8);
+    assert.ok(Number.isInteger(gimmick.laneCount) && gimmick.laneCount >= 3 && gimmick.laneCount <= 16);
+    assert.ok(
+      gimmick.forceAtMs
+        > wordBreakerConfig.overloadGraceMs + wordBreakerConfig.overloadAttackLeadMs,
+    );
+  }
+  assert.equal(wordBreakerConfig.rounds.every((round) => (
+    typeof round.omenMessage === "string"
+    && round.omenMessage.length > 0
+    && typeof round.guardianMessage === "string"
+    && round.guardianMessage.length > 0
+  )), true);
+  assert.equal(normalizedRoundPhrases.length, roundPhrases.length);
+  const normalizedPhraseById = new Map(normalizedRoundPhrases.map((phrase) => [phrase.id, phrase]));
+  for (const phrase of normalizedRoundPhrases) {
+    assert.ok(phrase.targetHits >= 5 && phrase.targetHits <= 6, `${phrase.id}: ${phrase.targetHits} hits`);
+    assert.equal(phrase.maxHp, phrase.targetHits * normalizedWordBreaker.shot.damage, phrase.id);
+  }
+  for (const phrase of roundPhrases) {
+    assert.equal(phrase.maxHp, normalizedPhraseById.get(phrase.id)?.maxHp, `${phrase.id}: raw/effective maxHp`);
+  }
   for (const phrase of [...roundPhrases, wordBreakerConfig.finalPhrase]) {
     assert.equal(phrase.negative.split(phrase.target).length - 1, 1, phrase.id);
   }

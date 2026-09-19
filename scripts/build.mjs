@@ -132,6 +132,7 @@ async function verifyBuild(copiedFiles) {
     "js/app.js",
     "js/core/account-service.js",
     "js/battle/character/index.js",
+    "js/battle/node-map.js",
     "js/battle/postgame/bosses/control-boss/index.js",
     "js/battle/postgame/bosses/data-sphinx/index.js",
     "js/battle/postgame/bosses/stat-boss/index.js",

@@ -71,14 +71,14 @@
       "title": "컨트롤 보스 격파",
       "description": "엄폐와 발판 시련을 돌파하고 보스를 쓰러뜨렸습니다.",
       "retryLabel": "다시 도전",
-      "mapLabel": "배틀 목록으로",
+      "mapLabel": "구역 맵으로",
       "menuLabel": "메뉴로"
     },
     "fail": {
       "title": "컨트롤 보스 도전 실패",
       "description": "엄폐 위치와 발판 순서를 확인하고 재도전해 보세요.",
       "retryLabel": "다시 도전",
-      "mapLabel": "배틀 목록으로",
+      "mapLabel": "구역 맵으로",
       "menuLabel": "메뉴로"
     }
   }

@@ -35,6 +35,7 @@ export const CHARACTER_CONTACT_PHASES = Object.freeze({
 export const CHARACTER_TRIGGER_KINDS = Object.freeze({
   EGG: "egg",
   FIELD_MINIGAME: "field-minigame",
+  ZONE_EXIT: "zone-exit",
   BATTLE_ENTRANCE: "battle-entrance",
   ATTACK_PAD: "attack-pad",
   TRAP: "trap",

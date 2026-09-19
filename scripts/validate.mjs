@@ -147,6 +147,13 @@ const WORD_BREAKER_GUARDIANS = Object.freeze([
   Object.freeze({ code: "AI", color: "#2ab5e4" }),
   Object.freeze({ code: "AIDS", color: "#fac804" }),
 ]);
+const WORD_BREAKER_GIMMICK_TYPES = Object.freeze([
+  "lane-rain",
+  "firewall-gates",
+  "recursive-fork",
+  "prediction-lock",
+  "convergence-ring",
+]);
 const UNSAFE_WORD_BREAKER_COPY = /자해|극단적\s*선택|죽고\s*싶|죽어\s*버|혐오|살\s*가치가\s*없/u;
 const REQUIRED_NPM_SCRIPTS = Object.freeze({
   dev: "node scripts/serve.mjs",
@@ -641,20 +648,25 @@ function validateWordBreakerConfig(config, battle, errors) {
   requireExactNumber(config.shot?.speed, 520, "shot.speed");
   requireExactNumber(config.shot?.intervalMs, 180, "shot.intervalMs");
   requireExactNumber(config.shot?.damage, 20, "shot.damage");
-  requireExactNumber(config.collapseImpactMs, 520, "collapseImpactMs");
-  requireExactNumber(config.magnetDelayMs, 1200, "magnetDelayMs");
-  requireExactNumber(config.finaleDurationMs, 4000, "finaleDurationMs");
+  requireExactNumber(config.omenDurationMs, 2400, "omenDurationMs");
+  requireExactNumber(config.overloadGraceMs, 4200, "overloadGraceMs");
+  requireExactNumber(config.overloadAttackLeadMs, 600, "overloadAttackLeadMs");
+  requireExactNumber(config.collapseImpactMs, 1800, "collapseImpactMs");
+  requireExactNumber(config.guardianRevealMs, 3000, "guardianRevealMs");
+  requireExactNumber(config.magnetDelayMs, 1100, "magnetDelayMs");
+  requireExactNumber(config.recoveryFailsafeMs, 6500, "recoveryFailsafeMs");
+  requireExactNumber(config.recoveryHoldMs, 1500, "recoveryHoldMs");
+  requireExactNumber(config.finaleDurationMs, 3200, "finaleDurationMs");
   requireExactNumber(config.finalPhrase?.maxHp, 5, "finalPhrase.maxHp");
-
-  if (!Number.isFinite(config.roundDurationMs) || config.roundDurationMs < 12000 || config.roundDurationMs > 15000) {
-    addError(errors, `${label} roundDurationMs must be between 12000 and 15000`);
+  if (!Number.isFinite(config.roundDurationMs) || config.roundDurationMs < 12000 || config.roundDurationMs > 16000) {
+    addError(errors, `${label} roundDurationMs must be between 12000 and 16000`);
   }
   for (const field of ["speed", "spawnIntervalMs"]) {
     if (!Number.isFinite(config.phrase?.[field]) || config.phrase[field] <= 0) {
       addError(errors, `${label} phrase.${field} must be a positive finite number`);
     }
   }
-  requireExactNumber(config.phrase?.maxHp, 60, "phrase.maxHp");
+  requireExactNumber(config.phrase?.maxHp, 100, "phrase.maxHp");
 
   if (!Array.isArray(config.rounds) || config.rounds.length !== WORD_BREAKER_GUARDIANS.length) {
     addError(errors, `${label} rounds must contain exactly five guardian rounds`);
@@ -662,6 +674,7 @@ function validateWordBreakerConfig(config, battle, errors) {
   }
 
   const phrases = [];
+  const gimmickTypes = [];
   for (const [index, expectedGuardian] of WORD_BREAKER_GUARDIANS.entries()) {
     const round = config.rounds[index];
     if (!round || typeof round !== "object") {
@@ -674,20 +687,75 @@ function validateWordBreakerConfig(config, battle, errors) {
         `${label} rounds[${index}] guardian must be ${expectedGuardian.code} ${expectedGuardian.color}`,
       );
     }
-    for (const field of ["collapseMessage", "recoveryMessage"]) {
+    const gimmick = round.gimmick;
+    const expectedGimmickType = WORD_BREAKER_GIMMICK_TYPES[index];
+    if (!gimmick || typeof gimmick !== "object") {
+      addError(errors, `${label} rounds[${index}].gimmick must be an object`);
+    } else {
+      gimmickTypes.push(gimmick.type);
+      if (gimmick.type !== expectedGimmickType) {
+        addError(errors, `${label} rounds[${index}].gimmick.type must be ${expectedGimmickType}`);
+      }
+      for (const field of ["name", "cue"]) {
+        if (typeof gimmick[field] !== "string" || gimmick[field].trim() === "") {
+          addError(errors, `${label} rounds[${index}].gimmick.${field} must be non-empty`);
+        }
+      }
+      for (const field of ["telegraphMs", "forceAtMs", "spawnIntervalMs", "glyphSpeed"]) {
+        const minimum = field === "telegraphMs" ? 0 : Number.EPSILON;
+        if (!Number.isFinite(gimmick[field]) || gimmick[field] < minimum) {
+          addError(errors, `${label} rounds[${index}].gimmick.${field} must be ${field === "telegraphMs" ? "non-negative" : "positive"} and finite`);
+        }
+      }
+      if (
+        Number.isFinite(gimmick.forceAtMs)
+        && Number.isFinite(gimmick.telegraphMs)
+        && gimmick.forceAtMs <= gimmick.telegraphMs
+      ) {
+        addError(errors, `${label} rounds[${index}].gimmick.forceAtMs must be greater than telegraphMs`);
+      }
+      if (
+        Number.isFinite(gimmick.forceAtMs)
+        && Number.isFinite(config.overloadGraceMs)
+        && Number.isFinite(config.overloadAttackLeadMs)
+        && gimmick.forceAtMs <= config.overloadGraceMs + config.overloadAttackLeadMs
+      ) {
+        addError(
+          errors,
+          `${label} rounds[${index}].gimmick.forceAtMs must be greater than overloadGraceMs + overloadAttackLeadMs`,
+        );
+      }
+      if (!Number.isInteger(gimmick.maxGlyphs) || gimmick.maxGlyphs < 1 || gimmick.maxGlyphs > 64) {
+        addError(errors, `${label} rounds[${index}].gimmick.maxGlyphs must be an integer between 1 and 64`);
+      }
+      if (!Number.isInteger(gimmick.contactThreshold) || gimmick.contactThreshold < 1 || gimmick.contactThreshold > 8) {
+        addError(errors, `${label} rounds[${index}].gimmick.contactThreshold must be an integer between 1 and 8`);
+      }
+      if (!Number.isInteger(gimmick.laneCount) || gimmick.laneCount < 3 || gimmick.laneCount > 16) {
+        addError(errors, `${label} rounds[${index}].gimmick.laneCount must be an integer between 3 and 16`);
+      }
+    }
+    for (const field of ["omenMessage", "collapseMessage", "guardianMessage", "recoveryMessage"]) {
       if (typeof round[field] !== "string" || round[field].trim() === "") {
         addError(errors, `${label} rounds[${index}].${field} must be non-empty`);
       }
     }
-    if (!Array.isArray(round.phrases) || round.phrases.length === 0) {
-      addError(errors, `${label} rounds[${index}].phrases must not be empty`);
+    if (!Array.isArray(round.phrases) || round.phrases.length !== 11) {
+      addError(errors, `${label} rounds[${index}].phrases must contain exactly 11 entries`);
     } else {
       phrases.push(...round.phrases);
     }
   }
 
-  if (phrases.length < 25) {
-    addError(errors, `${label} must contain at least 25 round phrases; received ${phrases.length}`);
+  if (
+    gimmickTypes.length !== WORD_BREAKER_GIMMICK_TYPES.length
+    || new Set(gimmickTypes).size !== gimmickTypes.length
+  ) {
+    addError(errors, `${label} round gimmick types must be five unique values`);
+  }
+
+  if (phrases.length !== 55) {
+    addError(errors, `${label} must contain exactly 55 round phrases; received ${phrases.length}`);
   }
   if (config.finalPhrase && typeof config.finalPhrase === "object") {
     phrases.push(config.finalPhrase);
@@ -724,6 +792,43 @@ function validateWordBreakerConfig(config, battle, errors) {
     const combinedCopy = `${phrase.negative ?? ""} ${phrase.reframe ?? ""}`;
     if (UNSAFE_WORD_BREAKER_COPY.test(combinedCopy)) {
       addError(errors, `${phraseLabel} contains prohibited self-harm or hate wording`);
+    }
+  }
+
+  const shotDamage = config.shot?.damage;
+  const defaultPhraseHp = config.phrase?.maxHp;
+  if (Number.isFinite(shotDamage) && shotDamage > 0 && Number.isFinite(defaultPhraseHp) && defaultPhraseHp > 0) {
+    for (const phrase of phrases.filter((item) => item !== config.finalPhrase)) {
+      if (!phrase || typeof phrase !== "object" || typeof phrase.target !== "string") continue;
+      const requestedHits = phrase.targetHits;
+      if (requestedHits != null && (!Number.isInteger(requestedHits) || requestedHits < 1)) {
+        addError(errors, `${label} phrase ${phrase.id ?? "(unknown)"}.targetHits must be a positive integer`);
+        continue;
+      }
+      const legacyMaxHp = Number.isFinite(phrase.maxHp) && phrase.maxHp > 0
+        ? phrase.maxHp
+        : defaultPhraseHp;
+      const visibleTargetGlyphs = Array.from(phrase.target)
+        .filter((grapheme) => grapheme.trim().length > 0)
+        .length;
+      const normalizedHitBudget = Math.max(
+        requestedHits ?? Math.ceil(legacyMaxHp / shotDamage),
+        Math.ceil(defaultPhraseHp / shotDamage),
+        visibleTargetGlyphs,
+      );
+      if (normalizedHitBudget < 5 || normalizedHitBudget > 6) {
+        addError(
+          errors,
+          `${label} phrase ${phrase.id ?? "(unknown)"} must normalize to a 5-6 meaningful-hit budget; received ${normalizedHitBudget}`,
+        );
+      }
+      const effectiveMaxHp = normalizedHitBudget * shotDamage;
+      if (phrase.maxHp !== effectiveMaxHp) {
+        addError(
+          errors,
+          `${label} phrase ${phrase.id ?? "(unknown)"}.maxHp must match its effective hit budget (${effectiveMaxHp}); received ${phrase.maxHp}`,
+        );
+      }
     }
   }
 }

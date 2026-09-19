@@ -32,7 +32,7 @@
       "title": "X알의 시험 통과",
       "description": "무작위로 선택된 짧은 시험을 완료했습니다.",
       "retryLabel": "다시 도전",
-      "mapLabel": "배틀 목록으로",
+      "mapLabel": "구역 맵으로",
       "menuLabel": "메뉴로"
     },
     "fail": {
@@ -45,7 +45,7 @@
         "MASH_TIMEOUT": "목표 횟수를 채우기 전에 시간이 끝났습니다."
       },
       "retryLabel": "다시 도전",
-      "mapLabel": "배틀 목록으로",
+      "mapLabel": "구역 맵으로",
       "menuLabel": "메뉴로"
     }
   }

@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 통합본에는 DS·CS·CSE·AI·AIDS 미니게임 5종, 공개된 사후 콘텐츠 5종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`, `word-breaker`)과 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev` 하나이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. API가 없던 기존 Cloudflare Pages 프로젝트는 2026-09-10에 폐기했습니다.
+현재 통합본에는 DS·CS·CSE·AI·AIDS 사전게임 5종, 캐릭터로 입장 필드와 중심 광장을 오가는 사후 이동 월드, 사후 콘텐츠 4종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`), 사전게임 5종 완료 뒤 Story 목록에 추가되는 최종전 `word-breaker`와 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev` 하나이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. API가 없던 기존 Cloudflare Pages 프로젝트는 2026-09-10에 폐기했습니다.
 
 ## 학과 코드
 
@@ -138,9 +138,9 @@ Loading
 | `AI` | `ai-ball-classification` | AI Ball Classification Game | MVP |
 | `AIDS` | `ai-data-egg-sort` | 인지알·데사알 분류 게임 | MVP |
 
-각 기능 브랜치의 색·문구·카드·버튼과 게임 규칙을 유지합니다. 모바일에서는 AI `480×640`, CSE `440×920`, AIDS `390×740` 원본 세로 프레임을 그대로 축소하고, 충분히 넓고 높은 데스크톱에서는 같은 UI 요소를 landscape 작업 공간으로 재배치합니다. AI·CS Canvas는 원본 종횡비를 유지해 늘어나며, AIDS는 필드 폭에 맞춘 발판 길이와 동일한 충돌 범위·수평 물리를 사용합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
+각 기능 브랜치의 색·문구·카드·버튼과 게임 규칙을 유지합니다. AI는 `480×640`, AIDS는 `390×740` MVP 세로 프레임 전체를 모바일에서 비례 축소하고 가용 높이가 충분한 큰 화면에서 각각 최대 약 `1.33배`·`1.35배`까지 비례 확대하므로 HUD·필드·조작부의 위치와 종횡비가 바뀌지 않습니다. CSE는 모바일에서 `440×920` 원본 세로 프레임을 유지하고 충분히 큰 데스크톱에서는 2열 작업 공간으로 재배치합니다. CS Canvas는 원본 종횡비를 유지합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
 
-사후게임 registry에는 `stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`, `word-breaker`가 `published` 상태로 등록되어 있습니다. 다섯 모듈은 같은 lifecycle·해금·결과 화면 계약을 사용합니다. 교체된 전역 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
+Battle registry에는 `stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`, `word-breaker`가 `published` 상태로 등록되어 있습니다. 앞의 세 보스는 중심 광장 북쪽의 독립 출입문으로, `xr-egg-trials`는 입장 필드를 걷다가 나타나는 랜덤 X알로 실행합니다. 필드와 광장 사이는 새로고침 없이 이동하며, `word-breaker`는 사전게임 5종 완료 뒤 Story의 게임 목록에서 실행합니다. 다섯 모듈은 같은 lifecycle·해금·결과 화면 계약을 사용합니다. 교체된 전역 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
 
 ## 주요 구조
 
@@ -193,7 +193,7 @@ docs/                 계획·기획·실행·인증 통합 문서
 - 브라우저 결과 조작을 판별하는 서버 권위의 점수 검증
 - 일시적인 서버 장애·탭 종료 뒤에도 CLEAR를 복구하는 계정별 안전한 재시도 queue
 - `word-breaker` 최종 자체 제작 이아이·수호알 아트와 효과음
-- 정식 자유 이동 필드 map과 최종 캐릭터 sprite 연결
+- 사후 이동 월드의 최종 배경·문·광장 아트 교체
 - 5개 미니게임의 최종 balance·점수 정책
 - 사후 콘텐츠 5종의 실제 기기 플레이테스트·최종 밸런스·아트·사운드
 - 멀티플레이

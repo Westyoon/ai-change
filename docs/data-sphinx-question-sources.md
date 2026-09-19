@@ -1,44 +1,23 @@
-# 데이터 스핑크스 문제은행 출처
+# 데이터 스핑크스 문제 교체 메모
 
-이 문서는 `data/battle/data-sphinx.json`의 O/X 문제 100개를 검증하기 위한 출처와 편집 기준을 기록한다. 3초 안에 읽고 판단하는 축제 게임에 맞춰 전공 용어·세부 연도·함정형 표현을 없애고, 짧은 입문 문제와 기본 상식으로 구성했다.
+`data/battle/data-sphinx.json`에는 사용자가 새 문제를 전달하기 전까지 역사적 MVP의 임시 O/X 문항 10개를 넣어 둔다. 이 문항들은 최종 행사 문제은행이 아니며, 새 문항으로 교체하기 전 내용과 정답을 다시 검수해야 한다.
 
-## 구성
+## 현재 MVP 계약
 
-| 문항 ID | 분야 | 문항 수 | O | X |
-| --- | --- | ---: | ---: | ---: |
-| 1~8 | 이화여자대학교 | 8 | 4 | 4 |
-| 9~12 | 인공지능 기초 | 4 | 2 | 2 |
-| 13~16 | 데이터 기초 | 4 | 2 | 2 |
-| 17~20 | 컴퓨터 기초 | 4 | 2 | 2 |
-| 21~24 | 사이버보안 기초 | 4 | 2 | 2 |
-| 25~40 | 대한민국 기초 상식 | 16 | 8 | 8 |
-| 41~52 | 생활 수학 | 12 | 6 | 6 |
-| 53~68 | 기초 과학·자연 | 16 | 8 | 8 |
-| 69~80 | 세계·지리 | 12 | 6 | 6 |
-| 81~100 | 생활·문화 | 20 | 10 | 10 |
-| 합계 | 전공 16개·이화 8개·기본 상식 76개 | 100 | 50 | 50 |
+- 한 문제의 선택 시간은 5초다.
+- 문항은 JSON에 적힌 순서대로 출제한다.
+- 보스 HP는 100이고 정답 한 번당 10 피해를 주므로 10문제를 모두 맞혀야 클리어한다.
+- 오답 또는 중앙 미선택은 플레이어에게 20 피해를 준다. 플레이어 HP는 100이므로 5회 누적되면 실패한다.
+- 임시 문제 수가 정확히 10개이므로 한 문제라도 틀리면 보스 HP가 남은 채 문제를 소진해 `OUT_OF_QUESTIONS`로 실패한다.
 
-전투는 정답 10개면 끝나며 매 도전에서 문제은행 전체를 섞는다. 화면에는 문제은행 크기를 진행률처럼 표시하지 않고 현재 문제 번호만 표시한다.
+## 새 문제를 넣을 때
 
-## 사실 확인 자료
+- 현재 10개 항목을 새 문제로 **교체**한다. 단순히 뒤에 추가하면 10번의 정답을 모을 때까지 계속 풀 수 있어 완전정답형 MVP 규칙이 달라진다.
+- 각 문항의 `id`는 중복 없이 유지하고, `answer`는 `O` 또는 `X`만 사용한다.
+- 5초 안에 읽고 판단할 수 있는 길이와 난이도로 작성한다.
+- 학교 정보나 시사·전공 사실은 공개된 신뢰 가능한 출처로 정답을 확인한다.
+- 문항 수나 클리어 방식을 바꾸려면 `bossMaxHealth`, `damagePerCorrect`와 자동 테스트를 함께 조정한다.
 
-| 문항 ID | 확인 내용 | 출처 |
-| --- | --- | --- |
-| 1~8 | 소재지, 이화학당의 시작, 교훈, ECC | [이화 연혁](https://www.ewha.ac.kr/ewha/intro/history01-1.do), [캠퍼스 역사](https://www.ewha.ac.kr/ewha/intro/history-campus.do), [교훈](https://www.ewha.ac.kr/ewha/intro/motto.do) |
-| 9~12 | AI의 학습과 생성형 AI의 범위·한계 | [NIST 인공지능](https://www.nist.gov/artificial-intelligence), [NIST 생성형 AI 프로그램](https://www.nist.gov/itl/ai-risk-management-framework/generative-artificial-intelligence) |
-| 13~16 | 평균, 결측값, 시각화, 데이터 품질 | [NIST/SEMATECH 통계 안내서](https://www.itl.nist.gov/div898/handbook/) |
-| 17~20 | 이진 표현, CPU, 입력 장치, RAM | [NIST 컴퓨터 보안 용어집](https://csrc.nist.gov/glossary) |
-| 21~24 | 고유 비밀번호, 피싱 링크, 보안 업데이트 | [CISA Secure Our World](https://www.cisa.gov/secure-our-world) |
-| 25~40 | 수도·국가상징·국경일·헌법 | [대한민국 국가 개요](https://www.korea.net/AboutKorea/OverviewofKorea), [행정안전부 국가상징](https://www.mois.go.kr/chd/sub/a05/country/screen.do), [국가법령정보센터 대한민국헌법](https://www.law.go.kr/법령/대한민국헌법) |
-| 41~52 | 단위와 기초 산술·도형 | [BIPM 국제단위계 안내서](https://www.bipm.org/en/publications/si-brochure) |
-| 53~68 | 지구·달·빛·물·생물 기초 | [NASA Earth Facts](https://science.nasa.gov/earth/facts/), [NASA Moon Facts](https://science.nasa.gov/moon/facts/), [USGS 물의 과학](https://www.usgs.gov/special-topics/water-science-school) |
-| 69~80 | 대양·대륙·국가와 수도 | [CIA World Factbook](https://www.cia.gov/the-world-factbook/), [NOAA Ocean Service](https://oceanservice.noaa.gov/facts/bigocean.html) |
-| 81~100 | 신호등, 생활 도구, 날짜, 악기·운동·공공시설 | 일상적인 명칭과 용도만 사용했으며 전문 지식·시사 사실은 포함하지 않음 |
+## 임시 문항 상태
 
-## 편집 기준
-
-- 문장은 3초 안에 읽을 수 있도록 32자 이하로 유지한다.
-- 전문 약어, 라이브러리 API, 수식 암기, 세부 연도 문제는 넣지 않는다.
-- X 문항은 단어 하나를 억지로 비트는 함정보다 초보자도 이해할 수 있는 명확한 반대 사실을 쓴다.
-- `항상`, `무조건`, `모두` 같은 절대어가 정답 힌트가 되지 않도록 남용하지 않는다.
-- 총 문항 수와 O/X 비율은 자동 테스트로 고정한다.
+현재 10문항은 기존 MVP 동작을 복구하기 위한 호환용 데이터다. 사용자 제공 최종 문항으로 교체되기 전에는 사실 검수 완료 콘텐츠로 간주하지 않는다.

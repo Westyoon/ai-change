@@ -323,7 +323,7 @@ test("AI mounts the prototype shell and restores the shared host shell on destro
   assert.equal(uiRoot.className, "minigame-ui-root");
 });
 
-test("AI responsive CSS preserves the portrait prototype and adds a bounded desktop landscape shell", async () => {
+test("AI responsive CSS preserves and uniformly scales the portrait MVP frame", async () => {
   const stylesheet = await readFile(
     new URL("../../css/ai-ball-classification.css", import.meta.url),
     "utf8",
@@ -337,16 +337,11 @@ test("AI responsive CSS preserves the portrait prototype and adds a bounded desk
   assert.match(stylesheet, /--ai-frame-width:\s*min\(480px, 100cqw, calc\(\(100dvh - 150px\) \* 3 \/ 4\)\)/u);
   assert.match(stylesheet, /min-height:\s*min\(430px, calc\(100dvh - 200px\)\)/u);
   assert.match(stylesheet, /min-height:\s*clamp\(28px, 10dvh, 44px\)/u);
-  assert.match(stylesheet, /@media \(min-width: 900px\) and \(min-height: 760px\)/u);
-  assert.match(stylesheet, /--ai-frame-max-width:\s*1000px/u);
-  assert.match(stylesheet, /grid-template-columns:\s*72% 28%/u);
-  assert.match(stylesheet, /grid-template-rows:\s*8% 92%/u);
-  assert.match(stylesheet, /width:\s*calc\(var\(--ai-frame-width\) \* 0\.72\)/u);
-  assert.match(stylesheet, /height:\s*calc\(var\(--ai-frame-width\) \* 0\.69\)/u);
-  assert.match(stylesheet, /grid-column:\s*1 \/ -1/u);
-  assert.match(stylesheet, /grid-column:\s*2/u);
-  assert.match(stylesheet, /flex-direction:\s*column/u);
-  assert.match(stylesheet, /transform:\s*none/u);
+  assert.match(stylesheet, /height:\s*calc\(var\(--ai-frame-width\) \* 23 \/ 24\)/u);
+  assert.doesNotMatch(stylesheet, /@media \(min-width: 900px\) and \(min-height: 760px\)/u);
+  assert.doesNotMatch(stylesheet, /--ai-frame-max-width:\s*1000px/u);
+  assert.doesNotMatch(stylesheet, /grid-template-columns:\s*72% 28%/u);
+  assert.doesNotMatch(stylesheet, /aspect-ratio:\s*auto/u);
 });
 
 test("AI keeps the prototype start overlay before beginning its single countdown", async () => {

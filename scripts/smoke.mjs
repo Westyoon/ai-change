@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 import { createStaticServer, root } from "./serve.mjs";
 
 const REQUIRED_RUNTIME_PATHS = Object.freeze([
+  "/js/battle/node-map.js",
+  "/js/scenes/battle-scene.js",
   "/css/word-breaker.css",
   "/data/battle/word-breaker.json",
   "/js/battle/postgame/bosses/word-breaker/battle.js",
