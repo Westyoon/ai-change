@@ -47,7 +47,7 @@ const PUBLIC_FILE_EXTENSIONS = new Set([
 ]);
 
 const SECURITY_HEADERS = `/*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' blob: data:; media-src 'self' blob:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; connect-src 'self' wss:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' blob: data:; media-src 'self' blob:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'
   Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
   Referrer-Policy: strict-origin-when-cross-origin
   X-Content-Type-Options: nosniff
@@ -131,8 +131,10 @@ async function verifyBuild(copiedFiles) {
     "data/battle/xr-egg-trials.json",
     "js/app.js",
     "js/core/account-service.js",
+    "js/core/postgame-realtime-service.js",
     "js/battle/character/index.js",
     "js/battle/node-map.js",
+    "js/battle/postgame/room-lobby.js",
     "js/battle/postgame/bosses/control-boss/index.js",
     "js/battle/postgame/bosses/data-sphinx/index.js",
     "js/battle/postgame/bosses/stat-boss/index.js",

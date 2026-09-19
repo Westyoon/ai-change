@@ -65,6 +65,35 @@
   white-space: nowrap;
 }
 
+.aftergame-world__badges {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.aftergame-world__network-badge {
+  padding: 5px 10px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgb(30 15 28 / 88%);
+  font-size: 0.58rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.aftergame-world__network-badge[data-status="connected"] {
+  border-color: #2ab5e4;
+  color: #a9ecff;
+}
+
+.aftergame-world__network-badge[data-status="error"] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .aftergame-world__help {
   margin: 8px 0 12px;
   color: var(--muted);
@@ -401,6 +430,177 @@
   font-size: 0.68rem;
 }
 
+.aftergame-world > .character-actor--remote .character-actor__remote-health {
+  display: none;
+}
+
+.postgame-room-lobby {
+  position: fixed;
+  z-index: 12000;
+  inset: 0;
+  display: grid;
+  padding: clamp(12px, 4vw, 36px);
+  overflow: auto;
+  place-items: center;
+  background: rgb(18 8 20 / 76%);
+  backdrop-filter: blur(5px);
+}
+
+.postgame-room-lobby[hidden] {
+  display: none;
+}
+
+.postgame-room-lobby__panel {
+  display: grid;
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100dvh - 24px));
+  gap: 14px;
+  padding: clamp(16px, 3vw, 26px);
+  overflow: auto;
+  border: 3px solid var(--line);
+  border-radius: 22px;
+  color: var(--text);
+  background: #351d31;
+  box-shadow: 0 10px 0 rgb(109 56 86 / 54%), 0 24px 60px rgb(0 0 0 / 48%);
+}
+
+.postgame-room-lobby__header,
+.postgame-room-lobby__create-row,
+.postgame-room-lobby__membership-heading,
+.postgame-room-card,
+.postgame-room-lobby__membership-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.postgame-room-lobby__header,
+.postgame-room-lobby__membership-heading,
+.postgame-room-card {
+  justify-content: space-between;
+}
+
+.postgame-room-lobby__title,
+.postgame-room-lobby__directory h3 {
+  margin: 0;
+}
+
+.postgame-room-lobby__title {
+  font-size: clamp(1.15rem, 4vw, 1.65rem);
+}
+
+.postgame-room-lobby__subtitle,
+.postgame-room-lobby__connection,
+.postgame-room-lobby__empty,
+.postgame-room-lobby__waiting {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.postgame-room-lobby__connection {
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgb(30 15 28 / 72%);
+}
+
+.postgame-room-lobby__connection[data-status="connected"] {
+  border-color: #2ab5e4;
+  color: #a9ecff;
+}
+
+.postgame-room-lobby__solo-fallback {
+  justify-self: start;
+}
+
+.postgame-room-lobby__solo-fallback[hidden] {
+  display: none;
+}
+
+.postgame-room-lobby__create-row {
+  display: grid;
+  grid-template-columns: auto minmax(88px, 1fr) minmax(132px, auto);
+}
+
+.postgame-room-lobby__create-row label {
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.postgame-room-lobby__capacity {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-strong);
+  font: inherit;
+}
+
+.postgame-room-lobby__membership {
+  padding: 13px;
+  border: 2px solid #2ab5e4;
+  border-radius: 14px;
+  background: rgb(42 181 228 / 9%);
+}
+
+.postgame-room-lobby__membership[hidden] {
+  display: none;
+}
+
+.postgame-room-lobby__membership-heading span,
+.postgame-room-card span {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.postgame-room-lobby__members {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  margin: 10px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.postgame-room-lobby__members li {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgb(255 255 255 / 5%);
+  font-size: 0.66rem;
+}
+
+.postgame-room-lobby__rooms {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.postgame-room-card {
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(30 15 28 / 68%);
+}
+
+.postgame-room-card > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.postgame-room-card .button,
+.postgame-room-lobby__membership-actions .button,
+.postgame-room-lobby__create-row .button,
+.postgame-room-lobby__header .button {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 0.66rem;
+}
+
 .battle-progress,
 .battle-notice {
   padding: 12px 14px;
@@ -427,6 +627,24 @@
 
 .battle-frame {
   grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.battle-toolbar__title-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.battle-party-badge {
+  padding: 4px 7px;
+  border: 1px solid #2ab5e4;
+  border-radius: 999px;
+  color: #a9ecff;
+  background: rgb(42 181 228 / 12%);
+  font-size: 0.58rem;
+  white-space: nowrap;
 }
 
 .battle-controls {
@@ -541,6 +759,16 @@
     font-size: 0.52rem;
   }
 
+  .aftergame-world__badges {
+    display: grid;
+    justify-items: end;
+  }
+
+  .aftergame-world__network-badge {
+    padding: 4px 7px;
+    font-size: 0.5rem;
+  }
+
   .aftergame-world__help {
     margin: 7px 0 9px;
     font-size: 0.66rem;
@@ -587,6 +815,34 @@
   .aftergame-world__actions .button {
     width: 100%;
     min-width: 0;
+  }
+
+  .postgame-room-lobby {
+    padding: 8px;
+  }
+
+  .postgame-room-lobby__panel {
+    max-height: calc(100dvh - 16px);
+    padding: 14px;
+    border-width: 2px;
+    border-radius: 16px;
+  }
+
+  .postgame-room-lobby__header {
+    align-items: flex-start;
+  }
+
+  .postgame-room-lobby__create-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .postgame-room-lobby__create-row label {
+    grid-column: 1 / -1;
+  }
+
+  .postgame-room-lobby__membership-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .battle-controls {

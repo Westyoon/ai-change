@@ -1,6 +1,9 @@
+export { PostgameCoordinator } from "./postgame-coordinator";
+
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  POSTGAME: DurableObjectNamespace;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   PUBLIC_ORIGIN?: string;
@@ -56,9 +59,7 @@ const LOCAL_OAUTH_STATE_COOKIE = "ai-change-oauth-state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
 const MAX_SCORE = 1_000_000;
-const MAX_LEVEL = 10;
 const EXPERIENCE_PER_CLEAR = 100;
-const MAX_EXPERIENCE = (MAX_LEVEL - 1) * EXPERIENCE_PER_CLEAR;
 const GUEST_IMPORT_ATTEMPT_PREFIX = "guest-import-v1:";
 const ALLOWED_GAME_IDS = new Set([
   "data-number-baseball",
@@ -217,18 +218,15 @@ function normalizeEmail(value: unknown): string | null {
 }
 
 function statPayload(row: StatsRow): Record<string, number | null> {
-  const level = Math.min(MAX_LEVEL, Math.max(1, Number(row.level) || 1));
-  const experience = Math.min(
-    MAX_EXPERIENCE,
-    Math.max(0, Number(row.experience) || 0),
-  );
+  const level = Math.max(1, Math.trunc(Number(row.level) || 1));
+  const experience = Math.max(0, Math.trunc(Number(row.experience) || 0));
   return {
     attack: Number(row.attack),
     hp: Number(row.hp),
     defense: Number(row.defense),
     level,
     experience,
-    nextLevelExperience: level >= MAX_LEVEL ? null : level * EXPERIENCE_PER_CLEAR,
+    nextLevelExperience: level * EXPERIENCE_PER_CLEAR,
     clears: Number(row.clears),
     score: Number(row.score),
     unspentPoints: Number(row.unspent_points),
@@ -516,31 +514,9 @@ async function importCompletedProgress(
       env.DB.prepare(
         `UPDATE stats
             SET clears = COALESCE(clears, 0) + 1,
-                experience = MIN(
-                  ${MAX_EXPERIENCE},
-                  COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
-                ),
-                level = MIN(
-                  ${MAX_LEVEL},
-                  1 + CAST(
-                    MIN(
-                      ${MAX_EXPERIENCE},
-                      COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
-                    ) / ${EXPERIENCE_PER_CLEAR} AS INTEGER
-                  )
-                ),
-                unspent_points = COALESCE(unspent_points, 0) + MAX(
-                  0,
-                  MIN(
-                    ${MAX_LEVEL},
-                    1 + CAST(
-                      MIN(
-                        ${MAX_EXPERIENCE},
-                        COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
-                      ) / ${EXPERIENCE_PER_CLEAR} AS INTEGER
-                    )
-                  ) - COALESCE(level, 1)
-                ),
+                experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR},
+                level = COALESCE(level, 1) + 1,
+                unspent_points = COALESCE(unspent_points, 0) + 1,
                 updated_at = CURRENT_TIMESTAMP
           WHERE user_id = ?
             AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
@@ -598,26 +574,14 @@ async function recordResult(request: Request, env: Env, origin: string): Promise
           SET unspent_points = COALESCE(unspent_points, 0) + 1,
               updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
-          AND COALESCE(level, 1) < ${MAX_LEVEL}
           AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
     ).bind(session.user_id, resultId, session.user_id),
     env.DB.prepare(
       `UPDATE stats
           SET clears = COALESCE(clears, 0) + 1,
               score = MAX(COALESCE(score, 0), ?),
-              experience = MIN(
-                ${MAX_EXPERIENCE},
-                COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
-              ),
-              level = MIN(
-                ${MAX_LEVEL},
-                1 + CAST(
-                  MIN(
-                    ${MAX_EXPERIENCE},
-                    COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
-                  ) / ${EXPERIENCE_PER_CLEAR} AS INTEGER
-                )
-              ),
+              experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR},
+              level = COALESCE(level, 1) + 1,
               updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
           AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
@@ -659,6 +623,28 @@ async function allocateStat(request: Request, env: Env, origin: string): Promise
   return json({ stats: statPayload(await fetchStats(env, session.user_id)) });
 }
 
+async function connectPostgame(request: Request, env: Env, origin: string): Promise<Response> {
+  requireMethod(request, "GET");
+  if (request.headers.get("Origin") !== origin) {
+    throw new HttpError(403, "Forbidden");
+  }
+  if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
+    throw new HttpError(426, "WebSocket upgrade required");
+  }
+
+  const session = await requireSession(request, env);
+  const headers = new Headers({
+    Upgrade: "websocket",
+    "x-ai-player-key": await sha256(`postgame:${session.user_id}`),
+    "x-ai-player-name": encodeURIComponent(normalizeDisplayName(session.name)),
+  });
+  const coordinator = env.POSTGAME.getByName("festival-v1");
+  return coordinator.fetch(new Request("https://postgame.internal/connect", {
+    method: "GET",
+    headers,
+  }));
+}
+
 async function handleApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const origin = publicOrigin(request, env);
@@ -677,6 +663,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/progress/import") return importCompletedProgress(request, env, origin);
   if (url.pathname === "/api/results") return recordResult(request, env, origin);
   if (url.pathname === "/api/stats/allocate") return allocateStat(request, env, origin);
+  if (url.pathname === "/api/postgame/socket") return connectPostgame(request, env, origin);
 
   // Legacy endpoints intentionally stay unavailable: /api/users, /api/stats/:id,
   // and PUT /api/stats previously exposed private data or trusted a caller userId.

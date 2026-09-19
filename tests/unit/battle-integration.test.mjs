@@ -91,13 +91,16 @@ test("account stats map from D1 baselines to stat-boss baselines exactly once", 
   assert.deepEqual(allocated.accountStats, { attack: 1, hp: 101, defense: 1 });
 });
 
-test("published stat-boss uses 1000 HP without stretching the original ten-counter MVP", async () => {
+test("published stat-boss keeps 1000 total HP and 10 attack without a solo timeout", async () => {
   const config = JSON.parse(
     await readFile(new URL("../../data/battle/stat-boss.json", import.meta.url), "utf8"),
   );
   assert.equal(config.bossBaseHp, 1000);
-  assert.equal(calcPlayerDamage(1, config.balance), 100);
-  assert.equal(Math.ceil(config.bossBaseHp / calcPlayerDamage(1, config.balance)), 10);
+  assert.equal(config.bossAttack, 10);
+  assert.equal(calcIncomingDamage(config.bossAttack, 1), 10);
+  assert.equal(calcPlayerDamage(1, config.balance), 10);
+  assert.equal(Math.ceil(config.bossBaseHp / calcPlayerDamage(1, config.balance)), 100);
+  assert.equal(Object.hasOwn(config, "timeLimitSec"), false);
 });
 
 test("guest Battle uses 1/1/1 without accepting private account fields", () => {

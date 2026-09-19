@@ -71,17 +71,8 @@ export class StatBossEncounter {
    * @param {object} config
    * @param {{width:number, height:number}} config.arena
    * @param {{id:string, attackStat:number, defenseStat:number, healthStat:number, position:{x:number,y:number}}[]} config.players
-   * @param {number} [config.bossAttack=45] - 보스 공격력 (예시값 - v3에 구체 수치 없어서 임시로 넣음, 밸런싱 대상.
-   *   v3 4절(논의 필요)에도 "데미지 계수는 MVP 이후 플레이테스트로 조정"이라고 명시돼 있어서,
-   *   지금처럼 계속 실측하면서 바꾸는 게 맞는 방향.
-   *   2026-09-06(1차): 기본 스탯 1/1/1 기준으로 20->9
-   *   2026-09-06(2차): 1인·기본스탯 클리어가 너무 쉬움 -> 9->28 (최대체력100 기준 4방에 사망)
-   *   2026-09-06(3차): "실수해도 클리어된다"는 재확인 피드백으로 한 번 더 상향 -> 28->45,
-   *   대략 2~3방(실수 2번)이면 사망하는 수준. 계속 쉬우면 더 올릴 것.)
-   * @param {number} [config.bossBaseHp=1000] - 1인 기준 보스 기본 체력 (예시값, 밸런싱 대상.
-   *   2026-09-06(1차): 기본 공격력 10->1 하향에 맞춰 1000->700으로 낮췄었는데,
-   *   2026-09-06(3차): 보스공격력을 28로 올려 난이도를 확보한 뒤 플레이해보니 체감 적당해서
-   *   1000으로 원복 - 전투가 좀 더 길어지는 쪽으로)
+   * @param {number} [config.bossAttack=10] - 회피 실패 시 기본 피해.
+   * @param {number} [config.bossBaseHp=1000] - 인원수와 무관한 보스 총 체력.
    * @param {number} [config.staggerDurationMs=1200] - 경직 지속 시간 (v3 3-4절 예시 수치)
    * @param {number} [config.timeLimitSec] - 제한시간(초). v3 문서에서 정확한 값을 확인하기 전까지는
    *   생략하면 시간초과 실패 조건이 꺼져 있다(무제한). 값이 확인되는 대로 넣어줄 것.
@@ -145,11 +136,11 @@ export class StatBossEncounter {
       });
     }
 
-    const bossBaseHp = this.config.bossBaseHp ?? 1000; // TODO: v3 확정 수치로 교체 (2026-09-06: 1000으로 원복, history 참고)
+    const bossBaseHp = this.config.bossBaseHp ?? 1000;
     const multiplier = getBossHpMultiplier(this.players.size);
     const bossMaxHp = Math.round(bossBaseHp * multiplier);
     this.boss = {
-      attack: this.config.bossAttack ?? 45, // TODO: v3 확정 수치로 교체 (2026-09-06 3차 상향, history 참고)
+      attack: this.config.bossAttack ?? 10,
       maxHp: bossMaxHp,
       hp: bossMaxHp,
     };

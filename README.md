@@ -2,7 +2,7 @@
 
 이화여자대학교 인공지능대학 축제를 탐색·대화·미니게임 경험으로 소개하는 반응형 웹게임입니다.
 
-현재 통합본에는 DS·CS·CSE·AI·AIDS 사전게임 5종, 캐릭터로 입장 필드와 중심 광장을 오가는 사후 이동 월드, 사후 콘텐츠 4종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`), 사전게임 5종 완료 뒤 Story 목록에 추가되는 최종전 `word-breaker`와 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev` 하나이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않아도 게임은 게스트 모드로 플레이할 수 있습니다. API가 없던 기존 Cloudflare Pages 프로젝트는 2026-09-10에 폐기했습니다.
+현재 통합본에는 DS·CS·CSE·AI·AIDS 사전게임 5종, 캐릭터로 입장 필드와 중심 광장을 오가는 사후 이동 월드, 사후 콘텐츠 4종(`stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`), 사전게임 5종 완료 뒤 Story 목록에 추가되는 최종전 `word-breaker`와 공용 캐릭터 모듈, Google 로그인·계정 스탯·공개 랭킹이 들어 있습니다. 로그인 사용자는 입장 필드·광장에서 다른 캐릭터를 보고 보스별 공개 방을 1~5명으로 만들거나 참가할 수 있습니다. 방 시작은 공통 시드·시각·명단으로 함께 라우팅하지만 보스 전투 판정은 아직 각 브라우저 로컬입니다. 운영 주소는 통합 Worker인 `https://ai-change.ai-change-backend.workers.dev` 하나이며 Google OAuth와 운영 D1 연결을 확인했습니다. 로그인하지 않거나 실시간 연결에 실패해도 게스트·솔로 게임은 계속 플레이할 수 있습니다. API가 없던 기존 Cloudflare Pages 프로젝트는 2026-09-10에 폐기했습니다.
 
 ## 학과 코드
 
@@ -30,9 +30,9 @@ Node.js 22 이상이 필요합니다. 고정된 Wrangler 4.127.0이 Node.js 22 �
 npm run dev
 ```
 
-기본 주소는 `http://127.0.0.1:4173`입니다. 이 모드에서는 미니게임과 캐릭터 미리보기를 확인할 수 있지만 `/api/*`가 없으므로 계정 화면은 연결 불가 상태로 표시됩니다. ES module과 JSON fetch를 사용하므로 `index.html`을 `file://`로 직접 열지 않습니다.
+기본 주소는 `http://127.0.0.1:4173`입니다. 이 모드에서는 미니게임·캐릭터와 게스트 솔로 Battle을 확인할 수 있지만 `/api/*`와 Durable Object가 없으므로 계정 화면과 온라인 presence·공개 방은 연결 불가 상태로 표시됩니다. ES module과 JSON fetch를 사용하므로 `index.html`을 `file://`로 직접 열지 않습니다.
 
-### 로그인·D1을 포함한 same-origin Worker
+### 로그인·D1·Durable Object를 포함한 same-origin Worker
 
 처음 한 번 백엔드 도구를 설치하고 로컬 D1 migration을 적용합니다.
 
@@ -42,7 +42,7 @@ npm run cf:full:db:migrate:local
 npm run cf:full:dev
 ```
 
-`cf:full:dev`는 먼저 SPA를 `dist/`로 빌드한 다음 `backend/wrangler.toml`로 Worker를 실행합니다. Worker는 `/api/*`를 처리하고 그 외 요청에는 같은 origin의 `dist/` 정적 파일을 제공합니다. 터미널에 출력된 Wrangler 주소로 접속합니다.
+`cf:full:dev`는 먼저 SPA를 `dist/`로 빌드한 다음 `backend/wrangler.toml`로 Worker를 실행합니다. Worker는 `/api/*`와 `/api/postgame/socket` WebSocket을 처리하고 그 외 요청에는 같은 origin의 `dist/` 정적 파일을 제공합니다. D1은 계정·스탯·사전게임 결과, 단일 SQLite-backed Durable Object는 사후 월드 presence와 공개 방을 담당합니다. 터미널에 출력된 Wrangler 주소로 접속합니다.
 
 현재 개발 명령은 SPA를 시작할 때 한 번 빌드합니다. 프런트 소스를 바꾼 뒤에는 Worker를 종료하고 `cf:full:dev`를 다시 실행합니다. 특히 Windows에서는 Wrangler가 `dist/`를 제공하는 동안 별도 `npm run build`를 동시에 실행하면 디렉터리 잠금 오류가 날 수 있습니다.
 
@@ -64,12 +64,15 @@ Google Cloud Console에는 Wrangler가 출력한 origin의 `/api/auth/callback`�
 - `GET /api/ranking?criteria=score&gameId=<id>`: 같은 미니게임 안에서만 비교하는 최고 점수 순위
 - `POST /api/results`: 로그인한 계정의 미니게임 CLEAR를 시도 ID별 한 번 반영
 - `POST /api/stats/allocate`: 미사용 포인트를 공격·HP·방어 중 하나에 배분
+- `GET /api/postgame/socket`: 로그인 session·same-origin 검증 뒤 입장 필드/광장 presence와 보스별 공개 방 WebSocket으로 upgrade
 
 브라우저에는 무작위 session token만 `HttpOnly` cookie로 전달하고 D1에는 그 SHA-256 hash와 만료 시각을 저장합니다. 외부 계정 ID나 이메일을 공개하는 users/stats API와 요청 body의 `userId`를 신뢰하는 갱신 API는 제공하지 않습니다.
 
 > 개인정보·랭킹 고지: Google 로그인 시 Google 계정 ID·이메일·표시 이름을 계정 연결용으로 D1에 저장하고, 그중 표시 이름과 게임 기록은 공개 랭킹에 표시합니다. 이메일과 외부 계정 ID는 공개 API로 반환하지 않습니다. 테스트·배포 전 참가자에게 이 수집·공개 범위와 보관·삭제 담당자를 로그인 전에 고지하고, 동의한 계정만 사용합니다.
 
 미니게임마다 점수 단위가 달라 점수 순위는 요청한 `gameId`별로 분리하며, 전체 순위는 누적 클리어만 비교합니다. 미니게임 판정 자체는 현재 브라우저에서 이루어집니다. 인증·허용 목록·점수 범위·시도 ID 멱등성은 다른 계정 변조와 단순 중복 지급을 막지만, 경쟁성 점수 조작까지 완전히 검증하지는 못합니다. 정식 경쟁 랭킹 전에는 서버 challenge 또는 검증 가능한 이벤트 정책이 추가로 필요합니다.
+
+사후게임 WebSocket은 공개 방 정원 1~5명, 방장 시작·이탈 시 위임, 같은 계정의 중복 좌석 차단을 처리합니다. 시작 시 모든 참가자에게 같은 `seed`·`startedAt`·`roster`를 전달하지만 이동·공격·피격·보스 HP·결과는 아직 공유하거나 서버에서 판정하지 않습니다. 현재 기능은 온라인 로비와 동시 진입이며 서버 권위 협동 전투가 아닙니다.
 
 따라서 현재 랭킹 화면은 테스트 순위로 표시하며 실물 보상이나 공식 경쟁 결과에 사용하지 않습니다.
 
@@ -95,15 +98,15 @@ npm run cf:full:check
 
 | 경로 | 명령 | 용도 |
 | --- | --- | --- |
-| 통합 Worker | `npm run cf:full:dev` | 로컬 SPA + API + D1 |
-| 통합 Worker | `npm run cf:deploy:production` | 대표 운영 주소의 SPA + API + D1 배포 |
+| 통합 Worker | `npm run cf:full:dev` | 로컬 SPA + API + D1 + Durable Object |
+| 통합 Worker | `npm run cf:deploy:production` | 대표 운영 주소의 SPA + API + D1 + Durable Object 배포 |
 | 통합 Worker | `npm run cf:full:deploy` | 위 운영 배포가 호출하는 기존 호환 명령 |
 | 단순 정적 서버 | `npm run dev` | 계정 API 없는 UI 로컬 확인 |
 | 레거시 Static Worker | `npm run cf:dev:worker` | `wrangler.worker.jsonc`를 이용한 로컬 호환성 확인만 수행 |
 
 로그인·서버 저장을 사용하는 canonical 주소는 `https://ai-change.ai-change-backend.workers.dev`입니다. API 없는 공개 정적 배포를 다시 만들지 않도록 Pages와 레거시 Static Worker의 외부 배포 명령을 제거했습니다.
 
-현재 운영 Cloudflare 계정의 Worker와 D1 binding, Google OAuth secret 및 callback 연결을 완료했습니다. secret 값은 저장소에 두지 않으며, 계정 이전·secret 회전·schema 변경 때만 대상 계정과 D1을 다시 확인합니다.
+현재 운영 Cloudflare 계정의 Worker와 D1 binding, Google OAuth secret 및 callback 연결을 완료했습니다. 사후게임 실시간 기능은 같은 Worker 환경의 `POSTGAME` Durable Object binding과 SQLite class migration이 함께 배포되어야 합니다. secret 값은 저장소에 두지 않으며, 계정 이전·secret 회전·schema 변경 때만 대상 계정과 D1·Durable Object 구성을 다시 확인합니다.
 
 Cloudflare Worker의 `PUBLIC_ORIGIN`은 `https://ai-change.ai-change-backend.workers.dev`, Google Console의 production redirect URI는 `https://ai-change.ai-change-backend.workers.dev/api/auth/callback`으로 맞춥니다.
 
@@ -121,7 +124,9 @@ Loading
   ├─ Main Menu → Story → 학과별 Map → 미니게임 → CLEAR / FAIL
   ├─ 상단 내 계정 → Google 로그인 / 스탯 확인·배분
   ├─ 랭킹보드 → 점수 / 클리어 공개 순위
-  └─ Battle → 5종 완료 후 활성화 → 사후 콘텐츠 5종
+  └─ Battle → 5종 완료 후 활성화 → 이동 월드·사후 콘텐츠
+       ├─ 로그인: 다른 캐릭터 presence·보스별 공개 방 1~5명
+       └─ 게스트·연결 장애: 기존 솔로 직접 입장
 ```
 
 맵의 학과 카드를 선택하면 대화·안내 화면을 거치지 않고 연결된 미니게임을 즉시 실행합니다. 로그인 상태에서 CLEAR하면 session 기준으로 결과를 보내며, 게스트이거나 서버가 연결되지 않아도 로컬 게임 흐름은 계속됩니다. 배틀 해금은 로컬 완료 기록과 `/api/me`의 `completedGameIds`를 합쳐 서로 다른 5종의 완료를 확인합니다.
@@ -140,7 +145,7 @@ Loading
 
 각 기능 브랜치의 색·문구·카드·버튼과 게임 규칙을 유지합니다. AI는 `480×640`, AIDS는 `390×740` MVP 세로 프레임 전체를 모바일에서 비례 축소하고 가용 높이가 충분한 큰 화면에서 각각 최대 약 `1.33배`·`1.35배`까지 비례 확대하므로 HUD·필드·조작부의 위치와 종횡비가 바뀌지 않습니다. CSE는 모바일에서 `440×920` 원본 세로 프레임을 유지하고 충분히 큰 데스크톱에서는 2열 작업 공간으로 재배치합니다. CS Canvas는 원본 종횡비를 유지합니다. 각 모듈은 `init`, `start`, `pause`, `resume`, `restart`, `destroy`, `getState` 공통 lifecycle을 따릅니다.
 
-Battle registry에는 `stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`, `word-breaker`가 `published` 상태로 등록되어 있습니다. 앞의 세 보스는 중심 광장 북쪽의 독립 출입문으로, `xr-egg-trials`는 입장 필드를 걷다가 나타나는 랜덤 X알로 실행합니다. 필드와 광장 사이는 새로고침 없이 이동하며, `word-breaker`는 사전게임 5종 완료 뒤 Story의 게임 목록에서 실행합니다. 다섯 모듈은 같은 lifecycle·해금·결과 화면 계약을 사용합니다. 교체된 전역 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
+Battle registry에는 `stat-boss`, `data-sphinx`, `control-boss`, `xr-egg-trials`, `word-breaker`가 `published` 상태로 등록되어 있습니다. 앞의 세 보스는 중심 광장 북쪽의 독립 출입문이며 로그인 상태에서는 보스별 공개 방을 거쳐 함께 진입할 수 있습니다. `xr-egg-trials`는 입장 필드를 걷다가 나타나는 랜덤 X알로, `word-breaker`는 사전게임 5종 완료 뒤 Story의 게임 목록에서 실행합니다. 필드와 광장 사이는 새로고침 없이 이동합니다. 다섯 모듈은 같은 lifecycle·해금·결과 화면 계약을 사용합니다. 공개 방의 참가자들은 공통 시작 payload를 받지만 각 보스 module의 전투 상태는 아직 클라이언트별 로컬입니다. 교체된 전역 prototype과 개발 harness는 원본 보존·참고용으로 저장소에 남아 있으나 production `dist/`에서는 제외합니다.
 
 ## 주요 구조
 
@@ -155,9 +160,9 @@ js/
 data/                 학과·미니게임·대화·map runtime 데이터
 assets/               자체 제작 SVG placeholder와 게임 asset
 backend/
-  src/                same-origin Worker API
+  src/                same-origin Worker API와 PostgameCoordinator
   migrations/         D1 schema migration
-  wrangler.toml       Worker·Static Assets·D1 binding
+  wrangler.toml       Worker·Static Assets·D1·Durable Object binding/migration
 scripts/              build·validation·smoke·정적 개발 서버
 tests/                unit·contract·integration test
 docs/                 계획·기획·실행·인증 통합 문서
@@ -168,6 +173,8 @@ docs/                 계획·기획·실행·인증 통합 문서
 - 표시용 학과명은 `data/departments.json`, 미니게임 연결은 stable ID를 사용합니다.
 - 로그인 여부나 API 장애가 게스트 게임 진행을 막지 않게 합니다.
 - mutation API는 same-origin JSON 요청과 서버 session을 기준으로 계정을 결정합니다.
+- 사후게임 WebSocket도 same-origin과 로그인 session을 요구하되, 연결 실패가 솔로 Battle을 막지 않게 합니다.
+- D1에는 계정·스탯·결과를, Durable Object에는 고빈도 presence·공개 방 상태를 둡니다.
 - 이메일·provider ID·session token·secret을 화면이나 공개 API에 노출하지 않습니다.
 - dialogue, 계정 이름, 랭킹 이름은 HTML 문자열이 아니라 text node로 출력합니다.
 - 확정되지 않은 balance 값은 runtime config에 임의로 넣지 않습니다.
@@ -196,4 +203,4 @@ docs/                 계획·기획·실행·인증 통합 문서
 - 사후 이동 월드의 최종 배경·문·광장 아트 교체
 - 5개 미니게임의 최종 balance·점수 정책
 - 사후 콘텐츠 5종의 실제 기기 플레이테스트·최종 밸런스·아트·사운드
-- 멀티플레이
+- 공유 이동·공격·피격·보스 HP·팀 결과를 서버에서 판정하는 실제 서버 권위 협동 전투와 진행 중 재접속

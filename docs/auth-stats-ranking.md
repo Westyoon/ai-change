@@ -1,10 +1,10 @@
-# 로그인·스탯 DB·랭킹 서버 통합
+# 로그인·스탯 DB·랭킹·사후게임 실시간 서버 통합
 
 > 원본 기여: GitHub PR #12 `feat: add authorize, login, ranking board functionality`
 >
 > 통합 브랜치: `integration/after-auth-stats-ranking`
 >
-> 문서 상태: 2026-09-10 기준 통합 Worker의 Google OAuth callback, 운영 D1, session·ranking API를 확인했다. 운영 DB를 새로 만들 필요는 없다. 아래 생성 절차는 신규 환경에만 사용한다.
+> 문서 상태: 2026-09-19 코드 기준. 통합 Worker의 Google OAuth·D1 API에 로그인 사용자용 사후게임 WebSocket과 SQLite-backed Durable Object coordinator를 추가했다. 기존 운영 D1은 새로 만들 필요가 없으며, 새 migration과 Durable Object binding의 운영 반영 여부는 배포 때 별도로 확인한다. 아래 생성 절차는 신규 환경에만 사용한다.
 
 ## 1. 원본 PR에서 가져오는 기능
 
@@ -33,13 +33,17 @@ PR #12는 다음 기반을 제공했다.
 
 ## 3. 최종 배치 구조
 
-하나의 Cloudflare Worker가 정적 SPA와 API를 같은 origin으로 제공한다.
+하나의 Cloudflare Worker가 정적 SPA, HTTP API와 WebSocket endpoint를 같은 origin으로 제공한다.
 
 ```text
 브라우저 · https://ai-change.ai-change-backend.workers.dev
   ├─ /api/*  ───────────────→ Cloudflare Worker
-  │                            ├─ Google OAuth
-  │                            └─ D1: users, stats(level·experience 포함), sessions, game_results
+  │                            ├─ Google OAuth·session·ranking
+  │                            ├─ D1: users, stats(level·experience 포함), sessions, game_results
+  │                            └─ /api/postgame/socket
+  │                                  └─ 단일 PostgameCoordinator Durable Object
+  │                                     ├─ entry-field·plaza presence
+  │                                     └─ 공개 보스방 directory
   └─ 그 외 경로 ─────────────→ Worker Static Assets의 dist/
 ```
 
@@ -48,6 +52,7 @@ PR #12는 다음 기반을 제공했다.
 - 운영 환경의 `PUBLIC_ORIGIN`은 canonical origin인 `https://ai-change.ai-change-backend.workers.dev`로 설정한다. 다른 host로 직접 접근한 API 요청은 거부한다.
 - 인증 cookie는 `HttpOnly`, 운영 환경 `Secure`, `SameSite=Lax`, `Path=/`로 발급한다.
 - D1에는 원본 session token이 아닌 SHA-256 hash와 만료 시각을 저장한다.
+- 위치와 방 상태처럼 자주 변하는 데이터는 D1에 쓰지 않는다. WebSocket 연결별 상태는 Hibernation attachment, 공개 방 목록은 Durable Object storage가 담당한다.
 - API 없는 기존 `https://ai-change.pages.dev` 프로젝트와 과거 고정 배포는 폐기했으며 공개 주소는 canonical Worker 하나만 사용한다.
 
 운영 게임과 로그인에 사용하는 주소는 아래 하나다.
@@ -88,6 +93,23 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 | `POST` | `/api/progress/import` | 현재 브라우저의 서로 다른 로컬 완료 게임을 본인 계정 진행에 한 번씩 병합 |
 | `POST` | `/api/results` | 본인의 CLEAR 결과를 attempt 단위로 한 번만 반영 |
 | `POST` | `/api/stats/allocate` | 남은 스탯 포인트 1개를 `attack`·`hp`·`defense` 중 하나에 배분 |
+| `GET` | `/api/postgame/socket` | same-origin `Origin`과 로그인 session을 확인한 뒤 WebSocket으로 upgrade |
+
+### 사후게임 WebSocket 계약
+
+클라이언트는 host를 고정하지 않고 상대 경로 `/api/postgame/socket`을 현재 페이지와 같은 origin의 `ws:` 또는 `wss:` URL로 바꿔 연결한다. 게스트, 다른 origin, WebSocket upgrade가 아닌 요청은 coordinator에 전달하지 않는다.
+
+현재 단일 `PostgameCoordinator`가 다음 상태를 조정한다.
+
+- `entry-field`·`plaza`의 로그인 사용자 presence. 공개 payload에는 임시 플레이어 ID, 표시 이름, 구역, 정규화 좌표, 방향·이동 여부만 포함한다.
+- `data-sphinx`·`stat-boss`·`control-boss`별 공개 방 목록. 방 정원은 최소 1명·최대 5명이다.
+- 방 생성·참가·이탈·시작. 방장만 시작할 수 있고 1명부터 시작 가능하며, 방장 이탈 시 남은 첫 참가자에게 위임한다.
+- session 계정에서 파생한 내부 키로 같은 계정의 여러 탭이 방 좌석을 중복 점유하지 못하게 차단한다. 이 내부 키는 공개 payload로 보내지 않는다.
+- 방 시작 시 모든 참가자에게 공통 `battleId`, `roomId`, `seed`, `startedAt`, `roster`를 보내고 시작된 방을 공개 목록에서 제거한다.
+
+Durable Object는 Cloudflare Hibernation API의 WebSocket attachment로 연결별 상태를 복구하고, room directory는 Durable Object storage에 저장한다. D1은 계정·스탯·session·사전게임 `game_results`의 장기 저장소이며, 프레임 단위 위치나 방 membership 저장소로 사용하지 않는다.
+
+중요한 현재 한계가 있다. 공통 시작 event는 참가자를 같은 보스로 동시에 라우팅할 뿐이다. 세 보스의 이동·공격·피격·보스 HP·phase·CLEAR 판정은 아직 각 클라이언트 로컬이며 coordinator가 검증하거나 공유하지 않는다. 따라서 이를 서버 권위 협동 전투로 설명하지 않는다. WebSocket이 없거나 끊기면 게스트 및 기존 솔로 직접 입장 흐름을 계속 제공한다.
 
 결과 등록 요청 예시는 다음과 같다. `userId`, email 또는 스탯 증가량은 클라이언트가 보내지 않는다.
 
@@ -102,7 +124,7 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 
 서버는 session에서 이용자를 찾고, 등록된 5개 미니게임 ID·`CLEAR` 상태·허용 범위의 정수 점수만 받는다. 같은 계정의 같은 `attemptId`는 `game_results`의 unique 제약으로 한 번만 처리한다. 최초 반영 때만 `clears`와 경험치를 증가시키고, 최고 점수 랭킹은 단위가 다른 게임끼리 섞지 않고 `game_results.game_id`별로 계산한다.
 
-레벨은 1에서 시작하며 승인된 CLEAR 1회당 서버가 경험치 100을 지급한다. `level = min(10, 1 + floor(experience / 100))`이고 경험치는 900에서 멈춘다. 실제로 새 레벨에 도달한 경우에만 `unspent_points`가 1 증가하므로 레벨 10 이후 반복 CLEAR는 기록과 최고 점수에는 반영되지만 스탯 포인트를 추가 지급하지 않는다. 응답의 `nextLevelExperience`는 다음 누적 경험치 기준이며 레벨 10에서는 `null`이다.
+레벨은 1에서 시작하며 승인된 고유 `attemptId`의 CLEAR 1회마다 경험치 100, 레벨 1, `unspent_points` 1을 지급한다. 제품 레벨 상한은 없으며 `nextLevelExperience = level × 100`으로 다음 누적 경험치 기준을 반환한다. 같은 시도의 결과를 다시 보내면 `game_results`의 `(user_id, attempt_id)` unique 제약 때문에 어떤 보상도 중복 지급되지 않는다.
 
 `completedGameIds`는 해당 계정의 `game_results`에서 완료한 서로 다른 `game_id`를 조회한 값이다. 클라이언트는 이를 로컬 완료 ID와 합쳐 published 사후 콘텐츠의 공통 해금을 판단하며, 반복 CLEAR로 증가한 `clears` 합계만으로는 해금하지 않는다.
 
@@ -183,6 +205,17 @@ PUBLIC_ORIGIN=http://127.0.0.1:8787
 
 실제 값이 없어도 먼저 확인할 수 있는 항목은 health·비로그인 session·공개 ranking·인증 없는 변경 요청의 거부·폐기된 개인정보 API의 404이다. 실제 값이 준비된 뒤에는 OAuth `state` 불일치 거부, callback, cookie 발급, 새로고침 후 session 복구, logout, CLEAR 1회 반영, 같은 attempt 재전송 무변경, 포인트 배분까지 확인한다.
 
+실시간 기능은 로그인한 브라우저 두 개 이상으로 추가 확인한다.
+
+1. 같은 origin의 `/api/postgame/socket`만 upgrade되고 게스트·다른 `Origin`은 거부되는지 확인한다.
+2. 입장 필드와 광장에서 같은 구역 사용자만 보이고 구역 이동·연결 종료가 반영되는지 확인한다.
+3. 보스별 방 목록이 분리되고 정원 1·5는 허용, 0·6은 거부되는지 확인한다.
+4. 방장이 1명부터 시작할 수 있고 비방장은 기다리며, 방장 이탈 시 위임되는지 확인한다.
+5. 같은 계정의 다른 탭이 방 좌석을 중복 점유하지 못하는지 확인한다.
+6. 휴면·재기동 뒤 Hibernation attachment와 Durable Object storage로 연결·방 상태가 안전하게 정리 또는 복구되는지 확인한다.
+7. 시작한 모든 참가자가 같은 `seed`·`startedAt`·`roster`를 받고 같은 보스로 이동하는지 확인한다.
+8. WebSocket을 차단하거나 끊어도 게스트·로그인 사용자 모두 기존 솔로 전투에 직접 입장할 수 있는지 확인한다.
+
 현재 CLEAR 전송은 로컬 진행 저장을 먼저 끝낸 뒤 비동기로 실행한다. 서버 장애나 탭 종료로 전송이 실패하면 로컬 결과는 유지되고, 다음 앱 시작이나 계정 화면의 완료 진행 병합으로 클리어·포인트를 복구한다. 당시 게임 원점수까지 복구하는 영속 재시도 queue는 아직 없다.
 
 운영 DB migration은 staging 백업과 검증을 마친 뒤에만 명시적으로 실행한다.
@@ -192,7 +225,7 @@ cd backend
 npx wrangler d1 migrations apply ai-change --remote
 ```
 
-Worker 배포 명령은 migration을 자동 실행하지 않는다. schema 변경이 있는 릴리스만 하위 호환성과 백업을 확인한 뒤 별도로 migration을 적용한다. `0003_level_progression.sql`은 `stats.level`과 `stats.experience`를 추가하고 기존 `clears`를 100 XP 단위로 환산해 최대 900 XP·레벨 10으로 backfill한다. 기존 로직이 이미 지급한 `unspent_points`는 건드리지 않아 포인트가 이중 지급되지 않는다.
+Worker 배포 명령은 migration을 자동 실행하지 않는다. schema 변경이 있는 릴리스만 하위 호환성과 백업을 확인한 뒤 별도로 migration을 적용한다. `0003_level_progression.sql`은 당시의 임시 레벨 10 규칙으로 `stats.level`과 `stats.experience`를 추가했던 과거 migration이다. `0004_unbounded_level_progression.sql`은 SQLite 테이블 재구성 방식으로 그 상한 CHECK만 제거하고 모든 스탯 행을 값 그대로 복사하며, `users` 외래 키의 `ON DELETE CASCADE`와 점수·클리어 인덱스도 다시 만든다. 기존 `unspent_points`는 건드리지 않아 포인트가 이중 지급되지 않는다.
 
 ## 8. Cloudflare secret과 Google OAuth 설정
 
@@ -218,7 +251,7 @@ Google Cloud Console의 Authorized redirect URI는 실제 callback과 문자 단
 
 ### 신규 Cloudflare 환경에서만 D1을 만드는 순서
 
-현재 운영 계정에는 D1 `ai-change`와 모든 migration이 이미 있으므로 이 절차를 실행하지 않는다. 별도 staging이나 새 계정으로 처음 이전할 때만 다음 순서를 사용한다.
+현재 운영 계정에는 D1 `ai-change`가 있으므로 새 DB를 만들지 않는다. 배포 대상에 아직 적용되지 않은 D1 migration만 백업·staging 검증 뒤 적용한다. 별도 staging이나 새 계정으로 처음 이전할 때만 다음 순서를 사용한다.
 
 ```powershell
 cd backend
@@ -228,16 +261,19 @@ npx wrangler d1 create ai-change-staging
 npx wrangler d1 migrations apply ai-change-staging --remote --config wrangler.toml
 ```
 
-위 명령은 staging DB와 schema만 만들며 staging Worker 연결까지 만들지는 않는다. 먼저 `backend/wrangler.toml`에 `[env.staging]`과 별도 D1 binding을 정의하거나 별도 staging config를 만들고, 그 환경을 명시해 secret·`PUBLIC_ORIGIN`·deploy를 실행한다. 운영 DB와 staging DB는 같은 이름·ID를 재사용하지 않는다.
+위 명령은 staging D1과 schema만 만들며 staging Worker 연결까지 만들지는 않는다. 먼저 `backend/wrangler.toml`에 `[env.staging]`과 별도 D1 binding을 정의하거나 별도 staging config를 만들고, 그 환경을 명시해 secret·`PUBLIC_ORIGIN`·deploy를 실행한다. 운영 DB와 staging DB는 같은 이름·ID를 재사용하지 않는다.
+
+Durable Object는 D1과 별도다. 새 환경의 Wrangler 설정에는 `POSTGAME` binding과 `PostgameCoordinator` class, SQLite-backed class를 만드는 `new_sqlite_classes` migration tag가 모두 있어야 한다. 이 migration은 `wrangler d1 migrations apply` 대상이 아니라 Worker 배포 시 Cloudflare가 적용하는 Durable Object class migration이다. 하나의 전역 이름(`festival-v1`)으로 coordinator instance를 조회하므로 임의로 여러 shard 이름을 만들지 않는다.
 
 ## 9. staging·production 재배포 체크리스트
 
-운영 계정의 Worker·D1·Google OAuth 연결은 완료된 상태다. 아래 항목은 환경 이전이나 재배포 때 다시 확인하며, 체크 결과와 개인정보 고지 담당자를 배포 기록에 남긴다.
+운영 계정의 Worker·D1·Google OAuth 연결은 완료된 상태다. 사후게임 실시간 기능은 `POSTGAME` binding과 Durable Object class migration까지 배포되어야 동작한다. 아래 항목은 환경 이전이나 재배포 때 다시 확인하며, 체크 결과와 개인정보 고지 담당자를 배포 기록에 남긴다.
 
-통합 운영 배포는 프로젝트 루트의 `npm run cf:deploy:production`만 사용한다. 이 명령은 검사와 build 뒤 `backend/wrangler.toml`의 ASSETS·D1·OAuth 통합 Worker를 배포한다. API 없는 레거시 정적 Pages·`wrangler.worker.jsonc` 명령을 운영 로그인 배포에 사용하지 않는다.
+통합 운영 배포는 프로젝트 루트의 `npm run cf:deploy:production`만 사용한다. 이 명령은 검사와 build 뒤 `backend/wrangler.toml`의 ASSETS·D1·OAuth·Durable Object 통합 Worker를 배포한다. API 없는 레거시 정적 Pages·`wrangler.worker.jsonc` 명령을 운영 로그인 배포에 사용하지 않는다.
 
 - [ ] `wrangler whoami`로 배포 대상이 개인 테스트 계정이 아닌 운영 Cloudflare 계정인지 확인
 - [ ] 배포 대상의 D1 binding이 운영 DB 이름·ID를 가리키는지 확인하고 staging을 사용할 때는 별도 DB로 분리
+- [ ] `POSTGAME` binding, `PostgameCoordinator` export와 SQLite-backed Durable Object migration tag가 같은 환경에 연결되는지 확인
 - [ ] 기존 개인 D1의 users·stats를 백업하고, Google `sub`와 스탯 값이 보존되도록 이전 rehearsal 수행
 - [ ] staging에서 migration, health, session, ranking, 결과 멱등성, 포인트 원자적 배분을 먼저 검증
 - [ ] 게스트 완료 1~2개 후 로그인해 `/api/progress/import`가 한 번만 호출되고, 재로그인·새로고침에도 중복 포인트가 생기지 않는지 확인
@@ -246,6 +282,10 @@ npx wrangler d1 migrations apply ai-change-staging --remote --config wrangler.to
 - [ ] 환경별 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 Cloudflare secret으로 등록하고 저장소·배포 log에 값이 없는지 재확인
 - [ ] staging·production의 정확한 Google Authorized redirect URI 등록
 - [ ] canonical Worker에서 SPA와 `/api/*`가 같은 origin인지 확인하고 custom domain을 추가할 때만 DNS·TLS와 `PUBLIC_ORIGIN`을 함께 변경
+- [ ] 로그인 WebSocket의 same-origin·session 거부, 두 구역 presence, 보스별 공개 방, 1~5명 경계, 같은 계정 중복 좌석 차단과 방장 위임을 staging에서 확인
+- [ ] Durable Object 휴면·재기동 뒤 attachment와 방 directory가 복구되고, 시작 참가자들이 같은 `seed`·`startedAt`·`roster`를 받는지 확인
+- [ ] WebSocket 장애·게스트 상태에서 온라인 UI가 전체 Battle 진입을 막지 않고 솔로 직접 입장을 유지하는지 확인
+- [ ] 공유 HP·원격 피격·팀 결과가 없는 현재 상태를 서버 권위 협동 전투로 안내하지 않는지 확인
 - [ ] 로그인 취소, 잘못된 `state`, 만료 session, logout, 새로고침, Safari cookie 동작 확인
 - [ ] 로그인 전에 Google 표시 이름의 공개 랭킹 노출과 D1 수집·보관·삭제 범위를 고지하고 동의를 확인
 - [ ] 랭킹 표시 이름이 text로 렌더링되고 email·provider ID가 응답에 없는지 확인

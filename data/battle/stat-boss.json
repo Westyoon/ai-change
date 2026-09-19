@@ -2,11 +2,10 @@
   "battleId": "stat-boss",
   "implementationStatus": "MVP",
   "bossBaseHp": 1000,
-  "bossAttack": 34,
+  "bossAttack": 10,
   "staggerDurationMs": 1400,
-  "timeLimitSec": 120,
   "balance": {
-    "baseDamage": 100,
+    "baseDamage": 10,
     "damageCoefficient": 0.05,
     "baseHp": 100,
     "hpPerPoint": 10

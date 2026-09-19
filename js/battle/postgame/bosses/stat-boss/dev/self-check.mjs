@@ -72,8 +72,8 @@ check("10초 시점엔 단일 저격만 등장", getDifficultyTier(10).patternId
 check("10초 시점 예고시간 1500ms", getDifficultyTier(10).telegraphMs, 1500);
 check("50초 이후 5종 패턴 전부 등장", getDifficultyTier(50).patternIds.length, 5);
 check("1인 파티 체력 배율 1.0", getBossHpMultiplier(1), 1.0);
-check("5인 파티 체력 배율 1.8", getBossHpMultiplier(5), 1.8);
-check("정의 안 된 인원수(10명)는 5인 배율로 보정", getBossHpMultiplier(10), 1.8);
+check("5인 파티도 총 체력 배율 1.0", getBossHpMultiplier(5), 1.0);
+check("정의 밖 인원수도 총 체력 배율 1.0", getBossHpMultiplier(10), 1.0);
 
 console.log("\n[patterns.js]");
 check(
@@ -268,7 +268,7 @@ check("보스 체력이 0 이하가 되면 바로 COMPLETED", enc3.state, STATE.
 check("성공 결과 status는 'CLEAR' (팀 공용 결과 계약)", lastCandidate3?.status, "CLEAR");
 check("성공해도 failureReason은 null (필드는 존재)", lastCandidate3?.failureReason, null);
 
-// --- 시나리오 4: 인원수에 따른 보스 체력 배율이 encounter에도 반영되는지 ---
+// --- 시나리오 4: 참여 인원과 무관하게 보스 총 체력이 유지되는지 ---
 const enc4 = new StatBossEncounter({
   arena: ARENA,
   players: [
@@ -279,7 +279,7 @@ const enc4 = new StatBossEncounter({
   patternIds: ["single-snipe"],
 });
 enc4.init();
-check("2인 파티면 보스 체력에 1.2배 적용 (1000 -> 1200)", enc4.boss.maxHp, 1200);
+check("2인 파티도 보스 총 체력 1000 유지", enc4.boss.maxHp, 1000);
 
 // --- 시나리오 5: destroy() 이후에는 더 이상 상태 전이가 안 됨 ---
 enc4.destroy();

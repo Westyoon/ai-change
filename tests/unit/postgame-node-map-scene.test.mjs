@@ -222,6 +222,57 @@ class FakeInput {
   }
 }
 
+class FakeRealtime {
+  constructor() {
+    this.state = Object.freeze({
+      status: "connected",
+      connected: true,
+      self: Object.freeze({ id: "self-online", name: "나" }),
+      selfId: "self-online",
+      players: Object.freeze([]),
+      rooms: Object.freeze([]),
+      currentRoomId: null,
+      currentRoom: null,
+      error: null,
+    });
+    this.listeners = new Set();
+    this.eventListeners = new Set();
+    this.commands = [];
+    this.connected = 0;
+    this.disconnected = 0;
+  }
+
+  getState() { return this.state; }
+
+  subscribe(listener) {
+    this.listeners.add(listener);
+    listener(this.state);
+    return () => this.listeners.delete(listener);
+  }
+
+  subscribeEvents(listener) {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
+  connect() { this.connected += 1; }
+  disconnect() { this.disconnected += 1; }
+  updatePresence(payload) { this.commands.push({ type: "presence.update", ...payload }); return true; }
+  createRoom(battleId, capacity) { this.commands.push({ type: "room.create", battleId, capacity }); return true; }
+  joinRoom(roomId) { this.commands.push({ type: "room.join", roomId }); return true; }
+  leaveRoom() { this.commands.push({ type: "room.leave" }); return true; }
+  startRoom() { this.commands.push({ type: "room.start" }); return true; }
+
+  setState(patch) {
+    this.state = Object.freeze({ ...this.state, ...patch });
+    for (const listener of this.listeners) listener(this.state);
+  }
+
+  emit(event) {
+    for (const listener of this.eventListeners) listener(Object.freeze(event));
+  }
+}
+
 function restoreGlobal(name, value) {
   if (value === undefined) delete globalThis[name];
   else globalThis[name] = value;
@@ -285,6 +336,8 @@ function installEnvironment() {
 function createContext(documentRef, {
   completedIds = requiredMiniGameIds,
   worldState = null,
+  realtime = null,
+  authenticated = false,
 } = {}) {
   const events = new EventBus();
   const input = new FakeInput();
@@ -303,11 +356,13 @@ function createContext(documentRef, {
         account: {
           getState: () => ({
             status: "ready",
-            authenticated: false,
+            authenticated,
+            user: authenticated ? { name: "테스트 유저" } : null,
             completedGameIds: [],
           }),
           refreshSession: async () => {},
         },
+        ...(realtime ? { postgameRealtime: realtime } : {}),
         save: { getState: () => ({ minigames: completedMinigames }) },
         events,
         input,
@@ -331,9 +386,16 @@ async function mountEntryScene({
   params = {},
   completedIds = requiredMiniGameIds,
   worldState = null,
+  realtime = null,
+  authenticated = false,
 } = {}) {
   const environment = installEnvironment();
-  const setup = createContext(environment.document, { completedIds, worldState });
+  const setup = createContext(environment.document, {
+    completedIds,
+    worldState,
+    realtime,
+    authenticated,
+  });
   const controller = new AbortController();
   const root = environment.document.createElement("main");
   const scene = createBattleScene(setup.context);
@@ -453,6 +515,98 @@ test("중심 광장 북쪽의 세 문은 걸어서 닿은 보스맵으로 각각
     } finally {
       mounted.cleanup();
     }
+  }
+});
+
+test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에서 1~5인 온라인 방을 시작한다", async () => {
+  const realtime = new FakeRealtime();
+  const position = { x: 0.5, y: 0.62 };
+  const mounted = await mountEntryScene({
+    authenticated: true,
+    realtime,
+    worldState: {
+      zoneId: "plaza",
+      position,
+      positions: { plaza: position },
+      direction: "up",
+    },
+  });
+  try {
+    assert.equal(realtime.connected, 1);
+    assert.ok(realtime.commands.some((command) => command.type === "presence.update"));
+
+    realtime.setState({
+      players: Object.freeze([{
+        id: "other-online",
+        name: "다른 유저",
+        zone: "plaza",
+        x: 0.28,
+        y: 0.55,
+        direction: "left",
+        moving: true,
+      }]),
+    });
+    const remoteActor = mounted.root.querySelector(".character-actor--remote");
+    assert.ok(remoteActor, "same-zone remote user should be rendered");
+    assert.equal(remoteActor.querySelector(".character-actor__name").textContent, "다른 유저");
+
+    const statDoor = mounted.root.querySelectorAll(".aftergame-world__boss-door")
+      .find((button) => button.dataset.battleId === "stat-boss");
+    statDoor.dispatchEvent({ type: "click", detail: 1 });
+    assert.equal(mounted.navigations.length, 0, "authenticated boss entry opens a lobby first");
+    assert.equal(mounted.root.querySelector(".postgame-room-lobby").dataset.open, "true");
+
+    const createButton = mounted.root.querySelectorAll("button")
+      .find((button) => button.textContent === "방 만들기");
+    createButton.dispatchEvent({ type: "click", detail: 1 });
+    assert.ok(realtime.commands.some((command) => (
+      command.type === "room.create" && command.battleId === "stat-boss" && command.capacity === 5
+    )));
+
+    const room = Object.freeze({
+      id: "ROOM123456",
+      battleId: "stat-boss",
+      capacity: 5,
+      hostId: "self-online",
+      memberCount: 1,
+      members: Object.freeze([{ id: "self-online", name: "나" }]),
+      status: "waiting",
+    });
+    realtime.setState({
+      rooms: Object.freeze([room]),
+      currentRoomId: room.id,
+      currentRoom: room,
+    });
+    const startButton = mounted.root.querySelectorAll("button")
+      .find((button) => button.textContent === "전투 시작");
+    assert.equal(startButton.disabled, false, "one player satisfies the minimum room size");
+    startButton.dispatchEvent({ type: "click", detail: 1 });
+    assert.ok(realtime.commands.some((command) => command.type === "room.start"));
+
+    realtime.emit({
+      type: "room.started",
+      roomId: room.id,
+      battleId: "stat-boss",
+      roster: room.members,
+      seed: "shared-seed",
+      startedAt: 1234,
+    });
+    assert.deepEqual(mounted.navigations, [{
+      sceneId: "battle",
+      params: {
+        battleId: "stat-boss",
+        party: {
+          roomId: room.id,
+          selfId: "self-online",
+          roster: room.members,
+          seed: "shared-seed",
+          startedAt: 1234,
+        },
+      },
+    }]);
+  } finally {
+    mounted.cleanup();
+    assert.equal(realtime.disconnected, 1);
   }
 });
 

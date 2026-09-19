@@ -1,6 +1,6 @@
 // difficulty.js
 //
-// v3 최종 명세서 3-3절(시간 기반 난이도, 페이즈 없음) + 3-5절(인원별 보스 체력 배율).
+// v3 최종 명세서 3-3절(시간 기반 난이도, 페이즈 없음)과 운영 HP 규칙.
 // 페이즈 개념 자체가 없기 때문에, "지금 몇 초 지났는지"만 보고 예고시간/등장패턴을 정한다.
 
 /**
@@ -36,21 +36,9 @@ export function getDifficultyTier(elapsedSec) {
 }
 
 /**
- * 인원수에 따른 보스 체력 배율. (v3 3-5절, 예시 수치 - 플레이테스트 후 조정 대상)
- */
-const HP_MULTIPLIER_BY_PARTY_SIZE = {
-  1: 1.0,
-  2: 1.2,
-  3: 1.4,
-  4: 1.6,
-  5: 1.8,
-};
-
-/**
  * @param {number} playerCount - 참여 인원 (1~5인 전제)
- * @returns {number} 보스 체력에 곱할 배율. 정의 안 된 인원수가 들어오면 1~5 범위로 보정한다.
+ * @returns {number} 보스 체력 배율. 방 인원과 무관하게 총 HP를 1,000으로 유지한다.
  */
-export function getBossHpMultiplier(playerCount) {
-  const clamped = Math.min(5, Math.max(1, playerCount));
-  return HP_MULTIPLIER_BY_PARTY_SIZE[clamped];
+export function getBossHpMultiplier(_playerCount) {
+  return 1;
 }

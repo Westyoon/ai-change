@@ -13,9 +13,11 @@ import {
   CHARACTER_TRIGGER_KINDS,
   CharacterSystem,
   CharacterView,
+  RemoteCharacterView,
   VirtualJoystick,
   createCharacterActorElement,
 } from "../battle/character/index.js";
+import { createPostgameRoomLobby } from "../battle/postgame/room-lobby.js";
 import { DEFAULT_PLAYER_APPEARANCE, createBattlePlayer } from "../battle/player-config.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
@@ -119,11 +121,16 @@ function createBattleEntryScene(context, { notice = null } = {}) {
   let loop = null;
   let system = null;
   let view = null;
+  let remoteView = null;
   let joystick = null;
   let scheduler = null;
   let resizeObserver = null;
   let unsubscribeResize = null;
   let markerElement = null;
+  let realtimeService = null;
+  let roomLobby = null;
+  let unsubscribeRealtime = null;
+  let unsubscribeRealtimeEvents = null;
   let mounted = false;
 
   return {
@@ -137,6 +144,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       const definitions = publishedBattles(context);
       const saveState = context.services.save?.getState?.() ?? {};
       const accountState = service.getState();
+      realtimeService = context.services.postgameRealtime ?? null;
       const nodeMap = createAftergameNodeMap(definitions);
       const unlockFor = (battle) => getBattleUnlockStatus(battle, saveState, accountState);
       const fieldUnlock = unlockFor(nodeMap.field.battle);
@@ -177,6 +185,11 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       });
       const zoneBadge = createElement("span", {
         className: "aftergame-world__zone-badge",
+      });
+      const networkBadge = createElement("span", {
+        className: "aftergame-world__network-badge",
+        text: accountState.authenticated ? "온라인 연결 중…" : "게스트 · 솔로",
+        dataset: { status: accountState.authenticated ? "connecting" : "offline" },
       });
       const zoneHelp = createElement("p", {
         className: "aftergame-world__help",
@@ -342,7 +355,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       }, [
         createElement("header", { className: "aftergame-world__header" }, [
           createElement("div", { className: "aftergame-world__heading" }, [zoneKicker, zoneTitle]),
-          zoneBadge,
+          createElement("div", { className: "aftergame-world__badges" }, [zoneBadge, networkBadge]),
         ]),
         zoneHelp,
         worldStage,
@@ -577,9 +590,51 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         applyZonePresentation();
         view.render(latestSnapshot);
         rememberWorldState();
+        remoteView?.update([]);
+        publishPresence?.();
         worldElement.focus?.({ preventScroll: true });
         return true;
       };
+
+      const runRealtimeCommand = (command, fallbackMessage) => {
+        try {
+          const sent = command?.();
+          if (sent === false) showToast(context, fallbackMessage);
+          return sent !== false;
+        } catch (error) {
+          showToast(context, error instanceof Error ? error.message : fallbackMessage);
+          return false;
+        }
+      };
+
+      roomLobby = createPostgameRoomLobby({
+        onCreate: (battleId, capacity) => runRealtimeCommand(
+          () => realtimeService?.createRoom(battleId, capacity),
+          "실시간 서버가 연결된 뒤 다시 시도해 주세요.",
+        ),
+        onJoin: (roomId) => runRealtimeCommand(
+          () => realtimeService?.joinRoom(roomId),
+          "방에 참가하지 못했습니다.",
+        ),
+        onLeave: () => runRealtimeCommand(
+          () => realtimeService?.leaveRoom(),
+          "방에서 나가지 못했습니다.",
+        ),
+        onStart: () => runRealtimeCommand(
+          () => realtimeService?.startRoom(),
+          "전투를 시작하지 못했습니다.",
+        ),
+        onSolo: ({ battle, returnSpawn }) => {
+          const selectedRoom = bossRoomByBattleId.get(battle?.id);
+          if (!selectedRoom) return;
+          enterRoute(selectedRoom.route, { returnSpawn });
+        },
+        onClose: () => {
+          system?.setControlLocked(false, "boss-room-lobby");
+          worldElement.focus?.({ preventScroll: true });
+        },
+      });
+      worldShell.append(roomLobby.element);
 
       const enterBossRoom = (battleId, returnSpawn = null) => {
         if (activeZoneId !== AFTERGAME_ZONE_IDS.PLAZA || navigationStarted) return false;
@@ -593,6 +648,16 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         }
         const door = AFTERGAME_WORLD_LAYOUT[AFTERGAME_ZONE_IDS.PLAZA].bossDoors
           .find((candidate) => candidate.battleId === battleId);
+        if (accountState.authenticated && realtimeService && roomLobby) {
+          system?.setControlLocked(true, "boss-room-lobby");
+          realtimeService.connect();
+          roomLobby.open({
+            battle: room.battle,
+            spawn: returnSpawn ?? door?.returnSpawn ?? null,
+          });
+          roomLobby.render(realtimeService.getState());
+          return true;
+        }
         return enterRoute(room.route, {
           returnSpawn: returnSpawn ?? door?.returnSpawn ?? null,
         });
@@ -628,6 +693,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       if (!fieldUnlock.unlocked) system.setControlLocked(true, "aftergame-world-locked");
 
       view = new CharacterView({ element: localActor, worldSize });
+      remoteView = new RemoteCharacterView({ root: worldElement, worldSize });
       latestSnapshot = system.getSnapshot();
       view.render(latestSnapshot);
       scheduler = new FieldEncounterScheduler();
@@ -638,6 +704,88 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       });
       applyZonePresentation();
       rememberWorldState();
+
+      const publishPresence = () => {
+        if (!realtimeService || !accountState.authenticated || !latestSnapshot) return;
+        realtimeService.updatePresence({
+          zone: activeZoneId,
+          x: clamp((latestSnapshot.x + latestSnapshot.width / 2) / worldSize.width, 0, 1),
+          y: clamp((latestSnapshot.y + latestSnapshot.height / 2) / worldSize.height, 0, 1),
+          direction: latestSnapshot.direction,
+          moving: latestSnapshot.moving === true,
+        });
+      };
+
+      const renderRealtimeState = (realtimeState) => {
+        roomLobby?.render(realtimeState);
+        const onlineCount = (realtimeState?.players?.length ?? 0) + 1;
+        if (realtimeState?.connected) {
+          networkBadge.textContent = `온라인 · ${onlineCount}명`;
+          networkBadge.dataset.status = "connected";
+        } else if (realtimeState?.status === "reconnecting") {
+          networkBadge.textContent = "재연결 중…";
+          networkBadge.dataset.status = "reconnecting";
+        } else if (realtimeState?.status === "error") {
+          networkBadge.textContent = "온라인 연결 끊김";
+          networkBadge.dataset.status = "error";
+        } else {
+          networkBadge.textContent = accountState.authenticated ? "온라인 연결 중…" : "게스트 · 솔로";
+          networkBadge.dataset.status = accountState.authenticated ? "connecting" : "offline";
+        }
+
+        const width = Math.min(FIELD_CHARACTER_SIZE.width, worldSize.width);
+        const height = Math.min(FIELD_CHARACTER_SIZE.height, worldSize.height);
+        const remoteCharacters = (realtimeState?.players ?? [])
+          .filter((player) => player.zone === activeZoneId)
+          .map((player) => ({
+            id: player.id,
+            x: clamp(player.x * worldSize.width - width / 2, 0, Math.max(0, worldSize.width - width)),
+            y: clamp(player.y * worldSize.height - height / 2, 0, Math.max(0, worldSize.height - height)),
+            width,
+            height,
+            direction: player.direction,
+            moving: player.moving,
+            currentHealth: 1,
+            maxHealth: 1,
+            appearance: {
+              ...DEFAULT_PLAYER_APPEARANCE,
+              id: `remote-${player.id}`,
+              label: player.name,
+              color: "#2ab5e4",
+            },
+          }));
+        remoteView?.update(remoteCharacters);
+      };
+
+      if (realtimeService && accountState.authenticated) {
+        unsubscribeRealtime = realtimeService.subscribe(renderRealtimeState);
+        unsubscribeRealtimeEvents = realtimeService.subscribeEvents((event) => {
+          if (event?.type !== "room.started" || navigationStarted) return;
+          const selectedBattle = roomLobby?.getBattle();
+          if (!selectedBattle || selectedBattle.id !== event.battleId) return;
+          const selectedRoom = bossRoomByBattleId.get(event.battleId);
+          if (!selectedRoom) return;
+          const returnSpawn = roomLobby.getReturnSpawn();
+          roomLobby.close();
+          enterRoute({
+            sceneId: selectedRoom.route.sceneId,
+            params: {
+              ...selectedRoom.route.params,
+              party: {
+                roomId: event.roomId,
+                selfId: realtimeService.getState().selfId,
+                roster: event.roster ?? event.room?.members ?? [],
+                seed: event.seed ?? null,
+                startedAt: event.startedAt ?? null,
+              },
+            },
+          }, { returnSpawn });
+        });
+        publishPresence();
+        realtimeService.connect();
+      } else {
+        renderRealtimeState({ status: "offline", players: [], rooms: [] });
+      }
 
       const enterFieldEncounter = () => {
         if (
@@ -725,6 +873,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         update(deltaMs) {
           const previous = latestSnapshot;
           latestSnapshot = system.update(deltaMs);
+          publishPresence();
 
           if (pendingContactAction && !navigationStarted) {
             const action = pendingContactAction;
@@ -801,11 +950,16 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         worldSize = nextSize;
         latestSnapshot = system.character.setPosition(nextX, nextY);
         view.worldSize = { ...worldSize };
+        if (remoteView) remoteView.worldSize = { ...worldSize };
         system.setWorld(createZoneWorld());
         if (markerElement && activeEncounter) {
           placeFieldElement(markerElement, activeEncounter, worldSize);
         }
         view.render(latestSnapshot);
+        if (realtimeService && accountState.authenticated) {
+          renderRealtimeState(realtimeService.getState());
+          publishPresence();
+        }
         rememberWorldState();
       };
 
@@ -830,6 +984,15 @@ function createBattleEntryScene(context, { notice = null } = {}) {
 
     unmount() {
       mounted = false;
+      unsubscribeRealtimeEvents?.();
+      unsubscribeRealtimeEvents = null;
+      unsubscribeRealtime?.();
+      unsubscribeRealtime = null;
+      realtimeService?.disconnect?.();
+      realtimeService = null;
+      roomLobby = null;
+      remoteView?.destroy?.();
+      remoteView = null;
       resizeObserver?.disconnect?.();
       resizeObserver = null;
       unsubscribeResize?.();
@@ -864,7 +1027,7 @@ function createBattlePlayScene(context, battle) {
   const returnDestination = getBattleReturnDestination(battle);
 
   return {
-    async mount(root, _params, { signal }) {
+    async mount(root, params, { signal }) {
       const accountService = context.services.account;
       if (["idle", "loading"].includes(accountService.getState().status)) {
         await accountService.refreshSession();
@@ -889,6 +1052,19 @@ function createBattlePlayScene(context, battle) {
 
       const frame = createElement("section", { className: "scene minigame-frame battle-frame" });
       const title = createElement("strong", { text: `BATTLE · ${battle.title}` });
+      const partyRoster = Array.isArray(params?.party?.roster)
+        ? params.party.roster.slice(0, 5)
+        : [];
+      const titleGroup = createElement("div", { className: "battle-toolbar__title-group" }, [title]);
+      if (partyRoster.length > 0) {
+        titleGroup.append(createElement("span", {
+          className: "battle-party-badge",
+          text: `온라인 방 · ${partyRoster.length}명`,
+          attributes: {
+            title: partyRoster.map((member) => member?.name ?? "플레이어").join(" · "),
+          },
+        }));
+      }
       let pauseButton;
       const activeDurationMs = () => {
         if (startedAt === null) return 0;
@@ -945,7 +1121,7 @@ function createBattlePlayScene(context, battle) {
         "ghost",
       );
       const toolbar = createElement("header", { className: "minigame-toolbar" }, [
-        title,
+        titleGroup,
         createElement("div", { className: "button-row" }, [pauseButton, quitButton]),
       ]);
       const stage = createElement("div", { className: "minigame-stage battle-stage" });

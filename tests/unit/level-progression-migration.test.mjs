@@ -7,7 +7,7 @@ async function migration(name) {
   return readFile(new URL(`../../backend/migrations/${name}`, import.meta.url), "utf8");
 }
 
-test("level migration backfills legacy clears without duplicating awarded points", async () => {
+test("level migrations preserve legacy points and safely remove the temporary cap", async () => {
   const database = new DatabaseSync(":memory:");
   try {
     database.exec(await migration("0001_initial.sql"));
@@ -42,6 +42,43 @@ test("level migration backfills legacy clears without duplicating awarded points
     assert.throws(
       () => database.exec("UPDATE stats SET experience = 901 WHERE user_id = 'new'"),
       /CHECK constraint failed/u,
+    );
+
+    database.exec(await migration("0004_unbounded_level_progression.sql"));
+
+    assert.deepEqual(database.prepare(
+      `SELECT user_id, clears, level, experience, unspent_points
+         FROM stats
+        ORDER BY user_id`,
+    ).all().map((row) => ({ ...row })), rows);
+
+    database.exec("UPDATE stats SET level = 11, experience = 1000 WHERE user_id = 'new'");
+    assert.deepEqual(
+      { ...database.prepare(
+        "SELECT level, experience FROM stats WHERE user_id = 'new'",
+      ).get() },
+      { level: 11, experience: 1000 },
+    );
+    assert.throws(
+      () => database.exec("UPDATE stats SET level = 0 WHERE user_id = 'new'"),
+      /CHECK constraint failed/u,
+    );
+    assert.throws(
+      () => database.exec("UPDATE stats SET experience = -1 WHERE user_id = 'new'"),
+      /CHECK constraint failed/u,
+    );
+
+    const indexes = database.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'stats'",
+    ).all().map((row) => row.name);
+    assert.ok(indexes.includes("idx_stats_score"));
+    assert.ok(indexes.includes("idx_stats_clears"));
+
+    database.exec("DELETE FROM users WHERE id = 'new'");
+    assert.equal(
+      database.prepare("SELECT COUNT(*) AS count FROM stats WHERE user_id = 'new'").get().count,
+      0,
+      "rebuilt stats table keeps ON DELETE CASCADE",
     );
   } finally {
     database.close();

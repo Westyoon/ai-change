@@ -3,6 +3,7 @@ import { AccountService } from "./core/account-service.js";
 import { AssetLoader } from "./core/asset-loader.js";
 import { EventBus } from "./core/event-bus.js";
 import { InputManager } from "./core/input-manager.js";
+import { PostgameRealtimeService } from "./core/postgame-realtime-service.js";
 import { CONTENT_VERSION } from "./core/version.js";
 import { SceneRouter } from "./router.js";
 import { createBattleScene } from "./scenes/battle-scene.js";
@@ -92,6 +93,7 @@ async function bootstrap() {
         audio: new AudioManager(config.audio),
         events: new EventBus(),
         input: new InputManager(),
+        postgameRealtime: new PostgameRealtimeService(),
         save: null,
       },
       router: null,

@@ -2,9 +2,7 @@ const STAT_KEYS = Object.freeze(["attack", "hp", "defense"]);
 const RANKING_CRITERIA = new Set(["score", "clears"]);
 const EMPTY_GAME_IDS = Object.freeze([]);
 const ACCOUNT_REQUEST_TIMEOUT_MS = 8_000;
-const MAX_LEVEL = 10;
 const EXPERIENCE_PER_LEVEL = 100;
-const MAX_EXPERIENCE = (MAX_LEVEL - 1) * EXPERIENCE_PER_LEVEL;
 
 const EMPTY_STATS = Object.freeze({
   attack: 0,
@@ -19,8 +17,11 @@ const EMPTY_STATS = Object.freeze({
 });
 
 function integer(value, fallback = 0) {
+  if (value == null) return fallback;
   const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
-  return Number.isFinite(number) ? Math.max(0, Math.trunc(number)) : fallback;
+  return Number.isFinite(number)
+    ? Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.trunc(number)))
+    : fallback;
 }
 
 function text(value, fallback = "") {
@@ -29,25 +30,14 @@ function text(value, fallback = "") {
 
 function freezeStats(candidate = {}) {
   const clears = integer(candidate.clears);
-  const legacyExperience = Math.min(MAX_EXPERIENCE, clears * EXPERIENCE_PER_LEVEL);
-  const experience = Math.min(
-    MAX_EXPERIENCE,
-    integer(candidate.experience ?? candidate.xp, legacyExperience),
+  const legacyExperience = integer(clears * EXPERIENCE_PER_LEVEL);
+  const experience = integer(candidate.experience ?? candidate.xp, legacyExperience);
+  const derivedLevel = 1 + Math.floor(experience / EXPERIENCE_PER_LEVEL);
+  const level = Math.max(1, integer(candidate.level, derivedLevel));
+  const nextLevelExperience = integer(
+    candidate.nextLevelExperience ?? candidate.next_level_experience,
+    level * EXPERIENCE_PER_LEVEL,
   );
-  const derivedLevel = Math.min(
-    MAX_LEVEL,
-    1 + Math.floor(experience / EXPERIENCE_PER_LEVEL),
-  );
-  const level = Math.min(MAX_LEVEL, Math.max(1, integer(candidate.level, derivedLevel)));
-  const nextLevelExperience = level >= MAX_LEVEL
-    ? null
-    : Math.min(
-      MAX_EXPERIENCE,
-      integer(
-        candidate.nextLevelExperience ?? candidate.next_level_experience,
-        level * EXPERIENCE_PER_LEVEL,
-      ),
-    );
   return Object.freeze({
     attack: integer(candidate.attack),
     hp: integer(candidate.hp ?? candidate.health),

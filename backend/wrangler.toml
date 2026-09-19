@@ -18,3 +18,11 @@ binding = "DB"
 database_name = "ai-change"
 database_id = "942d8f14-dc06-4460-b6c5-dfb0c07eab78"
 migrations_dir = "migrations"
+
+[[durable_objects.bindings]]
+name = "POSTGAME"
+class_name = "PostgameCoordinator"
+
+[[migrations]]
+tag = "postgame-v1"
+new_sqlite_classes = ["PostgameCoordinator"]

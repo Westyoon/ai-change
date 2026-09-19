@@ -244,13 +244,13 @@ export function createAccountScene(context) {
         const recordGrid = createElement("dl", { className: "account-record-grid" }, [
           createElement("div", {}, [
             createElement("dt", { text: "레벨" }),
-            createElement("dd", { text: `Lv. ${stats.level} / 10` }),
+            createElement("dd", { text: `Lv. ${stats.level}` }),
           ]),
           createElement("div", {}, [
             createElement("dt", { text: "경험치 / 다음 레벨" }),
             createElement("dd", {
               text: stats.nextLevelExperience === null
-                ? `${stats.experience} / MAX`
+                ? `${stats.experience}`
                 : `${stats.experience} / ${stats.nextLevelExperience}`,
             }),
           ]),

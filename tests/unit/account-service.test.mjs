@@ -93,7 +93,7 @@ test("AccountService restores a same-origin session and exposes only display acc
   assert.equal(service.getLoginUrl(), "/api/auth/google");
 });
 
-test("AccountService derives bounded progression from legacy stats and exposes the level cap", async () => {
+test("AccountService derives legacy progression and accepts levels beyond the former cap", async () => {
   const mock = queuedFetch([
     jsonResponse({
       authenticated: true,
@@ -107,9 +107,9 @@ test("AccountService derives bounded progression from legacy stats and exposes t
         attack: 1,
         hp: 100,
         defense: 1,
-        level: 10,
-        experience: 900,
-        nextLevelExperience: null,
+        level: 13,
+        experience: 1200,
+        nextLevelExperience: 1300,
         clears: 12,
         score: 10,
         unspentPoints: 0,
@@ -129,10 +129,10 @@ test("AccountService derives bounded progression from legacy stats and exposes t
     status: "CLEAR",
     score: 10,
   });
-  const capped = service.getState().stats;
-  assert.equal(capped.level, 10);
-  assert.equal(capped.experience, 900);
-  assert.equal(capped.nextLevelExperience, null);
+  const progressed = service.getState().stats;
+  assert.equal(progressed.level, 13);
+  assert.equal(progressed.experience, 1200);
+  assert.equal(progressed.nextLevelExperience, 1300);
 });
 
 test("session restore falls back to a playable guest state when the API is unavailable", async () => {
