@@ -242,6 +242,33 @@ test("D1 migrations preserve the baseline and add secure sessions and idempotent
   assert.match(migrations, /FOREIGN\s+KEY\s*\(\s*user_id\s*\)/iu);
 });
 
+test("level progression is bounded, idempotent, and backfills without duplicating legacy points", async () => {
+  const migration = await read("backend/migrations/0003_level_progression.sql");
+  const importProgress = functionBody(workerSource, "importCompletedProgress");
+  const recordResult = functionBody(workerSource, "recordResult");
+
+  assert.match(migration, /ADD\s+COLUMN\s+level[\s\S]*BETWEEN\s+1\s+AND\s+10/iu);
+  assert.match(migration, /ADD\s+COLUMN\s+experience[\s\S]*BETWEEN\s+0\s+AND\s+900/iu);
+  assert.match(migration, /experience\s*=\s*MIN\s*\(\s*9[\s\S]*clears[\s\S]*\)\s*\*\s*100/iu);
+  assert.match(migration, /level\s*=\s*1\s*\+\s*MIN\s*\(\s*9[\s\S]*clears/iu);
+  const backfill = migration.match(/UPDATE\s+stats[\s\S]*?;/iu)?.[0] ?? "";
+  assert.ok(backfill, "level progression backfill is missing");
+  assert.doesNotMatch(backfill, /unspent_points/iu);
+
+  assert.match(workerSource, /EXPERIENCE_PER_CLEAR\s*=\s*100/u);
+  assert.match(workerSource, /MAX_LEVEL\s*=\s*10/u);
+  for (const source of [importProgress, recordResult]) {
+    assert.match(source, /experience\s*=\s*MIN\s*\(/u);
+    assert.match(source, /level\s*=\s*MIN\s*\(/u);
+    assert.match(source, /EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+game_results\s+WHERE\s+id\s*=\s*\?/iu);
+  }
+  assert.match(importProgress, /unspent_points\s*=\s*COALESCE[\s\S]*?MAX\s*\(/u);
+  assert.match(recordResult, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*1/u);
+  assert.match(recordResult, /COALESCE\(level,\s*1\)\s*<\s*\$\{MAX_LEVEL\}/u);
+  assert.match(recordResult, /awarded\s*=\s*Number\(awardResult\.meta\.changes/u);
+  assert.match(workerSource, /nextLevelExperience\s*:\s*level\s*>=\s*MAX_LEVEL\s*\?\s*null/u);
+});
+
 test("Wrangler serves dist and runs the API before same-origin static assets", () => {
   assert.match(wranglerConfig, /^\s*\[assets\]\s*$/imu);
   assert.match(wranglerConfig, /^\s*directory\s*=\s*["']\.\.\/dist["']\s*$/imu);

@@ -59,6 +59,9 @@ test("AccountService restores a same-origin session and exposes only display acc
       attack: "3",
       hp: 8,
       defense: 2,
+      level: "5",
+      experience: "450",
+      next_level_experience: "500",
       clears: 4,
       score: 950,
       unspent_points: 1,
@@ -76,6 +79,9 @@ test("AccountService restores a same-origin session and exposes only display acc
     attack: 3,
     hp: 8,
     defense: 2,
+    level: 5,
+    experience: 450,
+    nextLevelExperience: 500,
     clears: 4,
     score: 950,
     unspentPoints: 1,
@@ -85,6 +91,48 @@ test("AccountService restores a same-origin session and exposes only display acc
   assert.equal(mock.calls[0][1].credentials, "same-origin");
   assert.equal(mock.calls[0][1].cache, "no-store");
   assert.equal(service.getLoginUrl(), "/api/auth/google");
+});
+
+test("AccountService derives bounded progression from legacy stats and exposes the level cap", async () => {
+  const mock = queuedFetch([
+    jsonResponse({
+      authenticated: true,
+      user: { name: "기존 계정" },
+      stats: { attack: 1, hp: 100, defense: 1, clears: 3, score: 10, unspentPoints: 0 },
+    }),
+    jsonResponse({
+      credited: true,
+      awarded: false,
+      stats: {
+        attack: 1,
+        hp: 100,
+        defense: 1,
+        level: 10,
+        experience: 900,
+        nextLevelExperience: null,
+        clears: 12,
+        score: 10,
+        unspentPoints: 0,
+      },
+    }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+
+  const restored = await service.refreshSession();
+  assert.equal(restored.stats.level, 4);
+  assert.equal(restored.stats.experience, 300);
+  assert.equal(restored.stats.nextLevelExperience, 400);
+
+  await service.recordClear({
+    attemptId: "legacy-account:cap-check",
+    gameId: "data-number-baseball",
+    status: "CLEAR",
+    score: 10,
+  });
+  const capped = service.getState().stats;
+  assert.equal(capped.level, 10);
+  assert.equal(capped.experience, 900);
+  assert.equal(capped.nextLevelExperience, null);
 });
 
 test("session restore falls back to a playable guest state when the API is unavailable", async () => {

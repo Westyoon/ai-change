@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS stats (
     attack INTEGER NOT NULL DEFAULT 0 CHECK (attack >= 0),
     hp INTEGER NOT NULL DEFAULT 0 CHECK (hp >= 0),
     defense INTEGER NOT NULL DEFAULT 0 CHECK (defense >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 10),
+    experience INTEGER NOT NULL DEFAULT 0 CHECK (experience BETWEEN 0 AND 900),
     clears INTEGER NOT NULL DEFAULT 0 CHECK (clears >= 0),
     score INTEGER NOT NULL DEFAULT 0 CHECK (score >= 0),
     unspent_points INTEGER NOT NULL DEFAULT 0 CHECK (unspent_points >= 0),

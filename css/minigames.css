@@ -897,209 +897,172 @@
 /* Phone portrait: reflow the original cards instead of shrinking their controls. */
 .minigame-ui-root.cse-ui-root.cse-mobile-layout {
   scrollbar-gutter: auto;
-  overflow-y: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
 }
 .cse-ui-root.cse-mobile-layout .cse-fixed-frame-viewport {
-  width: 100% !important;
+  width: 100%;
   max-width: 520px;
-  height: 100% !important; 
-  flex: 1 1 auto !important; 
-  display: flex;
-  flex-direction: column;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game {
-  width: 100% !important;
+  width: 100%;
   min-width: 0;
-  height: 100% !important; 
-  flex: 1 1 auto !important;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
   max-height: none;
   padding: 12px;
-  gap: 12px; 
+  gap: 10px;
   border-width: 2px;
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative; 
+  border-radius: 20px;
 }
 
-/* 1) 남은 시간 위치 변경 (네모칸 안쪽 상단 중앙에 시각적으로 맞춤) */
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-header {
-  position: absolute;
-  top: 20px; 
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  background: transparent;
-  padding: 0;
-  min-height: 0;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 10px;
+  font-size: 14px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-title {
-  display: none; 
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-timer {
-  padding: 4px 10px;
-  font-size: 11px;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 8px;
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  font-size: 13px;
 }
 
-
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-counter-scene {
-  position: relative; 
-  display: flex;
-  flex-direction: row;
-  align-items: center;
+  display: grid;
+  grid-template-areas:
+    "customer order"
+    "recipe recipe";
+  grid-template-columns: 72px minmax(0, 1fr);
   min-height: 0;
-  padding: 42px 12px 12px 12px; 
+  padding: 12px;
   gap: 10px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-customer-unit {
-  width: 56px;
+  grid-area: customer;
+  width: 72px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-person-silhouette {
-  width: 48px;
-  height: 60px;
+  width: 64px;
+  height: 78px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-customer-name {
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-order-bubble {
-  flex: 1;
+  grid-area: order;
   min-width: 0;
-  padding: 10px; 
-  font-size: 11px;
-  line-height: 1.35;
+  padding: 12px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-recipe-trigger {
-  position: absolute;
-  top: 8px; 
-  right: 12px;
-  width: 52px;
-  height: 24px;
-  min-height: 0;
-  padding: 0;
-  border-radius: 6px;
-  z-index: 5;
+  position: static;
+  grid-area: recipe;
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-book-icon {
-  font-size: 11px;
+  font-size: 16px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-book-text {
-  font-size: 9px;
+  font-size: 13px;
 }
 
-/* 작업대 가로 구조 (비우기 버튼 우측) */
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 8px;
-  gap: 8px;
+  padding: 10px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace-top {
-  display: contents; 
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
 }
-.cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace-top span {
-  display: none; 
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-reset {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 13px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slots-grid {
-  flex: 1;
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-tile {
   min-width: 0;
-  min-height: 42px;
-  padding: 4px 2px;
-  justify-content: center;
+  min-height: 58px;
+  padding: 8px 4px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-type {
-  font-size: 10px;
+  font-size: 12px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-val {
-  font-size: 12px;
-  margin-top: 2px;
-}
-.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-reset {
-  flex: 0 0 52px; 
-  height: 100%;
-  min-height: 88px; 
-  padding: 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 
-/* 상태 피드백 바 */
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-feedback {
-  min-height: 24px; 
-  padding: 2px 6px; 
-  font-size: 11px; 
-  border-radius: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 14px;
 }
 
-/* 재료 트레이 및 UNLOCK 버튼 */
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-tray-section {
-  flex-direction: row;
-  flex: 1; 
+  flex-direction: column;
   height: auto;
-  min-height: 0;
-  gap: 8px;
+  gap: 10px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-materials-grid {
-  flex: 1;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr)); 
+  grid-template-rows: repeat(4, minmax(44px, auto));
   gap: 6px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-material {
   min-width: 0;
-  min-height: 0;
-  height: 100%;
-  padding: 4px 2px;
-  font-size: 12px;
+  min-height: 44px;
+  padding: 6px 3px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-unlock {
-  flex-direction: column;
-  justify-content: center;
-  width: 76px;
-  height: 100%;
-  min-height: 0;
+  flex-direction: row;
   gap: 6px;
-  font-size: 13px;
+  width: 100%;
+  min-height: 52px;
+  height: 52px;
+  font-size: 14px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-unlock small {
   margin-top: 0;
-  font-size: 10px;
+  font-size: 12px;
 }
 
-/* 모달창 */
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-backdrop {
   position: fixed;
   padding: 12px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-card {
   max-height: calc(100dvh - 24px);
-  padding: 16px;
+  padding: 14px;
   overflow-y: auto;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-card h3 {
-  font-size: 16px;
+  font-size: 17px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-recipe-list {
   max-height: none;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-recipe-row {
-  font-size: 12px;
+  font-size: 14px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-close,
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-action {
-  min-height: 42px;
+  min-height: 44px;
   font-size: 14px;
 }
 

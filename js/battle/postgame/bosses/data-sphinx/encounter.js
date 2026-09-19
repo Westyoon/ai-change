@@ -35,15 +35,32 @@ function metricsSnapshot(metrics) {
   });
 }
 
+function shuffleQuizzes(quizzes, random) {
+  const shuffled = [...quizzes];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const sample = Number(random());
+    const normalized = Number.isFinite(sample)
+      ? Math.min(Math.max(sample, 0), 1 - Number.EPSILON)
+      : 0;
+    const swapIndex = Math.floor(normalized * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 /** Pure O/X timing and damage rules. Character movement and DOM stay outside. */
 export class DataSphinxEncounter {
-  constructor({ config, onEvent = null, onComplete = null } = {}) {
+  constructor({ config, onEvent = null, onComplete = null, random = Math.random } = {}) {
     if (!config?.quizList?.length) {
       throw new TypeError("DataSphinxEncounter requires normalized config.");
+    }
+    if (typeof random !== "function") {
+      throw new TypeError("DataSphinxEncounter random must be a function.");
     }
     this.config = config;
     this.onEvent = typeof onEvent === "function" ? onEvent : null;
     this.onComplete = typeof onComplete === "function" ? onComplete : null;
+    this.random = random;
     this.state = DATA_SPHINX_STATES.CREATED;
     this.completedAttemptIds = new Set();
     this.currentAttemptId = null;
@@ -69,6 +86,7 @@ export class DataSphinxEncounter {
       throw new Error(`Data Sphinx attemptId was already completed: ${nextAttemptId}.`);
     }
     this.currentAttemptId = nextAttemptId;
+    this._prepareAttemptQuestions();
     this.state = DATA_SPHINX_STATES.RUNNING;
     this._beginQuiz(0);
     this._emit({ type: "start", attemptId: nextAttemptId });
@@ -132,7 +150,7 @@ export class DataSphinxEncounter {
   }
 
   getSnapshot() {
-    const quiz = this.config.quizList[this.currentQuizIndex] ?? null;
+    const quiz = this.attemptQuizList[this.currentQuizIndex] ?? null;
     return Object.freeze({
       state: this.state,
       phase: this.phase,
@@ -140,7 +158,8 @@ export class DataSphinxEncounter {
       currentQuizIndex: this.currentQuizIndex,
       currentQuizId: quiz?.id ?? null,
       currentQuestion: quiz?.question ?? null,
-      quizCount: this.config.quizList.length,
+      questionNumber: quiz ? this.currentQuestionNumber : 0,
+      quizCount: this.config.questionsPerAttempt,
       timeLimitMs: this.config.timeLimitMs,
       timeRemainingMs: this.timeRemainingMs,
       delayRemainingMs: this.delayRemainingMs,
@@ -155,6 +174,9 @@ export class DataSphinxEncounter {
 
   _resetAttempt() {
     this.currentQuizIndex = 0;
+    this.currentQuestionNumber = 0;
+    this.attemptQuizList = [];
+    this.reserveQuizList = [];
     this.timeRemainingMs = 0;
     this.delayRemainingMs = 0;
     this.playerLocation = DATA_SPHINX_SELECTIONS.NEUTRAL;
@@ -164,33 +186,44 @@ export class DataSphinxEncounter {
     this.metrics = { correctCount: 0, wrongCount: 0, timeoutCount: 0 };
   }
 
+  _prepareAttemptQuestions() {
+    const shuffled = shuffleQuizzes(this.config.quizList, this.random);
+    this.attemptQuizList = shuffled.slice(0, this.config.questionsPerAttempt);
+    this.reserveQuizList = shuffled.slice(this.config.questionsPerAttempt);
+  }
+
   _beginQuiz(index) {
     if (this.bossHealth <= 0) {
       this._complete("CLEAR", null);
       return;
     }
-    if (index >= this.config.quizList.length) {
+    if (index >= this.attemptQuizList.length) {
       this._complete("FAIL", "OUT_OF_QUESTIONS");
       return;
     }
     this.currentQuizIndex = index;
+    this.currentQuestionNumber = Math.min(
+      this.metrics.correctCount + 1,
+      this.config.questionsPerAttempt,
+    );
     this.timeRemainingMs = this.config.timeLimitMs;
     this.delayRemainingMs = 0;
     this.phase = DATA_SPHINX_PHASES.PLAYING;
-    const quiz = this.config.quizList[index];
+    const quiz = this.attemptQuizList[index];
     this._emit({
       type: "quiz-start",
       index,
       quizId: quiz.id,
       question: quiz.question,
-      quizCount: this.config.quizList.length,
+      questionNumber: this.currentQuestionNumber,
+      quizCount: this.config.questionsPerAttempt,
       timeLimitMs: this.config.timeLimitMs,
     });
   }
 
   _resolveQuiz() {
     if (this.phase !== DATA_SPHINX_PHASES.PLAYING) return;
-    const quiz = this.config.quizList[this.currentQuizIndex];
+    const quiz = this.attemptQuizList[this.currentQuizIndex];
     const selection = this.playerLocation;
     let outcome;
     let damageToPlayer = 0;
@@ -208,6 +241,10 @@ export class DataSphinxEncounter {
       outcome = "WRONG";
       damageToPlayer = this.config.playerDamagePerWrong;
       this.metrics.wrongCount += 1;
+    }
+
+    if (outcome !== "CORRECT" && this.reserveQuizList.length > 0) {
+      this.attemptQuizList.push(this.reserveQuizList.shift());
     }
 
     this.playerHealth = Math.max(0, this.playerHealth - damageToPlayer);

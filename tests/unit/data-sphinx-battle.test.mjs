@@ -153,16 +153,17 @@ function installFrameHarness() {
   };
 }
 
-test("checked-in Data Sphinx config preserves the ten-question MVP formula with a five-second timer", async () => {
+test("checked-in Data Sphinx config exposes a 40-question bank and ten-question MVP formula", async () => {
   const document = JSON.parse(await readFile(
     new URL("../../data/battle/data-sphinx.json", import.meta.url),
     "utf8",
   ));
   const config = normalizeDataSphinxConfig(document);
 
-  assert.equal(config.quizList.length, 10);
-  assert.equal(new Set(config.quizList.map(({ id }) => id)).size, 10);
-  assert.equal(new Set(config.quizList.map(({ question }) => question)).size, 10);
+  assert.equal(config.quizList.length, 40);
+  assert.equal(new Set(config.quizList.map(({ id }) => id)).size, 40);
+  assert.equal(new Set(config.quizList.map(({ question }) => question)).size, 40);
+  assert.equal(config.questionsPerAttempt, 10);
   assert.equal(config.timeLimitMs, 5_000);
   assert.equal(config.resolutionDelayMs, 2_000);
   assert.equal(config.deathDelayMs, 1_000);
@@ -179,11 +180,11 @@ test("checked-in Data Sphinx config preserves the ten-question MVP formula with 
       ...document,
       bossMaxHealth: 110,
     }),
-    /at least 11 quizzes/u,
+    /questionsPerAttempt must be 11/u,
   );
 });
 
-test("the MVP bank is asked in order and requires all ten answers to clear", async () => {
+test("a perfect attempt consumes ten unique questions from the shuffled 40-question bank", async () => {
   const document = JSON.parse(await readFile(
     new URL("../../data/battle/data-sphinx.json", import.meta.url),
     "utf8",
@@ -193,6 +194,7 @@ test("the MVP bank is asked in order and requires all ten answers to clear", asy
   const completions = [];
   const encounter = new DataSphinxEncounter({
     config,
+    random: () => 1 - Number.EPSILON,
     onEvent: (event) => {
       if (event.type === "quiz-start") startedQuizIds.push(event.quizId);
     },
@@ -201,14 +203,19 @@ test("the MVP bank is asked in order and requires all ten answers to clear", asy
 
   encounter.init();
   encounter.start({ attemptId: "data-sphinx:mvp-order" });
-  for (const quiz of config.quizList) {
+  assert.equal(encounter.getSnapshot().quizCount, 10);
+  for (const quiz of config.quizList.slice(0, config.questionsPerAttempt)) {
     assert.equal(encounter.getSnapshot().currentQuizId, quiz.id);
     encounter.setPlayerLocation(quiz.answer);
     encounter.tick(config.timeLimitMs);
     encounter.tick(config.resolutionDelayMs);
   }
 
-  assert.deepEqual(startedQuizIds, config.quizList.map(({ id }) => id));
+  assert.deepEqual(
+    startedQuizIds,
+    config.quizList.slice(0, config.questionsPerAttempt).map(({ id }) => id),
+  );
+  assert.equal(new Set(startedQuizIds).size, 10);
   assert.equal(encounter.getSnapshot().state, "COMPLETED");
   assert.equal(encounter.getSnapshot().bossHealth, 0);
   assert.deepEqual(completions[0], {
@@ -221,32 +228,125 @@ test("the MVP bank is asked in order and requires all ten answers to clear", asy
       reward: null,
     },
   });
+});
 
-  const failedCompletions = [];
-  const missedEncounter = new DataSphinxEncounter({
+test("the per-attempt shuffle does not pin play to the first ten bank entries", async () => {
+  const document = JSON.parse(await readFile(
+    new URL("../../data/battle/data-sphinx.json", import.meta.url),
+    "utf8",
+  ));
+  const config = normalizeDataSphinxConfig(document);
+  const startedQuizIds = [];
+  const encounter = new DataSphinxEncounter({
     config,
-    onComplete: (attemptId, candidate) => failedCompletions.push({ attemptId, candidate }),
+    random: () => 0,
+    onEvent: (event) => {
+      if (event.type === "quiz-start") startedQuizIds.push(event.quizId);
+    },
   });
-  missedEncounter.init();
-  missedEncounter.start({ attemptId: "data-sphinx:mvp-one-miss" });
-  config.quizList.forEach((quiz, index) => {
-    missedEncounter.setPlayerLocation(
-      index === 0
+
+  encounter.init();
+  encounter.start({ attemptId: "data-sphinx:shuffled-sample" });
+  while (encounter.getSnapshot().state === "RUNNING") {
+    const snapshot = encounter.getSnapshot();
+    const quiz = config.quizList.find(({ id }) => id === snapshot.currentQuizId);
+    assert.ok(quiz);
+    encounter.setPlayerLocation(quiz.answer);
+    encounter.tick(config.timeLimitMs);
+    encounter.tick(config.resolutionDelayMs);
+  }
+
+  const firstTenIds = config.quizList.slice(0, 10).map(({ id }) => id);
+  assert.equal(startedQuizIds.length, 10);
+  assert.equal(new Set(startedQuizIds).size, 10);
+  assert.notDeepEqual(startedQuizIds, firstTenIds);
+});
+
+test("an incorrect answer is replaced from the reserve bank and can be recovered", async () => {
+  const document = JSON.parse(await readFile(
+    new URL("../../data/battle/data-sphinx.json", import.meta.url),
+    "utf8",
+  ));
+  const config = normalizeDataSphinxConfig(document);
+  const completions = [];
+  const startedQuizIds = [];
+  const encounter = new DataSphinxEncounter({
+    config,
+    random: () => 1 - Number.EPSILON,
+    onEvent: (event) => {
+      if (event.type === "quiz-start") startedQuizIds.push(event.quizId);
+    },
+    onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
+  });
+
+  encounter.init();
+  encounter.start({ attemptId: "data-sphinx:mvp-one-miss" });
+  let shouldMiss = true;
+  while (encounter.getSnapshot().state === "RUNNING") {
+    const snapshot = encounter.getSnapshot();
+    const quiz = config.quizList.find(({ id }) => id === snapshot.currentQuizId);
+    assert.ok(quiz);
+    encounter.setPlayerLocation(
+      shouldMiss
         ? (quiz.answer === DATA_SPHINX_SELECTIONS.O
             ? DATA_SPHINX_SELECTIONS.X
             : DATA_SPHINX_SELECTIONS.O)
         : quiz.answer,
     );
-    missedEncounter.tick(config.timeLimitMs);
-    missedEncounter.tick(config.resolutionDelayMs);
-  });
-  assert.deepEqual(failedCompletions[0], {
+    shouldMiss = false;
+    encounter.tick(config.timeLimitMs);
+    encounter.tick(config.resolutionDelayMs);
+  }
+
+  assert.equal(startedQuizIds.length, 11);
+  assert.equal(new Set(startedQuizIds).size, 11);
+  assert.deepEqual(completions[0], {
     attemptId: "data-sphinx:mvp-one-miss",
+    candidate: {
+      status: "CLEAR",
+      score: null,
+      failureReason: null,
+      metrics: { correctCount: 10, wrongCount: 1, timeoutCount: 0 },
+      reward: null,
+    },
+  });
+});
+
+test("five incorrect answers still defeat the player", async () => {
+  const document = JSON.parse(await readFile(
+    new URL("../../data/battle/data-sphinx.json", import.meta.url),
+    "utf8",
+  ));
+  const config = normalizeDataSphinxConfig(document);
+  const completions = [];
+  const encounter = new DataSphinxEncounter({
+    config,
+    random: () => 1 - Number.EPSILON,
+    onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
+  });
+
+  encounter.init();
+  encounter.start({ attemptId: "data-sphinx:five-misses" });
+  for (let missCount = 0; missCount < 5; missCount += 1) {
+    const snapshot = encounter.getSnapshot();
+    const quiz = config.quizList.find(({ id }) => id === snapshot.currentQuizId);
+    assert.ok(quiz);
+    encounter.setPlayerLocation(
+      quiz.answer === DATA_SPHINX_SELECTIONS.O
+        ? DATA_SPHINX_SELECTIONS.X
+        : DATA_SPHINX_SELECTIONS.O,
+    );
+    encounter.tick(config.timeLimitMs);
+    encounter.tick(missCount === 4 ? config.deathDelayMs : config.resolutionDelayMs);
+  }
+
+  assert.deepEqual(completions[0], {
+    attemptId: "data-sphinx:five-misses",
     candidate: {
       status: "FAIL",
       score: null,
-      failureReason: "OUT_OF_QUESTIONS",
-      metrics: { correctCount: 9, wrongCount: 1, timeoutCount: 0 },
+      failureReason: "PLAYER_DEAD",
+      metrics: { correctCount: 0, wrongCount: 5, timeoutCount: 0 },
       reward: null,
     },
   });

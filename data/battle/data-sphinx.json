@@ -18,6 +18,7 @@
   "bossMaxHealth": 100,
   "damagePerCorrect": 10,
   "playerDamagePerWrong": 20,
+  "questionsPerAttempt": 10,
   "controls": {
     "pc": ["WASD 또는 방향키로 O/X 영역 이동", "제한 시간이 끝날 때 서 있는 영역으로 답 선택", "Esc 또는 P로 일시정지"],
     "mobile": ["가상 조이스틱으로 O/X 영역 이동", "제한 시간이 끝날 때 서 있는 영역으로 답 선택"]

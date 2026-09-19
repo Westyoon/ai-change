@@ -28,6 +28,14 @@ function positiveNumber(value, fallback, label) {
   return candidate;
 }
 
+function positiveInteger(value, fallback, label) {
+  const candidate = value === undefined || value === null ? fallback : Number(value);
+  if (!Number.isSafeInteger(candidate) || candidate <= 0) {
+    throw new RangeError(`${label} must be a positive integer.`);
+  }
+  return candidate;
+}
+
 function nonNegativeNumber(value, fallback, label) {
   const candidate = value === undefined || value === null ? fallback : Number(value);
   if (!Number.isFinite(candidate) || candidate < 0) {
@@ -126,9 +134,19 @@ export function normalizeDataSphinxConfig(config = {}) {
   );
   const quizList = normalizeQuizzes(config.quizList);
   const requiredCorrectAnswers = Math.ceil(bossMaxHealth / damagePerCorrect);
-  if (quizList.length < requiredCorrectAnswers) {
+  const questionsPerAttempt = positiveInteger(
+    config.questionsPerAttempt,
+    requiredCorrectAnswers,
+    "Data Sphinx questionsPerAttempt",
+  );
+  if (questionsPerAttempt !== requiredCorrectAnswers) {
     throw new RangeError(
-      `Data Sphinx requires at least ${requiredCorrectAnswers} quizzes to make CLEAR possible.`,
+      `Data Sphinx questionsPerAttempt must be ${requiredCorrectAnswers} for the configured damage formula.`,
+    );
+  }
+  if (quizList.length < questionsPerAttempt) {
+    throw new RangeError(
+      `Data Sphinx requires at least ${questionsPerAttempt} quizzes to make CLEAR possible.`,
     );
   }
 
@@ -150,6 +168,7 @@ export function normalizeDataSphinxConfig(config = {}) {
       20,
       "Data Sphinx playerDamagePerWrong",
     ),
+    questionsPerAttempt,
     quizList,
   });
 }

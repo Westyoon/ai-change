@@ -39,7 +39,7 @@ PR #12는 다음 기반을 제공했다.
 브라우저 · https://ai-change.ai-change-backend.workers.dev
   ├─ /api/*  ───────────────→ Cloudflare Worker
   │                            ├─ Google OAuth
-  │                            └─ D1: users, stats, sessions, game_results
+  │                            └─ D1: users, stats(level·experience 포함), sessions, game_results
   └─ 그 외 경로 ─────────────→ Worker Static Assets의 dist/
 ```
 
@@ -82,7 +82,7 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 
 | Method | 경로 | 계약 |
 | --- | --- | --- |
-| `GET` | `/api/me` | 로그인 여부와 본인의 표시 이름·스탯, 서로 다른 완료 게임 ID 목록 `completedGameIds` 반환 |
+| `GET` | `/api/me` | 로그인 여부와 본인의 표시 이름·스탯(`level`, `experience`, `nextLevelExperience` 포함), 서로 다른 완료 게임 ID 목록 `completedGameIds` 반환 |
 | `GET` | `/api/session` | `/api/me`와 같은 응답을 반환하는 기존 호환 별칭 |
 | `POST` | `/api/auth/logout` | 현재 session을 폐기하고 cookie를 만료 |
 | `POST` | `/api/progress/import` | 현재 브라우저의 서로 다른 로컬 완료 게임을 본인 계정 진행에 한 번씩 병합 |
@@ -100,7 +100,9 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 }
 ```
 
-서버는 session에서 이용자를 찾고, 등록된 5개 미니게임 ID·`CLEAR` 상태·허용 범위의 정수 점수만 받는다. 같은 계정의 같은 `attemptId`는 `game_results`의 unique 제약으로 한 번만 처리한다. 최초 반영 때만 `clears`와 `unspent_points`를 1 증가시키고, 최고 점수 랭킹은 단위가 다른 게임끼리 섞지 않고 `game_results.game_id`별로 계산한다.
+서버는 session에서 이용자를 찾고, 등록된 5개 미니게임 ID·`CLEAR` 상태·허용 범위의 정수 점수만 받는다. 같은 계정의 같은 `attemptId`는 `game_results`의 unique 제약으로 한 번만 처리한다. 최초 반영 때만 `clears`와 경험치를 증가시키고, 최고 점수 랭킹은 단위가 다른 게임끼리 섞지 않고 `game_results.game_id`별로 계산한다.
+
+레벨은 1에서 시작하며 승인된 CLEAR 1회당 서버가 경험치 100을 지급한다. `level = min(10, 1 + floor(experience / 100))`이고 경험치는 900에서 멈춘다. 실제로 새 레벨에 도달한 경우에만 `unspent_points`가 1 증가하므로 레벨 10 이후 반복 CLEAR는 기록과 최고 점수에는 반영되지만 스탯 포인트를 추가 지급하지 않는다. 응답의 `nextLevelExperience`는 다음 누적 경험치 기준이며 레벨 10에서는 `null`이다.
 
 `completedGameIds`는 해당 계정의 `game_results`에서 완료한 서로 다른 `game_id`를 조회한 값이다. 클라이언트는 이를 로컬 완료 ID와 합쳐 published 사후 콘텐츠의 공통 해금을 판단하며, 반복 CLEAR로 증가한 `clears` 합계만으로는 해금하지 않는다.
 
@@ -112,7 +114,7 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 }
 ```
 
-서버는 session·동일 origin·JSON content type을 확인하고 등록된 5개 ID만 받는다. 이미 같은 게임의 CLEAR가 있으면 건너뛰며, 새 게임만 예약된 `guest-import-v1:` attempt로 0점 기록하고 `clears`와 `unspent_points`를 각각 1 올린다. 이 예약 attempt는 일반 `/api/results`에서 사용할 수 없다. 응답은 실제 `importedGameIds`, 계정 전체 `completedGameIds`, 최신 `stats`를 반환한다. import 전용 0점 행은 게임별 최고 점수 랭킹에서 제외한다.
+서버는 session·동일 origin·JSON content type을 확인하고 등록된 5개 ID만 받는다. 이미 같은 게임의 CLEAR가 있으면 건너뛰며, 새 게임만 예약된 `guest-import-v1:` attempt로 0점 기록한다. 이때 일반 CLEAR와 동일한 레벨·경험치·포인트 규칙을 원자적으로 적용한다. 이 예약 attempt는 일반 `/api/results`에서 사용할 수 없다. 응답은 실제 `importedGameIds`, 계정 전체 `completedGameIds`, 최신 `stats`를 반환한다. import 전용 0점 행은 게임별 최고 점수 랭킹에서 제외한다.
 
 자동 병합 범위는 완료한 서로 다른 사전게임 ID뿐이다. 실패, 재생 횟수, 원점수, 최고 지표, NPC·맵 위치, 설정은 계정으로 보내지 않는다. 정상 CLEAR 전송이 일시적으로 실패했더라도 다음 앱 시작이나 계정 화면에서 완료 여부와 포인트는 복구할 수 있지만, 당시 원점수는 복구하지 않고 0점으로 남긴다. 서버와 클라이언트 양쪽에서 중복 요청을 막으며, 로그아웃 뒤 늦게 온 응답은 화면의 guest 상태를 되돌리지 않는다.
 
@@ -190,7 +192,7 @@ cd backend
 npx wrangler d1 migrations apply ai-change --remote
 ```
 
-Worker 배포 명령은 migration을 자동 실행하지 않는다. schema 변경이 있는 릴리스만 하위 호환성과 백업을 확인한 뒤 별도로 migration을 적용한다. 이번 게스트 진행 병합은 기존 `game_results`·`stats`를 사용하므로 migration이 없다.
+Worker 배포 명령은 migration을 자동 실행하지 않는다. schema 변경이 있는 릴리스만 하위 호환성과 백업을 확인한 뒤 별도로 migration을 적용한다. `0003_level_progression.sql`은 `stats.level`과 `stats.experience`를 추가하고 기존 `clears`를 100 XP 단위로 환산해 최대 900 XP·레벨 10으로 backfill한다. 기존 로직이 이미 지급한 `unspent_points`는 건드리지 않아 포인트가 이중 지급되지 않는다.
 
 ## 8. Cloudflare secret과 Google OAuth 설정
 

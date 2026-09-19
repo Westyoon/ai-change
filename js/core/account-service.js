@@ -2,11 +2,17 @@ const STAT_KEYS = Object.freeze(["attack", "hp", "defense"]);
 const RANKING_CRITERIA = new Set(["score", "clears"]);
 const EMPTY_GAME_IDS = Object.freeze([]);
 const ACCOUNT_REQUEST_TIMEOUT_MS = 8_000;
+const MAX_LEVEL = 10;
+const EXPERIENCE_PER_LEVEL = 100;
+const MAX_EXPERIENCE = (MAX_LEVEL - 1) * EXPERIENCE_PER_LEVEL;
 
 const EMPTY_STATS = Object.freeze({
   attack: 0,
   hp: 0,
   defense: 0,
+  level: 1,
+  experience: 0,
+  nextLevelExperience: EXPERIENCE_PER_LEVEL,
   clears: 0,
   score: 0,
   unspentPoints: 0,
@@ -22,11 +28,34 @@ function text(value, fallback = "") {
 }
 
 function freezeStats(candidate = {}) {
+  const clears = integer(candidate.clears);
+  const legacyExperience = Math.min(MAX_EXPERIENCE, clears * EXPERIENCE_PER_LEVEL);
+  const experience = Math.min(
+    MAX_EXPERIENCE,
+    integer(candidate.experience ?? candidate.xp, legacyExperience),
+  );
+  const derivedLevel = Math.min(
+    MAX_LEVEL,
+    1 + Math.floor(experience / EXPERIENCE_PER_LEVEL),
+  );
+  const level = Math.min(MAX_LEVEL, Math.max(1, integer(candidate.level, derivedLevel)));
+  const nextLevelExperience = level >= MAX_LEVEL
+    ? null
+    : Math.min(
+      MAX_EXPERIENCE,
+      integer(
+        candidate.nextLevelExperience ?? candidate.next_level_experience,
+        level * EXPERIENCE_PER_LEVEL,
+      ),
+    );
   return Object.freeze({
     attack: integer(candidate.attack),
     hp: integer(candidate.hp ?? candidate.health),
     defense: integer(candidate.defense),
-    clears: integer(candidate.clears),
+    level,
+    experience,
+    nextLevelExperience,
+    clears,
     score: integer(candidate.score),
     unspentPoints: integer(candidate.unspentPoints ?? candidate.unspent_points),
   });

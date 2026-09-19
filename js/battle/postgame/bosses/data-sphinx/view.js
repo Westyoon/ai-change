@@ -61,7 +61,7 @@ export class DataSphinxView {
     this.bossHealthTrack.setAttribute("aria-valuenow", String(snapshot.bossHealth));
 
     const questionNumber = snapshot.currentQuestion
-      ? `${snapshot.currentQuizIndex + 1} / ${snapshot.quizCount}`
+      ? `${snapshot.questionNumber} / ${snapshot.quizCount}`
       : `0 / ${snapshot.quizCount}`;
     this.questionProgress.textContent = `QUESTION ${questionNumber}`;
     this.questionText.textContent = snapshot.currentQuestion ?? "전투 시작을 기다리고 있습니다.";

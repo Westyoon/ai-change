@@ -29,6 +29,8 @@ interface StatsRow {
   attack: number;
   hp: number;
   defense: number;
+  level: number;
+  experience: number;
   clears: number;
   score: number;
   unspent_points: number;
@@ -54,6 +56,9 @@ const LOCAL_OAUTH_STATE_COOKIE = "ai-change-oauth-state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
 const MAX_SCORE = 1_000_000;
+const MAX_LEVEL = 10;
+const EXPERIENCE_PER_CLEAR = 100;
+const MAX_EXPERIENCE = (MAX_LEVEL - 1) * EXPERIENCE_PER_CLEAR;
 const GUEST_IMPORT_ATTEMPT_PREFIX = "guest-import-v1:";
 const ALLOWED_GAME_IDS = new Set([
   "data-number-baseball",
@@ -211,11 +216,19 @@ function normalizeEmail(value: unknown): string | null {
   return normalized;
 }
 
-function statPayload(row: StatsRow): Record<string, number> {
+function statPayload(row: StatsRow): Record<string, number | null> {
+  const level = Math.min(MAX_LEVEL, Math.max(1, Number(row.level) || 1));
+  const experience = Math.min(
+    MAX_EXPERIENCE,
+    Math.max(0, Number(row.experience) || 0),
+  );
   return {
     attack: Number(row.attack),
     hp: Number(row.hp),
     defense: Number(row.defense),
+    level,
+    experience,
+    nextLevelExperience: level >= MAX_LEVEL ? null : level * EXPERIENCE_PER_CLEAR,
     clears: Number(row.clears),
     score: Number(row.score),
     unspentPoints: Number(row.unspent_points),
@@ -224,7 +237,7 @@ function statPayload(row: StatsRow): Record<string, number> {
 
 async function fetchStats(env: Env, userId: string): Promise<StatsRow> {
   const row = await env.DB.prepare(
-    `SELECT attack, hp, defense, clears, score, unspent_points
+    `SELECT attack, hp, defense, level, experience, clears, score, unspent_points
        FROM stats
       WHERE user_id = ?`,
   )
@@ -353,8 +366,10 @@ async function finishGoogleLogin(request: Request, env: Env, origin: string): Pr
          ON CONFLICT(id) DO UPDATE SET email = excluded.email, name = excluded.name`,
       ).bind(userId, email, name),
       env.DB.prepare(
-        `INSERT INTO stats (user_id, attack, hp, defense, clears, score, unspent_points)
-         VALUES (?, 0, 100, 0, 0, 0, 0)
+        `INSERT INTO stats (
+           user_id, attack, hp, defense, level, experience, clears, score, unspent_points
+         )
+         VALUES (?, 0, 100, 0, 1, 0, 0, 0, 0)
          ON CONFLICT(user_id) DO NOTHING`,
       ).bind(userId),
       env.DB.prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(now),
@@ -501,7 +516,31 @@ async function importCompletedProgress(
       env.DB.prepare(
         `UPDATE stats
             SET clears = COALESCE(clears, 0) + 1,
-                unspent_points = COALESCE(unspent_points, 0) + 1,
+                experience = MIN(
+                  ${MAX_EXPERIENCE},
+                  COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
+                ),
+                level = MIN(
+                  ${MAX_LEVEL},
+                  1 + CAST(
+                    MIN(
+                      ${MAX_EXPERIENCE},
+                      COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
+                    ) / ${EXPERIENCE_PER_CLEAR} AS INTEGER
+                  )
+                ),
+                unspent_points = COALESCE(unspent_points, 0) + MAX(
+                  0,
+                  MIN(
+                    ${MAX_LEVEL},
+                    1 + CAST(
+                      MIN(
+                        ${MAX_EXPERIENCE},
+                        COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
+                      ) / ${EXPERIENCE_PER_CLEAR} AS INTEGER
+                    )
+                  ) - COALESCE(level, 1)
+                ),
                 updated_at = CURRENT_TIMESTAMP
           WHERE user_id = ?
             AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
@@ -548,7 +587,7 @@ async function recordResult(request: Request, env: Env, origin: string): Promise
   }
 
   const resultId = crypto.randomUUID();
-  const [insertResult] = await env.DB.batch([
+  const [insertResult, awardResult] = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO game_results (id, user_id, attempt_id, game_id, status, score)
        VALUES (?, ?, ?, ?, 'CLEAR', ?)
@@ -556,9 +595,29 @@ async function recordResult(request: Request, env: Env, origin: string): Promise
     ).bind(resultId, session.user_id, attemptId, gameId, score),
     env.DB.prepare(
       `UPDATE stats
+          SET unspent_points = COALESCE(unspent_points, 0) + 1,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+          AND COALESCE(level, 1) < ${MAX_LEVEL}
+          AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
+    ).bind(session.user_id, resultId, session.user_id),
+    env.DB.prepare(
+      `UPDATE stats
           SET clears = COALESCE(clears, 0) + 1,
               score = MAX(COALESCE(score, 0), ?),
-              unspent_points = COALESCE(unspent_points, 0) + 1,
+              experience = MIN(
+                ${MAX_EXPERIENCE},
+                COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
+              ),
+              level = MIN(
+                ${MAX_LEVEL},
+                1 + CAST(
+                  MIN(
+                    ${MAX_EXPERIENCE},
+                    COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR}
+                  ) / ${EXPERIENCE_PER_CLEAR} AS INTEGER
+                )
+              ),
               updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
           AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
@@ -566,9 +625,10 @@ async function recordResult(request: Request, env: Env, origin: string): Promise
   ]);
 
   const credited = Number(insertResult.meta.changes ?? 0) === 1;
+  const awarded = Number(awardResult.meta.changes ?? 0) === 1;
   const stats = await fetchStats(env, session.user_id);
   return json(
-    { credited, duplicate: !credited, awarded: credited, stats: statPayload(stats) },
+    { credited, duplicate: !credited, awarded, stats: statPayload(stats) },
     { status: credited ? 201 : 200 },
   );
 }

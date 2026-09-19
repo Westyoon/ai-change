@@ -243,6 +243,18 @@ export function createAccountScene(context) {
 
         const recordGrid = createElement("dl", { className: "account-record-grid" }, [
           createElement("div", {}, [
+            createElement("dt", { text: "레벨" }),
+            createElement("dd", { text: `Lv. ${stats.level} / 10` }),
+          ]),
+          createElement("div", {}, [
+            createElement("dt", { text: "경험치 / 다음 레벨" }),
+            createElement("dd", {
+              text: stats.nextLevelExperience === null
+                ? `${stats.experience} / MAX`
+                : `${stats.experience} / ${stats.nextLevelExperience}`,
+            }),
+          ]),
+          createElement("div", {}, [
             createElement("dt", { text: "누적 클리어" }),
             createElement("dd", { text: stats.clears }),
           ]),
@@ -274,7 +286,7 @@ export function createAccountScene(context) {
           statGrid,
           createElement("p", {
             className: "muted account-formula-note",
-            text: "현재 값은 계정 원본 스탯입니다. HP·공격·방어의 실제 전투 계산식은 사후게임 전투 모듈에서 별도로 적용합니다.",
+            text: "사전게임 CLEAR 1회당 경험치 100을 얻고, 레벨이 오를 때 스탯 포인트 1개를 받습니다. 현재 값은 계정 원본 스탯이며 실제 전투 계산식은 사후게임 전투 모듈에서 별도로 적용합니다.",
           }),
           createElement("div", { className: "button-row" }, [
             createButton("랭킹 보기", () => context.router.navigate("ranking"), "primary"),
