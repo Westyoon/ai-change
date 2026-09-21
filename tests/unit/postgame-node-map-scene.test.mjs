@@ -7,7 +7,14 @@ import {
   CHARACTER_EVENTS,
 } from "../../js/battle/character/index.js";
 import { EventBus } from "../../js/core/event-bus.js";
-import { createBattleScene } from "../../js/scenes/battle-scene.js";
+import {
+  createBattleScene,
+  createSharedBattleSession,
+  isSharedPartyReady,
+  releaseSharedBattleSession,
+  runBattleRetryAction,
+  scheduleSharedBattleRejoin,
+} from "../../js/scenes/battle-scene.js";
 
 const battles = JSON.parse(
   await readFile(new URL("../../data/battles.json", import.meta.url), "utf8"),
@@ -233,6 +240,8 @@ class FakeRealtime {
       rooms: Object.freeze([]),
       currentRoomId: null,
       currentRoom: null,
+      battle: null,
+      leavingBattleRoomId: null,
       error: null,
     });
     this.listeners = new Set();
@@ -265,6 +274,13 @@ class FakeRealtime {
   joinRoom(roomId) { this.commands.push({ type: "room.join", roomId }); return true; }
   leaveRoom() { this.commands.push({ type: "room.leave" }); return true; }
   startRoom() { this.commands.push({ type: "room.start" }); return true; }
+  sendBattleReady(roomId) { this.commands.push({ type: "battle.ready", roomId }); return true; }
+  sendBattleHit(payload) { this.commands.push({ type: "battle.hit", ...payload }); return true; }
+  sendBattleLeave(roomId) {
+    this.commands.push({ type: "battle.leave", roomId });
+    this.setState({ leavingBattleRoomId: roomId });
+    return this.state.connected;
+  }
 
   setState(patch) {
     this.state = Object.freeze({ ...this.state, ...patch });
@@ -446,6 +462,155 @@ function driveUntilEncounter(mounted) {
   return mounted.root.querySelector(".battle-field-encounter");
 }
 
+test("shared battle session re-readies once for each reconnected running snapshot", () => {
+  const realtime = new FakeRealtime();
+  const shared = createSharedBattleSession({
+    realtimeService: realtime,
+    roomId: "ROOM-SHARED-1",
+    battleId: "stat-boss",
+  });
+  const snapshots = [];
+  const unsubscribe = shared.subscribe((snapshot) => snapshots.push(snapshot));
+  const running = Object.freeze({
+    roomId: "ROOM-SHARED-1",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 1_000,
+    bossMaxHp: 1_000,
+    revision: 1,
+    roster: Object.freeze([
+      Object.freeze({ id: "self-online", name: "나", ready: false, connected: true }),
+    ]),
+  });
+
+  realtime.setState({ battle: running });
+  realtime.setState({ battle: running });
+  assert.equal(
+    realtime.commands.filter((command) => command.type === "battle.ready").length,
+    0,
+    "a restored snapshot cannot mark the player ready before the module starts",
+  );
+  assert.equal(shared.ready(), true);
+  assert.equal(
+    realtime.commands.filter((command) => command.type === "battle.ready").length,
+    1,
+    "the same connection does not loop battle.ready",
+  );
+
+  realtime.setState({ connected: false, status: "reconnecting" });
+  realtime.setState({ connected: true, status: "connected" });
+  realtime.setState({
+    battle: Object.freeze({
+      ...running,
+      roster: Object.freeze([
+        Object.freeze({ id: "self-online", name: "나", ready: false, connected: true }),
+      ]),
+    }),
+  });
+  assert.equal(
+    realtime.commands.filter((command) => command.type === "battle.ready").length,
+    2,
+    "a fresh post-reconnect snapshot re-arms this player exactly once",
+  );
+  assert.equal(snapshots.length, 2);
+
+  unsubscribe();
+  shared.destroy();
+  realtime.setState({ battle: Object.freeze({ ...running, revision: 2 }) });
+  assert.equal(snapshots.length, 2, "destroy detaches state listeners");
+});
+
+test("shared battle map handoff sends leave without closing the reusable socket", () => {
+  const realtime = new FakeRealtime();
+  const shared = createSharedBattleSession({
+    realtimeService: realtime,
+    roomId: "ROOM-SHARED-2",
+    battleId: "control-boss",
+  });
+  const released = releaseSharedBattleSession({
+    sharedBattle: shared,
+    realtimeService: realtime,
+    preserveRealtime: true,
+  });
+
+  assert.deepEqual(released, { leaveSent: true, disconnected: false });
+  assert.deepEqual(realtime.commands.at(-1), {
+    type: "battle.leave",
+    roomId: "ROOM-SHARED-2",
+  });
+  assert.equal(realtime.disconnected, 0);
+});
+
+test("shared battle retry returns to party flow and never restarts a local boss", () => {
+  let sharedNavigations = 0;
+  let localRestarts = 0;
+  const mode = runBattleRetryAction({
+    sharedBattle: { roomId: "ROOM-SHARED-3" },
+    onSharedBattle: () => { sharedNavigations += 1; },
+    onSolo: () => { localRestarts += 1; },
+  });
+
+  assert.equal(mode, "shared-map");
+  assert.equal(sharedNavigations, 1);
+  assert.equal(localRestarts, 0);
+});
+
+test("a local co-op FAIL rejoins on a microtask unless the server finishes first", () => {
+  const queued = [];
+  let snapshot = { status: "running" };
+  const fakeModule = {
+    restartCalls: [],
+    restart(options) {
+      this.restartCalls.push(options);
+      return true;
+    },
+  };
+  const sharedBattle = { getSnapshot: () => snapshot };
+
+  assert.equal(scheduleSharedBattleRejoin({
+    sharedBattle,
+    candidate: { status: "FAIL" },
+    restart: () => fakeModule.restart({ attemptId: "stat-boss:retry-1" }),
+    queueTask: (callback) => queued.push(callback),
+  }), true);
+  queued.shift()();
+  assert.deepEqual(
+    fakeModule.restartCalls,
+    [{ attemptId: "stat-boss:retry-1" }],
+    "a local defeat rejoins the still-running shared boss",
+  );
+
+  let settled = null;
+  assert.equal(scheduleSharedBattleRejoin({
+    sharedBattle,
+    candidate: { status: "FAIL" },
+    restart: () => fakeModule.restart({ attemptId: "stat-boss:retry-2" }),
+    onSettled: (restarted) => { settled = restarted; },
+    queueTask: (callback) => queued.push(callback),
+  }), true);
+  snapshot = { status: "finished" };
+  queued.shift()();
+  assert.equal(fakeModule.restartCalls.length, 1, "server completion wins over a queued local restart");
+  assert.equal(settled, false);
+});
+
+test("shared party readiness follows the authoritative barrier with a roster fallback", () => {
+  assert.equal(isSharedPartyReady({ status: "running", allReady: false, roster: [] }), false);
+  assert.equal(isSharedPartyReady({ status: "running", allReady: true, roster: [] }), true);
+  assert.equal(isSharedPartyReady({
+    status: "running",
+    roster: [
+      { id: "self", ready: true, connected: true },
+      { id: "offline", ready: false, connected: false },
+    ],
+  }), true);
+  assert.equal(isSharedPartyReady({
+    status: "running",
+    roster: [{ id: "self", ready: false, connected: true }],
+  }), false);
+  assert.equal(isSharedPartyReady({ status: "finished", allReady: false }), true);
+});
+
 test("입장 필드 서쪽과 중심 광장 동쪽은 실제 이동으로 새로고침 없이 왕복한다", async () => {
   const mounted = await mountEntryScene();
   try {
@@ -602,19 +767,141 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
       seed: "shared-seed",
       startedAt: 1234,
     });
-    assert.deepEqual(mounted.navigations, [{
-      sceneId: "battle",
-      params: {
-        battleId: "stat-boss",
-        party: {
-          roomId: room.id,
-          selfId: "self-online",
-          roster: room.members,
-          seed: "shared-seed",
-          startedAt: 1234,
-        },
+    assert.equal(mounted.navigations.length, 1);
+    const navigation = mounted.navigations[0];
+    assert.equal(navigation.sceneId, "battle");
+    assert.equal(navigation.params.battleId, "stat-boss");
+    assert.equal(navigation.params.party.roomId, room.id);
+    assert.equal(navigation.params.party.selfId, "self-online");
+    assert.deepEqual(navigation.params.party.roster, room.members);
+    assert.equal(navigation.params.party.seed, "shared-seed");
+    assert.equal(navigation.params.party.startedAt, 1234);
+    assert.equal(navigation.params.party.realtimeService, realtime);
+    assert.equal(navigation.params.party.sharedBattle.roomId, room.id);
+    assert.equal(navigation.params.party.sharedBattle.battleId, "stat-boss");
+
+    navigation.params.party.sharedBattle.ready();
+    navigation.params.party.sharedBattle.hit({ kind: "counter-hit", actionId: "counter:1" });
+    assert.deepEqual(realtime.commands.slice(-2), [
+      { type: "battle.ready", roomId: room.id },
+      {
+        type: "battle.hit",
+        roomId: room.id,
+        kind: "counter-hit",
+        actionId: "counter:1",
       },
-    }]);
+    ]);
+  } finally {
+    mounted.cleanup();
+    assert.equal(realtime.disconnected, 0, "room-to-battle handoff keeps the same socket alive");
+  }
+});
+
+test("running battle snapshot restores a refreshed player once before or after entry mount", async () => {
+  const createRunningSnapshot = () => Object.freeze({
+    roomId: "ROOMRSM001",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 730,
+    bossMaxHp: 1_000,
+    revision: 8,
+    roster: Object.freeze([
+      Object.freeze({ id: "self-online", name: "나", ready: true, connected: true }),
+      Object.freeze({ id: "other-online", name: "동료", ready: true, connected: true }),
+    ]),
+    seed: "seed:ROOMRSM001",
+    allReady: true,
+    startedAt: 9_876,
+  });
+
+  for (const snapshotBeforeMount of [true, false]) {
+    const realtime = new FakeRealtime();
+    if (snapshotBeforeMount) realtime.setState({ battle: createRunningSnapshot() });
+    const mounted = await mountEntryScene({ authenticated: true, realtime });
+    let sharedBattle = null;
+    try {
+      if (!snapshotBeforeMount) {
+        realtime.setState({
+          battle: Object.freeze({
+            roomId: "IGNORED001",
+            battleId: "unpublished-boss",
+            status: "running",
+            bossHp: 1,
+            bossMaxHp: 1,
+            revision: 1,
+            roster: Object.freeze([]),
+          }),
+        });
+        assert.equal(mounted.navigations.length, 0, "an unknown battle definition is ignored");
+        realtime.setState({
+          battle: createRunningSnapshot(),
+          leavingBattleRoomId: "ROOMRSM001",
+        });
+        assert.equal(mounted.navigations.length, 0, "a pending leave snapshot never auto-resumes");
+        realtime.setState({
+          battle: Object.freeze({ ...createRunningSnapshot(), revision: 9 }),
+          leavingBattleRoomId: null,
+        });
+      }
+
+      assert.equal(mounted.navigations.length, 1);
+      const navigation = mounted.navigations[0];
+      assert.equal(navigation.sceneId, "battle");
+      assert.equal(navigation.params.battleId, "stat-boss");
+      assert.equal(navigation.params.party.roomId, "ROOMRSM001");
+      assert.equal(navigation.params.party.startedAt, 9_876);
+      assert.equal(navigation.params.party.seed, "seed:ROOMRSM001");
+      assert.equal(navigation.params.party.roster.length, 2);
+      assert.equal(navigation.params.party.realtimeService, realtime);
+      sharedBattle = navigation.params.party.sharedBattle;
+      assert.equal(sharedBattle.getSnapshot().bossHp, 730);
+      assert.equal(mounted.context.state.aftergameWorldState.zoneId, "plaza");
+
+      realtime.emit({
+        type: "room.started",
+        roomId: "ROOMRSM001",
+        battleId: "stat-boss",
+        roster: createRunningSnapshot().roster,
+        startedAt: 9_876,
+      });
+      realtime.setState({ battle: Object.freeze({ ...createRunningSnapshot(), revision: 9 }) });
+      assert.equal(mounted.navigations.length, 1, "room.started and later updates cannot double-navigate");
+    } finally {
+      mounted.cleanup();
+      sharedBattle?.destroy();
+      assert.equal(realtime.disconnected, 0, "the recovered battle owns the existing socket");
+    }
+  }
+});
+
+test("finished battle snapshot stays on the map and releases stale server membership once", async () => {
+  const realtime = new FakeRealtime();
+  const mounted = await mountEntryScene({ authenticated: true, realtime });
+  try {
+    const finished = Object.freeze({
+      roomId: "ROOMDONE01",
+      battleId: "control-boss",
+      status: "finished",
+      bossHp: 0,
+      bossMaxHp: 500,
+      revision: 12,
+      roster: Object.freeze([
+        Object.freeze({ id: "self-online", name: "나", ready: true, connected: true }),
+      ]),
+      result: Object.freeze({ outcome: "victory", reason: "boss-defeated" }),
+      startedAt: 1_000,
+      finishedAt: 2_000,
+    });
+    realtime.setState({ battle: finished });
+    realtime.setState({ battle: Object.freeze({ ...finished, revision: 13 }) });
+
+    assert.equal(mounted.navigations.length, 0);
+    assert.equal(
+      realtime.commands.filter((command) => command.type === "battle.leave").length,
+      1,
+    );
+    assert.equal(realtime.getState().leavingBattleRoomId, "ROOMDONE01");
+    assert.match(mounted.root.querySelector(".aftergame-world__status").textContent, /이미 종료/u);
   } finally {
     mounted.cleanup();
     assert.equal(realtime.disconnected, 1);

@@ -7,6 +7,11 @@ import {
 } from "./config.js";
 import { DataSphinxEncounter, DATA_SPHINX_STATES } from "./encounter.js";
 import { DataSphinxView } from "./view.js";
+import {
+  bindSharedBossBattle,
+  createSharedActionId,
+  isSharedBattleOnline,
+} from "../shared-battle.js";
 
 function abortError(signal) {
   if (signal?.reason) return signal.reason;
@@ -35,7 +40,13 @@ function spawnTopLeft(config) {
   };
 }
 
-export function createBattle({ root, input = null, events = null, onComplete = null } = {}) {
+export function createBattle({
+  root,
+  input = null,
+  events = null,
+  onComplete = null,
+  sharedBattle: factorySharedBattle = null,
+} = {}) {
   if (!root?.append) throw new Error("Data Sphinx createBattle requires a root element.");
   if (!events) throw new Error("Data Sphinx createBattle requires the shared EventBus.");
 
@@ -49,14 +60,32 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   let destroyed = false;
   let abortSignal = null;
   let abortHandler = null;
+  let sharedBattleSource = null;
+  let sharedBinding = null;
+  let sharedMode = false;
+  let serverFinished = false;
+  let activeAttemptId = null;
+  let sharedActionSequence = 0;
+  let latestSharedSnapshot = null;
   const completedAttemptIds = new Set();
+  const forwardedSharedFailAttemptIds = new Set();
 
   function render() {
     view?.render(encounter?.getSnapshot(), system?.getSnapshot());
   }
 
   function forwardCompletion(attemptId, candidate) {
-    if (destroyed || completedAttemptIds.has(attemptId)) return false;
+    if (destroyed) return false;
+    const sharedLocalFail = sharedMode && !serverFinished && candidate?.status === "FAIL";
+    if (sharedLocalFail) {
+      if (forwardedSharedFailAttemptIds.has(attemptId)) return false;
+      forwardedSharedFailAttemptIds.add(attemptId);
+      lifecycleState = DATA_SPHINX_STATES.COMPLETED;
+      onComplete?.(attemptId, candidate);
+      return true;
+    }
+    if (completedAttemptIds.has(attemptId)) return false;
+    if (sharedMode && !serverFinished) return false;
     completedAttemptIds.add(attemptId);
     lifecycleState = DATA_SPHINX_STATES.COMPLETED;
     onComplete?.(attemptId, candidate);
@@ -76,6 +105,13 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       }
       if (event.outcome === "CORRECT") {
         view?.showFeedback(`정답입니다! 스핑크스에게 ${event.damageToBoss} 피해`, "correct");
+        if (sharedBinding && activeAttemptId) {
+          sharedActionSequence += 1;
+          sharedBinding.hit({
+            kind: "correct-answer",
+            actionId: createSharedActionId(activeAttemptId, "answer", sharedActionSequence),
+          });
+        }
       } else if (event.outcome === "TIMEOUT") {
         view?.showFeedback(`시간 초과! 플레이어가 ${event.damageToPlayer} 피해`, "wrong");
       } else {
@@ -140,8 +176,26 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       config: runtimeConfig,
       onEvent: handleEncounterEvent,
       onComplete: forwardCompletion,
+      sharedBossAuthority: sharedMode,
     });
     encounter.init();
+    sharedBinding = bindSharedBossBattle({
+      sharedBattle: sharedBattleSource,
+      battleId: "data-sphinx",
+      onSnapshot: (snapshot) => {
+        latestSharedSnapshot = snapshot;
+        encounter?.syncSharedBossHealth(snapshot);
+        render();
+      },
+      onFinished: (snapshot) => {
+        latestSharedSnapshot = snapshot;
+        if (!activeAttemptId) return;
+        serverFinished = true;
+        encounter?.completeSharedBattle(snapshot);
+        loop?.pause();
+        render();
+      },
+    });
     loop = new GameLoop({ update: tick, render: () => {} });
     lifecycleState = DATA_SPHINX_STATES.READY;
     render();
@@ -151,6 +205,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     loop?.destroy();
     joystick?.destroy();
     system?.destroy();
+    sharedBinding?.destroy();
     encounter?.destroy();
     view?.destroy();
     loop = null;
@@ -158,6 +213,8 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     system = null;
     encounter = null;
     view = null;
+    sharedBinding = null;
+    activeAttemptId = null;
   }
 
   function removeAbortListener() {
@@ -189,6 +246,11 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       try {
         await Promise.resolve();
         throwIfAborted(signal);
+        sharedBattleSource = candidateConfig.sharedBattle ?? factorySharedBattle;
+        sharedMode = isSharedBattleOnline(sharedBattleSource, "data-sphinx");
+        serverFinished = false;
+        sharedActionSequence = 0;
+        latestSharedSnapshot = null;
         config = normalizeDataSphinxConfig(candidateConfig);
         setupRuntime(config);
       } catch (error) {
@@ -203,9 +265,17 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       if (completedAttemptIds.has(id)) {
         throw new Error(`Data Sphinx attemptId was already completed: ${id}.`);
       }
+      activeAttemptId = id;
       encounter.start({ attemptId: id });
       lifecycleState = DATA_SPHINX_STATES.RUNNING;
       loop.start();
+      sharedBinding?.ready();
+      sharedBinding?.refresh();
+      if (latestSharedSnapshot?.status === "finished") {
+        serverFinished = true;
+        encounter.completeSharedBattle(latestSharedSnapshot);
+        loop.pause();
+      }
       render();
       return true;
     },
@@ -237,9 +307,17 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       teardownRuntime();
       try {
         setupRuntime(config);
+        activeAttemptId = id;
         encounter.start({ attemptId: id });
         lifecycleState = DATA_SPHINX_STATES.RUNNING;
         loop.start();
+        sharedBinding?.ready();
+        sharedBinding?.refresh();
+        if (latestSharedSnapshot?.status === "finished") {
+          serverFinished = true;
+          encounter.completeSharedBattle(latestSharedSnapshot);
+          loop.pause();
+        }
         render();
         return true;
       } catch (error) {

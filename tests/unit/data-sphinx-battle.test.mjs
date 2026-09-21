@@ -477,3 +477,141 @@ test("an init aborted at the async boundary mounts nothing and disposes idempote
   assert.deepEqual(battle.getState(), { state: "DESTROYED", disposed: true });
   assert.equal(battle.destroy(), false);
 });
+
+test("online Data Sphinx sends only a correct-answer intent and renders server HP until shared finish", async () => {
+  const frames = installFrameHarness();
+  const root = createRoot();
+  const input = createInput();
+  const completions = [];
+  const hits = [];
+  let readyCount = 0;
+  let listener = null;
+  let snapshot = {
+    roomId: "ABCDEFGHIJ",
+    battleId: "data-sphinx",
+    status: "running",
+    bossHp: 10,
+    bossMaxHp: 10,
+    revision: 0,
+  };
+  const sharedBattle = {
+    online: true,
+    roomId: "ABCDEFGHIJ",
+    battleId: "data-sphinx",
+    getSnapshot: () => snapshot,
+    subscribe(callback) {
+      listener = callback;
+      callback(snapshot);
+      return () => { listener = null; };
+    },
+    ready() {
+      readyCount += 1;
+      return true;
+    },
+    hit(payload) {
+      hits.push(payload);
+      return true;
+    },
+  };
+  const battle = createBattle({
+    root,
+    input,
+    events: { emit() {} },
+    onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
+  });
+
+  try {
+    await battle.init({ ...oneQuizConfig(), sharedBattle });
+    input.setVector({ x: -1, y: 0 });
+    battle.start({ attemptId: "data-sphinx:online" });
+    assert.equal(readyCount, 1);
+    frames.frame(0);
+    frames.frame(100);
+    assert.equal(battle.getState().bossHealth, 10, "the correct local answer cannot subtract shared HP");
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].kind, "correct-answer");
+    assert.ok(hits[0].actionId.length <= 64);
+    assert.deepEqual(completions, []);
+
+    snapshot = { ...snapshot, bossHp: 5, revision: 1 };
+    listener(snapshot);
+    assert.equal(battle.getState().bossHealth, 5, "a remote party hit updates this client's HUD state");
+
+    snapshot = { ...snapshot, status: "finished", bossHp: 0, revision: 2 };
+    listener(snapshot);
+    assert.equal(battle.getState().bossHealth, 0);
+    assert.equal(completions.length, 1);
+    assert.equal(completions[0].candidate.status, "CLEAR");
+  } finally {
+    battle.destroy();
+    frames.restore();
+  }
+  assert.equal(listener, null);
+});
+
+test("online Data Sphinx forwards a local FAIL while a server finish can still override it", async () => {
+  const frames = installFrameHarness();
+  const root = createRoot();
+  const completions = [];
+  let listener = null;
+  let snapshot = {
+    roomId: "ROOM-SPHINX-FAIL",
+    battleId: "data-sphinx",
+    status: "running",
+    bossHp: 10,
+    bossMaxHp: 10,
+    revision: 0,
+  };
+  const sharedBattle = {
+    online: true,
+    roomId: snapshot.roomId,
+    battleId: snapshot.battleId,
+    getSnapshot: () => snapshot,
+    subscribe(callback) {
+      listener = callback;
+      callback(snapshot);
+      return () => { listener = null; };
+    },
+    ready: () => true,
+    hit: () => true,
+  };
+  const battle = createBattle({
+    root,
+    input: createInput(),
+    events: { emit() {} },
+    onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
+  });
+
+  try {
+    await battle.init({
+      ...oneQuizConfig({
+        player: {
+          spawn: { x: 50, y: 30 },
+          width: 10,
+          height: 10,
+          speed: 10,
+          maxHealth: 20,
+        },
+        playerDamagePerWrong: 20,
+      }),
+      sharedBattle,
+    });
+    battle.start({ attemptId: "data-sphinx:shared-local-fail" });
+    frames.frame(0);
+    frames.frame(100);
+    frames.frame(101);
+    assert.equal(completions.length, 1);
+    assert.equal(completions[0].candidate.status, "FAIL");
+
+    snapshot = { ...snapshot, status: "finished", bossHp: 0, revision: 1 };
+    listener(snapshot);
+    assert.deepEqual(
+      completions.map(({ candidate }) => candidate.status),
+      ["FAIL", "CLEAR"],
+      "the authoritative victory is not deduplicated behind the earlier local defeat",
+    );
+  } finally {
+    battle.destroy();
+    frames.restore();
+  }
+});

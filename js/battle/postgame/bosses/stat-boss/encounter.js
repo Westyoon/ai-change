@@ -84,6 +84,8 @@ export class StatBossEncounter {
    */
   constructor(config) {
     this.config = config;
+    this.sharedBossAuthority = config.sharedBossAuthority === true;
+    this.sharedCompletionSent = false;
     this.state = STATE.CREATED;
     this.random = createRandom(config.seed);
     this.attemptId = null;
@@ -162,6 +164,7 @@ export class StatBossEncounter {
       counterMisses: 0,
       patternsResolved: 0,
     };
+    this.sharedCompletionSent = false;
   }
 
   // ---- Battle lifecycle 계약: init/start/pause/resume/restart/destroy ----
@@ -220,6 +223,46 @@ export class StatBossEncounter {
     if (player) player.position = { x, y };
   }
 
+  /** Apply the server-authoritative boss health without touching local player
+   * simulation.  Offline encounters never call this path. */
+  syncSharedBossHealth({ bossHp, bossMaxHp } = {}) {
+    if (!this.sharedBossAuthority || !this.boss) return false;
+    const maxHp = Number(bossMaxHp);
+    const hp = Number(bossHp);
+    if (!Number.isFinite(maxHp) || maxHp <= 0 || !Number.isFinite(hp)) return false;
+    this.boss.maxHp = maxHp;
+    this.boss.hp = Math.max(0, Math.min(maxHp, hp));
+    return true;
+  }
+
+  /** Finish every party member from the same server `battle.finished`
+   * snapshot. A local defeat may already have been reported to the host so it
+   * can respawn this client; the authoritative CLEAR still wins if it arrives
+   * before that respawn settles. */
+  completeSharedBattle(snapshot = {}) {
+    if (
+      !this.sharedBossAuthority ||
+      this.sharedCompletionSent ||
+      !this.attemptId ||
+      ![STATE.RUNNING, STATE.PAUSED, STATE.COMPLETED].includes(this.state)
+    ) {
+      return false;
+    }
+    this.syncSharedBossHealth({ ...snapshot, bossHp: 0 });
+    this.sharedCompletionSent = true;
+    if (this.state === STATE.PAUSED) this._setState(STATE.RUNNING);
+    if (this.state === STATE.RUNNING) {
+      this._resolve("CLEAR", null);
+      return true;
+    }
+    if (this.state !== STATE.COMPLETED) return false;
+
+    const candidate = this._buildCandidate("CLEAR", null);
+    this._emit({ type: "complete", candidate, shared: true });
+    this.config.onComplete?.(this.attemptId, candidate);
+    return true;
+  }
+
   // ---- 메인 루프: 밖에서 매 프레임(또는 테스트에서 임의로) 호출 ----
 
   tick(deltaMs) {
@@ -262,13 +305,13 @@ export class StatBossEncounter {
     }
 
     const damage = calcPlayerDamage(player.attackStat, this.balance);
-    this.boss.hp = Math.max(0, this.boss.hp - damage);
+    if (!this.sharedBossAuthority) this.boss.hp = Math.max(0, this.boss.hp - damage);
     this.metrics.damageDealt += damage;
     this.metrics.counterSuccesses++;
     this._staggerHitPlayers.add(playerId);
     this._emit({ type: "counter-hit", playerId, damage, bossHp: this.boss.hp });
 
-    if (this.boss.hp <= 0) this._resolve("CLEAR", null);
+    if (!this.sharedBossAuthority && this.boss.hp <= 0) this._resolve("CLEAR", null);
     return { hit: true, damage };
   }
 
@@ -445,12 +488,11 @@ export class StatBossEncounter {
     return out;
   }
 
-  _resolve(status, failureReason) {
-    this._setState(STATE.RESOLVING);
-    const candidate = {
-      status, // 'CLEAR' | 'FAIL' (팀 공용 Battle 결과 계약과 맞춤 - 사후게임_기획안.md 14.4, config-validator.js VALID_RESULT_STATUSES)
+  _buildCandidate(status, failureReason) {
+    return {
+      status,
       score: Math.round(this.metrics.damageDealt),
-      failureReason: failureReason ?? null, // 성공이어도 이 필드 자체는 항상 있어야 함 (MiniGameResult 계약)
+      failureReason: failureReason ?? null,
       metrics: {
         clearTimeMs: Math.round(this.elapsedMs),
         ...this.metrics,
@@ -458,8 +500,14 @@ export class StatBossEncounter {
         bossHp: this.boss.hp,
         bossMaxHp: this.boss.maxHp,
       },
-      reward: null, // 보상 체계는 아직 범위 밖 (TBD)
+      reward: null,
     };
+  }
+
+  _resolve(status, failureReason) {
+    this._setState(STATE.RESOLVING);
+    // 'CLEAR' | 'FAIL' and the remaining fields follow MiniGameResult.
+    const candidate = this._buildCandidate(status, failureReason);
     this._setState(STATE.COMPLETED);
     this._emit({ type: "complete", candidate });
     if (typeof this.config.onComplete === "function") this.config.onComplete(this.attemptId, candidate);

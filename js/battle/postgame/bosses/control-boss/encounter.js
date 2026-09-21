@@ -95,12 +95,21 @@ function normalizePlayer(source, config) {
 }
 
 export class ControlBossEncounter {
-  constructor({ config = {}, player = null, random = Math.random, onEvent = null, onComplete = null } = {}) {
+  constructor({
+    config = {},
+    player = null,
+    random = Math.random,
+    onEvent = null,
+    onComplete = null,
+    sharedBossAuthority = false,
+  } = {}) {
     this.config = resolveControlBossConfig(config);
     this.player = normalizePlayer(player, this.config);
     this.random = typeof random === "function" ? random : Math.random;
     this.onEvent = typeof onEvent === "function" ? onEvent : null;
     this.onComplete = typeof onComplete === "function" ? onComplete : null;
+    this.sharedBossAuthority = sharedBossAuthority === true;
+    this.sharedCompletionSent = false;
     this.tiles = buildControlBossTiles(this.config);
     this.state = CONTROL_BOSS_STATES.CREATED;
     this.disposed = false;
@@ -171,6 +180,36 @@ export class ControlBossEncounter {
     return true;
   }
 
+  syncSharedBossHealth({ bossHp, bossMaxHp } = {}) {
+    if (!this.sharedBossAuthority) return false;
+    const maxHp = Number(bossMaxHp);
+    const hp = Number(bossHp);
+    if (!Number.isFinite(maxHp) || maxHp <= 0 || !Number.isFinite(hp)) return false;
+    this.sharedBossMaxHp = maxHp;
+    this.currentHp = Math.max(0, Math.min(maxHp, hp));
+    return true;
+  }
+
+  completeSharedBattle(snapshot = {}) {
+    if (
+      !this.sharedBossAuthority ||
+      this.sharedCompletionSent ||
+      !this.attemptId ||
+      ![CONTROL_BOSS_STATES.RUNNING, CONTROL_BOSS_STATES.PAUSED, CONTROL_BOSS_STATES.COMPLETED]
+        .includes(this.state)
+    ) {
+      return false;
+    }
+    this.syncSharedBossHealth({ ...snapshot, bossHp: 0 });
+    this.sharedCompletionSent = true;
+    if (this.state !== CONTROL_BOSS_STATES.COMPLETED) return this.#complete("CLEAR", null);
+
+    const candidate = this.#buildCandidate("CLEAR", null);
+    this.#emit({ type: "complete", attemptId: this.attemptId, candidate, shared: true });
+    this.onComplete?.(this.attemptId, candidate);
+    return true;
+  }
+
   attack() {
     if (this.state !== CONTROL_BOSS_STATES.RUNNING || this.isStunned) return false;
     this.metrics.attacks += 1;
@@ -196,7 +235,7 @@ export class ControlBossEncounter {
       return true;
     }
     if (this.phase === CONTROL_BOSS_PHASES.GROGGY) {
-      this.#applyBossDamage(this.player.attackDamage);
+      this.#applyBossDamage(this.player.attackDamage, "attack");
       return true;
     }
     this.#status("공격이 통하지 않는 상태입니다!", "error");
@@ -225,10 +264,12 @@ export class ControlBossEncounter {
       if (this.phaseTimerMs === 0) this.resolveInstantKill();
     } else if (this.phase === CONTROL_BOSS_PHASES.ALTAR) {
       this.phaseTimerMs = Math.max(0, this.phaseTimerMs - elapsedMs);
-      this.currentHp = Math.min(
-        this.config.boss.maxHp,
-        this.currentHp + this.config.boss.maxHp * this.config.boss.regenRatePerSec * seconds,
-      );
+      if (!this.sharedBossAuthority) {
+        this.currentHp = Math.min(
+          this.config.boss.maxHp,
+          this.currentHp + this.config.boss.maxHp * this.config.boss.regenRatePerSec * seconds,
+        );
+      }
       this.shockwaveTimerMs -= elapsedMs;
       while (this.shockwaveTimerMs <= 0 && this.state === CONTROL_BOSS_STATES.RUNNING) {
         this.#spawnShockwave();
@@ -324,7 +365,7 @@ export class ControlBossEncounter {
       bossAttackTimerMs: rounded(this.bossAttackTimerMs),
       shockwaveTimerMs: rounded(this.shockwaveTimerMs),
       currentHp: rounded(this.currentHp),
-      maxHp: this.config.boss.maxHp,
+      maxHp: this.sharedBossMaxHp,
       currentShield: rounded(this.currentShield),
       maxShield: this.config.boss.maxShield,
       playerHp: rounded(this.playerHp),
@@ -361,6 +402,7 @@ export class ControlBossEncounter {
     this.bossAttackTimerMs = 0;
     this.shockwaveTimerMs = 0;
     this.currentHp = this.config?.boss?.maxHp ?? 0;
+    this.sharedBossMaxHp = this.config?.boss?.maxHp ?? 0;
     this.currentShield = this.config?.boss?.maxShield ?? 0;
     this.playerHp = this.player?.maxHp ?? 1;
     this.playerBounds = rect({ ...start, width: playerConfig.width, height: playerConfig.height });
@@ -384,6 +426,7 @@ export class ControlBossEncounter {
       platesCompleted: 0,
       maxPhaseReached: CONTROL_BOSS_PHASES.SHIELD,
     };
+    this.sharedCompletionSent = false;
   }
 
   #enterPhase1() {
@@ -434,7 +477,10 @@ export class ControlBossEncounter {
     this.bullets = [];
     this.shockwaves = [];
     this.#clearGimmick();
-    this.#applyBossDamage(this.config.boss.maxHp * this.config.boss.groggyDirectDamageRate);
+    this.#applyBossDamage(
+      this.config.boss.maxHp * this.config.boss.groggyDirectDamageRate,
+      "gimmick",
+    );
     if (this.state === CONTROL_BOSS_STATES.RUNNING) {
       this.#status("✨ 기믹 성공! 보스가 그로기 상태입니다. 지금 공격하세요!", "success");
       this.#emit({ type: "phase", phase: this.phase });
@@ -595,21 +641,21 @@ export class ControlBossEncounter {
     this.#complete("FAIL", reason);
   }
 
-  #applyBossDamage(damage) {
+  #applyBossDamage(damage, kind = "attack") {
     const applied = Math.min(this.currentHp, Math.max(0, finite(damage)));
-    this.currentHp = Math.max(0, this.currentHp - applied);
+    if (!this.sharedBossAuthority) this.currentHp = Math.max(0, this.currentHp - applied);
     this.metrics.bossDamage += applied;
-    if (this.currentHp === 0) this.#complete("CLEAR", null);
+    this.#emit({
+      type: "boss-damage",
+      kind,
+      amount: applied,
+      bossHp: rounded(this.currentHp),
+    });
+    if (!this.sharedBossAuthority && this.currentHp === 0) this.#complete("CLEAR", null);
   }
 
-  #complete(status, failureReason) {
-    if (this.state === CONTROL_BOSS_STATES.COMPLETED || this.disposed) return false;
-    this.state = CONTROL_BOSS_STATES.COMPLETED;
-    this.isStunned = false;
-    this.stunRemainingMs = 0;
-    this.bullets = [];
-    this.shockwaves = [];
-    const candidate = Object.freeze({
+  #buildCandidate(status, failureReason) {
+    return Object.freeze({
       status,
       score: null,
       failureReason,
@@ -625,6 +671,16 @@ export class ControlBossEncounter {
       }),
       reward: null,
     });
+  }
+
+  #complete(status, failureReason) {
+    if (this.state === CONTROL_BOSS_STATES.COMPLETED || this.disposed) return false;
+    this.state = CONTROL_BOSS_STATES.COMPLETED;
+    this.isStunned = false;
+    this.stunRemainingMs = 0;
+    this.bullets = [];
+    this.shockwaves = [];
+    const candidate = this.#buildCandidate(status, failureReason);
     this.#emit({ type: "complete", attemptId: this.attemptId, candidate });
     this.onComplete?.(this.attemptId, candidate);
     return true;

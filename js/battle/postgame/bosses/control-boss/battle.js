@@ -4,6 +4,11 @@ import { DEFAULT_PLAYER_APPEARANCE } from "../../../player-config.js";
 import { resolveControlBossConfig } from "./config.js";
 import { ControlBossEncounter, CONTROL_BOSS_STATES } from "./encounter.js";
 import { ControlBossView } from "./view.js";
+import {
+  bindSharedBossBattle,
+  createSharedActionId,
+  isSharedBattleOnline,
+} from "../shared-battle.js";
 
 function createAbortError() {
   if (typeof DOMException === "function") {
@@ -29,7 +34,13 @@ function defaultPlayer() {
   });
 }
 
-export function createBattle({ root, input = null, events = null, onComplete = null } = {}) {
+export function createBattle({
+  root,
+  input = null,
+  events = null,
+  onComplete = null,
+  sharedBattle: factorySharedBattle = null,
+} = {}) {
   if (!root?.append) throw new Error("createBattle(context.root)가 필요합니다.");
   if (!events?.on) throw new Error("createBattle(context.events)가 필요합니다.");
 
@@ -49,6 +60,13 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   let destroyed = false;
   let initialized = false;
   let lastState = Object.freeze({ state: CONTROL_BOSS_STATES.CREATED, disposed: false });
+  let sharedBattleSource = null;
+  let sharedBinding = null;
+  let sharedMode = false;
+  let serverFinished = false;
+  let activeAttemptId = null;
+  let sharedActionSequence = 0;
+  let latestSharedSnapshot = null;
 
   function render() {
     if (!encounter || !view || !system) return;
@@ -68,6 +86,14 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       system?.applyResolvedDamage(event.amount, {
         sourceId: "control-boss",
         metadata: { attack: event.source, lethal: event.lethal === true },
+      });
+    }
+    if (event.type === "boss-damage" && event.amount > 0 && sharedBinding && activeAttemptId) {
+      sharedActionSequence += 1;
+      const actionKind = event.kind === "gimmick" ? "gimmick" : "attack";
+      sharedBinding.hit({
+        kind: "boss-hit",
+        actionId: createSharedActionId(activeAttemptId, actionKind, sharedActionSequence),
       });
     }
     if (event.type === "complete") {
@@ -92,6 +118,11 @@ export function createBattle({ root, input = null, events = null, onComplete = n
 
   function setup(source) {
     config = resolveControlBossConfig(source);
+    sharedBattleSource = source.sharedBattle ?? factorySharedBattle;
+    sharedMode = isSharedBattleOnline(sharedBattleSource, "control-boss");
+    serverFinished = false;
+    sharedActionSequence = 0;
+    latestSharedSnapshot = null;
     const player = Array.isArray(source?.players) && source.players.length > 0
       ? source.players[0]
       : defaultPlayer();
@@ -109,9 +140,32 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       player,
       random: source?.random,
       onEvent: handleEncounterEvent,
-      onComplete: (attemptId, candidate) => onComplete?.(attemptId, candidate),
+      onComplete: (attemptId, candidate) => {
+        if (!sharedMode || serverFinished || candidate?.status === "FAIL") {
+          onComplete?.(attemptId, candidate);
+        }
+      },
+      sharedBossAuthority: sharedMode,
     });
     encounter.init();
+    sharedBinding = bindSharedBossBattle({
+      sharedBattle: sharedBattleSource,
+      battleId: "control-boss",
+      onSnapshot: (snapshot) => {
+        latestSharedSnapshot = snapshot;
+        encounter?.syncSharedBossHealth(snapshot);
+        render();
+      },
+      onFinished: (snapshot) => {
+        latestSharedSnapshot = snapshot;
+        if (!activeAttemptId) return;
+        serverFinished = true;
+        encounter?.completeSharedBattle(snapshot);
+        loop?.pause();
+        system?.setControlLocked(true, "control-boss-terminal");
+        render();
+      },
+    });
 
     system = new CharacterSystem({
       events,
@@ -157,6 +211,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     loop?.destroy();
     joystick?.destroy();
     unsubscribeAttack?.();
+    sharedBinding?.destroy();
     system?.destroy();
     if (encounter) {
       encounter.destroy();
@@ -169,6 +224,8 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     system = null;
     encounter = null;
     view = null;
+    sharedBinding = null;
+    activeAttemptId = null;
     pendingAttacks = 0;
     stunLockActive = false;
     initialized = false;
@@ -212,8 +269,17 @@ export function createBattle({ root, input = null, events = null, onComplete = n
 
     start({ attemptId } = {}) {
       if (!encounter) throw new Error("Control Boss must be initialized before start().");
+      activeAttemptId = attemptId ?? null;
       encounter.start({ attemptId });
       loop.start();
+      sharedBinding?.ready();
+      sharedBinding?.refresh();
+      if (latestSharedSnapshot?.status === "finished") {
+        serverFinished = true;
+        encounter.completeSharedBattle(latestSharedSnapshot);
+        loop.pause();
+        system?.setControlLocked(true, "control-boss-terminal");
+      }
       render();
     },
 
@@ -237,8 +303,17 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       if (destroyed || !lastConfigSource || lastSignal?.aborted) return false;
       teardownRuntime();
       setup(lastConfigSource);
+      activeAttemptId = attemptId ?? null;
       encounter.start({ attemptId });
       loop.start();
+      sharedBinding?.ready();
+      sharedBinding?.refresh();
+      if (latestSharedSnapshot?.status === "finished") {
+        serverFinished = true;
+        encounter.completeSharedBattle(latestSharedSnapshot);
+        loop.pause();
+        system?.setControlLocked(true, "control-boss-terminal");
+      }
       render();
       return true;
     },

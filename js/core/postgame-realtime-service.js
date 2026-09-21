@@ -6,6 +6,7 @@ const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const PUBLIC_ZONES = new Set(["entry-field", "plaza"]);
 const DIRECTIONS = new Set(["up", "down", "left", "right"]);
 const ROOM_STATUSES = new Set(["waiting", "started"]);
+const BATTLE_STATUSES = new Set(["running", "finished"]);
 const NON_RETRYABLE_CLOSE_CODES = new Set([1000, 1008, 4001, 4401, 4403]);
 
 function cleanText(value, { fallback = "", maxLength = 80 } = {}) {
@@ -72,6 +73,62 @@ function publicMember(candidate) {
   });
 }
 
+function publicBattleMember(candidate) {
+  const member = publicMember(candidate);
+  if (!member) return null;
+  return Object.freeze({
+    ...member,
+    ready: candidate.ready === true,
+    connected: candidate.connected === true,
+  });
+}
+
+function publicBattleResult(candidate) {
+  if (!candidate || typeof candidate !== "object") return null;
+  const outcome = candidate.outcome === "victory" ? "victory" : null;
+  const reason = candidate.reason === "boss-defeated" ? "boss-defeated" : null;
+  return outcome && reason ? Object.freeze({ outcome, reason }) : null;
+}
+
+function publicBattleSnapshot(candidate, eventType = "battle.snapshot") {
+  if (!candidate || typeof candidate !== "object") return null;
+  const roomId = cleanText(candidate.roomId, { maxLength: 128 });
+  const battleId = cleanText(candidate.battleId, { maxLength: 80 });
+  if (!roomId || !battleId) return null;
+  const bossMaxHp = Math.max(1, Math.trunc(finiteNumber(candidate.bossMaxHp, 1)));
+  const status = BATTLE_STATUSES.has(candidate.status)
+    ? candidate.status
+    : eventType === "battle.finished"
+      ? "finished"
+      : "running";
+  const roster = Object.freeze(
+    (Array.isArray(candidate.roster) ? candidate.roster : [])
+      .map(publicBattleMember)
+      .filter(Boolean)
+      .slice(0, 5),
+  );
+  const result = status === "finished" ? publicBattleResult(candidate.result) : null;
+  const seed = cleanText(candidate.seed, { maxLength: 128 });
+  const startedAt = Math.max(0, Math.trunc(finiteNumber(candidate.startedAt, 0)));
+  const finishedAt = status === "finished"
+    ? Math.max(0, Math.trunc(finiteNumber(candidate.finishedAt, 0)))
+    : 0;
+  return Object.freeze({
+    roomId,
+    battleId,
+    status,
+    bossHp: Math.min(bossMaxHp, Math.max(0, Math.trunc(finiteNumber(candidate.bossHp, bossMaxHp)))),
+    bossMaxHp,
+    revision: Math.max(0, Math.trunc(finiteNumber(candidate.revision, 0))),
+    roster,
+    seed: seed || null,
+    allReady: candidate.allReady === true,
+    result,
+    startedAt: startedAt || null,
+    finishedAt: finishedAt || null,
+  });
+}
+
 function publicRoom(candidate) {
   if (!candidate || typeof candidate !== "object") return null;
   const id = cleanText(candidate.id ?? candidate.roomId, { maxLength: 128 });
@@ -120,6 +177,8 @@ function initialState() {
     rooms: Object.freeze([]),
     currentRoomId: null,
     currentRoom: null,
+    battle: null,
+    leavingBattleRoomId: null,
     lastError: null,
     error: null,
     lastEvent: null,
@@ -139,6 +198,8 @@ function freezeState(candidate) {
     rooms,
     currentRoomId: candidate.currentRoomId,
     currentRoom,
+    battle: candidate.battle ?? null,
+    leavingBattleRoomId: candidate.leavingBattleRoomId ?? null,
     lastError: candidate.lastError,
     error: candidate.lastError?.message ?? null,
     lastEvent: candidate.lastEvent,
@@ -174,6 +235,18 @@ function validateRoomName(value) {
   return normalized;
 }
 
+function validateProtocolIdentifier(value, label, maxLength) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (
+    normalized.length < 1
+    || normalized.length > maxLength
+    || !/^[A-Za-z0-9._:-]+$/u.test(normalized)
+  ) {
+    throw new TypeError(`${label} is invalid.`);
+  }
+  return normalized;
+}
+
 export class PostgameRealtimeService {
   #WebSocket;
   #endpoint;
@@ -193,6 +266,8 @@ export class PostgameRealtimeService {
   #generation = 0;
   #manualDisconnect = false;
   #reconnectTimer = null;
+  #deferredDisconnectTimer = null;
+  #disconnectAfterBattleRoomId = null;
   #presenceTimer = null;
   #latestPresence = null;
   #lastPresencePayload = null;
@@ -255,6 +330,7 @@ export class PostgameRealtimeService {
 
   connect() {
     this.#manualDisconnect = false;
+    this.#cancelDeferredDisconnect();
     this.#cancelReconnect();
     if (this.#socket && (this.#socket.readyState === 0 || this.#socket.readyState === 1)) {
       return;
@@ -266,6 +342,7 @@ export class PostgameRealtimeService {
     this.#manualDisconnect = true;
     this.#generation += 1;
     this.#cancelReconnect();
+    this.#cancelDeferredDisconnect();
     this.#cancelPresenceTimer();
     const socket = this.#socket;
     this.#socket = null;
@@ -284,6 +361,8 @@ export class PostgameRealtimeService {
       players: Object.freeze([]),
       rooms: Object.freeze([]),
       currentRoomId: null,
+      battle: null,
+      leavingBattleRoomId: this.#state.leavingBattleRoomId,
     });
   }
 
@@ -327,6 +406,64 @@ export class PostgameRealtimeService {
     return this.#send({ type: "room.start" });
   }
 
+  sendBattleReady(roomId = this.#state.battle?.roomId ?? this.#state.currentRoomId) {
+    return this.#send({
+      type: "battle.ready",
+      roomId: validateIdentifier(roomId, "roomId"),
+    });
+  }
+
+  sendBattleHit({
+    roomId = this.#state.battle?.roomId ?? this.#state.currentRoomId,
+    kind,
+    actionId,
+  } = {}) {
+    return this.#send({
+      type: "battle.hit",
+      roomId: validateIdentifier(roomId, "roomId"),
+      kind: validateProtocolIdentifier(kind, "kind", 32),
+      actionId: validateProtocolIdentifier(actionId, "actionId", 64),
+    });
+  }
+
+  sendBattleLeave(roomId = this.#state.battle?.roomId ?? this.#state.currentRoomId) {
+    const normalizedRoomId = validateIdentifier(roomId, "roomId");
+    this.#setState({
+      ...this.#state,
+      leavingBattleRoomId: normalizedRoomId,
+    });
+    const sent = this.#send({
+      type: "battle.leave",
+      roomId: normalizedRoomId,
+    });
+    return sent;
+  }
+
+  disconnectAfterBattleLeave(roomId, timeoutMs = 1_000) {
+    const normalizedRoomId = validateIdentifier(roomId, "roomId");
+    const retryDelayMs = Math.max(50, finiteNumber(timeoutMs, 1_000));
+    this.#cancelDeferredDisconnect();
+    this.#disconnectAfterBattleRoomId = normalizedRoomId;
+    this.#deferredDisconnectTimer = this.#setTimeout(() => {
+      this.#deferredDisconnectTimer = null;
+      if (
+        this.#disconnectAfterBattleRoomId !== normalizedRoomId
+        || this.#state.leavingBattleRoomId !== normalizedRoomId
+      ) {
+        this.#disconnectAfterBattleRoomId = null;
+        return;
+      }
+      if (this.#state.status === "error") {
+        this.#disconnectAfterBattleRoomId = null;
+        return;
+      }
+      if (this.#isOpen()) {
+        this.#send({ type: "battle.leave", roomId: normalizedRoomId });
+      }
+      this.disconnectAfterBattleLeave(normalizedRoomId, retryDelayMs);
+    }, retryDelayMs);
+  }
+
   #openSocket(status) {
     const generation = ++this.#generation;
     let socket;
@@ -352,6 +489,12 @@ export class PostgameRealtimeService {
         lastError: null,
       });
       this.#queuePresence();
+      if (this.#state.leavingBattleRoomId) {
+        this.#send({
+          type: "battle.leave",
+          roomId: this.#state.leavingBattleRoomId,
+        });
+      }
     };
 
     socket.onmessage = (event) => {
@@ -377,6 +520,8 @@ export class PostgameRealtimeService {
           players: Object.freeze([]),
           rooms: Object.freeze([]),
           currentRoomId: null,
+          battle: null,
+          leavingBattleRoomId: this.#state.leavingBattleRoomId,
           lastError: code === 1000 ? this.#state.lastError : Object.freeze({
             code: code === 4401 ? "AUTH_REQUIRED" : "CONNECTION_CLOSED",
             message: code === 4401
@@ -402,7 +547,7 @@ export class PostgameRealtimeService {
         connected: false,
         players: Object.freeze([]),
         rooms: Object.freeze([]),
-        currentRoomId: null,
+        currentRoomId: this.#state.battle?.roomId ?? null,
         lastError: Object.freeze({
           code: "RECONNECT_EXHAUSTED",
           message: "실시간 서버에 연결할 수 없습니다. 솔로 입장을 이용해 주세요.",
@@ -423,7 +568,7 @@ export class PostgameRealtimeService {
       reconnectAttempt: attempt,
       players: Object.freeze([]),
       rooms: Object.freeze([]),
-      currentRoomId: null,
+      currentRoomId: this.#state.battle?.roomId ?? null,
     });
     this.#reconnectTimer = this.#setTimeout(() => {
       this.#reconnectTimer = null;
@@ -436,6 +581,14 @@ export class PostgameRealtimeService {
     if (this.#reconnectTimer === null) return;
     this.#clearTimeout(this.#reconnectTimer);
     this.#reconnectTimer = null;
+  }
+
+  #cancelDeferredDisconnect() {
+    if (this.#deferredDisconnectTimer !== null) {
+      this.#clearTimeout(this.#deferredDisconnectTimer);
+      this.#deferredDisconnectTimer = null;
+    }
+    this.#disconnectAfterBattleRoomId = null;
   }
 
   #queuePresence() {
@@ -501,6 +654,7 @@ export class PostgameRealtimeService {
     }
     if (!message || typeof message !== "object" || typeof message.type !== "string") return;
 
+    let completedDeferredLeaveRoomId = null;
     switch (message.type) {
       case "ready": {
         const self = publicIdentity(message.self ?? message.player ?? message.user);
@@ -559,6 +713,7 @@ export class PostgameRealtimeService {
           ...this.#state,
           rooms: Object.freeze(this.#state.rooms.filter((room) => room.id !== roomId)),
           currentRoomId: this.#state.currentRoomId === roomId ? null : this.#state.currentRoomId,
+          battle: this.#state.battle?.roomId === roomId ? null : this.#state.battle,
           lastEvent: freezeEvent("room.removed", { roomId }),
         });
         break;
@@ -571,6 +726,7 @@ export class PostgameRealtimeService {
           ...this.#state,
           rooms: room ? this.#upsertById(this.#state.rooms, room) : this.#state.rooms,
           currentRoomId: roomId,
+          battle: this.#state.battle?.roomId === roomId ? this.#state.battle : null,
           lastError: null,
           lastEvent: freezeEvent("room.joined", { roomId, room }),
         });
@@ -584,6 +740,7 @@ export class PostgameRealtimeService {
         this.#setState({
           ...this.#state,
           currentRoomId: this.#state.currentRoomId === roomId ? null : this.#state.currentRoomId,
+          battle: this.#state.battle?.roomId === roomId ? null : this.#state.battle,
           lastError: null,
           lastEvent: freezeEvent("room.left", { roomId }),
         });
@@ -607,6 +764,7 @@ export class PostgameRealtimeService {
           ...this.#state,
           rooms: room ? this.#upsertById(this.#state.rooms, room) : this.#state.rooms,
           currentRoomId: roomId,
+          battle: this.#state.battle?.roomId === roomId ? this.#state.battle : null,
           lastError: null,
           lastEvent: freezeEvent("room.started", {
             roomId,
@@ -619,6 +777,36 @@ export class PostgameRealtimeService {
         });
         break;
       }
+      case "battle.snapshot":
+      case "battle.updated":
+      case "battle.finished": {
+        const battle = publicBattleSnapshot(message, message.type);
+        if (!battle) return;
+        this.#setState({
+          ...this.#state,
+          currentRoomId: battle.roomId,
+          battle,
+          lastError: null,
+          lastEvent: freezeEvent(message.type, { battle, snapshot: battle }),
+        });
+        break;
+      }
+      case "battle.left": {
+        const roomId = cleanText(message.roomId, { maxLength: 128 });
+        if (!roomId) return;
+        this.#setState({
+          ...this.#state,
+          currentRoomId: this.#state.currentRoomId === roomId ? null : this.#state.currentRoomId,
+          battle: this.#state.battle?.roomId === roomId ? null : this.#state.battle,
+          leavingBattleRoomId: this.#state.leavingBattleRoomId === roomId
+            ? null
+            : this.#state.leavingBattleRoomId,
+          lastError: null,
+          lastEvent: freezeEvent("battle.left", { roomId }),
+        });
+        completedDeferredLeaveRoomId = roomId;
+        break;
+      }
       case "error": {
         const error = Object.freeze({
           code: cleanText(message.code, { fallback: "SERVER_ERROR", maxLength: 80 }),
@@ -627,7 +815,24 @@ export class PostgameRealtimeService {
             maxLength: 240,
           }),
         });
-        this.#setState({ ...this.#state, lastError: error, lastEvent: freezeEvent("error", { error }) });
+        const abandonedRoomId = ["not_battle_member", "not_in_battle", "battle_not_found"].includes(error.code)
+          ? this.#state.leavingBattleRoomId
+          : null;
+        this.#setState({
+          ...this.#state,
+          currentRoomId: abandonedRoomId === this.#state.currentRoomId
+            ? null
+            : this.#state.currentRoomId,
+          battle: abandonedRoomId && this.#state.battle?.roomId === abandonedRoomId
+            ? null
+            : this.#state.battle,
+          leavingBattleRoomId: abandonedRoomId ? null : this.#state.leavingBattleRoomId,
+          lastError: abandonedRoomId ? null : error,
+          lastEvent: abandonedRoomId
+            ? freezeEvent("battle.left", { roomId: abandonedRoomId, recovered: true })
+            : freezeEvent("error", { error }),
+        });
+        completedDeferredLeaveRoomId = abandonedRoomId;
         break;
       }
       default:
@@ -640,6 +845,13 @@ export class PostgameRealtimeService {
       } catch (error) {
         console.error("Postgame realtime event subscriber failed", error);
       }
+    }
+    if (
+      completedDeferredLeaveRoomId
+      && completedDeferredLeaveRoomId === this.#disconnectAfterBattleRoomId
+    ) {
+      this.#cancelDeferredDisconnect();
+      this.disconnect();
     }
   }
 

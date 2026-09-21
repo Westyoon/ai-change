@@ -30,6 +30,11 @@ import { DEFAULT_PLAYER_APPEARANCE } from "../../../player-config.js";
 import { StatBossEncounter } from "./encounter.js";
 import { STATE } from "./state.js";
 import { StatBossView } from "./view.js";
+import {
+  bindSharedBossBattle,
+  createSharedActionId,
+  isSharedBattleOnline,
+} from "../shared-battle.js";
 
 const DEFAULT_ARENA = Object.freeze({ width: 960, height: 600 });
 // self-check.mjs가 검증한 좌표계(960x600, 9x6 - 2026-09-16 격자 밀도 상향)와 반드시
@@ -62,7 +67,13 @@ export function getCharacterJudgementPosition(snapshot) {
   };
 }
 
-export function createBattle({ root, input = null, events = null, onComplete = null } = {}) {
+export function createBattle({
+  root,
+  input = null,
+  events = null,
+  onComplete = null,
+  sharedBattle: factorySharedBattle = null,
+} = {}) {
   if (!root) throw new Error("createBattle(context.root)가 필요합니다 (DOM을 붙일 부모 element).");
   if (!events) {
     // events 없이도 동작은 하지만, 캐릭터의 공격 명령(character:attack)을 받을
@@ -82,10 +93,25 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   let localPlayerId = null;
   let lastConfig = null;
   let lastSignal = null;
+  let sharedBinding = null;
+  let sharedMode = false;
+  let activeAttemptId = null;
+  let sharedActionSequence = 0;
+  let latestSharedSnapshot = null;
+  let serverFinished = false;
 
   function handleEncounterEvent(event) {
     if (event.type === "dodge-result") view?.flashImpact(event.dangerCells);
-    else if (event.type === "counter-hit") view?.flashCounter({ hit: true, damage: event.damage });
+    else if (event.type === "counter-hit") {
+      view?.flashCounter({ hit: true, damage: event.damage });
+      if (sharedBinding && activeAttemptId) {
+        sharedActionSequence += 1;
+        sharedBinding.hit({
+          kind: "counter-hit",
+          actionId: createSharedActionId(activeAttemptId, "counter", sharedActionSequence),
+        });
+      }
+    }
     else if (event.type === "counter-miss") view?.flashCounter({ hit: false });
     else if (event.type === "complete") loop?.pause(); // 승패가 갈리면 화면을 그 자리에서 멈춘다
   }
@@ -143,14 +169,43 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     view = new StatBossView({ arena, localPlayerId });
     view.mount(root);
 
+    const sharedBattle = config.sharedBattle ?? factorySharedBattle;
+    sharedMode = isSharedBattleOnline(sharedBattle, "stat-boss");
+    serverFinished = false;
+    latestSharedSnapshot = null;
+    sharedActionSequence = 0;
+
     encounter = new StatBossEncounter({
       ...config,
       arena,
       players,
+      sharedBossAuthority: sharedMode,
       onEvent: handleEncounterEvent,
-      onComplete: (attemptId, candidate) => onComplete?.(attemptId, candidate),
+      onComplete: (attemptId, candidate) => {
+        if (!sharedMode || serverFinished || candidate?.status === "FAIL") {
+          onComplete?.(attemptId, candidate);
+        }
+      },
     });
     encounter.init();
+
+    sharedBinding = bindSharedBossBattle({
+      sharedBattle,
+      battleId: "stat-boss",
+      onSnapshot: (snapshot) => {
+        latestSharedSnapshot = snapshot;
+        encounter?.syncSharedBossHealth(snapshot);
+        if (view && encounter) view.render(encounter.getSnapshot());
+      },
+      onFinished: (snapshot) => {
+        latestSharedSnapshot = snapshot;
+        if (!activeAttemptId) return;
+        serverFinished = true;
+        encounter?.completeSharedBattle(snapshot);
+        loop?.pause();
+        if (view && encounter) view.render(encounter.getSnapshot());
+      },
+    });
     const initialMaxHp = encounter.getSnapshot().players[localPlayerId].maxHp;
 
     system = new CharacterSystem({
@@ -203,6 +258,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     loop?.destroy();
     joystick?.destroy();
     unsubscribeAttack?.();
+    sharedBinding?.destroy();
     system?.destroy();
     encounter?.destroy();
     view?.destroy();
@@ -212,6 +268,9 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     encounter = null;
     view = null;
     unsubscribeAttack = null;
+    sharedBinding = null;
+    sharedMode = false;
+    activeAttemptId = null;
   }
 
   function destroy() {
@@ -229,8 +288,17 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     },
 
     start({ attemptId } = {}) {
+      activeAttemptId = attemptId ?? null;
       encounter.start({ attemptId });
       loop.start();
+      sharedBinding?.ready();
+      sharedBinding?.refresh();
+      if (latestSharedSnapshot?.status === "finished") {
+        serverFinished = true;
+        encounter.completeSharedBattle(latestSharedSnapshot);
+        loop.pause();
+        view.render(encounter.getSnapshot());
+      }
     },
 
     pause(_reason) {
@@ -257,8 +325,17 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       destroyed = false;
       teardownRuntime();
       setup(lastConfig, { signal: lastSignal });
+      activeAttemptId = attemptId ?? null;
       encounter.start({ attemptId });
       loop.start();
+      sharedBinding?.ready();
+      sharedBinding?.refresh();
+      if (latestSharedSnapshot?.status === "finished") {
+        serverFinished = true;
+        encounter.completeSharedBattle(latestSharedSnapshot);
+        loop.pause();
+        view.render(encounter.getSnapshot());
+      }
     },
 
     destroy,

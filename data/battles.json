@@ -2,7 +2,7 @@
   {
     "id": "stat-boss",
     "title": "스탯 보스",
-    "description": "위험 칸을 피하고 경직 순간에 반격하는 1인 보스전입니다.",
+    "description": "위험 칸을 피하고 경직 순간에 반격하는 보스전입니다.",
     "module": "stat-boss",
     "status": "published",
     "usesAccountStats": true,

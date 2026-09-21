@@ -18,10 +18,12 @@ import {
   createBattle,
   resolveControlBossConfig,
 } from "../../js/battle/postgame/bosses/control-boss/index.js";
+import { createBattle as createStatBossBattle } from "../../js/battle/postgame/bosses/stat-boss/index.js";
 
 const projectRoot = new URL("../../", import.meta.url);
 const configSource = JSON.parse(await readFile(new URL("data/battle/control-boss.json", projectRoot), "utf8"));
 const config = resolveControlBossConfig(configSource);
+const statBossConfig = JSON.parse(await readFile(new URL("data/battle/stat-boss.json", projectRoot), "utf8"));
 
 function nearBossBounds() {
   return { x: 209, y: 121, width: config.player.width, height: config.player.height };
@@ -341,6 +343,44 @@ function installFrameHarness() {
   };
 }
 
+function createSharedBattleHarness(battleId, bossMaxHp = 1_000) {
+  let snapshot = Object.freeze({
+    roomId: `ROOM-${battleId.toUpperCase()}`,
+    battleId,
+    status: "running",
+    bossHp: bossMaxHp,
+    bossMaxHp,
+    revision: 0,
+  });
+  const listeners = new Set();
+  const api = {
+    online: true,
+    roomId: snapshot.roomId,
+    battleId,
+    getSnapshot: () => snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(snapshot);
+      return () => listeners.delete(listener);
+    },
+    ready: () => true,
+    hit: () => true,
+  };
+  return {
+    api,
+    finish() {
+      snapshot = Object.freeze({
+        ...snapshot,
+        status: "finished",
+        bossHp: 0,
+        revision: snapshot.revision + 1,
+        result: Object.freeze({ outcome: "victory", reason: "boss-defeated" }),
+      });
+      for (const listener of listeners) listener(snapshot);
+    },
+  };
+}
+
 test("Control Boss hazards share one logical size between collision and responsive rendering", () => {
   const hazardConfig = resolveControlBossConfig({
     ...configSource,
@@ -499,6 +539,104 @@ test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup wit
     assert.equal(frames.callbacks.size, 0, "destroy cancels the shared GameLoop frame");
     assert.equal(input.listeners.size, 0, "destroy removes the injected input subscription");
   } finally {
+    frames.restore();
+  }
+});
+
+test("online Control Boss forwards local FAIL and later accepts the server CLEAR", async () => {
+  const frames = installFrameHarness();
+  const shared = createSharedBattleHarness("control-boss");
+  const completions = [];
+  try {
+    const root = frames.document.createElement("div");
+    const input = new FakeInput();
+    const battle = createBattle({
+      root,
+      events: new EventBus(),
+      input,
+      onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
+    });
+    await battle.init({
+      ...configSource,
+      boss: {
+        ...configSource.boss,
+        maxShield: 1,
+        phase2CastSec: 0,
+      },
+      player: {
+        ...configSource.player,
+        startPosition: { x: 209, y: 121 },
+      },
+      sharedBattle: shared.api,
+    });
+    battle.start({ attemptId: "control-boss:shared-local-fail" });
+    frames.step(0);
+    input.emit({
+      action: INPUT_ACTIONS.CONFIRM,
+      phase: "press",
+      source: "keyboard",
+      originalEvent: { code: "Space" },
+    });
+    frames.step(100);
+    assert.equal(completions.length, 1);
+    assert.equal(completions[0].candidate.status, "FAIL");
+
+    shared.finish();
+    assert.deepEqual(
+      completions.map(({ candidate }) => candidate.status),
+      ["FAIL", "CLEAR"],
+    );
+    battle.destroy();
+  } finally {
+    frames.restore();
+  }
+});
+
+test("online Stat Boss forwards local timeout FAIL and later accepts the server CLEAR", async () => {
+  const frames = installFrameHarness();
+  const shared = createSharedBattleHarness("stat-boss");
+  const completions = [];
+  const previousNode = globalThis.Node;
+  globalThis.document = frames.document;
+  globalThis.Node = FakeElement;
+  try {
+    const root = frames.document.createElement("div");
+    const battle = createStatBossBattle({
+      root,
+      events: new EventBus(),
+      input: new FakeInput(),
+      onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
+    });
+    await battle.init({
+      ...statBossConfig,
+      arena: { width: 700, height: 500 },
+      players: [{
+        id: "stat-player",
+        attackStat: 1,
+        defenseStat: 1,
+        healthStat: 1,
+        position: { x: 350, y: 300 },
+      }],
+      patternIds: ["single-snipe"],
+      timeLimitSec: 0.001,
+      sharedBattle: shared.api,
+    });
+    battle.start({ attemptId: "stat-boss:shared-local-fail" });
+    for (let frame = 0; frame < 20 && completions.length === 0; frame += 1) {
+      frames.step(frame * 100);
+    }
+    assert.equal(completions.length, 1);
+    assert.equal(completions[0].candidate.status, "FAIL");
+
+    shared.finish();
+    assert.deepEqual(
+      completions.map(({ candidate }) => candidate.status),
+      ["FAIL", "CLEAR"],
+    );
+    battle.destroy();
+  } finally {
+    if (previousNode === undefined) delete globalThis.Node;
+    else globalThis.Node = previousNode;
     frames.restore();
   }
 });

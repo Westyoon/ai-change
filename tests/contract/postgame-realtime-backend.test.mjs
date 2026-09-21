@@ -76,3 +76,82 @@ test("room authority validates public room names and preserves 1-5 seats, host t
   assert.match(coordinatorSource, /type:\s*["']room\.started["'][\s\S]*seed[\s\S]*startedAt/u);
   assert.match(coordinatorSource, /encodedName\.length\s*>\s*1_024/u);
 });
+
+test("room.start creates one persisted server-authoritative battle without trusting client damage", () => {
+  assert.match(coordinatorSource, /BATTLE_STORAGE_KEY\s*=\s*["']postgame:battles:v1["']/u);
+  assert.match(
+    coordinatorSource,
+    /["']stat-boss["']:\s*\{\s*bossMaxHp:\s*1_000,\s*hitDamage:\s*10,\s*hitCooldownMs:/u,
+  );
+  assert.match(coordinatorSource, /room\.status\s*=\s*["']started["']/u);
+  assert.match(coordinatorSource, /this\.battles\.set\s*\(\s*roomId\s*,\s*battle\s*\)/u);
+  const startRoomBody = coordinatorSource.slice(
+    coordinatorSource.indexOf("private async startRoom("),
+    coordinatorSource.indexOf("private battleMembership("),
+  );
+  assert.ok(
+    startRoomBody.lastIndexOf("this.rooms.delete(roomId)") < startRoomBody.indexOf("this.battles.set(roomId, battle)"),
+    "only an empty/disconnected lobby may be removed before battle creation",
+  );
+  assert.match(coordinatorSource, /hasExactKeys\s*\(\s*parsed,\s*\[[^\]]*["']kind["'][^\]]*["']actionId["']/u);
+  assert.doesNotMatch(
+    coordinatorSource.slice(
+      coordinatorSource.indexOf('case "battle.hit"'),
+      coordinatorSource.indexOf("default:", coordinatorSource.indexOf('case "battle.hit"')),
+    ),
+    /damage/u,
+  );
+  assert.match(coordinatorSource, /battle\.bossHp\s*=\s*Math\.max\s*\(\s*0\s*,\s*battle\.bossHp\s*-\s*battle\.hitDamage\s*\)/u);
+});
+
+test("battle hits validate membership, readiness, kind, idempotency, cooldown, and terminal state", () => {
+  const hitBody = coordinatorSource.slice(
+    coordinatorSource.indexOf("private async hitBattle("),
+    coordinatorSource.indexOf("private async leaveBattle("),
+  );
+  assert.match(hitBody, /this\.battleMembership\s*\(/u);
+  assert.match(hitBody, /battle\.status\s*!==\s*["']running["'][\s\S]*battle_finished/u);
+  assert.match(hitBody, /!member\.ready\s*\|\|\s*!member\.connected[\s\S]*battle_not_ready/u);
+  assert.match(hitBody, /!this\.battleAllReady\s*\(\s*battle\s*\)[\s\S]*battle_party_not_ready/u);
+  assert.match(hitBody, /kind\s*!==\s*BATTLE_HIT_KINDS\[battle\.battleId\][\s\S]*invalid_hit_kind/u);
+  assert.match(hitBody, /member\.recentActionIds\.includes\s*\(\s*actionId\s*\)[\s\S]*battle\.snapshot/u);
+  assert.match(hitBody, /now\s*-\s*member\.lastHitAt\s*<\s*battle\.hitCooldownMs[\s\S]*hit_cooldown/u);
+  assert.match(hitBody, /battle\.status\s*=\s*["']finished["']/u);
+  assert.match(hitBody, /["']battle\.updated["'][\s\S]*["']battle\.finished["']/u);
+});
+
+test("battle snapshots are shared only with connected room members and reconnect by private account key", () => {
+  const broadcastBody = coordinatorSource.slice(
+    coordinatorSource.indexOf("private broadcastBattleEvent("),
+    coordinatorSource.indexOf("private sendPresenceSnapshot("),
+  );
+  assert.match(broadcastBody, /attachment\.roomId\s*===\s*battle\.roomId/u);
+  assert.match(broadcastBody, /memberKeys\.has\s*\(\s*attachment\.playerKey\s*\)/u);
+  assert.match(coordinatorSource, /resumeBattleConnection\s*\(/u);
+  assert.match(coordinatorSource, /member\.playerKey\s*===\s*attachment\.playerKey/u);
+  assert.match(coordinatorSource, /member\.publicId\s*=\s*attachment\.playerId/u);
+  assert.match(coordinatorSource, /this\.sendBattleEvent\s*\(\s*server\s*,\s*["']battle\.snapshot["']/u);
+  assert.match(coordinatorSource, /\.filter\s*\(\s*\(room\)\s*=>\s*room\.status\s*===\s*["']waiting["']\s*\)/u);
+  assert.match(coordinatorSource, /disconnectBattle\s*\(\s*attachment\s*\)/u);
+  assert.match(coordinatorSource, /member\.connected\s*=\s*false/u);
+
+  const publicBattleBody = coordinatorSource.slice(
+    coordinatorSource.indexOf("private publicBattle("),
+    coordinatorSource.indexOf("private publicRooms("),
+  );
+  assert.doesNotMatch(publicBattleBody, /playerKey/u);
+  for (const field of ["roomId", "battleId", "seed", "status", "bossHp", "bossMaxHp", "revision", "allReady", "roster"]) {
+    assert.match(publicBattleBody, new RegExp(`\\b${field}\\b`, "u"));
+  }
+});
+
+test("shared battle lifecycle keeps a seed, readiness barrier, and bounded reconnect retention", () => {
+  assert.match(coordinatorSource, /seed:\s*string/u);
+  assert.match(coordinatorSource, /seed,\s*\n\s*status:\s*["']running["']/u);
+  assert.match(coordinatorSource, /connectedMembers\.every\s*\(\s*\(member\)\s*=>\s*member\.ready\s*\)/u);
+  assert.match(coordinatorSource, /ABANDONED_BATTLE_GRACE_MS\s*=\s*15\s*\*\s*60\s*\*\s*1_000/u);
+  assert.match(coordinatorSource, /FINISHED_BATTLE_RETENTION_MS\s*=\s*5\s*\*\s*60\s*\*\s*1_000/u);
+  assert.match(coordinatorSource, /async alarm\s*\(\s*\)[\s\S]*cleanupExpiredBattles/u);
+  assert.match(coordinatorSource, /storage\.setAlarm\s*\(/u);
+  assert.match(coordinatorSource, /storage\.deleteAlarm\s*\(/u);
+});

@@ -43,7 +43,8 @@ PR #12는 다음 기반을 제공했다.
   │                            └─ /api/postgame/socket
   │                                  └─ 단일 PostgameCoordinator Durable Object
   │                                     ├─ entry-field·plaza presence
-  │                                     └─ 공개 보스방 directory
+  │                                     ├─ 공개 보스방 directory
+  │                                     └─ 방별 공유 보스 HP·상태·revision
   └─ 그 외 경로 ─────────────→ Worker Static Assets의 dist/
 ```
 
@@ -52,7 +53,7 @@ PR #12는 다음 기반을 제공했다.
 - 운영 환경의 `PUBLIC_ORIGIN`은 canonical origin인 `https://ai-change.ai-change-backend.workers.dev`로 설정한다. 다른 host로 직접 접근한 API 요청은 거부한다.
 - 인증 cookie는 `HttpOnly`, 운영 환경 `Secure`, `SameSite=Lax`, `Path=/`로 발급한다.
 - D1에는 원본 session token이 아닌 SHA-256 hash와 만료 시각을 저장한다.
-- 위치와 방 상태처럼 자주 변하는 데이터는 D1에 쓰지 않는다. WebSocket 연결별 상태는 Hibernation attachment, 공개 방 목록은 Durable Object storage가 담당한다.
+- 위치와 방 상태처럼 자주 변하는 데이터는 D1에 쓰지 않는다. WebSocket 연결별 상태는 Hibernation attachment, 공개 방 목록과 방별 공유 보스 상태는 Durable Object storage가 담당한다.
 - API 없는 기존 `https://ai-change.pages.dev` 프로젝트와 과거 고정 배포는 폐기했으며 공개 주소는 canonical Worker 하나만 사용한다.
 
 운영 게임과 로그인에 사용하는 주소는 아래 하나다.
@@ -107,10 +108,14 @@ Google callback이 성공한 직후에는 세션 cookie 반영이나 일시적 �
 - 방 생성·참가·이탈·시작. 정원은 참가 상한이며 최소 시작 인원은 1명이다. 정원이 차도 자동 시작하지 않고 방장만 원하는 시점에 시작할 수 있으며, 방장 이탈 시 남은 첫 참가자에게 위임한다.
 - session 계정에서 파생한 내부 키로 같은 계정의 여러 탭이 방 좌석을 중복 점유하지 못하게 차단한다. 이 내부 키는 공개 payload로 보내지 않는다.
 - 방 시작 시 모든 참가자에게 공통 `battleId`, `roomId`, `seed`, `startedAt`, `roster`를 보내고 시작된 방을 공개 목록에서 제거한다.
+- 시작한 방마다 Durable Object가 `bossHp`·`bossMaxHp`·`status`·`revision`과 공통 승리를 소유한다. 참가자의 hit 보고는 보스별 허용 종류, 서버 고정 피해량, cooldown, action ID 중복 제거를 통과해야 같은 보스 HP에 반영된다.
+- 각 클라이언트가 전투 module 로딩을 마치고 준비를 보낸 뒤, 현재 연결된 파티원 전원이 준비되어야 hit를 허용한다.
+- 연결을 복구한 방 참가자에게 진행 중인 최신 battle snapshot을 다시 보내 같은 서버 상태에서 이어 간다.
+- 실행 중인 방에서 전원이 끊기면 15분간 재접속을 허용하고, 종료된 방은 5분 뒤 Durable Object alarm으로 정리한다.
 
-Durable Object는 Cloudflare Hibernation API의 WebSocket attachment로 연결별 상태를 복구하고, room directory는 Durable Object storage에 저장한다. D1은 계정·스탯·session·사전게임 `game_results`의 장기 저장소이며, 프레임 단위 위치나 방 membership 저장소로 사용하지 않는다.
+Durable Object는 Cloudflare Hibernation API의 WebSocket attachment로 연결별 상태를 복구하고, room directory와 공유 battle state는 Durable Object storage에 저장한다. D1은 계정·스탯·session·사전게임 `game_results`의 장기 저장소이며, 프레임 단위 위치나 방 membership 저장소로 사용하지 않는다.
 
-중요한 현재 한계가 있다. 공통 시작 event는 참가자를 같은 보스로 동시에 라우팅할 뿐이다. 세 보스의 이동·공격·피격·보스 HP·phase·CLEAR 판정은 아직 각 클라이언트 로컬이며 coordinator가 검증하거나 공유하지 않는다. 따라서 이를 서버 권위 협동 전투로 설명하지 않는다. WebSocket이 없거나 끊기면 게스트 및 기존 솔로 직접 입장 흐름을 계속 제공한다.
+동기화 경계는 공유 보스 HP와 공통 승리까지다. 세 보스의 플레이어 이동·회피·HP와 보스 기믹·phase는 각 클라이언트가 로컬로 계산하며, 플레이어 위치 동기화나 완전한 서버 물리 시뮬레이션은 제공하지 않는다. WebSocket이 없거나 끊기면 게스트 및 기존 솔로 직접 입장 흐름을 계속 제공한다.
 
 결과 등록 요청 예시는 다음과 같다. `userId`, email 또는 스탯 증가량은 클라이언트가 보내지 않는다.
 
@@ -214,9 +219,11 @@ PUBLIC_ORIGIN=http://127.0.0.1:8787
 4. 정규화된 1자·32자 방 이름은 목록과 참가 화면에 그대로 보이고, 공백뿐인 이름·33자 이름·제어 문자는 계약에 맞게 거부 또는 제거되는지 확인한다.
 5. 방장이 1명부터 수동으로 시작할 수 있고, 정원이 차도 자동 시작하지 않으며, 비방장은 기다리고 방장 이탈 시 권한이 위임되는지 확인한다.
 6. 같은 계정의 다른 탭이 방 좌석을 중복 점유하지 못하는지 확인한다.
-7. 휴면·재기동 뒤 Hibernation attachment와 Durable Object storage로 연결·방 이름·정원·참가자 상태가 안전하게 정리 또는 복구되는지 확인한다.
-8. 시작한 모든 참가자가 같은 `seed`·`startedAt`·`roster`를 받고 같은 보스로 이동하는지 확인한다.
-9. WebSocket을 차단하거나 끊어도 게스트·로그인 사용자 모두 기존 솔로 전투에 직접 입장할 수 있는지 확인한다.
+7. 휴면·재기동 뒤 Hibernation attachment와 Durable Object storage로 연결·방 이름·정원·참가자·공유 battle 상태가 안전하게 정리 또는 복구되는지 확인한다.
+8. 시작한 모든 참가자가 같은 `seed`·`startedAt`·`roster`를 받고, 한 참가자의 유효 hit 뒤 모든 참가자가 같은 `bossHp`·`status`·`revision`을 받는지 확인한다.
+9. 허용되지 않은 hit 종류·cooldown 위반·중복 action ID·클라이언트 임의 피해량이 보스 HP를 추가로 줄이지 않는지 확인한다.
+10. 진행 중 재접속한 참가자가 최신 battle snapshot을 복원하는지 확인한다.
+11. WebSocket을 차단하거나 끊어도 게스트·로그인 사용자 모두 기존 솔로 전투에 직접 입장할 수 있는지 확인한다.
 
 현재 CLEAR 전송은 로컬 진행 저장을 먼저 끝낸 뒤 비동기로 실행한다. 서버 장애나 탭 종료로 전송이 실패하면 로컬 결과는 유지되고, 다음 앱 시작이나 계정 화면의 완료 진행 병합으로 클리어·포인트를 복구한다. 당시 게임 원점수까지 복구하는 영속 재시도 queue는 아직 없다.
 
@@ -286,9 +293,10 @@ Durable Object는 D1과 별도다. 새 환경의 Wrangler 설정에는 `POSTGAME
 - [ ] canonical Worker에서 SPA와 `/api/*`가 같은 origin인지 확인하고 custom domain을 추가할 때만 DNS·TLS와 `PUBLIC_ORIGIN`을 함께 변경
 - [ ] 로그인 WebSocket의 same-origin·session 거부, 두 구역 presence, 보스별 공개 방, 방 이름 1~32자 정규화, 1~5명 경계, 같은 계정 중복 좌석 차단과 방장 위임을 staging에서 확인
 - [ ] 방이 가득 차도 자동 시작하지 않고 방장만 1명 이상인 방을 수동 시작할 수 있으며, 비방장은 시작할 수 없는지 확인
-- [ ] Durable Object 휴면·재기동 뒤 attachment와 방 directory가 복구되고, 시작 참가자들이 같은 `seed`·`startedAt`·`roster`를 받는지 확인
+- [ ] Durable Object 휴면·재기동 뒤 attachment·방 directory·공유 battle 상태가 복구되고, 시작 참가자들이 같은 `seed`·`startedAt`·`roster`와 최신 snapshot을 받는지 확인
 - [ ] WebSocket 장애·게스트 상태에서 온라인 UI가 전체 Battle 진입을 막지 않고 솔로 직접 입장을 유지하는지 확인
-- [ ] 공유 HP·원격 피격·팀 결과가 없는 현재 상태를 서버 권위 협동 전투로 안내하지 않는지 확인
+- [ ] 두 계정의 유효 hit가 동일한 보스 HP·revision에 누적되고 공통 승리로 끝나며, 잘못된 종류·cooldown 위반·중복 action ID·임의 피해량은 반영되지 않는지 확인
+- [ ] 공유 보스 HP·공통 승리와 로컬 이동·회피·플레이어 HP·기믹·phase의 경계를 UI·운영 문서에서 과장하지 않는지 확인
 - [ ] 로그인 취소, 잘못된 `state`, 만료 session, logout, 새로고침, Safari cookie 동작 확인
 - [ ] 로그인 전에 Google 표시 이름의 공개 랭킹 노출과 D1 수집·보관·삭제 범위를 고지하고 동의를 확인
 - [ ] 랭킹 표시 이름이 text로 렌더링되고 email·provider ID가 응답에 없는지 확인

@@ -124,19 +124,47 @@ test("connect opens the authenticated endpoint and sends validated room commands
   assert.equal(service.createRoom("stat-boss", 5, "  스탯 원정대  "), true);
   assert.equal(service.joinRoom("room:abc-123"), true);
   assert.equal(service.startRoom(), true);
+  assert.equal(service.sendBattleReady("room:abc-123"), true);
+  assert.equal(service.sendBattleHit({
+    roomId: "room:abc-123",
+    kind: "counter-hit",
+    actionId: "action:1",
+    damage: 999,
+  }), true);
+  assert.equal(service.sendBattleLeave("room:abc-123"), true);
   assert.equal(service.leaveRoom(), true);
   assert.deepEqual(socket.sent, [
     { type: "room.create", battleId: "stat-boss", capacity: 5, roomName: "스탯 원정대" },
     { type: "room.join", roomId: "room:abc-123" },
     { type: "room.start" },
+    { type: "battle.ready", roomId: "room:abc-123" },
+    {
+      type: "battle.hit",
+      roomId: "room:abc-123",
+      kind: "counter-hit",
+      actionId: "action:1",
+    },
+    { type: "battle.leave", roomId: "room:abc-123" },
     { type: "room.leave" },
   ]);
-  assert.deepEqual(observed, ["idle", "connecting", "connected"]);
+  assert.deepEqual(observed, ["idle", "connecting", "connected", "connected"]);
   assert.throws(() => service.createRoom("stat-boss", 0), /1 to 5/u);
   assert.throws(() => service.createRoom("bad room", 2), /battleId/u);
   assert.throws(() => service.createRoom("stat-boss", 2, "  "), /roomName/u);
   assert.throws(() => service.createRoom("stat-boss", 2, "😀".repeat(33)), /1 to 32/u);
   assert.throws(() => service.joinRoom(""), /roomId/u);
+  assert.throws(
+    () => service.sendBattleHit({ roomId: "room:abc-123", kind: "bad kind", actionId: "1" }),
+    /kind/u,
+  );
+  assert.throws(
+    () => service.sendBattleHit({
+      roomId: "room:abc-123",
+      kind: "counter-hit",
+      actionId: "x".repeat(65),
+    }),
+    /actionId/u,
+  );
 });
 
 test("presence is normalized, sent at most about 11Hz, and coalesces trailing movement", () => {
@@ -298,6 +326,206 @@ test("room snapshots, membership, updates, starts, and removals form a small imm
     "room.left",
     "room.removed",
   ]);
+});
+
+test("shared battle snapshots are normalized, immutable, and recover after reconnect", () => {
+  const { service, timers } = makeService();
+  const events = [];
+  service.subscribeEvents((event) => events.push(event));
+  service.connect();
+  const first = FakeWebSocket.instances[0];
+  first.open();
+  first.receive({
+    type: "battle.snapshot",
+    roomId: "room:shared-1",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 1_200,
+    bossMaxHp: 1_000,
+    revision: 4.9,
+    seed: "seed:room:shared-1",
+    allReady: false,
+    roster: [
+      { id: "host", name: "방장", ready: true, connected: true, email: "hidden@example.test" },
+      { userId: "guest", displayName: "참가자", ready: false, connected: false },
+    ],
+    startedAt: 1234,
+    privateState: "hidden",
+  });
+
+  assert.deepEqual(service.getState().battle, {
+    roomId: "room:shared-1",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 1_000,
+    bossMaxHp: 1_000,
+    revision: 4,
+    roster: [
+      { id: "host", name: "방장", ready: true, connected: true },
+      { id: "guest", name: "참가자", ready: false, connected: false },
+    ],
+    seed: "seed:room:shared-1",
+    allReady: false,
+    result: null,
+    startedAt: 1234,
+    finishedAt: null,
+  });
+  assert.equal(Object.isFrozen(service.getState().battle), true);
+  assert.equal(Object.isFrozen(service.getState().battle.roster), true);
+  assert.equal(Object.hasOwn(service.getState().battle, "privateState"), false);
+  assert.equal(events.at(-1).type, "battle.snapshot");
+  assert.equal(events.at(-1).snapshot, service.getState().battle);
+
+  first.serverClose(1006);
+  assert.equal(service.getState().status, "reconnecting");
+  assert.equal(service.getState().battle.roomId, "room:shared-1");
+  assert.equal(service.getState().currentRoomId, "room:shared-1");
+  timers.advance(500);
+  const second = FakeWebSocket.instances[1];
+  second.open();
+  second.receive({
+    type: "battle.finished",
+    roomId: "room:shared-1",
+    battleId: "stat-boss",
+    status: "finished",
+    bossHp: 0,
+    bossMaxHp: 1_000,
+    revision: 5,
+    seed: "seed:room:shared-1",
+    allReady: true,
+    roster: [{ id: "host", name: "방장", ready: true, connected: true }],
+    result: { outcome: "victory", reason: "boss-defeated", reward: "hidden" },
+    startedAt: 1234,
+    finishedAt: 5678,
+  });
+  assert.deepEqual(service.getState().battle.result, {
+    outcome: "victory",
+    reason: "boss-defeated",
+  });
+  assert.equal(service.getState().battle.finishedAt, 5678);
+  assert.equal(events.at(-1).type, "battle.finished");
+});
+
+test("battle leave acknowledgement clears shared state before a deferred socket close", () => {
+  const { service, timers } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  socket.receive({
+    type: "battle.snapshot",
+    roomId: "room:leave-1",
+    battleId: "control-boss",
+    status: "running",
+    bossHp: 500,
+    bossMaxHp: 500,
+    revision: 1,
+    roster: [],
+  });
+
+  assert.equal(service.sendBattleLeave("room:leave-1"), true);
+  service.disconnectAfterBattleLeave("room:leave-1");
+  assert.equal(timers.count(), 1);
+  socket.receive({ type: "battle.left", roomId: "room:leave-1" });
+
+  assert.equal(service.getState().battle, null);
+  assert.equal(service.getState().currentRoomId, null);
+  assert.equal(service.getState().lastEvent.type, "battle.left");
+  assert.equal(service.getState().status, "disconnected");
+  assert.deepEqual(socket.closeArgs, [1000, "client disconnect"]);
+  assert.equal(timers.count(), 0);
+});
+
+test("pending battle leave survives a dropped socket and is resent after reconnect", () => {
+  const { service, timers } = makeService();
+  service.connect();
+  const first = FakeWebSocket.instances[0];
+  first.open();
+  first.receive({
+    type: "battle.snapshot",
+    roomId: "room:leave-race",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 1_000,
+    bossMaxHp: 1_000,
+    revision: 1,
+    roster: [],
+  });
+  assert.equal(service.sendBattleLeave("room:leave-race"), true);
+  first.serverClose(1006);
+  assert.equal(service.getState().leavingBattleRoomId, "room:leave-race");
+  timers.advance(500);
+  const second = FakeWebSocket.instances[1];
+  second.open();
+  assert.deepEqual(second.sent, [{ type: "battle.leave", roomId: "room:leave-race" }]);
+
+  second.receive({
+    type: "battle.snapshot",
+    roomId: "room:leave-race",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 1_000,
+    bossMaxHp: 1_000,
+    revision: 2,
+    roster: [],
+  });
+  assert.equal(service.getState().leavingBattleRoomId, "room:leave-race");
+  second.receive({
+    type: "error",
+    code: "not_in_battle",
+    message: "참가 중인 전투가 아닙니다.",
+  });
+  assert.equal(service.getState().leavingBattleRoomId, null);
+  assert.equal(service.getState().battle, null);
+  assert.equal(service.getState().lastError, null);
+  assert.equal(service.getState().lastEvent.type, "battle.left");
+  assert.equal(service.getState().lastEvent.recovered, true);
+});
+
+test("a leave requested while disconnected remains pending until reconnect can send it", () => {
+  const { service, timers } = makeService();
+  service.connect();
+  const first = FakeWebSocket.instances[0];
+  first.open();
+  first.receive({
+    type: "battle.snapshot",
+    roomId: "room:offline-leave",
+    battleId: "control-boss",
+    status: "running",
+    bossHp: 500,
+    bossMaxHp: 500,
+    revision: 1,
+    roster: [],
+  });
+  first.serverClose(1006);
+
+  assert.equal(service.sendBattleLeave("room:offline-leave"), false);
+  assert.equal(service.getState().leavingBattleRoomId, "room:offline-leave");
+  timers.advance(500);
+  const second = FakeWebSocket.instances[1];
+  second.open();
+  assert.deepEqual(second.sent, [{ type: "battle.leave", roomId: "room:offline-leave" }]);
+  second.receive({ type: "battle.left", roomId: "room:offline-leave" });
+  assert.equal(service.getState().leavingBattleRoomId, null);
+});
+
+test("deferred disconnect retries leave and never closes before acknowledgement", () => {
+  const { service, timers } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  service.sendBattleLeave("room:retry-leave");
+  service.disconnectAfterBattleLeave("room:retry-leave", 100);
+
+  timers.advance(100);
+  assert.equal(socket.closeArgs, undefined);
+  assert.deepEqual(socket.sent, [
+    { type: "battle.leave", roomId: "room:retry-leave" },
+    { type: "battle.leave", roomId: "room:retry-leave" },
+  ]);
+  assert.equal(service.getState().leavingBattleRoomId, "room:retry-leave");
+  socket.receive({ type: "battle.left", roomId: "room:retry-leave" });
+  assert.deepEqual(socket.closeArgs, [1000, "client disconnect"]);
+  assert.equal(timers.count(), 0);
 });
 
 test("invalid messages are ignored and server errors are safely bounded", () => {

@@ -50,7 +50,13 @@ function shuffleQuizzes(quizzes, random) {
 
 /** Pure O/X timing and damage rules. Character movement and DOM stay outside. */
 export class DataSphinxEncounter {
-  constructor({ config, onEvent = null, onComplete = null, random = Math.random } = {}) {
+  constructor({
+    config,
+    onEvent = null,
+    onComplete = null,
+    random = Math.random,
+    sharedBossAuthority = false,
+  } = {}) {
     if (!config?.quizList?.length) {
       throw new TypeError("DataSphinxEncounter requires normalized config.");
     }
@@ -61,8 +67,10 @@ export class DataSphinxEncounter {
     this.onEvent = typeof onEvent === "function" ? onEvent : null;
     this.onComplete = typeof onComplete === "function" ? onComplete : null;
     this.random = random;
+    this.sharedBossAuthority = sharedBossAuthority === true;
     this.state = DATA_SPHINX_STATES.CREATED;
     this.completedAttemptIds = new Set();
+    this.sharedCompletedAttemptIds = new Set();
     this.currentAttemptId = null;
     this._resetAttempt();
   }
@@ -132,6 +140,43 @@ export class DataSphinxEncounter {
     return this.playerLocation;
   }
 
+  syncSharedBossHealth({ bossHp, bossMaxHp } = {}) {
+    if (!this.sharedBossAuthority) return false;
+    const maxHp = Number(bossMaxHp);
+    const hp = Number(bossHp);
+    if (!Number.isFinite(maxHp) || maxHp <= 0 || !Number.isFinite(hp)) return false;
+    this.sharedBossMaxHealth = maxHp;
+    this.bossHealth = Math.max(0, Math.min(maxHp, hp));
+    return true;
+  }
+
+  completeSharedBattle(snapshot = {}) {
+    const id = this.currentAttemptId;
+    if (
+      !this.sharedBossAuthority ||
+      !id ||
+      this.sharedCompletedAttemptIds.has(id) ||
+      ![DATA_SPHINX_STATES.RUNNING, DATA_SPHINX_STATES.PAUSED, DATA_SPHINX_STATES.COMPLETED].includes(this.state)
+    ) {
+      return false;
+    }
+    this.syncSharedBossHealth({ ...snapshot, bossHp: 0 });
+    this.sharedCompletedAttemptIds.add(id);
+    if (this.state === DATA_SPHINX_STATES.PAUSED) this.state = DATA_SPHINX_STATES.RUNNING;
+    if (this.state === DATA_SPHINX_STATES.RUNNING) return this._complete("CLEAR", null);
+
+    const candidate = Object.freeze({
+      status: "CLEAR",
+      score: null,
+      failureReason: null,
+      metrics: metricsSnapshot(this.metrics),
+      reward: null,
+    });
+    this._emit({ type: "complete", attemptId: id, candidate, shared: true });
+    this.onComplete?.(id, candidate);
+    return true;
+  }
+
   tick(deltaMs) {
     if (this.state !== DATA_SPHINX_STATES.RUNNING) return false;
     const elapsed = delta(deltaMs);
@@ -167,7 +212,7 @@ export class DataSphinxEncounter {
       playerHealth: this.playerHealth,
       playerMaxHealth: this.config.player.maxHealth,
       bossHealth: this.bossHealth,
-      bossMaxHealth: this.config.bossMaxHealth,
+      bossMaxHealth: this.sharedBossMaxHealth,
       metrics: metricsSnapshot(this.metrics),
     });
   }
@@ -182,6 +227,7 @@ export class DataSphinxEncounter {
     this.playerLocation = DATA_SPHINX_SELECTIONS.NEUTRAL;
     this.playerHealth = this.config.player.maxHealth;
     this.bossHealth = this.config.bossMaxHealth;
+    this.sharedBossMaxHealth = this.config.bossMaxHealth;
     this.phase = DATA_SPHINX_PHASES.INIT;
     this.metrics = { correctCount: 0, wrongCount: 0, timeoutCount: 0 };
   }
@@ -193,7 +239,7 @@ export class DataSphinxEncounter {
   }
 
   _beginQuiz(index) {
-    if (this.bossHealth <= 0) {
+    if (!this.sharedBossAuthority && this.bossHealth <= 0) {
       this._complete("CLEAR", null);
       return;
     }
@@ -248,7 +294,9 @@ export class DataSphinxEncounter {
     }
 
     this.playerHealth = Math.max(0, this.playerHealth - damageToPlayer);
-    this.bossHealth = Math.max(0, this.bossHealth - damageToBoss);
+    if (!this.sharedBossAuthority) {
+      this.bossHealth = Math.max(0, this.bossHealth - damageToBoss);
+    }
     this.phase = DATA_SPHINX_PHASES.RESOLVING;
     this.delayRemainingMs = this.playerHealth <= 0
       ? this.config.deathDelayMs

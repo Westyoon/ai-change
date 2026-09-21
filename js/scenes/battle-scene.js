@@ -117,6 +117,181 @@ export function getBattleReturnDestination(battle) {
   });
 }
 
+export function createSharedBattleSession({ realtimeService, roomId, battleId }) {
+  if (!realtimeService || typeof realtimeService.subscribe !== "function") return null;
+  if (typeof roomId !== "string" || !roomId.trim()) return null;
+  if (typeof battleId !== "string" || !battleId.trim()) return null;
+
+  const normalizedRoomId = roomId.trim();
+  const normalizedBattleId = battleId.trim();
+  const listeners = new Set();
+  let destroyed = false;
+  let left = false;
+  let snapshot = null;
+  let readyRequested = false;
+  let readySentForConnection = false;
+
+  const ready = () => {
+    readyRequested = true;
+    if (
+      destroyed
+      || typeof realtimeService.sendBattleReady !== "function"
+      || realtimeService.sendBattleReady(normalizedRoomId) === false
+    ) {
+      return false;
+    }
+    readySentForConnection = true;
+    return true;
+  };
+
+  const acceptSnapshot = (candidate) => {
+    if (
+      !candidate
+      || candidate.roomId !== normalizedRoomId
+      || candidate.battleId !== normalizedBattleId
+      || candidate === snapshot
+    ) {
+      return false;
+    }
+    snapshot = candidate;
+    for (const listener of [...listeners]) listener(snapshot);
+    return true;
+  };
+  const unsubscribeRealtime = realtimeService.subscribe((state) => {
+    if (state?.connected !== true) readySentForConnection = false;
+    const receivedSnapshot = acceptSnapshot(state?.battle);
+    const self = snapshot?.roster?.find((member) => member.id === state?.selfId);
+    if (
+      state?.connected === true
+      && receivedSnapshot
+      && readyRequested
+      && snapshot?.status === "running"
+      && self?.ready === false
+      && !readySentForConnection
+    ) {
+      ready();
+    }
+  }, { emitCurrent: true });
+
+  const hit = ({ kind, actionId } = {}) => (
+    !destroyed
+    && typeof realtimeService.sendBattleHit === "function"
+    && realtimeService.sendBattleHit({
+      roomId: normalizedRoomId,
+      kind,
+      actionId,
+    }) !== false
+  );
+  const leave = () => {
+    if (destroyed || left) return false;
+    if (typeof realtimeService.sendBattleLeave !== "function") return false;
+    const sent = realtimeService.sendBattleLeave(normalizedRoomId);
+    if (sent !== false) left = true;
+    return sent !== false;
+  };
+
+  return Object.freeze({
+    online: true,
+    roomId: normalizedRoomId,
+    battleId: normalizedBattleId,
+    realtimeService,
+    getSnapshot: () => snapshot,
+    getState: () => snapshot,
+    ready,
+    sendReady: ready,
+    hit,
+    sendHit: hit,
+    leave,
+    subscribe(listener, { emitCurrent = true } = {}) {
+      if (typeof listener !== "function") throw new TypeError("Shared battle subscriber must be a function.");
+      if (destroyed) return () => {};
+      listeners.add(listener);
+      if (emitCurrent && snapshot) listener(snapshot);
+      return () => listeners.delete(listener);
+    },
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      listeners.clear();
+      unsubscribeRealtime?.();
+    },
+  });
+}
+
+export function releaseSharedBattleSession({
+  sharedBattle,
+  realtimeService,
+  preserveRealtime = false,
+} = {}) {
+  const roomId = sharedBattle?.roomId ?? null;
+  const leaveSent = sharedBattle?.leave?.() === true;
+  const leavePending = Boolean(
+    roomId && realtimeService?.getState?.()?.leavingBattleRoomId === roomId,
+  );
+  sharedBattle?.destroy?.();
+  if (preserveRealtime) return Object.freeze({ leaveSent, disconnected: false });
+  if (
+    (leaveSent || leavePending)
+    && roomId
+    && typeof realtimeService?.disconnectAfterBattleLeave === "function"
+  ) {
+    realtimeService.disconnectAfterBattleLeave(roomId);
+    return Object.freeze({ leaveSent, disconnected: "deferred" });
+  }
+  realtimeService?.disconnect?.();
+  return Object.freeze({ leaveSent, disconnected: true });
+}
+
+export function runBattleRetryAction({ sharedBattle, onSharedBattle, onSolo } = {}) {
+  if (sharedBattle) {
+    onSharedBattle?.();
+    return "shared-map";
+  }
+  onSolo?.();
+  return "solo-restart";
+}
+
+export function scheduleSharedBattleRejoin({
+  sharedBattle,
+  candidate,
+  canRestart = () => true,
+  restart,
+  onSettled = null,
+  queueTask = globalThis.queueMicrotask ?? ((callback) => Promise.resolve().then(callback)),
+} = {}) {
+  if (
+    !sharedBattle
+    || candidate?.status !== "FAIL"
+    || sharedBattle.getSnapshot?.()?.status !== "running"
+    || typeof restart !== "function"
+    || typeof queueTask !== "function"
+  ) {
+    return false;
+  }
+  queueTask(() => {
+    let restarted = false;
+    if (
+      canRestart()
+      && sharedBattle.getSnapshot?.()?.status === "running"
+    ) {
+      restart();
+      restarted = true;
+    }
+    onSettled?.(restarted);
+  });
+  return true;
+}
+
+export function isSharedPartyReady(snapshot) {
+  if (snapshot?.status === "finished") return true;
+  if (typeof snapshot?.allReady === "boolean") return snapshot.allReady;
+  const connectedRoster = Array.isArray(snapshot?.roster)
+    ? snapshot.roster.filter((member) => member?.connected !== false)
+    : [];
+  return connectedRoster.length > 0
+    && connectedRoster.every((member) => member?.ready === true);
+}
+
 function createBattleEntryScene(context, { notice = null } = {}) {
   let loop = null;
   let system = null;
@@ -131,6 +306,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
   let roomLobby = null;
   let unsubscribeRealtime = null;
   let unsubscribeRealtimeEvents = null;
+  let preserveRealtimeOnUnmount = false;
   let mounted = false;
 
   return {
@@ -159,6 +335,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       let navigationStarted = false;
       let pendingContactAction = null;
       let activeEncounter = null;
+      const handledFinishedBattleRooms = new Set();
       let worldSize = FALLBACK_FIELD_SIZE;
       let latestSnapshot = null;
 
@@ -547,12 +724,13 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       const enterRoute = (route, {
         encounter = false,
         returnSpawn = null,
+        returnZoneId = activeZoneId,
       } = {}) => {
         if (navigationStarted) return false;
         navigationStarted = true;
         if (returnSpawn) {
           rememberWorldState({
-            zoneId: activeZoneId,
+            zoneId: validZoneIds.has(returnZoneId) ? returnZoneId : activeZoneId,
             position: returnSpawn,
             direction: returnSpawn.direction,
           });
@@ -635,6 +813,84 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         },
       });
       worldShell.append(roomLobby.element);
+
+      const enterSharedBattle = ({
+        roomId,
+        battleId,
+        roster = [],
+        seed = null,
+        startedAt = null,
+        returnSpawn = null,
+      } = {}) => {
+        if (navigationStarted || !roomId || !battleId) return false;
+        const selectedRoom = bossRoomByBattleId.get(battleId);
+        if (!selectedRoom) return false;
+        const door = AFTERGAME_WORLD_LAYOUT[AFTERGAME_ZONE_IDS.PLAZA].bossDoors
+          .find((candidate) => candidate.battleId === battleId);
+        const sharedBattle = createSharedBattleSession({
+          realtimeService,
+          roomId,
+          battleId,
+        });
+        if (!sharedBattle) return false;
+        preserveRealtimeOnUnmount = true;
+        roomLobby.close();
+        const entered = enterRoute({
+          sceneId: selectedRoom.route.sceneId,
+          params: {
+            ...selectedRoom.route.params,
+            party: {
+              roomId,
+              selfId: realtimeService.getState().selfId,
+              roster: Array.isArray(roster) ? roster.slice(0, 5) : [],
+              seed,
+              startedAt,
+              realtimeService,
+              sharedBattle,
+            },
+          },
+        }, {
+          returnSpawn: returnSpawn ?? door?.returnSpawn ?? null,
+          returnZoneId: AFTERGAME_ZONE_IDS.PLAZA,
+        });
+        if (!entered) {
+          preserveRealtimeOnUnmount = false;
+          sharedBattle.destroy();
+        }
+        return entered;
+      };
+
+      const recoverSharedBattle = (realtimeState) => {
+        const battleSnapshot = realtimeState?.battle;
+        if (
+          navigationStarted
+          || !battleSnapshot
+          || realtimeState?.leavingBattleRoomId === battleSnapshot.roomId
+          || !bossRoomByBattleId.has(battleSnapshot.battleId)
+        ) {
+          return false;
+        }
+        if (battleSnapshot.status === "finished") {
+          if (handledFinishedBattleRooms.has(battleSnapshot.roomId)) return false;
+          const sent = runRealtimeCommand(
+            () => realtimeService?.sendBattleLeave(battleSnapshot.roomId),
+            "종료된 공동 전투를 정리하지 못했습니다. 연결 상태를 확인해 주세요.",
+          );
+          if (!sent) return false;
+          handledFinishedBattleRooms.add(battleSnapshot.roomId);
+          worldStatus.textContent = "이전 공동 전투는 이미 종료되었습니다. 참가 상태를 정리하고 맵으로 돌아왔습니다.";
+          worldStatus.dataset.active = "true";
+          return true;
+        }
+        if (battleSnapshot.status !== "running") return false;
+        return enterSharedBattle({
+          roomId: battleSnapshot.roomId,
+          battleId: battleSnapshot.battleId,
+          roster: battleSnapshot.roster,
+          seed: battleSnapshot.seed,
+          startedAt: battleSnapshot.startedAt,
+        });
+      };
 
       const enterBossRoom = (battleId, returnSpawn = null) => {
         if (activeZoneId !== AFTERGAME_ZONE_IDS.PLAZA || navigationStarted) return false;
@@ -758,7 +1014,10 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       };
 
       if (realtimeService && accountState.authenticated) {
-        unsubscribeRealtime = realtimeService.subscribe(renderRealtimeState);
+        unsubscribeRealtime = realtimeService.subscribe((realtimeState) => {
+          renderRealtimeState(realtimeState);
+          recoverSharedBattle(realtimeState);
+        });
         unsubscribeRealtimeEvents = realtimeService.subscribeEvents((event) => {
           if (event?.type !== "room.started" || navigationStarted) return;
           const selectedBattle = roomLobby?.getBattle();
@@ -766,20 +1025,14 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           const selectedRoom = bossRoomByBattleId.get(event.battleId);
           if (!selectedRoom) return;
           const returnSpawn = roomLobby.getReturnSpawn();
-          roomLobby.close();
-          enterRoute({
-            sceneId: selectedRoom.route.sceneId,
-            params: {
-              ...selectedRoom.route.params,
-              party: {
-                roomId: event.roomId,
-                selfId: realtimeService.getState().selfId,
-                roster: event.roster ?? event.room?.members ?? [],
-                seed: event.seed ?? null,
-                startedAt: event.startedAt ?? null,
-              },
-            },
-          }, { returnSpawn });
+          enterSharedBattle({
+            roomId: event.roomId,
+            battleId: event.battleId,
+            roster: event.roster ?? event.room?.members ?? [],
+            seed: event.seed ?? null,
+            startedAt: event.startedAt ?? null,
+            returnSpawn,
+          });
         });
         publishPresence();
         realtimeService.connect();
@@ -988,7 +1241,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       unsubscribeRealtimeEvents = null;
       unsubscribeRealtime?.();
       unsubscribeRealtime = null;
-      realtimeService?.disconnect?.();
+      if (!preserveRealtimeOnUnmount) realtimeService?.disconnect?.();
       realtimeService = null;
       roomLobby = null;
       remoteView?.destroy?.();
@@ -1023,6 +1276,11 @@ function createBattlePlayScene(context, battle) {
   let destroyed = false;
   let unsubscribeInput = null;
   let unsubscribeVisibility = null;
+  let unsubscribeSharedBattleUi = null;
+  let realtimeService = null;
+  let sharedBattle = null;
+  let preserveRealtimeOnUnmount = false;
+  let pendingSharedRejoinAttemptId = null;
   const pauseReasons = new Set();
   const returnDestination = getBattleReturnDestination(battle);
 
@@ -1033,6 +1291,19 @@ function createBattlePlayScene(context, battle) {
         await accountService.refreshSession();
       }
       if (signal.aborted) return;
+
+      const party = params?.party ?? null;
+      realtimeService = party?.realtimeService ?? context.services.postgameRealtime ?? null;
+      sharedBattle = party?.sharedBattle ?? (
+        party?.roomId && realtimeService
+          ? createSharedBattleSession({
+              realtimeService,
+              roomId: party.roomId,
+              battleId: battle.id,
+            })
+          : null
+      );
+      if (sharedBattle) realtimeService?.connect?.();
 
       const unlock = getBattleUnlockStatus(
         battle,
@@ -1052,18 +1323,21 @@ function createBattlePlayScene(context, battle) {
 
       const frame = createElement("section", { className: "scene minigame-frame battle-frame" });
       const title = createElement("strong", { text: `BATTLE · ${battle.title}` });
-      const partyRoster = Array.isArray(params?.party?.roster)
-        ? params.party.roster.slice(0, 5)
+      const partyRoster = Array.isArray(party?.roster)
+        ? party.roster.slice(0, 5)
         : [];
       const titleGroup = createElement("div", { className: "battle-toolbar__title-group" }, [title]);
+      let partyBadge = null;
+      let latestSharedSnapshot = sharedBattle?.getSnapshot?.() ?? null;
       if (partyRoster.length > 0) {
-        titleGroup.append(createElement("span", {
+        partyBadge = createElement("span", {
           className: "battle-party-badge",
           text: `온라인 방 · ${partyRoster.length}명`,
           attributes: {
             title: partyRoster.map((member) => member?.name ?? "플레이어").join(" · "),
           },
-        }));
+        });
+        titleGroup.append(partyBadge);
       }
       let pauseButton;
       const activeDurationMs = () => {
@@ -1117,7 +1391,10 @@ function createBattlePlayScene(context, battle) {
       pauseButton = createButton("일시정지", togglePause, "ghost");
       const quitButton = createButton(
         returnDestination.label,
-        () => context.router.navigate(returnDestination.sceneId),
+        () => {
+          if (sharedBattle) preserveRealtimeOnUnmount = true;
+          return context.router.navigate(returnDestination.sceneId);
+        },
         "ghost",
       );
       const toolbar = createElement("header", { className: "minigame-toolbar" }, [
@@ -1131,11 +1408,74 @@ function createBattlePlayScene(context, battle) {
       frame.append(stage);
       root.append(frame);
 
+      const renderSharedBattleState = (snapshot) => {
+        latestSharedSnapshot = snapshot ?? latestSharedSnapshot;
+        if (!partyBadge) {
+          partyBadge = createElement("span", { className: "battle-party-badge" });
+          titleGroup.append(partyBadge);
+        }
+        const roster = Array.isArray(snapshot?.roster) ? snapshot.roster : partyRoster;
+        const connectedCount = roster.filter((member) => member?.connected !== false).length;
+        const readyCount = roster.filter((member) => (
+          member?.connected !== false && member?.ready === true
+        )).length;
+        partyBadge.textContent = isSharedPartyReady(snapshot)
+          ? `온라인 방 · ${connectedCount}/${roster.length || partyRoster.length || 1}명`
+          : `파티 준비 중 · ${readyCount}/${connectedCount || 1}명`;
+        partyBadge.setAttribute(
+          "title",
+          roster.map((member) => member?.name ?? "플레이어").join(" · "),
+        );
+        if (!instance || terminal) return;
+        if (isSharedPartyReady(snapshot)) releasePause("PARTY_READY");
+        else requestPause("PARTY_READY");
+      };
+      if (sharedBattle) {
+        unsubscribeSharedBattleUi = sharedBattle.subscribe(renderSharedBattleState);
+      }
+
       const module = await loadBattleModule(battle.module);
       if (signal.aborted) return;
 
       const onComplete = (callbackAttemptId, candidate) => {
         if (destroyed || terminal || callbackAttemptId !== currentAttemptId) return;
+        if (sharedBattle && sharedBattle.getSnapshot()?.status !== "finished") {
+          if (pendingSharedRejoinAttemptId === callbackAttemptId) return;
+          pendingSharedRejoinAttemptId = callbackAttemptId;
+          const scheduled = scheduleSharedBattleRejoin({
+            sharedBattle,
+            candidate,
+            canRestart: () => (
+              !destroyed
+              && !terminal
+              && currentAttemptId === callbackAttemptId
+            ),
+            restart: () => {
+              const nextAttemptId = attemptId(battle.id);
+              const restarted = instance.restart?.({ attemptId: nextAttemptId });
+              if (restarted === false) return;
+              currentAttemptId = nextAttemptId;
+              showToast(context, "쓰러졌지만 공동 전투에 다시 합류했습니다.");
+              if (pauseStartedAt !== null) {
+                accumulatedPauseMs += Math.max(0, performance.now() - pauseStartedAt);
+                pauseStartedAt = null;
+              }
+              const retainedPauseReasons = [...pauseReasons]
+                .filter((reason) => reason !== "PARTY_READY" && reason !== "VISIBILITY");
+              pauseReasons.clear();
+              renderSharedBattleState(sharedBattle.getSnapshot?.());
+              for (const reason of retainedPauseReasons) requestPause(reason);
+              if (globalThis.document?.hidden) requestPause("VISIBILITY");
+            },
+            onSettled: () => {
+              if (pendingSharedRejoinAttemptId === callbackAttemptId) {
+                pendingSharedRejoinAttemptId = null;
+              }
+            },
+          });
+          if (!scheduled) pendingSharedRejoinAttemptId = null;
+          return;
+        }
         terminal = true;
         const result = finalizeBattleCandidate({
           battleId: battle.id,
@@ -1147,22 +1487,46 @@ function createBattlePlayScene(context, battle) {
         overlay = createResultOverlay({
           result,
           contextLabel: `BATTLE · ${battle.title}`,
-          presentation: config?.resultPresentation,
+          presentation: sharedBattle
+            ? {
+                ...config?.resultPresentation,
+                clear: {
+                  ...config?.resultPresentation?.clear,
+                  retryLabel: "새 파티 만들기",
+                },
+                fail: {
+                  ...config?.resultPresentation?.fail,
+                  retryLabel: "새 파티 만들기",
+                },
+              }
+            : config?.resultPresentation,
           onRetry: () => {
             if (destroyed) return;
-            overlay?.destroy();
-            overlay = null;
-            terminal = false;
-            pauseReasons.clear();
-            pauseStartedAt = null;
-            accumulatedPauseMs = 0;
-            updatePauseButton();
-            currentAttemptId = attemptId(battle.id);
-            startedAt = performance.now();
-            instance.restart?.({ attemptId: currentAttemptId });
-            if (globalThis.document?.hidden) requestPause("VISIBILITY");
+            runBattleRetryAction({
+              sharedBattle,
+              onSharedBattle: () => {
+                preserveRealtimeOnUnmount = true;
+                void context.router.navigate(returnDestination.sceneId);
+              },
+              onSolo: () => {
+                overlay?.destroy();
+                overlay = null;
+                terminal = false;
+                pauseReasons.clear();
+                pauseStartedAt = null;
+                accumulatedPauseMs = 0;
+                updatePauseButton();
+                currentAttemptId = attemptId(battle.id);
+                startedAt = performance.now();
+                instance.restart?.({ attemptId: currentAttemptId });
+                if (globalThis.document?.hidden) requestPause("VISIBILITY");
+              },
+            });
           },
-          onMap: () => context.router.navigate(returnDestination.sceneId),
+          onMap: () => {
+            if (sharedBattle) preserveRealtimeOnUnmount = true;
+            return context.router.navigate(returnDestination.sceneId);
+          },
           onMenu: () => context.router.navigate("main-menu"),
           backgroundElements: [toolbar, stage.firstElementChild],
         });
@@ -1178,11 +1542,18 @@ function createBattlePlayScene(context, battle) {
       const player = createBattlePlayer(accountService.getState(), arena, {
         useAccountStats: battle.usesAccountStats !== false,
       });
-      await instance.init({ ...config, arena, players: [player] }, { signal });
+      await instance.init({
+        ...config,
+        arena,
+        players: [player],
+        sharedBattle,
+        sharedSeed: party?.seed ?? latestSharedSnapshot?.seed ?? null,
+      }, { signal });
       if (signal.aborted) return;
       currentAttemptId = attemptId(battle.id);
       startedAt = performance.now();
       instance.start({ attemptId: currentAttemptId });
+      if (sharedBattle) renderSharedBattleState(latestSharedSnapshot);
 
       unsubscribeInput = context.services.input.onAction?.((event) => {
         if (event.action === INPUT_ACTIONS.PAUSE && event.phase === "press") togglePause();
@@ -1209,6 +1580,15 @@ function createBattlePlayScene(context, battle) {
       unsubscribeInput = null;
       unsubscribeVisibility?.();
       unsubscribeVisibility = null;
+      unsubscribeSharedBattleUi?.();
+      unsubscribeSharedBattleUi = null;
+      releaseSharedBattleSession({
+        sharedBattle,
+        realtimeService,
+        preserveRealtime: preserveRealtimeOnUnmount,
+      });
+      sharedBattle = null;
+      realtimeService = null;
       assetLease?.release?.();
       assetLease = null;
     },
