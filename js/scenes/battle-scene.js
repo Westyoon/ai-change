@@ -17,7 +17,10 @@ import {
   VirtualJoystick,
   createCharacterActorElement,
 } from "../battle/character/index.js";
-import { createPostgameRoomLobby } from "../battle/postgame/room-lobby.js";
+import {
+  createPostgameRoomLobby,
+  currentRoomFromState,
+} from "../battle/postgame/room-lobby.js";
 import { DEFAULT_PLAYER_APPEARANCE, createBattlePlayer } from "../battle/player-config.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
@@ -905,12 +908,32 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         const door = AFTERGAME_WORLD_LAYOUT[AFTERGAME_ZONE_IDS.PLAZA].bossDoors
           .find((candidate) => candidate.battleId === battleId);
         if (accountState.authenticated && realtimeService && roomLobby) {
+          const realtimeState = realtimeService.getState();
+          const activeRoom = currentRoomFromState(realtimeState);
+          const activeBossRoom = activeRoom?.battleId
+            ? bossRoomByBattleId.get(activeRoom.battleId)
+            : null;
+          const lobbyRoom = activeBossRoom ?? room;
+          const lobbyDoor = AFTERGAME_WORLD_LAYOUT[AFTERGAME_ZONE_IDS.PLAZA].bossDoors
+            .find((candidate) => candidate.battleId === lobbyRoom.battle.id);
+          if (activeRoom?.battleId && activeRoom.battleId !== battleId) {
+            showToast(
+              context,
+              `이미 ${lobbyRoom.battle.title} 방에 참가 중이라 기존 대기실을 열었습니다.`,
+            );
+          }
           system?.setControlLocked(true, "boss-room-lobby");
           realtimeService.connect();
-          roomLobby.open({
-            battle: room.battle,
-            spawn: returnSpawn ?? door?.returnSpawn ?? null,
+          const opened = roomLobby.open({
+            battle: lobbyRoom.battle,
+            spawn: activeBossRoom
+              ? lobbyDoor?.returnSpawn ?? null
+              : returnSpawn ?? door?.returnSpawn ?? null,
           });
+          if (!opened) {
+            system?.setControlLocked(false, "boss-room-lobby");
+            return false;
+          }
           roomLobby.render(realtimeService.getState());
           return true;
         }

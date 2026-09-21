@@ -724,8 +724,11 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
     assert.equal(mounted.navigations.length, 0, "authenticated boss entry opens a lobby first");
     assert.equal(mounted.root.querySelector(".postgame-room-lobby").dataset.open, "true");
 
+    const openCreateButton = mounted.root.querySelectorAll("button")
+      .find((button) => button.textContent === "새 방 만들기");
+    openCreateButton.dispatchEvent({ type: "click", detail: 1 });
     const createButton = mounted.root.querySelectorAll("button")
-      .find((button) => button.textContent === "방 만들기");
+      .find((button) => button.textContent === "방 생성");
     const roomNameInput = mounted.root.querySelector(".postgame-room-lobby__name");
     assert.equal(createButton.disabled, true, "a room name is required before creation");
     roomNameInput.value = "스탯 보스 원정대";
