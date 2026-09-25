@@ -36,6 +36,7 @@ test("Control Boss config preserves the prototype constants and explicit account
   assert.equal(config.boss.phase2CastSec, 3);
   assert.equal(config.boss.phase3DurationSec, 30);
   assert.equal(config.boss.groggyDurationSec, 10);
+  assert.equal(config.boss.attackRange, 65);
   assert.equal(config.player.attackCooldownMs, 1000);
   assert.equal(config.boss.groggyDirectDamageRate, 0.2);
   assert.equal(config.boss.attackIntervalSec, 1.3);
@@ -502,12 +503,17 @@ test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup wit
     await battle.init(configSource);
     assert.equal(root.children.length, 1);
     assert.ok(root.querySelector(".control-boss-world"));
+    assert.ok(root.querySelector(".control-boss-attack-range"));
     assert.ok(root.querySelector(".control-boss-joystick"));
     assert.ok(root.querySelector(".control-boss-attack"));
     assert.equal(root.querySelector(".control-boss-modal"), null);
 
     battle.start({ attemptId: "control-boss:lifecycle-1" });
     frames.step(0);
+    const attackRange = root.querySelector(".control-boss-attack-range");
+    assert.equal(attackRange.dataset.active, "true");
+    assert.equal(attackRange.style.width, `${(130 / config.world.bounds.width) * 100}%`);
+    assert.equal(attackRange.style.height, `${(130 / config.world.bounds.height) * 100}%`);
     const initialX = battle.getState().playerBounds.x;
     input.vector = { x: 1, y: 0 };
     frames.step(100);

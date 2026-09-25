@@ -148,9 +148,25 @@
 .control-boss-cover,
 .control-boss-tile,
 .control-boss-bullet,
-.control-boss-shockwave {
+.control-boss-shockwave,
+.control-boss-attack-range {
   position: absolute;
   box-sizing: border-box;
+}
+
+.control-boss-attack-range {
+  z-index: 25;
+  border: 2px dashed #f08c00;
+  border-radius: 50%;
+  background: rgb(255 193 7 / 10%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  transition: opacity 120ms ease;
+}
+
+.control-boss-attack-range[data-active="true"] {
+  opacity: 0.72;
 }
 
 .control-boss-actor {

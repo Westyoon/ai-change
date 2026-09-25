@@ -24,7 +24,7 @@ const DEFAULT_BOSS = Object.freeze({
   groggyDurationSec: 10,
   groggyDirectDamageRate: 0.2,
   attackIntervalSec: 1.3,
-  attackRange: 130,
+  attackRange: 65,
   bulletSpeed: 240,
   bulletDamage: 15,
   shockwaveInitialDelaySec: 2,
