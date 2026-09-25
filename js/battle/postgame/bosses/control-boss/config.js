@@ -29,7 +29,7 @@ const DEFAULT_BOSS = Object.freeze({
   bulletDamage: 15,
   shockwaveInitialDelaySec: 2,
   shockwaveIntervalSec: 4.5,
-  shockwaveSpeed: 240,
+  shockwaveSpeed: 168,
   shockwaveMaxRadius: 650,
   shockwaveThickness: 30,
   shockwaveDamage: 25,

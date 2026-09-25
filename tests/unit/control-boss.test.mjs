@@ -37,6 +37,7 @@ test("Control Boss config preserves the prototype constants and explicit account
   assert.equal(config.boss.phase3DurationSec, 30);
   assert.equal(config.boss.groggyDurationSec, 10);
   assert.equal(config.boss.attackRange, 65);
+  assert.equal(config.boss.shockwaveSpeed, 168);
   assert.equal(config.player.attackCooldownMs, 1000);
   assert.equal(config.boss.groggyDirectDamageRate, 0.2);
   assert.equal(config.boss.attackIntervalSec, 1.3);
@@ -468,6 +469,16 @@ test("Control Boss hazards share one logical size between collision and responsi
       `${(Math.max(0, wave.radius - thickness) / outerRadius) * 100}%`,
       "the rendered band spans the same radius +/- thickness used by collision",
     );
+
+    const firstPlate = encounter.getSnapshot().platesSequence[0];
+    assert.equal(encounter.activatePlate(firstPlate), true);
+    assert.equal(encounter.getSnapshot().currentPlateStep, 1);
+    encounter.setPlayerBounds({ x: 209, y: 59, width: 32, height: 42 });
+    encounter.tick(0);
+    snapshot = encounter.getSnapshot();
+    assert.equal(snapshot.playerHp, snapshot.playerMaxHp - hazardConfig.boss.shockwaveDamage);
+    assert.equal(snapshot.currentPlateStep, 0, "shockwave hit resets plate progress");
+    assert.equal(snapshot.tiles.some((tile) => tile.cleared), false, "shockwave hit clears plate markers");
 
     view.destroy();
     assert.equal(root.children.length, 0);

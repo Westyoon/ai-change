@@ -611,6 +611,8 @@ export class ControlBossEncounter {
 
   #applyStun() {
     if (this.state !== CONTROL_BOSS_STATES.RUNNING) return;
+    this.currentPlateStep = 0;
+    this.clearedPlateIds.clear();
     this.isStunned = true;
     this.stunRemainingMs = this.config.player.stunDurationMs;
     this.#status("⚠️ 경직! 발판 순서가 초기화되었습니다.", "error");
