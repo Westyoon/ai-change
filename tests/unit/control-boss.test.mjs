@@ -38,6 +38,8 @@ test("Control Boss config preserves the prototype constants and explicit account
   assert.equal(config.boss.groggyDurationSec, 10);
   assert.equal(config.boss.attackRange, 65);
   assert.equal(config.boss.shockwaveSpeed, 168);
+  assert.equal(config.boss.groggyDirectDamageRate, 0.2);
+  assert.equal(config.player.shieldDamage, 50);
   assert.equal(config.player.attackCooldownMs, 1000);
   assert.equal(config.boss.groggyDirectDamageRate, 0.2);
   assert.equal(config.boss.attackIntervalSec, 1.3);
@@ -46,8 +48,8 @@ test("Control Boss config preserves the prototype constants and explicit account
   assert.equal(config.gimmick.collapsedTileCount, 2);
   assert.equal(config.gimmick.sequenceLength, 4);
 
-  assert.equal(calcControlBossAttackDamage(1, config.player), 40);
-  assert.equal(calcControlBossAttackDamage(3, config.player), 44);
+  assert.equal(calcControlBossAttackDamage(1, config.player), 10);
+  assert.equal(calcControlBossAttackDamage(3, config.player), 11);
   assert.equal(calcControlBossMaxHp(1, config.player), 100);
   assert.equal(calcControlBossMaxHp(3, config.player), 120);
   assert.equal(calcControlBossIncomingDamage(15, 1, config.player), 15);
@@ -70,7 +72,7 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   const encounter = new ControlBossEncounter({
     config: resolveControlBossConfig({
       ...config,
-      boss: { ...config.boss, groggyDurationSec: 30 },
+      boss: { ...config.boss, groggyDurationSec: 100 },
     }),
     random: () => 0.5,
     onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
@@ -79,7 +81,7 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   encounter.start({ attemptId: "control-boss:phase-run" });
   encounter.setPlayerBounds(nearBossBounds());
 
-  for (let index = 0; index < 13; index += 1) {
+  for (let index = 0; index < 10; index += 1) {
     assert.equal(encounter.attack(), true);
     assert.equal(encounter.attack(), false, "a second attack inside the cooldown is ignored");
     encounter.tick(config.player.attackCooldownMs);
@@ -102,7 +104,7 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   assert.equal(snapshot.currentHp, 800, "altar success removes 20% of max boss HP");
 
   encounter.setPlayerBounds(nearBossBounds());
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < 80; index += 1) {
     assert.equal(encounter.attack(), true);
     encounter.tick(config.player.attackCooldownMs);
   }

@@ -88,6 +88,7 @@ function normalizePlayer(source, config) {
     healthStat,
     maxHp: calcControlBossMaxHp(healthStat, config.player),
     attackDamage: calcControlBossAttackDamage(attackStat, config.player),
+    shieldDamage: config.player.shieldDamage,
     position: Object.freeze({ x: start.x, y: start.y }),
     appearance: source?.appearance ?? null,
     accountStats: source?.accountStats ?? null,
@@ -230,8 +231,8 @@ export class ControlBossEncounter {
 
     if (this.phase === CONTROL_BOSS_PHASES.SHIELD) {
       this.playerAttackCooldownMs = this.config.player.attackCooldownMs;
-      this.currentShield = Math.max(0, this.currentShield - this.player.attackDamage);
-      this.metrics.shieldDamage += this.player.attackDamage;
+      this.currentShield = Math.max(0, this.currentShield - this.player.shieldDamage);
+      this.metrics.shieldDamage += this.player.shieldDamage;
       if (this.currentShield === 0) {
         this.#enterPhase2();
       } else {

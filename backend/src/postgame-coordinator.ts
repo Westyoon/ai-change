@@ -24,7 +24,7 @@ interface BattleRule {
 const BATTLE_RULES = {
   "data-sphinx": { bossMaxHp: 100, hitDamage: 10, hitCooldownMs: 500 },
   "stat-boss": { bossMaxHp: 1_000, hitDamage: 10, hitCooldownMs: 250 },
-  "control-boss": { bossMaxHp: 1_000, hitDamage: 40, hitCooldownMs: 1_000 },
+  "control-boss": { bossMaxHp: 1_000, hitDamage: 10, hitCooldownMs: 1_000 },
 } as const satisfies Record<BattleId, BattleRule>;
 
 const BATTLE_HIT_KINDS = {

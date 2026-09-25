@@ -41,7 +41,8 @@ const DEFAULT_PLAYER = Object.freeze({
   speed: 200,
   baseHp: 100,
   hpPerPoint: 10,
-  baseAttackDamage: 40,
+  baseAttackDamage: 10,
+  shieldDamage: 50,
   attackCoefficient: 0.05,
   defensePerPoint: 1,
   minimumIncomingDamage: 1,
@@ -127,6 +128,12 @@ export function resolveControlBossConfig(source = {}) {
       playerSource.baseAttackDamage,
       DEFAULT_PLAYER.baseAttackDamage,
       "player.baseAttackDamage",
+      { min: 1 },
+    ),
+    shieldDamage: finite(
+      playerSource.shieldDamage,
+      DEFAULT_PLAYER.shieldDamage,
+      "player.shieldDamage",
       { min: 1 },
     ),
     attackCoefficient: finite(
@@ -283,7 +290,7 @@ function bonusPoints(stat) {
   return Math.max(0, Number.isFinite(stat) ? stat - 1 : 0);
 }
 
-/** 공격 피해 = 기본 40 × (1 + (공격력-1) × 0.05). */
+/** 공격 피해 = 기본 10 × (1 + (공격력-1) × 0.05). */
 export function calcControlBossAttackDamage(attackStat, playerConfig = DEFAULT_PLAYER) {
   return playerConfig.baseAttackDamage * (1 + bonusPoints(attackStat) * playerConfig.attackCoefficient);
 }
