@@ -46,6 +46,7 @@ const DEFAULT_PLAYER = Object.freeze({
   defensePerPoint: 1,
   minimumIncomingDamage: 1,
   stunDurationMs: 1000,
+  attackCooldownMs: 1000,
   startPosition: Object.freeze({ x: 209, y: 529 }),
 });
 
@@ -150,6 +151,12 @@ export function resolveControlBossConfig(source = {}) {
       playerSource.stunDurationMs,
       DEFAULT_PLAYER.stunDurationMs,
       "player.stunDurationMs",
+      { min: 0 },
+    ),
+    attackCooldownMs: finite(
+      playerSource.attackCooldownMs,
+      DEFAULT_PLAYER.attackCooldownMs,
+      "player.attackCooldownMs",
       { min: 0 },
     ),
     startPosition: point(playerSource.startPosition, DEFAULT_PLAYER.startPosition, "player.startPosition"),

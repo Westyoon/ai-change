@@ -36,6 +36,7 @@ test("Control Boss config preserves the prototype constants and explicit account
   assert.equal(config.boss.phase2CastSec, 3);
   assert.equal(config.boss.phase3DurationSec, 30);
   assert.equal(config.boss.groggyDurationSec, 10);
+  assert.equal(config.player.attackCooldownMs, 1000);
   assert.equal(config.boss.groggyDirectDamageRate, 0.2);
   assert.equal(config.boss.attackIntervalSec, 1.3);
   assert.equal(config.boss.bulletSpeed, 240);
@@ -65,7 +66,10 @@ test("Control Boss config preserves the prototype constants and explicit account
 test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", () => {
   const completions = [];
   const encounter = new ControlBossEncounter({
-    config,
+    config: resolveControlBossConfig({
+      ...config,
+      boss: { ...config.boss, groggyDurationSec: 30 },
+    }),
     random: () => 0.5,
     onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
   });
@@ -73,7 +77,11 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   encounter.start({ attemptId: "control-boss:phase-run" });
   encounter.setPlayerBounds(nearBossBounds());
 
-  for (let index = 0; index < 13; index += 1) encounter.attack();
+  for (let index = 0; index < 13; index += 1) {
+    assert.equal(encounter.attack(), true);
+    assert.equal(encounter.attack(), false, "a second attack inside the cooldown is ignored");
+    encounter.tick(config.player.attackCooldownMs);
+  }
   let snapshot = encounter.getSnapshot();
   assert.equal(snapshot.currentShield, 0);
   assert.equal(snapshot.phase, CONTROL_BOSS_PHASES.INSTANT_KILL);
@@ -92,7 +100,10 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   assert.equal(snapshot.currentHp, 800, "altar success removes 20% of max boss HP");
 
   encounter.setPlayerBounds(nearBossBounds());
-  for (let index = 0; index < 20; index += 1) encounter.attack();
+  for (let index = 0; index < 20; index += 1) {
+    assert.equal(encounter.attack(), true);
+    encounter.tick(config.player.attackCooldownMs);
+  }
   snapshot = encounter.getSnapshot();
   assert.equal(snapshot.state, CONTROL_BOSS_STATES.COMPLETED);
   assert.equal(snapshot.currentHp, 0);
@@ -519,8 +530,9 @@ test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup wit
     const afterKeyboard = battle.getState().metrics.attacks;
     assert.equal(afterKeyboard, 1, "Space produces one attack command");
 
+    frames.step(1200);
     root.querySelector(".control-boss-attack").dispatchEvent({ type: "click", detail: 0 });
-    frames.step(300);
+    frames.step(1300);
     assert.equal(battle.getState().metrics.attacks, 2, "accessible/mobile attack button produces one command");
 
     assert.equal(battle.pause("MANUAL"), true);
