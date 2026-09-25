@@ -24,12 +24,12 @@ const DEFAULT_BOSS = Object.freeze({
   groggyDurationSec: 10,
   groggyDirectDamageRate: 0.2,
   attackIntervalSec: 1.3,
-  attackRange: 130,
+  attackRange: 65,
   bulletSpeed: 240,
   bulletDamage: 15,
   shockwaveInitialDelaySec: 2,
   shockwaveIntervalSec: 4.5,
-  shockwaveSpeed: 240,
+  shockwaveSpeed: 168,
   shockwaveMaxRadius: 650,
   shockwaveThickness: 30,
   shockwaveDamage: 25,
@@ -41,11 +41,13 @@ const DEFAULT_PLAYER = Object.freeze({
   speed: 200,
   baseHp: 100,
   hpPerPoint: 10,
-  baseAttackDamage: 40,
+  baseAttackDamage: 10,
+  shieldDamage: 50,
   attackCoefficient: 0.05,
   defensePerPoint: 1,
   minimumIncomingDamage: 1,
   stunDurationMs: 1000,
+  attackCooldownMs: 1000,
   startPosition: Object.freeze({ x: 209, y: 529 }),
 });
 
@@ -128,6 +130,12 @@ export function resolveControlBossConfig(source = {}) {
       "player.baseAttackDamage",
       { min: 1 },
     ),
+    shieldDamage: finite(
+      playerSource.shieldDamage,
+      DEFAULT_PLAYER.shieldDamage,
+      "player.shieldDamage",
+      { min: 1 },
+    ),
     attackCoefficient: finite(
       playerSource.attackCoefficient,
       DEFAULT_PLAYER.attackCoefficient,
@@ -150,6 +158,12 @@ export function resolveControlBossConfig(source = {}) {
       playerSource.stunDurationMs,
       DEFAULT_PLAYER.stunDurationMs,
       "player.stunDurationMs",
+      { min: 0 },
+    ),
+    attackCooldownMs: finite(
+      playerSource.attackCooldownMs,
+      DEFAULT_PLAYER.attackCooldownMs,
+      "player.attackCooldownMs",
       { min: 0 },
     ),
     startPosition: point(playerSource.startPosition, DEFAULT_PLAYER.startPosition, "player.startPosition"),
@@ -276,7 +290,7 @@ function bonusPoints(stat) {
   return Math.max(0, Number.isFinite(stat) ? stat - 1 : 0);
 }
 
-/** 공격 피해 = 기본 40 × (1 + (공격력-1) × 0.05). */
+/** 공격 피해 = 기본 10 × (1 + (공격력-1) × 0.05). */
 export function calcControlBossAttackDamage(attackStat, playerConfig = DEFAULT_PLAYER) {
   return playerConfig.baseAttackDamage * (1 + bonusPoints(attackStat) * playerConfig.attackCoefficient);
 }

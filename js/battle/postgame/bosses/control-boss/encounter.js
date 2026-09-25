@@ -88,6 +88,7 @@ function normalizePlayer(source, config) {
     healthStat,
     maxHp: calcControlBossMaxHp(healthStat, config.player),
     attackDamage: calcControlBossAttackDamage(attackStat, config.player),
+    shieldDamage: config.player.shieldDamage,
     position: Object.freeze({ x: start.x, y: start.y }),
     appearance: source?.appearance ?? null,
     accountStats: source?.accountStats ?? null,
@@ -211,7 +212,11 @@ export class ControlBossEncounter {
   }
 
   attack() {
-    if (this.state !== CONTROL_BOSS_STATES.RUNNING || this.isStunned) return false;
+    if (
+      this.state !== CONTROL_BOSS_STATES.RUNNING ||
+      this.isStunned ||
+      this.playerAttackCooldownMs > 0
+    ) return false;
     this.metrics.attacks += 1;
     const playerCenter = center(this.playerBounds);
     const boss = this.config.world.bossZone;
@@ -225,8 +230,9 @@ export class ControlBossEncounter {
     }
 
     if (this.phase === CONTROL_BOSS_PHASES.SHIELD) {
-      this.currentShield = Math.max(0, this.currentShield - this.player.attackDamage);
-      this.metrics.shieldDamage += this.player.attackDamage;
+      this.playerAttackCooldownMs = this.config.player.attackCooldownMs;
+      this.currentShield = Math.max(0, this.currentShield - this.player.shieldDamage);
+      this.metrics.shieldDamage += this.player.shieldDamage;
       if (this.currentShield === 0) {
         this.#enterPhase2();
       } else {
@@ -235,6 +241,7 @@ export class ControlBossEncounter {
       return true;
     }
     if (this.phase === CONTROL_BOSS_PHASES.GROGGY) {
+      this.playerAttackCooldownMs = this.config.player.attackCooldownMs;
       this.#applyBossDamage(this.player.attackDamage, "attack");
       return true;
     }
@@ -247,6 +254,7 @@ export class ControlBossEncounter {
     const elapsedMs = Math.max(0, finite(deltaMs));
     const seconds = elapsedMs / 1000;
     this.elapsedMs += elapsedMs;
+    this.playerAttackCooldownMs = Math.max(0, this.playerAttackCooldownMs - elapsedMs);
     this.isCovered = overlaps(this.playerBounds, this.config.world.coverZone);
     this.#updateStun(elapsedMs);
     this.#updateTileContacts();
@@ -362,6 +370,7 @@ export class ControlBossEncounter {
       phase: this.phase,
       elapsedMs: rounded(this.elapsedMs),
       phaseTimerMs: rounded(this.phaseTimerMs),
+      playerAttackCooldownMs: rounded(this.playerAttackCooldownMs),
       bossAttackTimerMs: rounded(this.bossAttackTimerMs),
       shockwaveTimerMs: rounded(this.shockwaveTimerMs),
       currentHp: rounded(this.currentHp),
@@ -399,6 +408,7 @@ export class ControlBossEncounter {
     this.maxPhaseReached = CONTROL_BOSS_PHASES.SHIELD;
     this.elapsedMs = 0;
     this.phaseTimerMs = 0;
+    this.playerAttackCooldownMs = 0;
     this.bossAttackTimerMs = 0;
     this.shockwaveTimerMs = 0;
     this.currentHp = this.config?.boss?.maxHp ?? 0;
@@ -602,6 +612,8 @@ export class ControlBossEncounter {
 
   #applyStun() {
     if (this.state !== CONTROL_BOSS_STATES.RUNNING) return;
+    this.currentPlateStep = 0;
+    this.clearedPlateIds.clear();
     this.isStunned = true;
     this.stunRemainingMs = this.config.player.stunDurationMs;
     this.#status("⚠️ 경직! 발판 순서가 초기화되었습니다.", "error");
