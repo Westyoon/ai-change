@@ -11,6 +11,10 @@
   justify-content: space-between;
 }
 
+.account-scene__header--actions-only {
+  justify-content: flex-end;
+}
+
 .account-scene__header h2,
 .account-scene__header p {
   margin-top: 0;
@@ -52,6 +56,63 @@
   background: rgb(233 95 157 / 12%);
   font-size: 0.76rem;
   line-height: 1.55;
+}
+
+.account-nickname-form {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-strong);
+}
+
+.account-nickname-form__heading {
+  display: flex;
+  gap: 10px 16px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.account-nickname-form__label {
+  font-weight: 900;
+}
+
+.account-nickname-form__help {
+  font-size: 0.72rem;
+}
+
+.account-nickname-form__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.account-nickname-form__input {
+  min-width: 0;
+  min-height: 46px;
+  padding: 9px 12px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  background: rgb(43 24 38 / 92%);
+  font: inherit;
+}
+
+.account-nickname-form__input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.account-nickname-form__controls .button {
+  min-width: 132px;
+}
+
+.account-nickname-form__error {
+  margin: 0;
+  color: #ff9eb7;
+  font-size: 0.76rem;
+  text-align: left;
 }
 
 .account-spinner {
@@ -140,20 +201,15 @@
 
 .account-stat-card__label {
   color: var(--accent);
-  font-size: 0.8rem;
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
   font-weight: 900;
-  letter-spacing: 0.08em;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
 }
 
 .account-stat-card__value {
   font-size: clamp(1.8rem, 5vw, 2.8rem);
   line-height: 1;
-}
-
-.account-stat-card__description {
-  min-height: 2.7em;
-  font-size: 0.72rem;
-  line-height: 1.4;
 }
 
 .account-stat-card__allocate {
@@ -162,12 +218,6 @@
   min-height: 40px;
   margin-top: 4px;
   padding: 7px 10px;
-}
-
-.account-formula-note {
-  margin: 0;
-  font-size: 0.78rem;
-  text-align: left;
 }
 
 .ranking-tabs {
@@ -210,6 +260,29 @@
   color: var(--ink);
   background: var(--accent);
   box-shadow: 0 5px 0 var(--accent-strong);
+}
+
+.ranking-boards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.ranking-board {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: rgb(42 25 40 / 78%);
+}
+
+.ranking-board > h3 {
+  margin: 0;
+  color: var(--accent);
+  text-align: left;
 }
 
 .ranking-status {
@@ -260,6 +333,21 @@
   white-space: nowrap;
 }
 
+.ranking-row__identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ranking-row__members {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ranking-row__value {
   text-align: right;
 }
@@ -301,10 +389,23 @@
     text-align: right;
   }
 
-  .account-stat-card__description,
   .account-stat-card__allocate {
     grid-column: 1 / -1;
     min-height: 0;
+  }
+
+  .account-nickname-form__heading,
+  .account-nickname-form__controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .account-nickname-form__heading {
+    display: grid;
+  }
+
+  .account-nickname-form__controls .button {
+    width: 100%;
   }
 
   .ranking-row {
@@ -312,6 +413,10 @@
     gap: 8px;
     padding: 11px 12px;
     font-size: 0.86rem;
+  }
+
+  .ranking-boards {
+    grid-template-columns: 1fr;
   }
 
   .ranking-game-filter {

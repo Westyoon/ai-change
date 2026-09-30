@@ -25,6 +25,7 @@ interface GoogleUserInfo {
 interface SessionRow {
   user_id: string;
   name: string | null;
+  nickname: string | null;
   expires_at: number;
 }
 
@@ -43,6 +44,23 @@ interface CompletedGameRow {
   game_id: string;
 }
 
+interface StoryProgressRow {
+  story_id: string;
+}
+
+interface BossRankingRow {
+  run_id: string;
+  team_name: string;
+  party_size: number;
+  clears: number;
+  clear_time_ms: number;
+  created_at: string;
+}
+
+interface BossRankingMemberRow {
+  nickname_snapshot: string;
+}
+
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -54,12 +72,21 @@ class HttpError extends Error {
 
 const SESSION_COOKIE = "__Host-ai-change-session";
 const LOCAL_SESSION_COOKIE = "ai-change-session";
+const PARTITIONED_SESSION_COOKIE = "__Host-ai-change-session-partitioned";
 const OAUTH_STATE_COOKIE = "__Host-ai-change-oauth-state";
 const LOCAL_OAUTH_STATE_COOKIE = "ai-change-oauth-state";
+const PARTITIONED_OAUTH_STATE_COOKIE = "__Host-ai-change-oauth-state-partitioned";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
 const MAX_SCORE = 1_000_000;
-const EXPERIENCE_PER_CLEAR = 100;
+const EXPERIENCE_PER_POSTGAME_CLEAR = 100;
+const BASE_COMBAT_HP = 100;
+const COMBAT_HP_PER_POINT = 100;
+const BASE_COMBAT_ATTACK = 10;
+const COMBAT_ATTACK_GROWTH = 0.05;
+const COMBAT_VALUE_SCALE = 1_000_000;
+const MIN_NICKNAME_LENGTH = 2;
+const MAX_NICKNAME_LENGTH = 16;
 const GUEST_IMPORT_ATTEMPT_PREFIX = "guest-import-v1:";
 const ALLOWED_GAME_IDS = new Set([
   "data-number-baseball",
@@ -67,6 +94,23 @@ const ALLOWED_GAME_IDS = new Set([
   "computer-code-heart",
   "ai-ball-classification",
   "ai-data-egg-sort",
+]);
+const CLIENT_REWARDED_POSTGAME_ID = "xr-egg-trials";
+const RANKED_BOSS_IDS = new Set(["stat-boss", "control-boss"]);
+const ALLOWED_STORY_IDS = new Set([
+  "main-story-intro",
+  "npc-ds",
+  "npc-cs",
+  "npc-cse",
+  "npc-ai",
+  "npc-aids",
+  "afterstory:ds",
+  "afterstory:cs",
+  "afterstory:cse",
+  "afterstory:ai",
+  "afterstory:aids",
+  "battle-unlock:word-breaker",
+  "main-story-outro",
 ]);
 const ALLOWED_STATS = new Set(["attack", "hp", "defense"]);
 
@@ -179,6 +223,32 @@ function stateCookie(value: string, request: Request, maxAge: number): string {
   return `${stateCookieName(request)}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax${secure}`;
 }
 
+function partitionedCookie(
+  name: string,
+  value: string,
+  request: Request,
+  maxAge: number,
+): string | null {
+  if (new URL(request.url).protocol !== "https:") return null;
+  return `${name}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned`;
+}
+
+function appendStateCookies(
+  response: Response,
+  value: string,
+  request: Request,
+  maxAge: number,
+): void {
+  response.headers.append("Set-Cookie", stateCookie(value, request, maxAge));
+  const partitioned = partitionedCookie(
+    PARTITIONED_OAUTH_STATE_COOKIE,
+    value,
+    request,
+    maxAge,
+  );
+  if (partitioned) response.headers.append("Set-Cookie", partitioned);
+}
+
 function sessionCookieName(request: Request): string {
   return new URL(request.url).protocol === "https:" ? SESSION_COOKIE : LOCAL_SESSION_COOKIE;
 }
@@ -186,6 +256,35 @@ function sessionCookieName(request: Request): string {
 function sessionCookie(request: Request, value: string, maxAge: number): string {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${sessionCookieName(request)}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax${secure}`;
+}
+
+function appendSessionCookies(
+  response: Response,
+  request: Request,
+  value: string,
+  maxAge: number,
+): void {
+  response.headers.append("Set-Cookie", sessionCookie(request, value, maxAge));
+  const partitioned = partitionedCookie(
+    PARTITIONED_SESSION_COOKIE,
+    value,
+    request,
+    maxAge,
+  );
+  if (partitioned) response.headers.append("Set-Cookie", partitioned);
+}
+
+function cookieCandidates(request: Request, primaryName: string, partitionedName: string): string[] {
+  const cookies = parseCookies(request);
+  const names = [primaryName];
+  if (new URL(request.url).protocol === "https:") names.push(partitionedName);
+  return [...new Set(
+    names
+      .map((name) => cookies.get(name))
+      .filter((value): value is string => (
+        typeof value === "string" && value.length > 0 && value.length <= 128
+      )),
+  )];
 }
 
 function oauthRedirect(origin: string, reason?: string): Response {
@@ -200,7 +299,7 @@ function oauthRedirect(origin: string, reason?: string): Response {
 
 function clearStateAndRedirect(origin: string, request: Request, reason: string): Response {
   const response = oauthRedirect(origin, reason);
-  response.headers.append("Set-Cookie", stateCookie("", request, 0));
+  appendStateCookies(response, "", request, 0);
   return response;
 }
 
@@ -208,6 +307,26 @@ function normalizeDisplayName(value: unknown): string {
   if (typeof value !== "string") return "AI CHANGE 플레이어";
   const normalized = value.trim().replace(/\s+/gu, " ").slice(0, 60);
   return normalized || "AI CHANGE 플레이어";
+}
+
+function normalizeNickname(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
+  const length = Array.from(normalized).length;
+  if (length < MIN_NICKNAME_LENGTH || length > MAX_NICKNAME_LENGTH) return null;
+  if (/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(normalized)) return null;
+  return normalized;
+}
+
+function accountUser(session: Pick<SessionRow, "name" | "nickname">): {
+  name: string;
+  nickname: string | null;
+} {
+  const nickname = normalizeNickname(session.nickname);
+  return {
+    name: nickname ?? normalizeDisplayName(session.name),
+    nickname,
+  };
 }
 
 function normalizeEmail(value: unknown): string | null {
@@ -226,7 +345,7 @@ function statPayload(row: StatsRow): Record<string, number | null> {
     defense: Number(row.defense),
     level,
     experience,
-    nextLevelExperience: level * EXPERIENCE_PER_CLEAR,
+    nextLevelExperience: level * EXPERIENCE_PER_POSTGAME_CLEAR,
     clears: Number(row.clears),
     score: Number(row.score),
     unspentPoints: Number(row.unspent_points),
@@ -245,6 +364,38 @@ async function fetchStats(env: Env, userId: string): Promise<StatsRow> {
   return row;
 }
 
+function combatMaxHp(stats: StatsRow): number {
+  const storedHp = Math.max(BASE_COMBAT_HP, Math.trunc(Number(stats.hp) || BASE_COMBAT_HP));
+  const maxBonusPoints = Math.floor((Number.MAX_SAFE_INTEGER - BASE_COMBAT_HP) / COMBAT_HP_PER_POINT);
+  const bonusPoints = Math.min(
+    maxBonusPoints,
+    Math.floor(Math.max(0, storedHp - BASE_COMBAT_HP) / COMBAT_HP_PER_POINT),
+  );
+  return BASE_COMBAT_HP + bonusPoints * COMBAT_HP_PER_POINT;
+}
+
+function statBossAttackDamage(stats: StatsRow): number {
+  const attackPoints = Math.max(0, Math.trunc(Number(stats.attack) || 0));
+  const compounded = BASE_COMBAT_ATTACK * ((1 + COMBAT_ATTACK_GROWTH) ** attackPoints);
+  const bounded = Math.min(
+    Number.MAX_SAFE_INTEGER,
+    Number.isFinite(compounded) ? compounded : Number.MAX_SAFE_INTEGER,
+  );
+  if (bounded >= Number.MAX_SAFE_INTEGER / COMBAT_VALUE_SCALE) return bounded;
+  return Math.round((bounded + Number.EPSILON) * COMBAT_VALUE_SCALE) / COMBAT_VALUE_SCALE;
+}
+
+function controlBossAttackDamage(stats: StatsRow): number {
+  const attackPoints = Math.max(0, Math.trunc(Number(stats.attack) || 0));
+  const compounded = BASE_COMBAT_ATTACK * ((1 + COMBAT_ATTACK_GROWTH) ** attackPoints);
+  const bounded = Math.min(
+    Number.MAX_SAFE_INTEGER,
+    Number.isFinite(compounded) ? compounded : Number.MAX_SAFE_INTEGER,
+  );
+  if (bounded >= Number.MAX_SAFE_INTEGER / COMBAT_VALUE_SCALE) return bounded;
+  return Math.round((bounded + Number.EPSILON) * COMBAT_VALUE_SCALE) / COMBAT_VALUE_SCALE;
+}
+
 async function fetchCompletedGameIds(env: Env, userId: string): Promise<string[]> {
   const query = await env.DB.prepare(
     `SELECT DISTINCT game_id
@@ -259,21 +410,36 @@ async function fetchCompletedGameIds(env: Env, userId: string): Promise<string[]
     .filter((gameId) => ALLOWED_GAME_IDS.has(gameId));
 }
 
-async function getSession(request: Request, env: Env): Promise<SessionRow | null> {
-  const token = parseCookies(request).get(sessionCookieName(request));
-  if (!token || token.length > 128) return null;
-
-  const tokenHash = await sha256(token);
-  const now = Math.floor(Date.now() / 1000);
-  const session = await env.DB.prepare(
-    `SELECT s.user_id, s.expires_at, u.name
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-      WHERE s.token_hash = ? AND s.expires_at > ?`,
+async function fetchSeenStoryIds(env: Env, userId: string): Promise<string[]> {
+  const query = await env.DB.prepare(
+    `SELECT story_id
+       FROM story_progress
+      WHERE user_id = ?
+      ORDER BY seen_at ASC, story_id ASC`,
   )
-    .bind(tokenHash, now)
-    .first<SessionRow>();
-  return session ?? null;
+    .bind(userId)
+    .all<StoryProgressRow>();
+  return query.results
+    .map((row) => row.story_id)
+    .filter((storyId) => ALLOWED_STORY_IDS.has(storyId));
+}
+
+async function getSession(request: Request, env: Env): Promise<SessionRow | null> {
+  const tokens = cookieCandidates(request, sessionCookieName(request), PARTITIONED_SESSION_COOKIE);
+  if (tokens.length === 0) return null;
+  const now = Math.floor(Date.now() / 1000);
+  for (const token of tokens) {
+    const session = await env.DB.prepare(
+      `SELECT s.user_id, s.expires_at, u.name, u.nickname
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+        WHERE s.token_hash = ? AND s.expires_at > ?`,
+    )
+      .bind(await sha256(token), now)
+      .first<SessionRow>();
+    if (session) return session;
+  }
+  return null;
 }
 
 async function requireSession(request: Request, env: Env): Promise<SessionRow> {
@@ -298,18 +464,23 @@ async function beginGoogleLogin(request: Request, env: Env, origin: string): Pro
   }).toString();
 
   const headers = new Headers({ Location: destination.toString(), "Cache-Control": "no-store" });
-  headers.append("Set-Cookie", stateCookie(state, request, OAUTH_STATE_TTL_SECONDS));
-  return new Response(null, { status: 302, headers });
+  const response = new Response(null, { status: 302, headers });
+  appendStateCookies(response, state, request, OAUTH_STATE_TTL_SECONDS);
+  return response;
 }
 
 async function finishGoogleLogin(request: Request, env: Env, origin: string): Promise<Response> {
   requireMethod(request, "GET");
   const url = new URL(request.url);
-  const expectedState = parseCookies(request).get(stateCookieName(request));
+  const expectedStates = cookieCandidates(
+    request,
+    stateCookieName(request),
+    PARTITIONED_OAUTH_STATE_COOKIE,
+  );
   const suppliedState = url.searchParams.get("state");
   const code = url.searchParams.get("code");
 
-  if (!expectedState || !suppliedState || expectedState !== suppliedState || !code) {
+  if (!suppliedState || !expectedStates.includes(suppliedState) || !code) {
     return clearStateAndRedirect(origin, request, "invalid_oauth_response");
   }
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
@@ -377,8 +548,8 @@ async function finishGoogleLogin(request: Request, env: Env, origin: string): Pr
     ]);
 
     const response = oauthRedirect(origin);
-    response.headers.append("Set-Cookie", sessionCookie(request, sessionToken, SESSION_TTL_SECONDS));
-    response.headers.append("Set-Cookie", stateCookie("", request, 0));
+    appendSessionCookies(response, request, sessionToken, SESSION_TTL_SECONDS);
+    appendStateCookies(response, "", request, 0);
     return response;
   } catch (error) {
     console.error("OAuth callback failed", error instanceof Error ? error.message : "unknown error");
@@ -391,75 +562,149 @@ async function sessionResponse(request: Request, env: Env): Promise<Response> {
   const session = await getSession(request, env);
   if (!session) return json({ authenticated: false });
 
-  const [stats, completedGameIds] = await Promise.all([
+  return authenticatedAccountResponse(env, session);
+}
+
+async function authenticatedAccountResponse(env: Env, session: SessionRow): Promise<Response> {
+  const [stats, completedGameIds, seenStoryIds] = await Promise.all([
     fetchStats(env, session.user_id),
     fetchCompletedGameIds(env, session.user_id),
+    fetchSeenStoryIds(env, session.user_id),
   ]);
   return json({
     authenticated: true,
-    user: { name: normalizeDisplayName(session.name) },
+    user: accountUser(session),
     stats: statPayload(stats),
     completedGameIds,
+    seenStoryIds,
   });
+}
+
+async function importStoryProgress(
+  request: Request,
+  env: Env,
+  origin: string,
+): Promise<Response> {
+  requireMethod(request, "POST");
+  requireMutationRequest(request, origin);
+  const session = await requireSession(request, env);
+  const body = await readJsonObject(request);
+  const input = body.seenStoryIds;
+  if (
+    Object.keys(body).some((key) => key !== "seenStoryIds")
+    || !Array.isArray(input)
+    || input.length > ALLOWED_STORY_IDS.size
+    || input.some((storyId) => typeof storyId !== "string" || !ALLOWED_STORY_IDS.has(storyId))
+  ) {
+    throw new HttpError(400, "Invalid seenStoryIds");
+  }
+
+  const requested = [...new Set(input as string[])];
+  if (requested.length > 0) {
+    await env.DB.batch(requested.map((storyId) => env.DB.prepare(
+      `INSERT OR IGNORE INTO story_progress (user_id, story_id)
+       VALUES (?, ?)`,
+    ).bind(session.user_id, storyId)));
+  }
+  return json({ seenStoryIds: await fetchSeenStoryIds(env, session.user_id) });
+}
+
+async function updateNickname(request: Request, env: Env, origin: string): Promise<Response> {
+  requireMethod(request, "PATCH");
+  requireMutationRequest(request, origin);
+  const session = await requireSession(request, env);
+  const body = await readJsonObject(request);
+  if (Object.keys(body).length !== 1 || !("nickname" in body)) {
+    throw new HttpError(400, "Invalid nickname");
+  }
+
+  const nickname = normalizeNickname(body.nickname);
+  if (!nickname) throw new HttpError(400, "Nickname must be 2 to 16 characters");
+
+  const result = await env.DB.prepare("UPDATE users SET nickname = ? WHERE id = ?")
+    .bind(nickname, session.user_id)
+    .run();
+  if (Number(result.meta.changes ?? 0) !== 1) {
+    throw new HttpError(404, "Account not found");
+  }
+
+  return authenticatedAccountResponse(env, { ...session, nickname });
 }
 
 async function logout(request: Request, env: Env, origin: string): Promise<Response> {
   requireMethod(request, "POST");
   requireMutationRequest(request, origin);
-  const token = parseCookies(request).get(sessionCookieName(request));
-  if (token && token.length <= 128) {
-    await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
+  const tokens = cookieCandidates(request, sessionCookieName(request), PARTITIONED_SESSION_COOKIE);
+  for (const token of tokens) {
+    await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?")
+      .bind(await sha256(token))
+      .run();
   }
   const response = json({ authenticated: false });
-  response.headers.append("Set-Cookie", sessionCookie(request, "", 0));
+  appendSessionCookies(response, request, "", 0);
   return response;
 }
 
 async function ranking(request: Request, env: Env): Promise<Response> {
   requireMethod(request, "GET");
   const params = new URL(request.url).searchParams;
-  const criterion = params.get("criteria") ?? "clears";
-  if (criterion !== "score" && criterion !== "clears") {
+  const criterion = params.get("criteria") ?? "boss-clears";
+  const bossId = params.get("bossId") ?? "";
+  if (criterion !== "boss-clears" && criterion !== "boss-speed") {
     throw new HttpError(400, "Invalid ranking criteria");
   }
+  if (!RANKED_BOSS_IDS.has(bossId)) throw new HttpError(400, "A valid bossId is required");
 
-  let results: Array<{ name: string | null; score: number; clears: number }>;
-  if (criterion === "score") {
-    const gameId = params.get("gameId") ?? "";
-    if (!ALLOWED_GAME_IDS.has(gameId)) throw new HttpError(400, "A valid gameId is required");
-    const query = await env.DB.prepare(
-      `SELECT u.name, MAX(g.score) AS score, s.clears
-         FROM game_results g
-         JOIN users u ON u.id = g.user_id
-         JOIN stats s ON s.user_id = g.user_id
-        WHERE g.game_id = ?
-          AND g.attempt_id NOT LIKE ?
-        GROUP BY u.id, u.name, s.clears, u.created_at
-        ORDER BY score DESC, s.clears DESC, u.created_at ASC
-        LIMIT 10`,
-    )
-      .bind(gameId, `${GUEST_IMPORT_ATTEMPT_PREFIX}%`)
-      .all<{ name: string | null; score: number; clears: number }>();
-    results = query.results;
-  } else {
-    const query = await env.DB.prepare(
-      `SELECT u.name, s.score, s.clears
-         FROM stats s
-         JOIN users u ON u.id = s.user_id
-        ORDER BY s.clears DESC, u.created_at ASC
-        LIMIT 10`,
-    ).all<{ name: string | null; score: number; clears: number }>();
-    results = query.results;
-  }
+  const order = criterion === "boss-clears"
+    ? "clears DESC, created_at ASC, run_id ASC"
+    : "clear_time_ms ASC, created_at ASC, run_id ASC";
+  const rankedOrder = criterion === "boss-clears"
+    ? "created_at DESC, run_id DESC"
+    : "clear_time_ms ASC, created_at ASC, run_id ASC";
+  const query = await env.DB.prepare(
+    `WITH ranked_runs AS (
+       SELECT
+         r.id AS run_id,
+         r.team_name,
+         r.party_size,
+         r.clear_time_ms,
+         r.created_at,
+         COUNT(*) OVER (PARTITION BY r.party_key) AS clears,
+         ROW_NUMBER() OVER (
+           PARTITION BY r.party_key
+           ORDER BY ${rankedOrder}
+         ) AS party_rank
+       FROM boss_runs r
+       WHERE r.boss_id = ?
+     )
+     SELECT run_id, team_name, party_size, clears, clear_time_ms, created_at
+       FROM ranked_runs
+      WHERE party_rank = 1
+      ORDER BY ${order}
+      LIMIT 10`,
+  ).bind(bossId).all<BossRankingRow>();
 
-  return json(
-    results.map((row, index) => ({
+  const memberResults = await Promise.all(query.results.map((row) => env.DB.prepare(
+    `SELECT nickname_snapshot
+       FROM boss_run_members
+      WHERE run_id = ?
+      ORDER BY member_order ASC`,
+  ).bind(row.run_id).all<BossRankingMemberRow>()));
+
+  return json(query.results.map((row, index) => {
+    const members = memberResults[index].results.map((member) => member.nickname_snapshot);
+    const partySize = Math.max(1, Number(row.party_size));
+    return {
       rank: index + 1,
-      name: normalizeDisplayName(row.name),
-      score: Number(row.score),
+      bossId,
+      teamName: row.team_name,
+      name: partySize > 1 ? row.team_name : members[0] ?? row.team_name,
+      members,
+      partySize,
       clears: Number(row.clears),
-    })),
-  );
+      clearTimeMs: Number(row.clear_time_ms),
+    };
+  }));
 }
 
 async function importCompletedProgress(
@@ -511,22 +756,12 @@ async function importCompletedProgress(
         session.user_id,
         gameId,
       ),
-      env.DB.prepare(
-        `UPDATE stats
-            SET clears = COALESCE(clears, 0) + 1,
-                experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR},
-                level = COALESCE(level, 1) + 1,
-                unspent_points = COALESCE(unspent_points, 0) + 1,
-                updated_at = CURRENT_TIMESTAMP
-          WHERE user_id = ?
-            AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
-      ).bind(session.user_id, resultId, session.user_id),
     );
   }
 
   const batchResults = statements.length > 0 ? await env.DB.batch(statements) : [];
   const importedGameIds = missingGameIds.filter(
-    (_gameId, index) => Number(batchResults[index * 2]?.meta.changes ?? 0) === 1,
+    (_gameId, index) => Number(batchResults[index]?.meta.changes ?? 0) === 1,
   );
   const [stats, completedGameIds] = await Promise.all([
     fetchStats(env, session.user_id),
@@ -536,6 +771,7 @@ async function importCompletedProgress(
   return json({
     importedGameIds,
     completedGameIds,
+    awarded: false,
     stats: statPayload(stats),
   });
 }
@@ -563,29 +799,80 @@ async function recordResult(request: Request, env: Env, origin: string): Promise
   }
 
   const resultId = crypto.randomUUID();
-  const [insertResult, awardResult] = await env.DB.batch([
+  const [insertResult] = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO game_results (id, user_id, attempt_id, game_id, status, score)
        VALUES (?, ?, ?, ?, 'CLEAR', ?)
        ON CONFLICT(user_id, attempt_id) DO NOTHING`,
     ).bind(resultId, session.user_id, attemptId, gameId, score),
+  ]);
+
+  const credited = Number(insertResult.meta.changes ?? 0) === 1;
+  const stats = await fetchStats(env, session.user_id);
+  return json(
+    { credited, duplicate: !credited, awarded: false, stats: statPayload(stats) },
+    { status: credited ? 201 : 200 },
+  );
+}
+
+async function recordPostgameResult(
+  request: Request,
+  env: Env,
+  origin: string,
+): Promise<Response> {
+  requireMethod(request, "POST");
+  requireMutationRequest(request, origin);
+  const session = await requireSession(request, env);
+  const body = await readJsonObject(request);
+
+  const attemptId = typeof body.attemptId === "string" ? body.attemptId : "";
+  const battleId = typeof body.battleId === "string" ? body.battleId : "";
+  const status = body.status;
+  const score = body.score;
+  if (!/^[A-Za-z0-9:_-]{8,160}$/u.test(attemptId)) {
+    throw new HttpError(400, "Invalid attemptId");
+  }
+  // Browser-submitted rewards are intentionally limited to the local X-egg
+  // challenge. All three shared bosses are credited by the Durable Object
+  // after it authoritatively observes bossHp reaching zero.
+  if (battleId !== CLIENT_REWARDED_POSTGAME_ID) {
+    throw new HttpError(400, "Invalid battleId");
+  }
+  if (!attemptId.startsWith(`${battleId}:`)) {
+    throw new HttpError(400, "Invalid attemptId");
+  }
+  if (status !== "CLEAR") throw new HttpError(400, "Only CLEAR results are accepted");
+  if (typeof score !== "number" || !Number.isInteger(score) || score < 0 || score > MAX_SCORE) {
+    throw new HttpError(400, "Invalid score");
+  }
+
+  const resultId = crypto.randomUUID();
+  const [insertResult, awardResult] = await env.DB.batch([
     env.DB.prepare(
-      `UPDATE stats
-          SET unspent_points = COALESCE(unspent_points, 0) + 1,
-              updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = ?
-          AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
-    ).bind(session.user_id, resultId, session.user_id),
+      `INSERT INTO postgame_results
+         (id, user_id, attempt_id, content_id, source, status, score, awarded)
+       VALUES (?, ?, ?, ?, 'field', 'CLEAR', ?, 0)
+       ON CONFLICT(user_id, attempt_id) DO NOTHING`,
+    ).bind(resultId, session.user_id, attemptId, battleId, score),
     env.DB.prepare(
       `UPDATE stats
           SET clears = COALESCE(clears, 0) + 1,
-              score = MAX(COALESCE(score, 0), ?),
-              experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_CLEAR},
+              experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_POSTGAME_CLEAR},
               level = COALESCE(level, 1) + 1,
+              unspent_points = COALESCE(unspent_points, 0) + 1,
               updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
-          AND EXISTS (SELECT 1 FROM game_results WHERE id = ? AND user_id = ?)`,
-    ).bind(score, session.user_id, resultId, session.user_id),
+          AND EXISTS (
+            SELECT 1 FROM postgame_results
+             WHERE user_id = ? AND attempt_id = ? AND content_id = ? AND awarded = 0
+          )`,
+    ).bind(session.user_id, session.user_id, attemptId, battleId),
+    env.DB.prepare(
+      `UPDATE postgame_results
+          SET awarded = 1
+        WHERE user_id = ? AND attempt_id = ? AND content_id = ? AND awarded = 0
+          AND EXISTS (SELECT 1 FROM stats WHERE user_id = ?)`,
+    ).bind(session.user_id, attemptId, battleId, session.user_id),
   ]);
 
   const credited = Number(insertResult.meta.changes ?? 0) === 1;
@@ -608,7 +895,7 @@ async function allocateStat(request: Request, env: Env, origin: string): Promise
   const result = await env.DB.prepare(
     `UPDATE stats
         SET attack = COALESCE(attack, 0) + CASE WHEN ? = 'attack' THEN 1 ELSE 0 END,
-            hp = COALESCE(hp, 0) + CASE WHEN ? = 'hp' THEN 1 ELSE 0 END,
+            hp = COALESCE(hp, ${BASE_COMBAT_HP}) + CASE WHEN ? = 'hp' THEN ${COMBAT_HP_PER_POINT} ELSE 0 END,
             defense = COALESCE(defense, 0) + CASE WHEN ? = 'defense' THEN 1 ELSE 0 END,
             unspent_points = COALESCE(unspent_points, 0) - 1,
             updated_at = CURRENT_TIMESTAMP
@@ -633,10 +920,15 @@ async function connectPostgame(request: Request, env: Env, origin: string): Prom
   }
 
   const session = await requireSession(request, env);
+  const stats = await fetchStats(env, session.user_id);
   const headers = new Headers({
     Upgrade: "websocket",
+    "x-ai-player-user-id": session.user_id,
     "x-ai-player-key": await sha256(`postgame:${session.user_id}`),
-    "x-ai-player-name": encodeURIComponent(normalizeDisplayName(session.name)),
+    "x-ai-player-name": encodeURIComponent(accountUser(session).name),
+    "x-ai-player-combat-max-hp": String(combatMaxHp(stats)),
+    "x-ai-player-stat-boss-damage": String(statBossAttackDamage(stats)),
+    "x-ai-player-control-boss-damage": String(controlBossAttackDamage(stats)),
   });
   const coordinator = env.POSTGAME.getByName("festival-v1");
   return coordinator.fetch(new Request("https://postgame.internal/connect", {
@@ -656,12 +948,23 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/auth/google") return beginGoogleLogin(request, env, origin);
   if (url.pathname === "/api/auth/callback") return finishGoogleLogin(request, env, origin);
   if (url.pathname === "/api/auth/logout") return logout(request, env, origin);
-  if (url.pathname === "/api/me" || url.pathname === "/api/session") {
+  // Primary player endpoint. Some browser privacy filters block the conventional
+  // `/api/me` path before it reaches the Worker, so the client uses this route
+  // while the older aliases stay available for backwards compatibility.
+  if (url.pathname === "/api/player-account") {
+    if (request.method === "PATCH") return updateNickname(request, env, origin);
     return sessionResponse(request, env);
   }
+  if (url.pathname === "/api/me") {
+    if (request.method === "PATCH") return updateNickname(request, env, origin);
+    return sessionResponse(request, env);
+  }
+  if (url.pathname === "/api/session") return sessionResponse(request, env);
   if (url.pathname === "/api/ranking") return ranking(request, env);
+  if (url.pathname === "/api/story-progress") return importStoryProgress(request, env, origin);
   if (url.pathname === "/api/progress/import") return importCompletedProgress(request, env, origin);
   if (url.pathname === "/api/results") return recordResult(request, env, origin);
+  if (url.pathname === "/api/postgame/results") return recordPostgameResult(request, env, origin);
   if (url.pathname === "/api/stats/allocate") return allocateStat(request, env, origin);
   if (url.pathname === "/api/postgame/socket") return connectPostgame(request, env, origin);
 

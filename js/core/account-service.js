@@ -1,8 +1,16 @@
 const STAT_KEYS = Object.freeze(["attack", "hp", "defense"]);
-const RANKING_CRITERIA = new Set(["score", "clears"]);
+const RANKING_CRITERIA = new Set(["boss-clears", "boss-speed"]);
+const RANKED_BOSS_IDS = new Set(["stat-boss", "control-boss"]);
+const CLIENT_REWARDED_POSTGAME_IDS = new Set(["xr-egg-trials"]);
 const EMPTY_GAME_IDS = Object.freeze([]);
+const EMPTY_STORY_IDS = Object.freeze([]);
 const ACCOUNT_REQUEST_TIMEOUT_MS = 8_000;
+const SESSION_PATH = "/session";
+const PLAYER_ACCOUNT_PATH = "/player-account";
 const EXPERIENCE_PER_LEVEL = 100;
+const NICKNAME_MIN_LENGTH = 2;
+const NICKNAME_MAX_LENGTH = 16;
+const FORBIDDEN_NICKNAME_CHARACTER = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u;
 
 const EMPTY_STATS = Object.freeze({
   attack: 0,
@@ -28,10 +36,38 @@ function text(value, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+export function normalizeAccountNickname(value) {
+  if (typeof value !== "string") return "";
+  return value.normalize("NFKC").trim().replace(/\s+/gu, " ");
+}
+
+export function validateAccountNickname(value) {
+  const normalizedInput = typeof value === "string" ? value.normalize("NFKC") : "";
+  const nickname = normalizeAccountNickname(value);
+  const length = [...nickname].length;
+  if (length < NICKNAME_MIN_LENGTH || length > NICKNAME_MAX_LENGTH) {
+    return Object.freeze({
+      valid: false,
+      nickname,
+      error: `닉네임은 ${NICKNAME_MIN_LENGTH}자 이상 ${NICKNAME_MAX_LENGTH}자 이하로 입력해 주세요.`,
+    });
+  }
+  if (FORBIDDEN_NICKNAME_CHARACTER.test(normalizedInput)) {
+    return Object.freeze({
+      valid: false,
+      nickname,
+      error: "닉네임에는 제어 문자나 숨김 문자를 사용할 수 없습니다.",
+    });
+  }
+  return Object.freeze({ valid: true, nickname, error: null });
+}
+
 function freezeStats(candidate = {}) {
   const clears = integer(candidate.clears);
-  const legacyExperience = integer(clears * EXPERIENCE_PER_LEVEL);
-  const experience = integer(candidate.experience ?? candidate.xp, legacyExperience);
+  // `clears` is a postgame statistic, not a fallback source of progression.
+  // Keeping the fields independent prevents old/pre-game completion counts
+  // from being interpreted as experience when a partial payload is received.
+  const experience = integer(candidate.experience ?? candidate.xp, 0);
   const derivedLevel = 1 + Math.floor(experience / EXPERIENCE_PER_LEVEL);
   const level = Math.max(1, integer(candidate.level, derivedLevel));
   const nextLevelExperience = integer(
@@ -58,6 +94,13 @@ function freezeCompletedGameIds(candidate) {
   ]);
 }
 
+function freezeSeenStoryIds(candidate) {
+  if (!Array.isArray(candidate)) return Object.freeze([]);
+  return Object.freeze([
+    ...new Set(candidate.filter((id) => typeof id === "string" && id.length > 0)),
+  ]);
+}
+
 function findStats(payload) {
   const candidates = [
     payload?.stats,
@@ -75,15 +118,24 @@ function frozenState({
   user = null,
   stats,
   completedGameIds = [],
+  seenStoryIds = [],
   error = null,
 }) {
+  const normalizedNickname = text(user?.nickname);
+  const publicUser = user
+    ? {
+        name: text(user.name ?? user.displayName ?? normalizedNickname, "플레이어"),
+        ...(normalizedNickname ? { nickname: normalizedNickname } : {}),
+      }
+    : null;
   return Object.freeze({
     status,
     authenticated,
     available,
-    user: user ? Object.freeze({ name: text(user.name ?? user.displayName, "플레이어") }) : null,
+    user: publicUser ? Object.freeze(publicUser) : null,
     stats: stats ? freezeStats(stats) : EMPTY_STATS,
     completedGameIds: freezeCompletedGameIds(completedGameIds),
+    seenStoryIds: freezeSeenStoryIds(seenStoryIds),
     error,
   });
 }
@@ -103,6 +155,7 @@ function sessionState(payload) {
     user: user ?? { name: payload?.name },
     stats: findStats(payload) ?? EMPTY_STATS,
     completedGameIds: payload?.completedGameIds,
+    seenStoryIds: payload?.seenStoryIds,
   });
 }
 
@@ -131,13 +184,17 @@ export class AccountService {
   #state = frozenState({ status: "idle", available: true });
   #refreshPromise = null;
   #importPromise = null;
+  #storyImportPromise = null;
   #authGeneration = 0;
 
   constructor({ fetchImpl = globalThis.fetch, apiBase = "/api" } = {}) {
     if (typeof fetchImpl !== "function") {
       throw new TypeError("AccountService requires fetch.");
     }
-    this.#fetch = fetchImpl;
+    // Browser-native fetch is a Web API method and must keep the global object
+    // as its receiver. Calling a detached fetch as `this.#fetch(...)` can throw
+    // `Illegal invocation` in Chromium/WebView even though the server is healthy.
+    this.#fetch = fetchImpl.bind(globalThis);
     this.#apiBase = String(apiBase).replace(/\/$/u, "");
   }
 
@@ -175,6 +232,7 @@ export class AccountService {
       user: this.#state.user,
       stats: this.#state.stats,
       completedGameIds: this.#state.completedGameIds,
+      seenStoryIds: this.#state.seenStoryIds,
     }));
     return this.#refreshPromise;
   }
@@ -193,29 +251,38 @@ export class AccountService {
     }
   }
 
-  async getRanking(criteria = "clears", { signal, gameId = null } = {}) {
+  async getRanking(criteria = "boss-clears", { signal, bossId = null } = {}) {
     if (!RANKING_CRITERIA.has(criteria)) {
       throw new RangeError(`지원하지 않는 랭킹 기준입니다: ${criteria}`);
     }
-    const params = new URLSearchParams({ criteria });
-    if (criteria === "score") {
-      const normalizedGameId = text(gameId);
-      if (!normalizedGameId) {
-        throw new TypeError("점수 랭킹에는 gameId가 필요합니다.");
-      }
-      params.set("gameId", normalizedGameId);
+    const normalizedBossId = text(bossId);
+    if (!RANKED_BOSS_IDS.has(normalizedBossId)) {
+      throw new TypeError("보스 랭킹에는 스탯 보스 또는 컨트롤 보스 식별자가 필요합니다.");
     }
+    const params = new URLSearchParams({ criteria, bossId: normalizedBossId });
     const payload = await this.#request(`/ranking?${params.toString()}`, { signal });
     const rows = Array.isArray(payload)
       ? payload
       : payload?.ranking ?? payload?.rankings ?? payload?.results ?? payload?.data ?? [];
     if (!Array.isArray(rows)) return Object.freeze([]);
-    return Object.freeze(rows.map((row, index) => Object.freeze({
-      rank: integer(row?.rank ?? row?.ranking ?? index + 1, index + 1),
-      name: text(row?.name ?? row?.displayName ?? row?.user_name, "익명 플레이어"),
-      score: integer(row?.score),
-      clears: integer(row?.clears),
-    })));
+    return Object.freeze(rows.map((row, index) => {
+      const members = Array.isArray(row?.members)
+        ? row.members.map((member) => text(
+          typeof member === "string" ? member : member?.name ?? member?.nickname,
+        )).filter(Boolean).slice(0, 5)
+        : [];
+      const partySize = Math.max(1, Math.min(5, integer(row?.partySize ?? row?.party_size, members.length || 1)));
+      return Object.freeze({
+        rank: integer(row?.rank ?? row?.ranking ?? index + 1, index + 1),
+        bossId: text(row?.bossId ?? row?.boss_id, normalizedBossId),
+        name: text(row?.name ?? row?.teamName ?? row?.team_name, members[0] ?? "익명 플레이어"),
+        teamName: text(row?.teamName ?? row?.team_name),
+        members: Object.freeze(members),
+        partySize,
+        clears: integer(row?.clears),
+        clearTimeMs: integer(row?.clearTimeMs ?? row?.clear_time_ms),
+      });
+    }));
   }
 
   async importCompletedGameIds(candidate = []) {
@@ -303,6 +370,42 @@ export class AccountService {
     });
   }
 
+  async recordPostgameClear({ attemptId, battleId, status, score = null } = {}) {
+    if (status !== "CLEAR") {
+      return Object.freeze({ submitted: false, reason: "not-clear" });
+    }
+    if (!text(attemptId) || !CLIENT_REWARDED_POSTGAME_IDS.has(text(battleId))) {
+      throw new TypeError("X알 클리어 기록에는 올바른 attemptId와 battleId가 필요합니다.");
+    }
+
+    if (this.#state.status === "idle" || this.#state.status === "loading") {
+      await this.refreshSession();
+    }
+    if (!this.#state.authenticated) {
+      return Object.freeze({ submitted: false, reason: "guest" });
+    }
+
+    const authGeneration = this.#authGeneration;
+    const payload = await this.#request("/postgame/results", {
+      method: "POST",
+      body: {
+        attemptId,
+        battleId,
+        status: "CLEAR",
+        score: Number.isFinite(score) ? score : 0,
+      },
+    });
+    await this.#applyStatsOrRefresh(payload, { authGeneration });
+    return Object.freeze({
+      submitted: true,
+      duplicate:
+        payload?.duplicate === true || payload?.created === false || payload?.credited === false,
+      awarded:
+        payload?.awarded !== false && payload?.duplicate !== true && payload?.credited !== false,
+      stats: this.#state.stats,
+    });
+  }
+
   async allocateStat(stat) {
     if (!STAT_KEYS.includes(stat)) {
       throw new RangeError(`지원하지 않는 스탯입니다: ${stat}`);
@@ -323,9 +426,108 @@ export class AccountService {
     return this.#state.stats;
   }
 
+  async importSeenStoryIds(candidate = []) {
+    const requestedStoryIds = freezeSeenStoryIds(candidate);
+    if (requestedStoryIds.length === 0) {
+      return Object.freeze({ submitted: false, reason: "empty", seenStoryIds: EMPTY_STORY_IDS });
+    }
+
+    if (this.#storyImportPromise) {
+      await this.#storyImportPromise;
+      return this.importSeenStoryIds(requestedStoryIds);
+    }
+
+    const run = Promise.resolve().then(() => this.#importSeenStoryIds(requestedStoryIds));
+    const tracked = run.finally(() => {
+      if (this.#storyImportPromise === tracked) this.#storyImportPromise = null;
+    });
+    this.#storyImportPromise = tracked;
+    return tracked;
+  }
+
+  async markStorySeen(storyId) {
+    const normalized = text(storyId);
+    if (!normalized) throw new TypeError("스토리 식별자가 필요합니다.");
+    return this.importSeenStoryIds([normalized]);
+  }
+
+  async #importSeenStoryIds(requestedStoryIds) {
+    if (this.#state.status === "idle" || this.#state.status === "loading") {
+      await this.refreshSession();
+    }
+    if (!this.#state.authenticated) {
+      return Object.freeze({ submitted: false, reason: "guest", seenStoryIds: EMPTY_STORY_IDS });
+    }
+
+    const existing = new Set(this.#state.seenStoryIds);
+    const missing = requestedStoryIds.filter((storyId) => !existing.has(storyId));
+    if (missing.length === 0) {
+      return Object.freeze({
+        submitted: false,
+        reason: "up-to-date",
+        seenStoryIds: this.#state.seenStoryIds,
+      });
+    }
+
+    const authGeneration = this.#authGeneration;
+    const payload = await this.#request("/story-progress", {
+      method: "POST",
+      body: { seenStoryIds: missing },
+    });
+    if (authGeneration !== this.#authGeneration || !this.#state.authenticated) {
+      return Object.freeze({ submitted: false, reason: "session-changed", seenStoryIds: EMPTY_STORY_IDS });
+    }
+    const seenStoryIds = freezeSeenStoryIds(payload?.seenStoryIds);
+    this.#setState(frozenState({
+      status: "authenticated",
+      authenticated: true,
+      available: this.#state.available,
+      user: this.#state.user,
+      stats: this.#state.stats,
+      completedGameIds: this.#state.completedGameIds,
+      seenStoryIds,
+    }));
+    return Object.freeze({ submitted: true, seenStoryIds });
+  }
+
+  async updateNickname(candidate) {
+    if (!this.#state.authenticated) {
+      throw new AccountServiceError("닉네임을 저장하려면 먼저 로그인해 주세요.", {
+        status: 401,
+        code: "AUTH_REQUIRED",
+      });
+    }
+    const validation = validateAccountNickname(candidate);
+    if (!validation.valid) {
+      throw new AccountServiceError(validation.error, {
+        status: 400,
+        code: "INVALID_NICKNAME",
+      });
+    }
+
+    const authGeneration = this.#authGeneration;
+    const payload = await this.#request(PLAYER_ACCOUNT_PATH, {
+      method: "PATCH",
+      body: { nickname: validation.nickname },
+    });
+    if (authGeneration !== this.#authGeneration) return this.#state.user;
+
+    const next = sessionState(payload);
+    if (!next.authenticated) {
+      throw new AccountServiceError("닉네임을 저장한 뒤 계정 정보를 확인하지 못했습니다.", {
+        code: "INVALID_RESPONSE",
+      });
+    }
+    this.#setState(next);
+    return this.#state.user;
+  }
+
   async #loadSession(authGeneration, timeoutMs) {
     try {
-      const payload = await this.#request("/me", { allowUnauthorized: true, timeoutMs });
+      const payload = await this.#request(SESSION_PATH, {
+        allowUnauthorized: true,
+        timeoutMs,
+      });
       const next = payload === null ? guestState() : sessionState(payload);
       if (authGeneration !== this.#authGeneration) return this.#state;
       if (this.#state.authenticated && !next.authenticated) this.#authGeneration += 1;
@@ -375,6 +577,7 @@ export class AccountService {
         user: this.#state.user,
         stats,
         completedGameIds: [...completedGameIds],
+        seenStoryIds: this.#state.seenStoryIds,
       }));
       return;
     }

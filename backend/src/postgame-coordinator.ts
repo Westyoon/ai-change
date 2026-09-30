@@ -9,6 +9,8 @@ const DEFAULT_ROOM_NAME = "보스 대기실";
 const ZONES = ["entry-field", "plaza"] as const;
 const DIRECTIONS = ["up", "down", "left", "right"] as const;
 const BATTLE_IDS = ["data-sphinx", "stat-boss", "control-boss"] as const;
+const RANKED_BATTLE_IDS = ["stat-boss", "control-boss"] as const;
+const EXPERIENCE_PER_POSTGAME_CLEAR = 100;
 
 type Zone = (typeof ZONES)[number];
 type Direction = (typeof DIRECTIONS)[number];
@@ -23,25 +25,33 @@ interface BattleRule {
 
 const BATTLE_RULES = {
   "data-sphinx": { bossMaxHp: 100, hitDamage: 10, hitCooldownMs: 500 },
-  "stat-boss": { bossMaxHp: 1_000, hitDamage: 10, hitCooldownMs: 250 },
-  "control-boss": { bossMaxHp: 1_000, hitDamage: 40, hitCooldownMs: 350 },
+  "stat-boss": { bossMaxHp: 1_000, hitDamage: 10, hitCooldownMs: 1_000 },
+  "control-boss": { bossMaxHp: 1_000, hitDamage: 10, hitCooldownMs: 1_000 },
 } as const satisfies Record<BattleId, BattleRule>;
 
 const BATTLE_HIT_KINDS = {
-  "data-sphinx": "correct-answer",
-  "stat-boss": "counter-hit",
-  "control-boss": "boss-hit",
-} as const satisfies Record<BattleId, string>;
+  "data-sphinx": ["correct-answer"],
+  "stat-boss": ["counter-hit"],
+  "control-boss": ["control-attack", "control-gimmick"],
+} as const satisfies Record<BattleId, readonly string[]>;
 
 const MAX_ACTION_ID_LENGTH = 64;
 const MAX_HIT_KIND_LENGTH = 32;
 const MAX_RECENT_ACTION_IDS = 32;
 const MAX_BATTLE_SEED_LENGTH = 128;
+const MAX_PLAYER_HP = Number.MAX_SAFE_INTEGER;
+const MAX_STAT_BOSS_DAMAGE = Number.MAX_SAFE_INTEGER;
+const MAX_CONTROL_BOSS_DAMAGE = Number.MAX_SAFE_INTEGER;
+const CONTROL_GIMMICK_COOLDOWN_MS = 10_000;
+const COMBAT_VALUE_SCALE = 1_000_000;
 const ABANDONED_BATTLE_GRACE_MS = 15 * 60 * 1_000;
 const FINISHED_BATTLE_RETENTION_MS = 5 * 60 * 1_000;
+const BOSS_PERSISTENCE_RETRY_MS = 30 * 1_000;
 
 interface SocketAttachment {
   version: 1;
+  /** Server-injected account id. It is never included in a public payload. */
+  userId?: string;
   playerKey: string;
   playerId: string;
   name: string;
@@ -54,6 +64,9 @@ interface SocketAttachment {
   rateWindowStartedAt: number;
   rateCount: number;
   lastPresenceAt: number;
+  combatMaxHp?: number;
+  statBossAttackDamage?: number;
+  controlBossAttackDamage?: number;
   disconnected?: boolean;
 }
 
@@ -70,14 +83,21 @@ interface RoomRecord {
 }
 
 interface BattleMemberRecord {
+  /** Null only for a battle restored from the pre-ranking schema. */
+  userId: string | null;
   playerKey: string;
   publicId: string;
   name: string;
   ready: boolean;
   connected: boolean;
   left: boolean;
+  hp: number | null;
+  maxHp: number | null;
   lastHitAt: number;
+  lastGimmickAt: number;
   recentActionIds: string[];
+  statBossAttackDamage: number;
+  controlBossAttackDamage: number;
 }
 
 interface BattleRecord {
@@ -92,10 +112,24 @@ interface BattleRecord {
   hitCooldownMs: number;
   revision: number;
   startedAt: number;
+  /** First moment at which every connected member was ready. */
+  combatStartedAt: number | null;
   finishedAt: number | null;
   lastActivityAt: number;
   allDisconnectedAt: number | null;
+  /** Frozen authenticated roster at the exact server-authoritative victory. */
+  rewardUserIds?: string[];
+  rewardRecorded?: boolean;
+  rankingRecorded?: boolean;
   members: BattleMemberRecord[];
+}
+
+interface PostgameEnv {
+  DB?: D1Database;
+}
+
+interface AwardedPostgameResultRow {
+  user_id: string;
 }
 
 interface PublicPlayer {
@@ -129,6 +163,9 @@ interface PublicBattlePlayer {
   name: string;
   ready: boolean;
   connected: boolean;
+  hp: number | null;
+  maxHp: number | null;
+  alive: boolean;
 }
 
 interface PublicBattle {
@@ -141,7 +178,9 @@ interface PublicBattle {
   revision: number;
   allReady: boolean;
   roster: PublicBattlePlayer[];
-  result?: { outcome: "victory"; reason: "boss-defeated" };
+  result?:
+    | { outcome: "victory"; reason: "boss-defeated" }
+    | { outcome: "defeat"; reason: "party-defeated" };
   startedAt: number;
   finishedAt?: number;
 }
@@ -160,6 +199,7 @@ type ClientMessage =
   | { type: "room.leave" }
   | { type: "room.start" }
   | { type: "battle.ready"; roomId: string }
+  | { type: "battle.health"; roomId: string; hp: number; maxHp: number }
   | { type: "battle.hit"; roomId: string; kind: string; actionId: string }
   | { type: "battle.leave"; roomId: string };
 
@@ -201,6 +241,10 @@ function isProtocolIdentifier(value: unknown, maxLength: number): value is strin
     value.length <= maxLength &&
     /^[A-Za-z0-9._:-]+$/.test(value)
   );
+}
+
+function isInternalUserId(value: unknown): value is string {
+  return typeof value === "string" && value.length >= 1 && value.length <= 128;
 }
 
 function normalizeRoomName(raw: string): string {
@@ -292,6 +336,28 @@ function parseClientMessage(raw: string): ClientMessage {
       }
       return { type: parsed.type, roomId: parsed.roomId };
 
+    case "battle.health":
+      if (
+        !hasExactKeys(parsed, ["type", "roomId", "hp", "maxHp"]) ||
+        !isRoomId(parsed.roomId) ||
+        typeof parsed.hp !== "number" ||
+        !Number.isFinite(parsed.hp) ||
+        parsed.hp < 0 ||
+        typeof parsed.maxHp !== "number" ||
+        !Number.isInteger(parsed.maxHp) ||
+        parsed.maxHp < 1 ||
+        parsed.maxHp > MAX_PLAYER_HP ||
+        parsed.hp > parsed.maxHp
+      ) {
+        throw new ProtocolError("invalid_battle_health", "플레이어 체력 정보가 올바르지 않습니다.");
+      }
+      return {
+        type: parsed.type,
+        roomId: parsed.roomId,
+        hp: roundCombatValue(parsed.hp),
+        maxHp: parsed.maxHp,
+      };
+
     case "battle.hit":
       if (
         !hasExactKeys(parsed, ["type", "roomId", "kind", "actionId"]) ||
@@ -326,6 +392,7 @@ function isSocketAttachment(value: unknown): value is SocketAttachment {
   if (!isRecord(value)) return false;
   return (
     value.version === 1 &&
+    (value.userId === undefined || isInternalUserId(value.userId)) &&
     typeof value.playerKey === "string" &&
     typeof value.playerId === "string" &&
     typeof value.name === "string" &&
@@ -337,8 +404,58 @@ function isSocketAttachment(value: unknown): value is SocketAttachment {
     (value.roomId === null || typeof value.roomId === "string") &&
     typeof value.rateWindowStartedAt === "number" &&
     typeof value.rateCount === "number" &&
-    typeof value.lastPresenceAt === "number"
+    typeof value.lastPresenceAt === "number" &&
+    (
+      value.combatMaxHp === undefined
+      || (typeof value.combatMaxHp === "number"
+        && Number.isSafeInteger(value.combatMaxHp)
+        && value.combatMaxHp >= 1
+        && value.combatMaxHp <= MAX_PLAYER_HP)
+    ) && (
+      value.statBossAttackDamage === undefined
+      || (typeof value.statBossAttackDamage === "number"
+        && Number.isFinite(value.statBossAttackDamage)
+        && value.statBossAttackDamage > 0
+        && value.statBossAttackDamage <= MAX_STAT_BOSS_DAMAGE)
+    ) && (
+      value.controlBossAttackDamage === undefined
+      || (typeof value.controlBossAttackDamage === "number"
+        && Number.isFinite(value.controlBossAttackDamage)
+        && value.controlBossAttackDamage > 0
+        && value.controlBossAttackDamage <= MAX_CONTROL_BOSS_DAMAGE)
+    )
   );
+}
+
+function roundCombatValue(value: number): number {
+  if (Math.abs(value) >= Number.MAX_SAFE_INTEGER / COMBAT_VALUE_SCALE) return value;
+  return Math.round((value + Number.EPSILON) * COMBAT_VALUE_SCALE) / COMBAT_VALUE_SCALE;
+}
+
+function initialBattlePlayerMaxHp(battleId: BattleId, attachment: SocketAttachment): number {
+  if (battleId === "data-sphinx") return 100;
+  const combatMaxHp = Number(attachment.combatMaxHp);
+  return Number.isSafeInteger(combatMaxHp) && combatMaxHp >= 1
+    ? Math.min(MAX_PLAYER_HP, combatMaxHp)
+    : 100;
+}
+
+function initialStatBossAttackDamage(attachment: SocketAttachment): number {
+  const damage = Number(attachment.statBossAttackDamage);
+  return Number.isFinite(damage) && damage > 0
+    ? Math.min(MAX_STAT_BOSS_DAMAGE, roundCombatValue(damage))
+    : BATTLE_RULES["stat-boss"].hitDamage;
+}
+
+function initialControlBossAttackDamage(attachment: SocketAttachment): number {
+  const damage = Number(attachment.controlBossAttackDamage);
+  return Number.isFinite(damage) && damage > 0
+    ? Math.min(MAX_CONTROL_BOSS_DAMAGE, roundCombatValue(damage))
+    : BATTLE_RULES["control-boss"].hitDamage;
+}
+
+function isAllowedBattleHitKind(battleId: BattleId, kind: string): boolean {
+  return (BATTLE_HIT_KINDS[battleId] as readonly string[]).includes(kind);
 }
 
 function sanitizeRoom(value: unknown): RoomRecord | null {
@@ -396,14 +513,41 @@ function sanitizeBattleMember(value: unknown): BattleMemberRecord | null {
     return null;
   }
   return {
+    userId: isInternalUserId(value.userId) ? value.userId : null,
     playerKey: value.playerKey,
     publicId: value.publicId,
     name: normalizeName(value.name),
     ready: value.ready,
     connected: value.connected,
     left: value.left,
+    hp: typeof value.hp === "number" && Number.isFinite(value.hp) && value.hp >= 0
+      && typeof value.maxHp === "number" && Number.isSafeInteger(value.maxHp)
+      && value.maxHp >= 1 && value.maxHp <= MAX_PLAYER_HP && value.hp <= value.maxHp
+      ? roundCombatValue(value.hp)
+      : null,
+    maxHp: typeof value.hp === "number" && Number.isFinite(value.hp) && value.hp >= 0
+      && typeof value.maxHp === "number" && Number.isSafeInteger(value.maxHp)
+      && value.maxHp >= 1 && value.maxHp <= MAX_PLAYER_HP && value.hp <= value.maxHp
+      ? value.maxHp
+      : null,
     lastHitAt: Math.max(0, value.lastHitAt),
+    lastGimmickAt:
+      typeof value.lastGimmickAt === "number" && Number.isFinite(value.lastGimmickAt)
+        ? Math.max(0, value.lastGimmickAt)
+        : 0,
     recentActionIds: [...new Set(value.recentActionIds)].slice(-MAX_RECENT_ACTION_IDS),
+    statBossAttackDamage:
+      typeof value.statBossAttackDamage === "number"
+      && Number.isFinite(value.statBossAttackDamage)
+      && value.statBossAttackDamage > 0
+        ? Math.min(MAX_STAT_BOSS_DAMAGE, roundCombatValue(value.statBossAttackDamage))
+        : BATTLE_RULES["stat-boss"].hitDamage,
+    controlBossAttackDamage:
+      typeof value.controlBossAttackDamage === "number"
+      && Number.isFinite(value.controlBossAttackDamage)
+      && value.controlBossAttackDamage > 0
+        ? Math.min(MAX_CONTROL_BOSS_DAMAGE, roundCombatValue(value.controlBossAttackDamage))
+        : BATTLE_RULES["control-boss"].hitDamage,
   };
 }
 
@@ -437,9 +581,15 @@ function sanitizeBattle(value: unknown): BattleRecord | null {
   if (uniqueMembers.length === 0) return null;
 
   const rule = BATTLE_RULES[value.battleId];
-  const bossHp = Math.max(0, Math.min(rule.bossMaxHp, Math.floor(value.bossHp)));
+  const bossHp = Math.max(0, Math.min(rule.bossMaxHp, roundCombatValue(value.bossHp)));
   const status: BattleStatus = bossHp === 0 || value.status === "finished" ? "finished" : "running";
   const finishedAt = status === "finished" ? value.finishedAt ?? value.startedAt : null;
+  const combatStartedAt =
+    typeof value.combatStartedAt === "number"
+    && Number.isFinite(value.combatStartedAt)
+    && value.combatStartedAt >= value.startedAt
+      ? value.combatStartedAt
+      : null;
   const lastActivityAt =
     typeof value.lastActivityAt === "number" && Number.isFinite(value.lastActivityAt)
       ? Math.max(value.startedAt, value.lastActivityAt)
@@ -451,21 +601,28 @@ function sanitizeBattle(value: unknown): BattleRecord | null {
   const seed = isProtocolIdentifier(value.seed, MAX_BATTLE_SEED_LENGTH)
     ? value.seed
     : `legacy:${value.roomId}:${Math.floor(value.startedAt)}`;
+  const rewardUserIds = Array.isArray(value.rewardUserIds)
+    ? [...new Set(value.rewardUserIds.filter(isInternalUserId))].slice(0, 5)
+    : null;
   return {
     version: 1,
     roomId: value.roomId,
     battleId: value.battleId,
     seed,
     status,
-    bossHp: status === "finished" ? 0 : bossHp,
+    bossHp,
     bossMaxHp: rule.bossMaxHp,
     hitDamage: rule.hitDamage,
     hitCooldownMs: rule.hitCooldownMs,
     revision: value.revision,
     startedAt: value.startedAt,
+    combatStartedAt,
     finishedAt,
     lastActivityAt,
     allDisconnectedAt: status === "running" ? allDisconnectedAt : null,
+    ...(rewardUserIds ? { rewardUserIds } : {}),
+    rewardRecorded: value.rewardRecorded === true,
+    rankingRecorded: value.rankingRecorded === true,
     members: uniqueMembers,
   };
 }
@@ -473,7 +630,7 @@ function sanitizeBattle(value: unknown): BattleRecord | null {
 /**
  * Coordinates the shared postgame world and boss lobbies. The outer Worker must
  * authenticate the request before forwarding it and must replace (not forward)
- * both x-ai-player-* headers.
+ * all x-ai-player-* headers.
  */
 export class PostgameCoordinator {
   private rooms = new Map<string, RoomRecord>();
@@ -482,7 +639,10 @@ export class PostgameCoordinator {
   private readonly ready: Promise<void>;
   private roomMutationQueue: Promise<void> = Promise.resolve();
 
-  constructor(private readonly ctx: DurableObjectState) {
+  constructor(
+    private readonly ctx: DurableObjectState,
+    private readonly env: PostgameEnv = {},
+  ) {
     this.ready = this.ctx.blockConcurrencyWhile(async () => {
       const [storedRooms, storedBattles, storedAlarm] = await Promise.all([
         this.ctx.storage.get<unknown>(ROOM_STORAGE_KEY),
@@ -514,8 +674,26 @@ export class PostgameCoordinator {
     }
 
     const playerKey = request.headers.get("x-ai-player-key")?.trim() ?? "";
+    const userId = request.headers.get("x-ai-player-user-id")?.trim() ?? "";
     const encodedName = request.headers.get("x-ai-player-name") ?? "";
-    if (!playerKey || playerKey.length > 256 || encodedName.length > 1_024) {
+    const combatMaxHp = Number(request.headers.get("x-ai-player-combat-max-hp"));
+    const statBossAttackDamage = Number(request.headers.get("x-ai-player-stat-boss-damage"));
+    const controlBossAttackDamage = Number(request.headers.get("x-ai-player-control-boss-damage"));
+    if (
+      !playerKey
+      || !isInternalUserId(userId)
+      || playerKey.length > 256
+      || encodedName.length > 1_024
+      || !Number.isSafeInteger(combatMaxHp)
+      || combatMaxHp < 1
+      || combatMaxHp > MAX_PLAYER_HP
+      || !Number.isFinite(statBossAttackDamage)
+      || statBossAttackDamage <= 0
+      || statBossAttackDamage > MAX_STAT_BOSS_DAMAGE
+      || !Number.isFinite(controlBossAttackDamage)
+      || controlBossAttackDamage <= 0
+      || controlBossAttackDamage > MAX_CONTROL_BOSS_DAMAGE
+    ) {
       return Response.json({ error: "Authenticated player headers required" }, { status: 401 });
     }
     let rawName: string;
@@ -533,6 +711,7 @@ export class PostgameCoordinator {
     const now = Date.now();
     const attachment: SocketAttachment = {
       version: 1,
+      userId,
       playerKey,
       playerId: crypto.randomUUID(),
       name: normalizeName(rawName),
@@ -545,6 +724,9 @@ export class PostgameCoordinator {
       rateWindowStartedAt: now,
       rateCount: 0,
       lastPresenceAt: 0,
+      combatMaxHp,
+      statBossAttackDamage: roundCombatValue(statBossAttackDamage),
+      controlBossAttackDamage: roundCombatValue(controlBossAttackDamage),
     };
 
     server.serializeAttachment(attachment);
@@ -595,8 +777,12 @@ export class PostgameCoordinator {
       return;
     }
 
+    let requestType: ClientMessage["type"] | null = null;
+    let requestRoomId: string | null = null;
     try {
       const parsed = parseClientMessage(message);
+      requestType = parsed.type;
+      requestRoomId = "roomId" in parsed ? parsed.roomId : null;
       if (parsed.type !== "presence.update") {
         await this.enqueueRoomMutation(() => this.cleanupExpiredBattles(Date.now()));
       }
@@ -621,6 +807,11 @@ export class PostgameCoordinator {
         case "battle.ready":
           await this.enqueueRoomMutation(() => this.readyBattle(socket, attachment, parsed.roomId));
           return;
+        case "battle.health":
+          await this.enqueueRoomMutation(() =>
+            this.updateBattleHealth(socket, attachment, parsed.roomId, parsed.hp, parsed.maxHp),
+          );
+          return;
         case "battle.hit":
           await this.enqueueRoomMutation(() =>
             this.hitBattle(socket, attachment, parsed.roomId, parsed.kind, parsed.actionId),
@@ -632,11 +823,14 @@ export class PostgameCoordinator {
       }
     } catch (error) {
       if (error instanceof ProtocolError) {
-        this.sendError(socket, error.code, error.message);
+        this.sendError(socket, error.code, error.message, { requestType, roomId: requestRoomId });
         return;
       }
       console.error("postgame websocket message failed", error);
-      this.sendError(socket, "server_error", "서버에서 요청을 처리하지 못했습니다.");
+      this.sendError(socket, "server_error", "서버에서 요청을 처리하지 못했습니다.", {
+        requestType,
+        roomId: requestRoomId,
+      });
     }
   }
 
@@ -870,19 +1064,29 @@ export class PostgameCoordinator {
       hitCooldownMs: rule.hitCooldownMs,
       revision: 1,
       startedAt,
+      combatStartedAt: null,
       finishedAt: null,
       lastActivityAt: startedAt,
       allDisconnectedAt: null,
-      members: participants.map(({ attachment: member }) => ({
-        playerKey: member.playerKey,
-        publicId: member.playerId,
-        name: member.name,
-        ready: false,
-        connected: true,
-        left: false,
-        lastHitAt: 0,
-        recentActionIds: [],
-      })),
+      members: participants.map(({ attachment: member }) => {
+        const maxHp = initialBattlePlayerMaxHp(room.battleId, member);
+        return {
+          userId: member.userId ?? null,
+          playerKey: member.playerKey,
+          publicId: member.playerId,
+          name: member.name,
+          ready: false,
+          connected: true,
+          left: false,
+          hp: maxHp,
+          maxHp,
+          statBossAttackDamage: initialStatBossAttackDamage(member),
+          controlBossAttackDamage: initialControlBossAttackDamage(member),
+          lastHitAt: 0,
+          lastGimmickAt: 0,
+          recentActionIds: [],
+        };
+      }),
     };
     room.status = "started";
     room.memberPlayerIds = battle.members.map((member) => member.publicId);
@@ -942,17 +1146,76 @@ export class PostgameCoordinator {
       this.sendBattleEvent(socket, "battle.snapshot", battle);
       return;
     }
+    if (member.hp === 0) {
+      this.sendBattleEvent(socket, "battle.snapshot", battle);
+      return;
+    }
 
+    let changed = false;
     if (!member.ready || !member.connected || member.name !== attachment.name) {
       member.ready = true;
       member.connected = true;
       member.name = attachment.name;
       battle.revision += 1;
       this.touchBattle(battle);
-      await this.persistBattles();
+      changed = true;
     }
+    if (battle.combatStartedAt === null && this.battleAllReady(battle)) {
+      battle.combatStartedAt = Date.now();
+      battle.revision += 1;
+      changed = true;
+    }
+    if (changed) await this.persistBattles();
     this.sendBattleEvent(socket, "battle.snapshot", battle);
     this.broadcastBattleEvent(battle, "battle.updated");
+  }
+
+  private async updateBattleHealth(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    roomId: string,
+    hp: number,
+    maxHp: number,
+  ): Promise<void> {
+    const { battle, member } = this.battleMembership(attachment, roomId);
+    if (battle.status !== "running") {
+      this.sendBattleEvent(socket, "battle.snapshot", battle);
+      return;
+    }
+    if (!member.ready || !member.connected) {
+      throw new ProtocolError("battle_not_ready", "전투 준비가 완료되지 않았습니다.");
+    }
+    if (member.hp === 0 && hp > 0) {
+      throw new ProtocolError("battle_member_defeated", "전투 중에는 쓰러진 파티원이 부활할 수 없습니다.");
+    }
+    if (member.maxHp !== null && member.maxHp !== maxHp) {
+      throw new ProtocolError("battle_health_mismatch", "전투 중 최대 체력은 변경할 수 없습니다.");
+    }
+    const nextHp = member.hp === null ? hp : Math.min(member.hp, hp);
+    const nextMaxHp = member.maxHp ?? maxHp;
+    if (member.hp === nextHp && member.maxHp === nextMaxHp) {
+      this.sendBattleEvent(socket, "battle.snapshot", battle);
+      return;
+    }
+
+    member.hp = nextHp;
+    member.maxHp = nextMaxHp;
+    if (nextHp === 0) member.ready = false;
+    battle.revision += 1;
+    const now = Date.now();
+    this.touchBattle(battle, now);
+    const activeMembers = battle.members.filter((candidate) => !candidate.left);
+    if (
+      activeMembers.length > 0
+      && activeMembers.every((candidate) => candidate.hp === 0)
+    ) {
+      battle.status = "finished";
+      battle.finishedAt = now;
+      battle.allDisconnectedAt = null;
+    }
+    await this.persistBattles();
+    this.broadcastBattleEvent(battle, "battle.updated");
+    if (battle.status === "finished") this.broadcastBattleEvent(battle, "battle.finished");
   }
 
   private async hitBattle(
@@ -966,13 +1229,16 @@ export class PostgameCoordinator {
     if (battle.status !== "running") {
       throw new ProtocolError("battle_finished", "이미 종료된 전투입니다.");
     }
+    if (member.hp === 0) {
+      throw new ProtocolError("battle_member_defeated", "전투 불능 상태에서는 공격할 수 없습니다.");
+    }
     if (!member.ready || !member.connected) {
       throw new ProtocolError("battle_not_ready", "전투 준비가 완료되지 않았습니다.");
     }
     if (!this.battleAllReady(battle)) {
       throw new ProtocolError("battle_party_not_ready", "모든 파티원이 전투 준비를 마칠 때까지 기다려 주세요.");
     }
-    if (kind !== BATTLE_HIT_KINDS[battle.battleId]) {
+    if (!isAllowedBattleHitKind(battle.battleId, kind)) {
       throw new ProtocolError("invalid_hit_kind", "이 보스에게 사용할 수 없는 공격입니다.");
     }
     if (member.recentActionIds.includes(actionId)) {
@@ -981,22 +1247,48 @@ export class PostgameCoordinator {
     }
 
     const now = Date.now();
-    if (member.lastHitAt > 0 && now - member.lastHitAt < battle.hitCooldownMs) {
+    const isControlGimmick = battle.battleId === "control-boss" && kind === "control-gimmick";
+    const previousHitAt = isControlGimmick ? member.lastGimmickAt : member.lastHitAt;
+    const cooldownMs = isControlGimmick ? CONTROL_GIMMICK_COOLDOWN_MS : battle.hitCooldownMs;
+    if (previousHitAt > 0 && now - previousHitAt < cooldownMs) {
       throw new ProtocolError("hit_cooldown", "공격 재사용 대기 중입니다.");
     }
 
-    member.lastHitAt = now;
+    if (isControlGimmick) member.lastGimmickAt = now;
+    else member.lastHitAt = now;
     member.recentActionIds.push(actionId);
     member.recentActionIds = member.recentActionIds.slice(-MAX_RECENT_ACTION_IDS);
-    battle.bossHp = Math.max(0, battle.bossHp - battle.hitDamage);
+    const hitDamage = battle.battleId === "stat-boss"
+      ? member.statBossAttackDamage
+      : battle.battleId === "control-boss"
+        ? isControlGimmick
+          ? battle.bossMaxHp * 0.2
+          : member.controlBossAttackDamage
+        : battle.hitDamage;
+    battle.bossHp = Math.max(0, roundCombatValue(battle.bossHp - hitDamage));
     battle.revision += 1;
     battle.lastActivityAt = now;
     battle.allDisconnectedAt = null;
     if (battle.bossHp === 0) {
       battle.status = "finished";
       battle.finishedAt = now;
+      battle.rewardUserIds = battle.members
+        .filter((candidate): candidate is BattleMemberRecord & { userId: string } => (
+          !candidate.left && isInternalUserId(candidate.userId)
+        ))
+        .map((candidate) => candidate.userId);
     }
     await this.persistBattles();
+
+    if (battle.status === "finished" && battle.bossHp === 0) {
+      try {
+        if (await this.persistBossVictory(battle)) await this.persistBattles();
+      } catch (error) {
+        // Completion remains authoritative if D1 is temporarily unavailable.
+        // Restored-state reconciliation retries this idempotent write.
+        console.error("boss ranking persistence failed", error);
+      }
+    }
 
     this.broadcastBattleEvent(battle, "battle.updated");
     if (battle.status === "finished") this.broadcastBattleEvent(battle, "battle.finished");
@@ -1009,6 +1301,22 @@ export class PostgameCoordinator {
     notifyLeaver: boolean,
   ): Promise<void> {
     const { battle, member } = this.battleMembership(attachment, roomId);
+    const room = this.rooms.get(roomId);
+    const previousMember = {
+      left: member.left,
+      ready: member.ready,
+      connected: member.connected,
+    };
+    const previousBattle = {
+      revision: battle.revision,
+      lastActivityAt: battle.lastActivityAt,
+      allDisconnectedAt: battle.allDisconnectedAt,
+    };
+    const previousAttachmentRoomId = attachment.roomId;
+    const previousRoom = room
+      ? { memberPlayerIds: [...room.memberPlayerIds], hostPlayerId: room.hostPlayerId }
+      : null;
+
     member.left = true;
     member.ready = false;
     member.connected = false;
@@ -1016,15 +1324,6 @@ export class PostgameCoordinator {
     this.touchBattle(battle);
 
     attachment.roomId = null;
-    try {
-      socket.serializeAttachment(attachment);
-    } catch (error) {
-      if (notifyLeaver) throw error;
-      console.error("postgame battle attachment update failed", error);
-    }
-    if (notifyLeaver) this.send(socket, { type: "battle.left", roomId });
-
-    const room = this.rooms.get(roomId);
     if (room) {
       room.memberPlayerIds = battle.members.filter((candidate) => !candidate.left).map((candidate) => candidate.publicId);
       if (room.hostPlayerId === member.publicId && room.memberPlayerIds.length > 0) {
@@ -1032,15 +1331,44 @@ export class PostgameCoordinator {
       }
     }
 
-    if (battle.members.every((candidate) => candidate.left)) {
+    const removedBattle = battle.members.every((candidate) => candidate.left);
+    if (removedBattle) {
       this.battles.delete(roomId);
       this.rooms.delete(roomId);
+    }
+
+    try {
+      socket.serializeAttachment(attachment);
       await this.persistState();
+    } catch (error) {
+      member.left = previousMember.left;
+      member.ready = previousMember.ready;
+      member.connected = previousMember.connected;
+      battle.revision = previousBattle.revision;
+      battle.lastActivityAt = previousBattle.lastActivityAt;
+      battle.allDisconnectedAt = previousBattle.allDisconnectedAt;
+      attachment.roomId = previousAttachmentRoomId;
+      this.battles.set(roomId, battle);
+      if (room) {
+        room.memberPlayerIds = previousRoom?.memberPlayerIds ?? [];
+        room.hostPlayerId = previousRoom?.hostPlayerId ?? room.hostPlayerId;
+        this.rooms.set(roomId, room);
+      }
+      try {
+        socket.serializeAttachment(attachment);
+      } catch {
+        // The socket may have closed while the durable state was rolling back.
+      }
+      if (!notifyLeaver) console.error("postgame battle leave rollback", error);
+      throw error;
+    }
+
+    if (notifyLeaver) this.send(socket, { type: "battle.left", roomId });
+    if (removedBattle) {
       this.broadcast({ type: "room.removed", roomId });
       return;
     }
 
-    await this.persistState();
     this.broadcastBattleEvent(battle, "battle.updated");
     if (room) this.broadcast({ type: "room.updated", room: this.publicRoom(room) });
   }
@@ -1094,14 +1422,16 @@ export class PostgameCoordinator {
     attachment.roomId = battle.roomId;
     socket.serializeAttachment(attachment);
     if (
-      !member.connected ||
+      member.connected ||
       member.ready ||
+      member.userId !== (attachment.userId ?? null) ||
       member.name !== attachment.name ||
       member.publicId !== attachment.playerId
     ) {
       const previousPublicId = member.publicId;
-      member.connected = true;
+      member.connected = false;
       member.ready = false;
+      member.userId = attachment.userId ?? null;
       member.name = attachment.name;
       member.publicId = attachment.playerId;
       const room = this.rooms.get(battle.roomId);
@@ -1184,18 +1514,25 @@ export class PostgameCoordinator {
           name: member.name,
           ready: member.ready,
           connected: member.connected,
+          hp: member.hp,
+          maxHp: member.maxHp,
+          alive: member.hp !== 0,
         })),
       startedAt: battle.startedAt,
     };
     if (battle.status === "finished" && battle.finishedAt !== null) {
       publicBattle.finishedAt = battle.finishedAt;
-      publicBattle.result = { outcome: "victory", reason: "boss-defeated" };
+      publicBattle.result = battle.bossHp === 0
+        ? { outcome: "victory", reason: "boss-defeated" }
+        : { outcome: "defeat", reason: "party-defeated" };
     }
     return publicBattle;
   }
 
   private battleAllReady(battle: BattleRecord): boolean {
-    const connectedMembers = battle.members.filter((member) => !member.left && member.connected);
+    const connectedMembers = battle.members.filter(
+      (member) => !member.left && member.connected && member.hp !== 0,
+    );
     return connectedMembers.length > 0 && connectedMembers.every((member) => member.ready);
   }
 
@@ -1270,8 +1607,19 @@ export class PostgameCoordinator {
     }
   }
 
-  private sendError(socket: WebSocket, code: string, message: string): void {
-    this.send(socket, { type: "error", code, message });
+  private sendError(
+    socket: WebSocket,
+    code: string,
+    message: string,
+    context: { requestType?: string | null; roomId?: string | null } = {},
+  ): void {
+    this.send(socket, {
+      type: "error",
+      code,
+      message,
+      ...(context.requestType ? { requestType: context.requestType } : {}),
+      ...(context.roomId ? { roomId: context.roomId } : {}),
+    });
   }
 
   private generateRoomId(): string {
@@ -1299,8 +1647,159 @@ export class PostgameCoordinator {
     battle.allDisconnectedAt = allDisconnected ? battle.allDisconnectedAt ?? now : null;
   }
 
+  /**
+   * Persists one authoritative victory per Durable Object room. Every shared
+   * boss grants postgame growth; only stat/control additionally feed rankings.
+   * No browser supplied result, duration, team name, or roster is accepted.
+   */
+  private async persistBossVictory(battle: BattleRecord): Promise<boolean> {
+    const ranked = (RANKED_BATTLE_IDS as readonly string[]).includes(battle.battleId);
+    const needsReward = battle.rewardRecorded !== true;
+    const needsRanking = ranked && battle.rankingRecorded !== true;
+    if (
+      (!needsReward && !needsRanking)
+      || battle.status !== "finished"
+      || battle.bossHp !== 0
+      || battle.finishedAt === null
+      || !this.env.DB
+    ) {
+      return false;
+    }
+
+    const frozenRewardUserIds = new Set(
+      battle.rewardUserIds
+      ?? battle.members
+        .filter((member) => !member.left && isInternalUserId(member.userId))
+        .map((member) => member.userId as string),
+    );
+    const members = battle.members.filter(
+      (member): member is BattleMemberRecord & { userId: string } => (
+        isInternalUserId(member.userId) && frozenRewardUserIds.has(member.userId)
+      ),
+    );
+    if (
+      members.length < 1
+      || members.length !== frozenRewardUserIds.size
+      || members.length > 5
+    ) {
+      console.error("boss ranking skipped because the authenticated roster is incomplete");
+      return false;
+    }
+
+    const runId = `boss-run:${battle.roomId}`;
+    const statements: D1PreparedStatement[] = [];
+
+    if (needsRanking) {
+      const room = this.rooms.get(battle.roomId);
+      const normalizedTeamName = normalizeRoomName(room?.roomName ?? DEFAULT_ROOM_NAME);
+      const teamName = isValidRoomName(normalizedTeamName) ? normalizedTeamName : DEFAULT_ROOM_NAME;
+      const partyIdentity = [battle.battleId, ...members.map((member) => member.userId).sort()].join("\n");
+      const partyDigest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(partyIdentity),
+      );
+      const partyKey = Array.from(
+        new Uint8Array(partyDigest),
+        (byte) => byte.toString(16).padStart(2, "0"),
+      ).join("");
+      const clearTimeMs = Math.max(
+        0,
+        Math.trunc(battle.finishedAt - (battle.combatStartedAt ?? battle.startedAt)),
+      );
+      statements.push(this.env.DB.prepare(
+        `INSERT OR IGNORE INTO boss_runs
+           (id, room_id, boss_id, party_key, team_name, party_size, clear_time_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(
+        runId,
+        battle.roomId,
+        battle.battleId,
+        partyKey,
+        teamName,
+        members.length,
+        clearTimeMs,
+      ));
+      statements.push(...members.map((member, memberOrder) => this.env.DB!.prepare(
+        `INSERT OR IGNORE INTO boss_run_members
+           (run_id, user_id, nickname_snapshot, member_order)
+         SELECT ?, ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM boss_runs WHERE id = ? AND room_id = ?)`,
+      ).bind(
+        runId,
+        member.userId,
+        normalizeName(member.name),
+        memberOrder,
+        runId,
+        battle.roomId,
+      )));
+    }
+
+    if (needsReward) {
+      for (const member of members) {
+        const rewardId = crypto.randomUUID();
+        statements.push(
+          this.env.DB.prepare(
+            `INSERT INTO postgame_results
+               (id, user_id, attempt_id, content_id, source, status, score, awarded)
+             VALUES (?, ?, ?, ?, 'boss', 'CLEAR', 0, 0)
+             ON CONFLICT(user_id, attempt_id) DO NOTHING`,
+          ).bind(rewardId, member.userId, runId, battle.battleId),
+          this.env.DB.prepare(
+            `UPDATE stats
+                SET clears = COALESCE(clears, 0) + 1,
+                    experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_POSTGAME_CLEAR},
+                    level = COALESCE(level, 1) + 1,
+                    unspent_points = COALESCE(unspent_points, 0) + 1,
+                    updated_at = CURRENT_TIMESTAMP
+              WHERE user_id = ?
+                AND EXISTS (
+                  SELECT 1 FROM postgame_results
+                   WHERE user_id = ? AND attempt_id = ? AND content_id = ? AND awarded = 0
+                )`,
+          ).bind(member.userId, member.userId, runId, battle.battleId),
+          this.env.DB.prepare(
+            `UPDATE postgame_results
+                SET awarded = 1
+              WHERE user_id = ? AND attempt_id = ? AND content_id = ? AND awarded = 0
+                AND EXISTS (SELECT 1 FROM stats WHERE user_id = ?)`,
+          ).bind(member.userId, runId, battle.battleId, member.userId),
+        );
+      }
+    }
+
+    await this.env.DB.batch(statements);
+    if (needsReward) {
+      const verification = await this.env.DB.prepare(
+        `SELECT user_id
+           FROM postgame_results
+          WHERE attempt_id = ? AND content_id = ? AND source = 'boss' AND awarded = 1`,
+      ).bind(runId, battle.battleId).all<AwardedPostgameResultRow>();
+      const awardedUserIds = new Set(verification.results.map((row) => row.user_id));
+      if (
+        awardedUserIds.size !== frozenRewardUserIds.size
+        || [...frozenRewardUserIds].some((userId) => !awardedUserIds.has(userId))
+      ) {
+        throw new Error("boss reward verification failed");
+      }
+    }
+    if (needsRanking) battle.rankingRecorded = true;
+    if (needsReward) battle.rewardRecorded = true;
+    return true;
+  }
+
+  private bossPersistencePending(battle: BattleRecord): boolean {
+    if (battle.status !== "finished" || battle.bossHp !== 0) return false;
+    const rankingPending =
+      (RANKED_BATTLE_IDS as readonly string[]).includes(battle.battleId)
+      && battle.rankingRecorded !== true;
+    return battle.rewardRecorded !== true || rankingPending;
+  }
+
   private battleExpiresAt(battle: BattleRecord): number | null {
     if (battle.status === "finished") {
+      if (this.bossPersistencePending(battle)) {
+        return battle.lastActivityAt + BOSS_PERSISTENCE_RETRY_MS;
+      }
       return battle.finishedAt === null ? null : battle.finishedAt + FINISHED_BATTLE_RETENTION_MS;
     }
     const activeMembers = battle.members.filter((member) => !member.left);
@@ -1328,9 +1827,24 @@ export class PostgameCoordinator {
 
   private async cleanupExpiredBattles(now: number): Promise<void> {
     const removedRoomIds: string[] = [];
+    let changed = false;
     for (const [roomId, battle] of this.battles) {
-      const expiresAt = this.battleExpiresAt(battle);
+      let expiresAt = this.battleExpiresAt(battle);
       if (expiresAt === null || expiresAt > now) continue;
+      if (this.bossPersistencePending(battle)) {
+        try {
+          if (await this.persistBossVictory(battle)) changed = true;
+        } catch (error) {
+          console.error("boss victory persistence retry failed", error);
+        }
+        if (this.bossPersistencePending(battle)) {
+          battle.lastActivityAt = now;
+          changed = true;
+          continue;
+        }
+        expiresAt = this.battleExpiresAt(battle);
+        if (expiresAt === null || expiresAt > now) continue;
+      }
       this.battles.delete(roomId);
       this.rooms.delete(roomId);
       removedRoomIds.push(roomId);
@@ -1354,6 +1868,10 @@ export class PostgameCoordinator {
       return;
     }
 
+    if (changed) {
+      await this.persistState();
+      return;
+    }
     await this.scheduleNextCleanup(now);
   }
 
@@ -1499,10 +2017,12 @@ export class PostgameCoordinator {
             const previousPublicId = member.publicId;
             if (
               !member.connected ||
+              member.userId !== (attachment.userId ?? null) ||
               member.publicId !== attachment.playerId ||
               member.name !== attachment.name
             ) {
               member.connected = true;
+              member.userId = attachment.userId ?? null;
               member.publicId = attachment.playerId;
               member.name = attachment.name;
               battle.revision += 1;
@@ -1535,6 +2055,20 @@ export class PostgameCoordinator {
         activeMembers.every((member) => !member.connected);
       battle.allDisconnectedAt = allDisconnected ? battle.allDisconnectedAt ?? now : null;
       if (battle.allDisconnectedAt !== previousDisconnectedAt) changed = true;
+      const rankingPending =
+        (RANKED_BATTLE_IDS as readonly string[]).includes(battle.battleId)
+        && battle.rankingRecorded !== true;
+      if (
+        battle.status === "finished"
+        && battle.bossHp === 0
+        && (battle.rewardRecorded !== true || rankingPending)
+      ) {
+        try {
+          if (await this.persistBossVictory(battle)) changed = true;
+        } catch (error) {
+          console.error("restored boss ranking persistence failed", error);
+        }
+      }
     }
 
     if (changed) await this.persistState();

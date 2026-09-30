@@ -1,12 +1,20 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import { AccountService } from "../../js/core/account-service.js";
+import {
+  AccountService,
+  normalizeAccountNickname,
+  validateAccountNickname,
+} from "../../js/core/account-service.js";
 import {
   consumeAuthCallback,
   refreshSessionAfterAuth,
 } from "../../js/scenes/loading-scene.js";
 import {
+  accountConnectionMessage,
   ACCOUNT_ORIGIN,
+  LOCAL_ACCOUNT_ORIGIN,
+  isLikelyEmbeddedBrowser,
   isSeparateHostedOrigin,
   recoverSessionAfterAuth,
 } from "../../js/scenes/account-scene.js";
@@ -67,6 +75,7 @@ test("AccountService restores a same-origin session and exposes only display acc
       unspent_points: 1,
     },
     completedGameIds: ["data-number-baseball", "data-number-baseball", "computer-code-heart"],
+    seenStoryIds: ["main-story-intro", "npc-ds", "npc-ds"],
   })]);
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
 
@@ -87,13 +96,118 @@ test("AccountService restores a same-origin session and exposes only display acc
     unspentPoints: 1,
   });
   assert.deepEqual(state.completedGameIds, ["data-number-baseball", "computer-code-heart"]);
-  assert.equal(mock.calls[0][0], "/api/me");
+  assert.deepEqual(state.seenStoryIds, ["main-story-intro", "npc-ds"]);
+  assert.equal(mock.calls[0][0], "/api/session");
   assert.equal(mock.calls[0][1].credentials, "same-origin");
   assert.equal(mock.calls[0][1].cache, "no-store");
   assert.equal(service.getLoginUrl(), "/api/auth/google");
 });
 
-test("AccountService derives legacy progression and accepts levels beyond the former cap", async () => {
+test("nickname validation matches the account API normalization contract", () => {
+  assert.equal(normalizeAccountNickname("  ＡＩ   체인지  "), "AI 체인지");
+  assert.deepEqual(validateAccountNickname("  ＡＩ   체인지  "), {
+    valid: true,
+    nickname: "AI 체인지",
+    error: null,
+  });
+  assert.equal(validateAccountNickname("가").valid, false);
+  assert.match(validateAccountNickname("가").error, /2자 이상 16자 이하/u);
+  assert.equal(validateAccountNickname("열일곱글자닉네임입니다가나다라마바사").valid, false);
+  assert.equal(validateAccountNickname("가\u200b나").valid, false);
+  assert.match(validateAccountNickname("가\u200b나").error, /숨김 문자/u);
+  assert.equal(validateAccountNickname("가\t나").valid, false);
+  assert.equal(validateAccountNickname("가\u2028나").valid, false);
+  assert.equal(validateAccountNickname("가\u2029나").valid, false);
+});
+
+test("AccountService binds browser-native fetch to the global receiver", async () => {
+  let receiver = null;
+  async function browserFetch() {
+    receiver = this;
+    if (this !== globalThis) throw new TypeError("Illegal invocation");
+    return jsonResponse({ authenticated: false });
+  }
+  const service = new AccountService({ fetchImpl: browserFetch });
+
+  const state = await service.refreshSession();
+
+  assert.equal(receiver, globalThis);
+  assert.equal(state.status, "guest");
+  assert.equal(state.available, true);
+});
+
+test("AccountService saves a normalized nickname and replaces the session payload", async () => {
+  const stats = {
+    attack: 2,
+    hp: 100,
+    defense: 1,
+    level: 2,
+    experience: 100,
+    nextLevelExperience: 200,
+    clears: 1,
+    score: 300,
+    unspentPoints: 0,
+  };
+  const mock = queuedFetch([
+    jsonResponse({
+      authenticated: true,
+      user: { name: "Google 이름" },
+      stats,
+      completedGameIds: ["data-number-baseball"],
+    }),
+    jsonResponse({
+      authenticated: true,
+      user: { name: "AI 체인지", nickname: "AI 체인지" },
+      stats,
+      completedGameIds: ["data-number-baseball"],
+    }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  const user = await service.updateNickname("  ＡＩ   체인지  ");
+
+  assert.equal(mock.calls[1][0], "/api/player-account");
+  assert.equal(mock.calls[1][1].method, "PATCH");
+  assert.equal(mock.calls[1][1].credentials, "same-origin");
+  assert.deepEqual(JSON.parse(mock.calls[1][1].body), { nickname: "AI 체인지" });
+  assert.deepEqual(user, { name: "AI 체인지", nickname: "AI 체인지" });
+  assert.deepEqual(service.getState().user, user);
+  assert.deepEqual(service.getState().completedGameIds, ["data-number-baseball"]);
+});
+
+test("AccountService rejects invalid nickname updates before making a request", async () => {
+  const mock = queuedFetch([jsonResponse({
+    authenticated: true,
+    user: { name: "플레이어" },
+    stats: {},
+  })]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  await assert.rejects(() => service.updateNickname("한"), /2자 이상 16자 이하/u);
+  await assert.rejects(() => service.updateNickname("한\u200b글"), /숨김 문자/u);
+  assert.equal(mock.calls.length, 1);
+});
+
+test("account UI keeps the requested privacy copy and accessible nickname form contract", () => {
+  const source = readFileSync(
+    new URL("../../js/scenes/account-scene.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /스토리 진행도를 로그인하여 계정에 연결합니다\. Google 계정 식별자와 이메일은 로그인 연결에만 사용하며 이 외에는 공개하지 않습니다\./u,
+  );
+  assert.match(source, /for: "account-nickname"/u);
+  assert.match(source, /"aria-describedby": nicknameError/u);
+  assert.match(source, /"aria-invalid": nicknameError/u);
+  assert.match(source, /id: "account-nickname-error", role: "alert"/u);
+  assert.match(source, /type: "submit"/u);
+  assert.match(source, /busyAction === "nickname" \? "저장 중…" : "닉네임 저장"/u);
+});
+
+test("AccountService never derives progression from clears and accepts unbounded server levels", async () => {
   const mock = queuedFetch([
     jsonResponse({
       authenticated: true,
@@ -119,9 +233,10 @@ test("AccountService derives legacy progression and accepts levels beyond the fo
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
 
   const restored = await service.refreshSession();
-  assert.equal(restored.stats.level, 4);
-  assert.equal(restored.stats.experience, 300);
-  assert.equal(restored.stats.nextLevelExperience, 400);
+  assert.equal(restored.stats.clears, 3);
+  assert.equal(restored.stats.level, 1);
+  assert.equal(restored.stats.experience, 0);
+  assert.equal(restored.stats.nextLevelExperience, 100);
 
   await service.recordClear({
     attemptId: "legacy-account:cap-check",
@@ -148,6 +263,29 @@ test("session restore falls back to a playable guest state when the API is unava
   assert.equal(state.status, "unavailable");
   assert.match(state.error, /게스트/u);
   assert.deepEqual(observed, ["idle", "loading", "unavailable"]);
+});
+
+test("AccountService can recover an authenticated session after a transient fetch failure", async () => {
+  const mock = queuedFetch([
+    new TypeError("temporary network failure"),
+    jsonResponse({
+      authenticated: true,
+      user: { name: "복구된 계정" },
+      stats: { attack: 1, hp: 100, defense: 0 },
+      completedGameIds: ["data-number-baseball"],
+    }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+
+  const unavailable = await service.refreshSession();
+  const recovered = await service.refreshSession();
+
+  assert.equal(unavailable.status, "unavailable");
+  assert.equal(recovered.status, "authenticated");
+  assert.equal(recovered.authenticated, true);
+  assert.deepEqual(recovered.user, { name: "복구된 계정" });
+  assert.deepEqual(recovered.completedGameIds, ["data-number-baseball"]);
+  assert.equal(mock.calls.length, 2);
 });
 
 test("session restore preserves a useful server failure message", async () => {
@@ -242,9 +380,9 @@ test("a successful OAuth callback retries session discovery until the cookie is 
   assert.equal(state.authenticated, true);
   assert.equal(calls.length, 3);
   assert.deepEqual(calls, [
-    { timeoutMs: 1_800 },
-    { timeoutMs: 1_800 },
-    { timeoutMs: 1_800 },
+    { timeoutMs: 4_000 },
+    { timeoutMs: 4_000 },
+    { timeoutMs: 4_000 },
   ]);
   assert.deepEqual(waited, [150, 500]);
 });
@@ -356,17 +494,29 @@ test("a successful HTML response is reported as unavailable instead of a false g
   assert.equal(state.authenticated, false);
 });
 
-test("recordClear submits only authenticated CLEAR results and refreshes account stats", async () => {
+test("recordClear stores authenticated pre-game completion without awarding progression", async () => {
+  const unchangedStats = {
+    attack: 0,
+    hp: 100,
+    defense: 0,
+    level: 1,
+    experience: 0,
+    nextLevelExperience: 100,
+    clears: 0,
+    score: 0,
+    unspentPoints: 0,
+  };
   const mock = queuedFetch([
     jsonResponse({
       authenticated: true,
       user: { name: "플레이어" },
-      stats: { attack: 0, hp: 100, defense: 0, clears: 0, score: 0, unspentPoints: 0 },
+      stats: unchangedStats,
     }),
     jsonResponse({
-      created: true,
-      awarded: true,
-      stats: { attack: 0, hp: 100, defense: 0, clears: 1, score: 1200, unspent_points: 1 },
+      credited: true,
+      duplicate: false,
+      awarded: false,
+      stats: unchangedStats,
     }),
   ]);
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
@@ -397,9 +547,9 @@ test("recordClear submits only authenticated CLEAR results and refreshes account
     score: 1200,
   });
   assert.equal(submitted.submitted, true);
-  assert.equal(submitted.awarded, true);
-  assert.equal(service.getState().stats.clears, 1);
-  assert.equal(service.getState().stats.unspentPoints, 1);
+  assert.equal(submitted.duplicate, false);
+  assert.equal(submitted.awarded, false);
+  assert.deepEqual(service.getState().stats, unchangedStats);
   assert.deepEqual(service.getState().completedGameIds, ["game-a"]);
 });
 
@@ -424,6 +574,101 @@ test("recordClear treats an uncredited replay as a duplicate without another rew
   assert.equal(submission.awarded, false);
 });
 
+test("recordPostgameClear awards one X-egg clear and reports a retry as a duplicate", async () => {
+  const initialStats = {
+    attack: 0,
+    hp: 100,
+    defense: 0,
+    level: 1,
+    experience: 0,
+    nextLevelExperience: 100,
+    clears: 0,
+    score: 0,
+    unspentPoints: 0,
+  };
+  const rewardedStats = {
+    ...initialStats,
+    level: 2,
+    experience: 100,
+    nextLevelExperience: 200,
+    clears: 1,
+    unspentPoints: 1,
+  };
+  const mock = queuedFetch([
+    jsonResponse({ authenticated: true, user: { name: "X알 사냥꾼" }, stats: initialStats }),
+    jsonResponse({ credited: true, duplicate: false, awarded: true, stats: rewardedStats }, 201),
+    jsonResponse({ credited: false, duplicate: true, awarded: false, stats: rewardedStats }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  assert.deepEqual(
+    await service.recordPostgameClear({
+      attemptId: "xr-egg-trials:failed",
+      battleId: "xr-egg-trials",
+      status: "FAIL",
+      score: 30,
+    }),
+    { submitted: false, reason: "not-clear" },
+  );
+  await assert.rejects(
+    () => service.recordPostgameClear({
+      attemptId: "data-sphinx:forged",
+      battleId: "data-sphinx",
+      status: "CLEAR",
+      score: 999,
+    }),
+    /X알 클리어 기록/u,
+  );
+  assert.equal(mock.calls.length, 1, "failed and non-X-egg results must stay client-side");
+
+  const first = await service.recordPostgameClear({
+    attemptId: "xr-egg-trials:attempt-1",
+    battleId: "xr-egg-trials",
+    status: "CLEAR",
+    score: 700,
+  });
+  assert.equal(mock.calls[1][0], "/api/postgame/results");
+  assert.equal(mock.calls[1][1].method, "POST");
+  assert.deepEqual(JSON.parse(mock.calls[1][1].body), {
+    attemptId: "xr-egg-trials:attempt-1",
+    battleId: "xr-egg-trials",
+    status: "CLEAR",
+    score: 700,
+  });
+  assert.equal(first.submitted, true);
+  assert.equal(first.duplicate, false);
+  assert.equal(first.awarded, true);
+  assert.deepEqual(first.stats, rewardedStats);
+
+  const duplicate = await service.recordPostgameClear({
+    attemptId: "xr-egg-trials:attempt-1",
+    battleId: "xr-egg-trials",
+    status: "CLEAR",
+    score: 700,
+  });
+  assert.equal(duplicate.submitted, true);
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.awarded, false);
+  assert.deepEqual(service.getState().stats, rewardedStats);
+});
+
+test("recordPostgameClear does not submit a guest X-egg result", async () => {
+  const mock = queuedFetch([jsonResponse({ authenticated: false })]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+
+  const result = await service.recordPostgameClear({
+    attemptId: "xr-egg-trials:guest-1",
+    battleId: "xr-egg-trials",
+    status: "CLEAR",
+    score: 100,
+  });
+
+  assert.deepEqual(result, { submitted: false, reason: "guest" });
+  assert.equal(mock.calls.length, 1);
+  assert.equal(mock.calls[0][0], "/api/session");
+});
+
 test("guest progress import is a no-op until the player is authenticated", async () => {
   const mock = queuedFetch([jsonResponse({ authenticated: false })]);
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
@@ -434,7 +679,7 @@ test("guest progress import is a no-op until the player is authenticated", async
   ]);
 
   assert.equal(mock.calls.length, 1, "guest progress must not be sent to an account endpoint");
-  assert.equal(mock.calls[0][0], "/api/me");
+  assert.equal(mock.calls[0][0], "/api/session");
   assert.equal(service.getState().authenticated, false);
   assert.deepEqual(service.getState().completedGameIds, []);
 });
@@ -448,11 +693,7 @@ test("guest progress import sends only missing unique games and becomes a repeat
     score: 450,
     unspentPoints: 0,
   };
-  const importedStats = {
-    ...initialStats,
-    clears: 2,
-    unspentPoints: 1,
-  };
+  const importedStats = { ...initialStats };
   const mock = queuedFetch([
     jsonResponse({
       authenticated: true,
@@ -491,8 +732,8 @@ test("guest progress import sends only missing unique games and becomes a repeat
   assert.deepEqual(imported.importedGameIds, ["computer-code-heart"]);
   assert.equal(Object.isFrozen(imported), true);
   assert.equal(Object.isFrozen(imported.importedGameIds), true);
-  assert.equal(service.getState().stats.clears, 2);
-  assert.equal(service.getState().stats.unspentPoints, 1);
+  assert.equal(service.getState().stats.clears, 1);
+  assert.equal(service.getState().stats.unspentPoints, 0);
   assert.deepEqual(service.getState().user, { name: "진행 이전 테스터" });
   assert.deepEqual(service.getState().completedGameIds, [
     "data-number-baseball",
@@ -541,7 +782,7 @@ test("concurrent imports share one request and recheck completion after it finis
 
   pendingImport.resolve(jsonResponse({
     importedGameIds: ["computer-code-heart"],
-    stats: { ...stats, clears: 1, unspentPoints: 1 },
+    stats,
     completedGameIds: ["computer-code-heart"],
   }));
   const results = await Promise.all([first, second]);
@@ -588,7 +829,7 @@ test("a late import response cannot restore authentication after logout", async 
 
   pendingImport.resolve(jsonResponse({
     importedGameIds: ["computer-code-heart"],
-    stats: { ...initialStats, clears: 2, unspentPoints: 1 },
+    stats: initialStats,
     completedGameIds: ["data-number-baseball", "computer-code-heart"],
   }));
   await importing;
@@ -624,20 +865,57 @@ test("allocateStat uses the authenticated account and never accepts arbitrary co
 
 test("ranking criteria are allowlisted and common response shapes are normalized", async () => {
   const mock = queuedFetch([jsonResponse({ rankings: [
-    { rank: 1, displayName: "A", score: "1500", clears: 3 },
-    { name: "B", score: 900, clears: "7" },
+    {
+      rank: 1,
+      bossId: "stat-boss",
+      name: "알고리즘 원정대",
+      teamName: "알고리즘 원정대",
+      members: ["가람", "나래"],
+      partySize: 2,
+      clears: "7",
+      clearTimeMs: "65432",
+    },
+    {
+      name: "다온",
+      members: ["다온"],
+      party_size: 1,
+      clears: 3,
+      clear_time_ms: 70000,
+    },
   ] })]);
   const service = new AccountService({ fetchImpl: mock.fetchImpl });
 
   await assert.rejects(() => service.getRanking("email"), /지원하지 않는 랭킹 기준/u);
-  await assert.rejects(() => service.getRanking("score"), /gameId/u);
-  const ranking = await service.getRanking("score", { gameId: "computer-code-heart" });
+  await assert.rejects(() => service.getRanking("boss-clears"), /보스 랭킹/u);
+  await assert.rejects(
+    () => service.getRanking("boss-clears", { bossId: "data-sphinx" }),
+    /보스 랭킹/u,
+  );
+  const ranking = await service.getRanking("boss-speed", { bossId: "stat-boss" });
 
   assert.deepEqual(ranking, [
-    { rank: 1, name: "A", score: 1500, clears: 3 },
-    { rank: 2, name: "B", score: 900, clears: 7 },
+    {
+      rank: 1,
+      bossId: "stat-boss",
+      name: "알고리즘 원정대",
+      teamName: "알고리즘 원정대",
+      members: ["가람", "나래"],
+      partySize: 2,
+      clears: 7,
+      clearTimeMs: 65432,
+    },
+    {
+      rank: 2,
+      bossId: "stat-boss",
+      name: "다온",
+      teamName: "",
+      members: ["다온"],
+      partySize: 1,
+      clears: 3,
+      clearTimeMs: 70000,
+    },
   ]);
-  assert.equal(mock.calls[0][0], "/api/ranking?criteria=score&gameId=computer-code-heart");
+  assert.equal(mock.calls[0][0], "/api/ranking?criteria=boss-speed&bossId=stat-boss");
 });
 
 test("OAuth callback parameters route to account UI and are removed from the visible URL", () => {
@@ -664,6 +942,145 @@ test("hosted copies always send account login to the canonical Worker", () => {
   );
   assert.equal(
     isSeparateHostedOrigin(new URL("http://127.0.0.1:4173/")),
+    true,
+  );
+  assert.equal(
+    isSeparateHostedOrigin(new URL(`${LOCAL_ACCOUNT_ORIGIN}/`)),
     false,
   );
+  assert.equal(
+    isSeparateHostedOrigin(new URL("http://localhost:8787/")),
+    true,
+  );
+  assert.equal(
+    isSeparateHostedOrigin(new URL("http://[::1]:8787/")),
+    true,
+  );
+  assert.equal(
+    isSeparateHostedOrigin({ origin: "null", protocol: "vscode-webview:", hostname: "" }),
+    true,
+  );
+  assert.match(
+    accountConnectionMessage(
+      { error: "generic network failure" },
+      new URL("https://preview.example/"),
+    ),
+    new RegExp(ACCOUNT_ORIGIN.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"),
+  );
+  assert.equal(
+    accountConnectionMessage(
+      { error: "계정 서버 응답 시간이 초과되었습니다." },
+      new URL(`${ACCOUNT_ORIGIN}/`),
+    ),
+    "계정 서버 응답 시간이 초과되었습니다.",
+  );
+  assert.equal(isLikelyEmbeddedBrowser({ userAgent: "Mozilla/5.0 Chrome/126 Safari/537.36" }), false);
+  assert.equal(isLikelyEmbeddedBrowser({ userAgent: "Mozilla/5.0 Electron/30.0 Code/1.92" }), true);
+  const topLevelWindow = {};
+  topLevelWindow.self = topLevelWindow;
+  topLevelWindow.top = topLevelWindow;
+  assert.equal(
+    isLikelyEmbeddedBrowser(
+      { userAgent: "Mozilla/5.0 Chrome/126 Safari/537.36" },
+      topLevelWindow,
+    ),
+    false,
+  );
+  assert.equal(
+    isLikelyEmbeddedBrowser(
+      { userAgent: "Mozilla/5.0 Chrome/126 Safari/537.36" },
+      { self: {}, top: {} },
+    ),
+    true,
+  );
+  assert.match(
+    accountConnectionMessage(
+      { error: "계정 서버에 연결할 수 없습니다." },
+      new URL(`${ACCOUNT_ORIGIN}/`),
+      { userAgent: "Mozilla/5.0 Electron/30.0 Code/1.92" },
+    ),
+    /VS Code.*연결 다시 확인.*Chrome\/Edge/u,
+  );
+  assert.match(
+    accountConnectionMessage(
+      { error: "계정 서버에 연결할 수 없습니다." },
+      new URL(`${ACCOUNT_ORIGIN}/`),
+      { userAgent: "Mozilla/5.0 Chrome/126 Safari/537.36" },
+      { self: {}, top: {} },
+    ),
+    /같은 탭.*연결 다시 확인.*Chrome\/Edge/u,
+  );
+  assert.match(
+    accountConnectionMessage(
+      { error: "ignored" },
+      { origin: "null", protocol: "vscode-webview:", hostname: "" },
+      { userAgent: "Mozilla/5.0 Electron/30.0 Code/1.92" },
+    ),
+    /계정 API.*VS Code.*Chrome\/Edge/u,
+  );
+});
+
+test("account story progress posts only unseen ids and stays separate from game stats", async () => {
+  const stats = {
+    attack: 1,
+    hp: 100,
+    defense: 2,
+    clears: 1,
+    score: 450,
+    unspentPoints: 0,
+  };
+  const mock = queuedFetch([
+    jsonResponse({
+      authenticated: true,
+      user: { name: "스토리 테스터" },
+      stats,
+      completedGameIds: ["data-number-baseball"],
+      seenStoryIds: ["main-story-intro"],
+    }),
+    jsonResponse({
+      seenStoryIds: ["main-story-intro", "npc-ds"],
+    }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await service.refreshSession();
+
+  const imported = await service.importSeenStoryIds([
+    "main-story-intro",
+    "npc-ds",
+    "npc-ds",
+  ]);
+
+  assert.equal(mock.calls.length, 2);
+  assert.equal(mock.calls[1][0], "/api/story-progress");
+  assert.equal(mock.calls[1][1].method, "POST");
+  assert.deepEqual(JSON.parse(mock.calls[1][1].body), { seenStoryIds: ["npc-ds"] });
+  assert.deepEqual(imported.seenStoryIds, ["main-story-intro", "npc-ds"]);
+  assert.deepEqual(service.getState().seenStoryIds, ["main-story-intro", "npc-ds"]);
+  assert.deepEqual(service.getState().stats, {
+    ...stats,
+    level: 1,
+    experience: 0,
+    nextLevelExperience: 100,
+  });
+  assert.deepEqual(service.getState().completedGameIds, ["data-number-baseball"]);
+
+  await service.markStorySeen("npc-ds");
+  assert.equal(mock.calls.length, 2, "an already-seen story must not be posted twice");
+});
+
+test("the account scene keeps automatic recovery and a manual connection retry", () => {
+  const source = readFileSync(
+    new URL("../../js/scenes/account-scene.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /연결 다시 확인/u);
+  assert.match(source, /recoveryPending/u);
+  assert.match(source, /accountConnectionMessage\(state\)/u);
+  assert.match(source, /ACCOUNT_RECONNECT_DELAYS_MS/u);
+  assert.match(source, /visibilitychange/u);
+  assert.match(source, /"online"/u);
+  assert.match(source, /clearTimeout\(reconnectTimer\)/u);
+  assert.match(source, /\.finally\(\(\) => \{/u);
+  assert.match(source, /getSeenStoryIds/u);
+  assert.match(source, /importSeenStoryIds\(pendingStoryIds\)/u);
 });

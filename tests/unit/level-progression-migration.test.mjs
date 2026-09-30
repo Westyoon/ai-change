@@ -84,3 +84,58 @@ test("level migrations preserve legacy points and safely remove the temporary ca
     database.close();
   }
 });
+
+test("HP baseline migration preserves stats while normalizing legacy zero rows", async () => {
+  const database = new DatabaseSync(":memory:");
+  try {
+    database.exec(await migration("0001_initial.sql"));
+    database.exec(await migration("0002_secure_sessions_and_results.sql"));
+    database.exec(`
+      INSERT INTO users (id, email, name) VALUES
+        ('legacy', 'legacy@example.com', 'Legacy'),
+        ('grown', 'grown@example.com', 'Grown');
+      INSERT INTO stats (user_id, attack, hp, defense, clears, score, unspent_points) VALUES
+        ('legacy', 2, 0, 3, 4, 50, 1),
+        ('grown', 5, 107, 6, 7, 80, 2);
+    `);
+    database.exec(await migration("0003_level_progression.sql"));
+    database.exec(await migration("0004_unbounded_level_progression.sql"));
+    database.exec(await migration("0006_hp_baseline.sql"));
+
+    assert.deepEqual(database.prepare(
+      `SELECT user_id, attack, hp, defense, clears, score, unspent_points
+         FROM stats
+        ORDER BY user_id`,
+    ).all().map((row) => ({ ...row })), [
+      { user_id: "grown", attack: 5, hp: 107, defense: 6, clears: 7, score: 80, unspent_points: 2 },
+      { user_id: "legacy", attack: 2, hp: 100, defense: 3, clears: 4, score: 50, unspent_points: 1 },
+    ]);
+
+    database.exec(await migration("0008_hp_stat_unit.sql"));
+    assert.deepEqual(database.prepare(
+      `SELECT user_id, attack, hp, defense, clears, score, unspent_points
+         FROM stats
+        ORDER BY user_id`,
+    ).all().map((row) => ({ ...row })), [
+      { user_id: "grown", attack: 5, hp: 800, defense: 6, clears: 7, score: 80, unspent_points: 2 },
+      { user_id: "legacy", attack: 2, hp: 100, defense: 3, clears: 4, score: 50, unspent_points: 1 },
+    ]);
+
+    database.exec("INSERT INTO users (id, email) VALUES ('defaulted', 'defaulted@example.com')");
+    database.exec("INSERT INTO stats (user_id) VALUES ('defaulted')");
+    assert.equal(database.prepare("SELECT hp FROM stats WHERE user_id = 'defaulted'").get().hp, 100);
+    assert.throws(
+      () => database.exec("UPDATE stats SET hp = 99 WHERE user_id = 'grown'"),
+      /CHECK constraint failed/u,
+    );
+
+    database.exec("DELETE FROM users WHERE id = 'legacy'");
+    assert.equal(
+      database.prepare("SELECT COUNT(*) AS count FROM stats WHERE user_id = 'legacy'").get().count,
+      0,
+      "rebuilt stats table keeps ON DELETE CASCADE",
+    );
+  } finally {
+    database.close();
+  }
+});

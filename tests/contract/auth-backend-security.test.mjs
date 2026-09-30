@@ -51,6 +51,7 @@ const [
   accountSource,
   loadingSource,
   accountSceneSource,
+  battleSceneSource,
   minigamesSource,
 ] =
   await Promise.all([
@@ -63,6 +64,7 @@ const [
     read("js/core/account-service.js"),
     read("js/scenes/loading-scene.js"),
     read("js/scenes/account-scene.js"),
+    read("js/scenes/battle-scene.js"),
     read("data/minigames.json"),
   ]);
 
@@ -76,10 +78,12 @@ test("the same-origin Worker exposes only the intended account API surface", () 
     "/api/auth/google",
     "/api/auth/callback",
     "/api/auth/logout",
+    "/api/player-account",
     "/api/me",
     "/api/session",
     "/api/ranking",
     "/api/results",
+    "/api/postgame/results",
     "/api/progress/import",
     "/api/stats/allocate",
   ];
@@ -100,7 +104,7 @@ test("the same-origin Worker exposes only the intended account API surface", () 
   assert.match(workerSource, /requireSession\s*\(\s*request\s*,\s*env\s*\)/u);
 });
 
-test("guest progress import is authenticated, allowlisted, and idempotent", () => {
+test("pre-game progress is authenticated, allowlisted, idempotent, and completion-only", () => {
   const importProgress = functionBody(workerSource, "importCompletedProgress");
   const recordResult = functionBody(workerSource, "recordResult");
 
@@ -115,18 +119,26 @@ test("guest progress import is authenticated, allowlisted, and idempotent", () =
   assert.match(importProgress, /NOT\s+EXISTS/iu);
   assert.match(importProgress, /(?:INSERT\s+OR\s+IGNORE|ON\s+CONFLICT)/iu);
   assert.match(importProgress, /SELECT\s+\?,\s*\?,\s*\?,\s*\?,\s*['"]CLEAR['"],\s*0/iu);
-  assert.match(importProgress, /UPDATE\s+stats[\s\S]*AND\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+game_results\s+WHERE\s+id\s*=\s*\?/iu);
   assert.match(importProgress, /GUEST_IMPORT_ATTEMPT_PREFIX/u);
   assert.match(workerSource, /GUEST_IMPORT_ATTEMPT_PREFIX\s*=\s*["']guest-import[^"']*["']/u);
   assert.match(importProgress, /completedGameIds/u);
   assert.match(importProgress, /fetchStats\s*\(/u);
   assert.match(importProgress, /fetchCompletedGameIds\s*\(/u);
   assert.match(recordResult, /attemptId\.startsWith\s*\(\s*GUEST_IMPORT_ATTEMPT_PREFIX\s*\)/u);
+  assert.match(recordResult, /awarded:\s*false/u);
+  assert.doesNotMatch(importProgress, /UPDATE\s+stats/iu);
+  assert.doesNotMatch(recordResult, /UPDATE\s+stats/iu);
+  assert.doesNotMatch(importProgress, /experience\s*=|level\s*=|unspent_points\s*=/iu);
+  assert.doesNotMatch(recordResult, /experience\s*=|level\s*=|unspent_points\s*=/iu);
   assert.doesNotMatch(importProgress, /\bbody\s*(?:\.\s*|\[\s*["'])user_?id\b/iu);
   assert.doesNotMatch(importProgress, /\bbody\s*(?:\.\s*|\[\s*["'])score\b/iu);
-  const statsUpdate = importProgress.match(/UPDATE\s+stats[\s\S]*?WHERE\s+user_id/iu)?.[0] ?? "";
-  assert.ok(statsUpdate, "guest import stats update could not be inspected");
-  assert.doesNotMatch(statsUpdate, /\bscore\s*=/iu);
+});
+
+test("the X-egg reward toast is shown only after the server confirms an award", () => {
+  assert.match(
+    battleSceneSource,
+    /!submission\.submitted\s*\|\|\s*submission\.duplicate\s*\|\|\s*!submission\.awarded/u,
+  );
 });
 
 test("the Worker progress allowlist matches every checked-in mini-game id", () => {
@@ -184,42 +196,52 @@ test("mutations require a same-origin JSON request and wildcard CORS is absent",
 test("OAuth state and hashed, expiring server sessions are enforced", () => {
   const callback = functionBody(workerSource, "finishGoogleLogin");
   const sessionLookup = functionBody(workerSource, "getSession");
+  const logout = functionBody(workerSource, "logout");
 
   assert.match(workerSource, /searchParams[\s\S]{0,500}\bstate\b/u);
   assert.match(callback, /searchParams\.get\s*\(\s*["']state["']\s*\)/u);
-  assert.match(callback, /expectedState\s*!==\s*suppliedState/u);
+  assert.match(callback, /expectedStates\.includes\s*\(\s*suppliedState\s*\)/u);
   assert.match(workerSource, /oauth-state/iu);
   assert.match(workerSource, /HttpOnly/iu);
   assert.match(workerSource, /SameSite=Lax/iu);
+  assert.match(workerSource, /SameSite=None; Secure; Partitioned/iu);
+  assert.match(workerSource, /__Host-ai-change-session-partitioned/u);
+  assert.match(workerSource, /__Host-ai-change-oauth-state-partitioned/u);
 
   assert.match(workerSource, /crypto\.subtle\.digest\s*\(\s*["']SHA-256["']/u);
   assert.match(sessionLookup, /sha256\s*\(\s*token\s*\)/u);
   assert.match(sessionLookup, /token_hash/u);
   assert.match(sessionLookup, /expires_at\s*>/u);
+  assert.match(sessionLookup, /for\s*\(\s*const\s+token\s+of\s+tokens\s*\)/u);
+  assert.match(sessionLookup, /if\s*\(\s*session\s*\)\s*return\s+session/u);
   assert.match(workerSource, /__Host-[A-Za-z0-9-]+/u);
   assert.match(workerSource, /Path=\/;[\s\S]{0,80}HttpOnly;[\s\S]{0,80}SameSite=Lax/u);
   assert.match(workerSource, /protocol\s*===\s*["']https:["'][\s\S]{0,80}["']; Secure["']/u);
   assert.doesNotMatch(workerSource, /sessionCookie\s*\(\s*userId\b/u);
-  const sessionCookieIndex = callback.indexOf("sessionCookie(request, sessionToken");
-  const stateCleanupCookieIndex = callback.indexOf('stateCookie("", request, 0)');
+  const sessionCookieIndex = callback.indexOf("appendSessionCookies(response, request, sessionToken");
+  const stateCleanupCookieIndex = callback.indexOf('appendStateCookies(response, "", request, 0)');
   assert.ok(
     sessionCookieIndex >= 0
       && stateCleanupCookieIndex >= 0
       && sessionCookieIndex < stateCleanupCookieIndex,
     "the login session cookie must be emitted before the OAuth state cleanup cookie",
   );
+  assert.match(logout, /cookieCandidates\s*\([\s\S]*PARTITIONED_SESSION_COOKIE/u);
+  assert.match(logout, /for\s*\(\s*const\s+token\s+of\s+tokens\s*\)/u);
+  assert.match(logout, /appendSessionCookies\s*\(\s*response\s*,\s*request\s*,\s*["']["']\s*,\s*0\s*\)/u);
 });
 
-test("ranking returns display data rather than provider identity", () => {
+test("ranking returns only server-recorded boss team display data", () => {
   const ranking = functionBody(workerSource, "ranking");
   assert.match(ranking, /name/u);
-  assert.match(ranking, /score/u);
+  assert.match(ranking, /teamName/u);
+  assert.match(ranking, /members/u);
   assert.match(ranking, /clears/u);
-  assert.match(ranking, /attempt_id\s+NOT\s+LIKE\s+\?/iu);
-  assert.match(
-    ranking,
-    /\.bind\s*\(\s*gameId\s*,\s*`\$\{GUEST_IMPORT_ATTEMPT_PREFIX\}%`\s*\)/u,
-  );
+  assert.match(ranking, /clearTimeMs/u);
+  assert.match(ranking, /boss_runs/u);
+  assert.match(ranking, /boss_run_members/u);
+  assert.match(ranking, /RANKED_BOSS_IDS\.has\s*\(\s*bossId\s*\)/u);
+  assert.doesNotMatch(ranking, /game_results|ALLOWED_GAME_IDS/u);
   assert.doesNotMatch(ranking, /\bemail\b/iu);
   assert.doesNotMatch(ranking, /\b(?:email|userId|user_id)\s*:/iu);
 });
@@ -242,11 +264,13 @@ test("D1 migrations preserve the baseline and add secure sessions and idempotent
   assert.match(migrations, /FOREIGN\s+KEY\s*\(\s*user_id\s*\)/iu);
 });
 
-test("level progression is unbounded, idempotent, and migrates without losing legacy points", async () => {
+test("level progression is unbounded and only postgame clears can advance it", async () => {
   const boundedMigration = await read("backend/migrations/0003_level_progression.sql");
   const unboundedMigration = await read("backend/migrations/0004_unbounded_level_progression.sql");
+  const postgameMigration = await read("backend/migrations/0010_postgame_progression.sql");
   const importProgress = functionBody(workerSource, "importCompletedProgress");
   const recordResult = functionBody(workerSource, "recordResult");
+  const recordPostgameResult = functionBody(workerSource, "recordPostgameResult");
 
   assert.match(boundedMigration, /ADD\s+COLUMN\s+level[\s\S]*BETWEEN\s+1\s+AND\s+10/iu);
   assert.match(boundedMigration, /ADD\s+COLUMN\s+experience[\s\S]*BETWEEN\s+0\s+AND\s+900/iu);
@@ -262,17 +286,31 @@ test("level progression is unbounded, idempotent, and migrates without losing le
   assert.match(unboundedMigration, /CREATE\s+INDEX\s+idx_stats_score/iu);
   assert.match(unboundedMigration, /CREATE\s+INDEX\s+idx_stats_clears/iu);
 
-  assert.match(workerSource, /EXPERIENCE_PER_CLEAR\s*=\s*100/u);
+  assert.match(workerSource, /EXPERIENCE_PER_POSTGAME_CLEAR\s*=\s*100/u);
   assert.doesNotMatch(workerSource, /MAX_LEVEL/u);
   for (const source of [importProgress, recordResult]) {
-    assert.match(source, /experience\s*=\s*COALESCE\(experience,\s*0\)\s*\+\s*\$\{EXPERIENCE_PER_CLEAR\}/u);
-    assert.match(source, /level\s*=\s*COALESCE\(level,\s*1\)\s*\+\s*1/u);
-    assert.match(source, /EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+game_results\s+WHERE\s+id\s*=\s*\?/iu);
+    assert.doesNotMatch(source, /UPDATE\s+stats/iu);
+    assert.doesNotMatch(source, /EXPERIENCE_PER_POSTGAME_CLEAR|unspent_points\s*=/u);
   }
-  assert.match(importProgress, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*1/u);
-  assert.match(recordResult, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*1/u);
-  assert.match(recordResult, /awarded\s*=\s*Number\(awardResult\.meta\.changes/u);
-  assert.match(workerSource, /nextLevelExperience\s*:\s*level\s*\*\s*EXPERIENCE_PER_CLEAR/u);
+  assert.match(workerSource, /CLIENT_REWARDED_POSTGAME_ID\s*=\s*["']xr-egg-trials["']/u);
+  assert.match(recordPostgameResult, /battleId\s*!==\s*CLIENT_REWARDED_POSTGAME_ID/u);
+  assert.match(recordPostgameResult, /INSERT\s+INTO\s+postgame_results/iu);
+  assert.match(recordPostgameResult, /ON\s+CONFLICT\s*\(\s*user_id\s*,\s*attempt_id\s*\)\s+DO\s+NOTHING/iu);
+  assert.match(recordPostgameResult, /awarded\s*=\s*0/iu);
+  assert.match(recordPostgameResult, /experience\s*=\s*COALESCE\(experience,\s*0\)\s*\+\s*\$\{EXPERIENCE_PER_POSTGAME_CLEAR\}/u);
+  assert.match(recordPostgameResult, /level\s*=\s*COALESCE\(level,\s*1\)\s*\+\s*1/u);
+  assert.match(recordPostgameResult, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*1/u);
+  assert.match(recordPostgameResult, /WHERE\s+user_id\s*=\s*\?[\s\S]*awarded\s*=\s*0/iu);
+  assert.match(recordPostgameResult, /SET\s+awarded\s*=\s*1/iu);
+  assert.match(recordPostgameResult, /awarded\s*=\s*Number\(awardResult\.meta\.changes/u);
+  assert.match(workerSource, /nextLevelExperience\s*:\s*level\s*\*\s*EXPERIENCE_PER_POSTGAME_CLEAR/u);
+
+  for (const source of [postgameMigration, await read("backend/schema.sql")]) {
+    assert.match(source, /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+postgame_results/iu);
+    assert.match(source, /content_id\s+IN\s*\(\s*['"]xr-egg-trials['"]\s*,\s*['"]data-sphinx['"]\s*,\s*['"]stat-boss['"]\s*,\s*['"]control-boss['"]\s*\)/iu);
+    assert.match(source, /UNIQUE\s*\(\s*user_id\s*,\s*attempt_id\s*\)/iu);
+    assert.match(source, /awarded\s+INTEGER\s+NOT\s+NULL\s+DEFAULT\s+0[\s\S]*CHECK\s*\(\s*awarded\s+IN\s*\(\s*0\s*,\s*1\s*\)\s*\)/iu);
+  }
 });
 
 test("Wrangler serves dist and runs the API before same-origin static assets", () => {

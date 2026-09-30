@@ -1,24 +1,71 @@
 import { createButton, createElement } from "./scene-utils.js";
 
-const CRITERIA = Object.freeze({
-  score: Object.freeze({ label: "최고 점수", value: (entry) => entry.score.toLocaleString("ko-KR") }),
-  clears: Object.freeze({ label: "누적 클리어", value: (entry) => `${entry.clears}회` }),
+const BOSSES = Object.freeze({
+  "stat-boss": "스탯 보스",
+  "control-boss": "컨트롤 보스",
 });
-const SCORE_GAME_IDS = new Set([
-  "cyber-click-to-purify",
-  "computer-code-heart",
-  "ai-ball-classification",
-]);
+
+const CRITERIA = Object.freeze({
+  "boss-clears": Object.freeze({
+    label: "누적 클리어",
+    value: (entry) => `${entry.clears.toLocaleString("ko-KR")}회`,
+  }),
+  "boss-speed": Object.freeze({
+    label: "최단 클리어",
+    value: (entry) => formatClearTime(entry.clearTimeMs),
+  }),
+});
+
+function formatClearTime(milliseconds) {
+  const safe = Math.max(0, Math.trunc(Number(milliseconds) || 0));
+  const minutes = Math.floor(safe / 60_000);
+  const seconds = Math.floor((safe % 60_000) / 1_000);
+  const fraction = String(safe % 1_000).padStart(3, "0");
+  return `${minutes}:${String(seconds).padStart(2, "0")}.${fraction}`;
+}
 
 function rankingRow(entry, criterion) {
   const row = createElement("li", { className: "ranking-row" });
   if (entry.rank <= 3) row.dataset.podium = String(entry.rank);
+  const identity = createElement("span", { className: "ranking-row__identity" }, [
+    createElement("strong", { className: "ranking-row__name", text: entry.name }),
+  ]);
+  if (entry.partySize > 1 && entry.members.length > 0) {
+    identity.append(createElement("small", {
+      className: "ranking-row__members",
+      text: entry.members.join(" · "),
+    }));
+  }
   row.append(
     createElement("strong", { className: "ranking-row__rank", text: `${entry.rank}위` }),
-    createElement("span", { className: "ranking-row__name", text: entry.name }),
-    createElement("strong", { className: "ranking-row__value", text: CRITERIA[criterion].value(entry) }),
+    identity,
+    createElement("strong", {
+      className: "ranking-row__value",
+      text: CRITERIA[criterion].value(entry),
+    }),
   );
   return row;
+}
+
+function leaderboard(criterion) {
+  const list = createElement("ol", { className: "ranking-list list-reset" });
+  const status = createElement("p", {
+    className: "muted ranking-status",
+    text: "불러오는 중…",
+    attributes: { role: "status" },
+  });
+  const element = createElement("section", {
+    className: "ranking-board",
+    attributes: { "aria-labelledby": `ranking-${criterion}` },
+  }, [
+    createElement("h3", {
+      text: CRITERIA[criterion].label,
+      attributes: { id: `ranking-${criterion}` },
+    }),
+    status,
+    list,
+  ]);
+  return { criterion, element, list, status };
 }
 
 export function createRankingScene(context) {
@@ -29,122 +76,101 @@ export function createRankingScene(context) {
   return {
     mount(root, params = {}) {
       mounted = true;
-      const scoreGames = (context.content.minigames ?? [])
-        .filter((game) => SCORE_GAME_IDS.has(game.id));
-      let scoreGameId = scoreGames.some((game) => game.id === params.gameId)
-        ? params.gameId
-        : (scoreGames.find((game) => game.id === "computer-code-heart")?.id ?? scoreGames[0]?.id ?? null);
-      let criterion = Object.hasOwn(CRITERIA, params.criteria) ? params.criteria : "clears";
-      if (criterion === "score" && !scoreGameId) criterion = "clears";
+      let bossId = Object.hasOwn(BOSSES, params.bossId) ? params.bossId : "stat-boss";
       const scene = createElement("section", {
         className: "scene scene--panel ranking-scene",
         attributes: { "aria-labelledby": "ranking-title" },
       });
       const heading = createElement("header", { className: "account-scene__header" }, [
         createElement("div", {}, [
-          createElement("p", { className: "eyebrow", text: "FESTIVAL RANKING" }),
+          createElement("p", { className: "eyebrow", text: "BOSS RANKING" }),
           createElement("h2", { text: "랭킹보드", attributes: { id: "ranking-title" } }),
-          createElement("p", {
-            className: "muted",
-            text: "표시 이름과 게임 기록만 공개합니다. 현재는 브라우저 판정 기반 테스트 순위이며 공식 경쟁·실물 보상용이 아닙니다.",
-          }),
         ]),
         createButton("메뉴로", () => context.router.navigate("main-menu"), "ghost"),
       ]);
-      const scoreButton = createButton("최고 점수", () => selectCriterion("score"), "ghost");
-      const clearsButton = createButton("누적 클리어", () => selectCriterion("clears"), "ghost");
+
+      const bossButtons = Object.entries(BOSSES).map(([id, label]) => createButton(
+        label,
+        () => selectBoss(id),
+        "ghost",
+      ));
       const controls = createElement("div", {
         className: "ranking-tabs",
-        attributes: { role: "group", "aria-label": "랭킹 기준" },
-      }, [scoreButton, clearsButton]);
-      scoreButton.disabled = scoreGames.length === 0;
-      const gameSelect = createElement("select", {
-        className: "ranking-game-filter__select",
-        attributes: { "aria-label": "점수 랭킹 미니게임" },
-        on: {
-          change(event) {
-            scoreGameId = event.currentTarget.value;
-            if (criterion === "score") void loadRanking();
-          },
-        },
-      }, scoreGames.map((game) => createElement("option", {
-        text: `${game.departmentCode} · ${game.title}`,
-        attributes: { value: game.id },
-      })));
-      if (scoreGameId) gameSelect.value = scoreGameId;
-      const gameFilter = createElement("label", { className: "ranking-game-filter" }, [
-        createElement("span", { text: "점수 비교 게임" }),
-        gameSelect,
-      ]);
-      const status = createElement("p", {
-        className: "muted ranking-status",
-        text: "랭킹을 불러오고 있습니다.",
-        attributes: { role: "status" },
-      });
-      const list = createElement("ol", { className: "ranking-list list-reset" });
+        attributes: { role: "group", "aria-label": "보스 선택" },
+      }, bossButtons);
+      const boards = Object.keys(CRITERIA).map(leaderboard);
+      const boardGrid = createElement("div", { className: "ranking-boards" },
+        boards.map((board) => board.element));
       const footer = createElement("div", { className: "button-row" }, [
         createButton("내 계정", () => context.router.navigate("account"), "primary"),
       ]);
-      scene.append(heading, controls, gameFilter, status, list, footer);
+      scene.append(heading, controls, boardGrid, footer);
       root.append(scene);
 
-      function updateTabs() {
-        for (const [key, button] of [["score", scoreButton], ["clears", clearsButton]]) {
-          const active = key === criterion;
-          button.classList.toggle("ranking-tabs__button--active", active);
-          button.setAttribute("aria-pressed", String(active));
-        }
-        gameFilter.hidden = criterion !== "score";
+      function updateBossTabs() {
+        Object.keys(BOSSES).forEach((id, index) => {
+          const active = id === bossId;
+          bossButtons[index].classList.toggle("ranking-tabs__button--active", active);
+          bossButtons[index].setAttribute("aria-pressed", String(active));
+        });
       }
 
-      async function loadRanking() {
+      function renderBoard(board, entries) {
+        if (entries.length === 0) {
+          board.list.replaceChildren();
+          board.status.hidden = false;
+          board.status.textContent = "아직 클리어 기록이 없습니다.";
+          return;
+        }
+        board.list.replaceChildren(...entries.map((entry) => rankingRow(entry, board.criterion)));
+        board.status.hidden = true;
+      }
+
+      async function loadRankings() {
         const sequence = ++requestSequence;
         requestController?.abort();
         requestController = new AbortController();
-        list.replaceChildren();
-        status.hidden = false;
-        const activeGame = scoreGames.find((game) => game.id === scoreGameId);
-        const rankingLabel = criterion === "score"
-          ? `${activeGame?.title ?? "미니게임"} 최고 점수`
-          : CRITERIA[criterion].label;
-        status.textContent = `${rankingLabel} 랭킹을 불러오고 있습니다.`;
         scene.setAttribute("aria-busy", "true");
+        for (const board of boards) {
+          board.list.replaceChildren();
+          board.status.hidden = false;
+          board.status.textContent = `${BOSSES[bossId]} ${CRITERIA[board.criterion].label}을 불러오는 중…`;
+        }
         try {
-          const entries = await context.services.account.getRanking(criterion, {
-            signal: requestController.signal,
-            gameId: criterion === "score" ? scoreGameId : null,
-          });
+          const rankings = await Promise.all(boards.map((board) => (
+            context.services.account.getRanking(board.criterion, {
+              bossId,
+              signal: requestController.signal,
+            })
+          )));
           if (!mounted || sequence !== requestSequence) return;
-          if (entries.length === 0) {
-            status.textContent = "아직 표시할 랭킹 기록이 없습니다.";
-            return;
-          }
-          const fragment = document.createDocumentFragment();
-          for (const entry of entries) fragment.append(rankingRow(entry, criterion));
-          list.replaceChildren(fragment);
-          status.hidden = true;
+          boards.forEach((board, index) => renderBoard(board, rankings[index]));
         } catch (error) {
           if (error?.name === "AbortError" || !mounted || sequence !== requestSequence) return;
-          status.textContent = error instanceof Error
-            ? error.message
-            : "랭킹을 불러오지 못했습니다.";
-          const retry = createButton("다시 시도", () => void loadRanking(), "ghost");
-          list.replaceChildren(createElement("li", { className: "ranking-retry" }, [retry]));
+          for (const board of boards) {
+            board.list.replaceChildren();
+            board.status.hidden = false;
+            board.status.textContent = error instanceof Error
+              ? error.message
+              : "랭킹을 불러오지 못했습니다.";
+          }
+          boards[0].list.replaceChildren(createElement("li", { className: "ranking-retry" }, [
+            createButton("다시 시도", () => void loadRankings(), "ghost"),
+          ]));
         } finally {
           if (mounted && sequence === requestSequence) scene.removeAttribute("aria-busy");
         }
       }
 
-      function selectCriterion(next) {
-        if (next === criterion) return;
-        if (next === "score" && !scoreGameId) return;
-        criterion = next;
-        updateTabs();
-        void loadRanking();
+      function selectBoss(nextBossId) {
+        if (nextBossId === bossId || !Object.hasOwn(BOSSES, nextBossId)) return;
+        bossId = nextBossId;
+        updateBossTabs();
+        void loadRankings();
       }
 
-      updateTabs();
-      void loadRanking();
+      updateBossTabs();
+      void loadRankings();
     },
     unmount() {
       mounted = false;
