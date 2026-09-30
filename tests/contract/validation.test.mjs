@@ -14,6 +14,7 @@ function makeFixture() {
   const assets = [];
   const minigames = [];
   const npcs = [];
+  const guardianEggs = [];
   const imports = [];
   const configDocuments = {};
 
@@ -24,7 +25,8 @@ function makeFixture() {
       { id: `${prefix}-clear`, type: "dialogue", lines: [], nextAction: { type: "returnToMap" } },
       { id: `${prefix}-fail`, type: "dialogue", lines: [], nextAction: { type: "returnToMap" } },
       { id: `${prefix}-first`, type: "dialogue", lines: [] },
-      { id: `${prefix}-revisit`, type: "dialogue", lines: [] }
+      { id: `${prefix}-revisit`, type: "dialogue", lines: [] },
+      { id: `${prefix}-after`, type: "dialogue", lines: [], nextAction: { type: "returnToMap" } }
     );
     assets.push(
       {
@@ -35,15 +37,6 @@ function makeFixture() {
         required: true,
         alt: null,
         sourceRef: `CONTENT-${expected.departmentCode}-001`
-      },
-      {
-        id: `${prefix}-thumbnail`,
-        group: id,
-        type: "image",
-        src: `./assets/minigames/${id}/thumbnail.svg`,
-        required: true,
-        alt: `${expected.department} 미니게임 미리보기`,
-        sourceRef: `ASSET-${expected.departmentCode}-001`
       }
     );
     minigames.push({
@@ -56,7 +49,6 @@ function makeFixture() {
       failOutroScript: `${prefix}-fail`,
       module: id,
       configAssetId: `${prefix}-config`,
-      thumbnailAssetId: `${prefix}-thumbnail`,
       assetGroup: id,
       recordPolicy: null,
       status: "published",
@@ -67,8 +59,30 @@ function makeFixture() {
       departmentCode: expected.departmentCode,
       firstScript: `${prefix}-first`,
       revisitScript: `${prefix}-revisit`,
+      clearStoryId: `afterstory:${expected.departmentCode.toLowerCase()}`,
+      clearScriptId: `${prefix}-after`,
+      guardianEggId: `guardian-${expected.departmentCode.toLowerCase()}`,
       miniGameId: id,
       completionRule: { type: "MINIGAME_CLEAR", target: id }
+    });
+    const guardianImageSrc = `./assets/images/guardian-eggs/guardian-${expected.departmentCode.toLowerCase()}.png`;
+    guardianEggs.push({
+      id: `guardian-${expected.departmentCode.toLowerCase()}`,
+      departmentCode: expected.departmentCode,
+      miniGameId: id,
+      storyId: `afterstory:${expected.departmentCode.toLowerCase()}`,
+      color: "#d82f76",
+      inkColor: "#501060",
+      imageSrc: guardianImageSrc,
+    });
+    assets.push({
+      id: `guardian-art-${expected.departmentCode.toLowerCase()}`,
+      group: "guardian-eggs",
+      type: "image",
+      src: guardianImageSrc,
+      required: true,
+      alt: `${expected.departmentCode} guardian egg`,
+      sourceRef: `ASSET-${expected.departmentCode}-GUARDIAN`,
     });
     imports.push(`"${id}": () => import("./${expected.modulePath}")`);
     configDocuments[expected.configPath] = { gameId: id, implementationStatus: "SCAFFOLD" };
@@ -95,6 +109,7 @@ function makeFixture() {
       }))
     },
     htmlVersion: "1",
+    guardianEggs: { guardianEggs },
     javaScriptVersion: "1",
     manifest: { contentVersion: 1, assets },
     mapData: { id: "festival-main-map", npcs },
@@ -197,7 +212,6 @@ test("broken registry, dialogue, NPC, manifest and version references are report
   const fixture = makeFixture();
   fixture.appConfig.contentVersion = 2;
   fixture.minigames[0].introScript = "missing-script";
-  fixture.minigames[1].thumbnailAssetId = "missing-thumbnail";
   fixture.mapData.npcs[0].miniGameId = "missing-game";
   fixture.scriptDocuments[0].scripts[0].nextAction.target = "missing-game";
   fixture.registrySource = "";
@@ -205,10 +219,52 @@ test("broken registry, dialogue, NPC, manifest and version references are report
   const errors = validateReferenceGraph(fixture);
   assert.ok(errors.some((error) => error.includes("contentVersion mismatch")));
   assert.ok(errors.some((error) => error.includes("introScript does not resolve")));
-  assert.ok(errors.some((error) => error.includes("thumbnailAssetId")));
   assert.ok(errors.some((error) => error.includes("NPC") && error.includes("miniGameId")));
   assert.ok(errors.some((error) => error.includes("openMiniGame action target")));
   assert.ok(errors.some((error) => error.includes("js/minigames/registry.js")));
+});
+
+test("guardian egg ids and NPC department, game, and story links must agree", () => {
+  const fixture = makeFixture();
+  const [aiNpc, dsNpc] = fixture.mapData.npcs;
+  aiNpc.guardianEggId = "guardian-missing";
+  dsNpc.guardianEggId = "guardian-ai";
+
+  const errors = validateReferenceGraph(fixture);
+  assert.ok(errors.some((error) => error.includes("guardianEggId does not resolve: guardian-missing")));
+  assert.ok(errors.some((error) => error.includes("departmentCode") && error.includes("guardian-ai")));
+  assert.ok(errors.some((error) => error.includes("miniGameId") && error.includes("guardian-ai")));
+  assert.ok(errors.some((error) => error.includes("clearStoryId") && error.includes("guardian-ai")));
+});
+
+test("guardian catalog entries must resolve their department, game, and unique story", () => {
+  const fixture = makeFixture();
+  const [aiEgg, dsEgg, cseEgg] = fixture.guardianEggs.guardianEggs;
+  aiEgg.departmentCode = "MISSING";
+  dsEgg.miniGameId = "missing-game";
+  cseEgg.storyId = aiEgg.storyId;
+
+  const errors = validateReferenceGraph(fixture);
+  assert.ok(errors.some((error) => error.includes("guardian egg guardian-ai departmentCode does not resolve")));
+  assert.ok(errors.some((error) => error.includes("guardian egg guardian-ds miniGameId does not resolve")));
+  assert.ok(errors.some((error) => error.includes("guardian egg storyId is duplicated")));
+});
+
+test("map NPC clear script and MINIGAME_CLEAR target are strict", () => {
+  const fixture = makeFixture();
+  const [aiNpc, dsNpc] = fixture.mapData.npcs;
+  delete aiNpc.clearScriptId;
+  dsNpc.clearScriptId = "missing-clear-script";
+  dsNpc.completionRule.target = fixture.mapData.npcs[2].miniGameId;
+
+  const errors = validateReferenceGraph(fixture);
+  assert.ok(errors.some((error) => error.includes("NPC npc-ai clearScriptId does not resolve")));
+  assert.ok(errors.some((error) => (
+    error.includes("NPC npc-ds clearScriptId does not resolve: missing-clear-script")
+  )));
+  assert.ok(errors.some((error) => (
+    error.includes("NPC npc-ds MINIGAME_CLEAR target must match miniGameId")
+  )));
 });
 
 test("runtime draft paths in the manifest are rejected", () => {

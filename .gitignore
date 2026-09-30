@@ -13,3 +13,7 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+# Local production-response diagnostics; never publish captured responses.
+/deployed-account-service.js
+/deployed-index.headers
+/deployed-index.html

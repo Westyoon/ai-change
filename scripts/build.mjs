@@ -110,6 +110,8 @@ async function verifyBuild(copiedFiles) {
     "assets/bgm/main-theme.mp3",
     "assets/images/character-walk.png",
     "assets/images/main logo.png",
+    "assets/images/story-eggs/heart-egg.png",
+    "assets/images/story-eggs/xr-egg.png",
     "assets/fonts/Galmuri11.woff2",
     "assets/fonts/Galmuri11-Bold.woff2",
     "assets/fonts/LICENSE.txt",

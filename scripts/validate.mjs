@@ -59,6 +59,7 @@ export const REQUIRED_FILES = Object.freeze([
   "css/dialogue.css",
   "css/map.css",
   "css/minigames.css",
+  "css/story-inventory.css",
   "css/battle-character.css",
   "css/battle.css",
   "css/control-boss.css",
@@ -71,6 +72,8 @@ export const REQUIRED_FILES = Object.freeze([
   "js/router.js",
   "js/core/account-service.js",
   "js/core/config-validator.js",
+  "js/core/guardian-inventory.js",
+  "js/core/story-progress.js",
   "js/core/version.js",
   "js/battle/registry.js",
   "js/battle/player-config.js",
@@ -98,8 +101,13 @@ export const REQUIRED_FILES = Object.freeze([
   "js/scenes/main-menu-scene.js",
   "js/scenes/how-to-scene.js",
   "js/scenes/settings-scene.js",
+  "js/scenes/story-intro-scene.js",
+  "js/scenes/story-memories-scene.js",
+  "js/scenes/story-memory-scene.js",
+  "js/scenes/story-world-runtime.js",
   "js/scenes/map-scene.js",
   "js/scenes/dialogue-scene.js",
+  "js/scenes/guardian-reward-scene.js",
   "js/scenes/minigame-intro-scene.js",
   "js/scenes/minigame-scene.js",
   "js/scenes/battle-coming-soon-scene.js",
@@ -110,6 +118,8 @@ export const REQUIRED_FILES = Object.freeze([
   "js/scenes/error-scene.js",
   "js/scenes/scene-utils.js",
   "js/ui/result-overlay.js",
+  "js/ui/story-dialogue-view.js",
+  "js/ui/story-inventory.js",
   "js/ui/top-navigation.js",
   "js/minigames/registry.js",
   "js/minigames/DS/index.js",
@@ -122,6 +132,7 @@ export const REQUIRED_FILES = Object.freeze([
   "data/minigames.json",
   "data/departments.json",
   "data/battles.json",
+  "data/guardian-eggs.json",
   "data/battle/control-boss.json",
   "data/battle/data-sphinx.json",
   "data/battle/stat-boss.json",
@@ -140,12 +151,13 @@ export const REQUIRED_FILES = Object.freeze([
 const RUNTIME_TEXT_EXTENSIONS = new Set([".css", ".html", ".js", ".json", ".mjs"]);
 const SKIPPED_DIRECTORIES = new Set([".git", ".wrangler", "dist", "node_modules", "releases"]);
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/iu;
 const WORD_BREAKER_GUARDIANS = Object.freeze([
-  Object.freeze({ code: "DS", color: "#d82f76" }),
-  Object.freeze({ code: "CS", color: "#363367" }),
-  Object.freeze({ code: "CSE", color: "#e333bb" }),
-  Object.freeze({ code: "AI", color: "#2ab5e4" }),
-  Object.freeze({ code: "AIDS", color: "#fac804" }),
+  Object.freeze({ code: "DS", color: "#fcb5dd", inkColor: "#501060", imageSrc: "./assets/images/guardian-eggs/guardian-ds.png" }),
+  Object.freeze({ code: "CS", color: "#a2c05e", inkColor: "#304010", imageSrc: "./assets/images/guardian-eggs/guardian-cs.png" }),
+  Object.freeze({ code: "CSE", color: "#ac51fa", inkColor: "#301040", imageSrc: "./assets/images/guardian-eggs/guardian-cse.png" }),
+  Object.freeze({ code: "AI", color: "#0e7ffd", inkColor: "#0010a0", imageSrc: "./assets/images/guardian-eggs/guardian-ai.png" }),
+  Object.freeze({ code: "AIDS", color: "#fdd044", inkColor: "#703000", imageSrc: "./assets/images/guardian-eggs/guardian-aids.png" }),
 ]);
 const WORD_BREAKER_GIMMICK_TYPES = Object.freeze([
   "lane-rain",
@@ -514,13 +526,6 @@ function validateGameRegistry(
       }
     }
 
-    const thumbnailAsset = assetById.get(game.thumbnailAssetId);
-    if (!thumbnailAsset || thumbnailAsset.type !== "image") {
-      addError(errors, `${game.id} thumbnailAssetId must resolve to an image asset: ${game.thumbnailAssetId}`);
-    } else if (!groupsForAsset(thumbnailAsset).includes(game.assetGroup)) {
-      addError(errors, `${game.id} thumbnail asset is not in assetGroup ${game.assetGroup}`);
-    }
-
     if (!String(registrySource).includes(game.module) || !String(registrySource).includes(expected.modulePath)) {
       addError(errors, `${game.id} is not mapped to ${expected.modulePath} in js/minigames/registry.js`);
     }
@@ -645,8 +650,8 @@ function validateWordBreakerConfig(config, battle, errors) {
   requireExactNumber(config.player?.speed, 220, "player.speed");
   requireExactNumber(config.player?.startPosition?.x, 208, "player.startPosition.x");
   requireExactNumber(config.player?.startPosition?.y, 700, "player.startPosition.y");
-  requireExactNumber(config.shot?.speed, 520, "shot.speed");
-  requireExactNumber(config.shot?.intervalMs, 180, "shot.intervalMs");
+  requireExactNumber(config.shot?.speed, 320, "shot.speed");
+  requireExactNumber(config.shot?.intervalMs, 260, "shot.intervalMs");
   requireExactNumber(config.shot?.damage, 20, "shot.damage");
   requireExactNumber(config.omenDurationMs, 2400, "omenDurationMs");
   requireExactNumber(config.overloadGraceMs, 4200, "overloadGraceMs");
@@ -666,7 +671,7 @@ function validateWordBreakerConfig(config, battle, errors) {
       addError(errors, `${label} phrase.${field} must be a positive finite number`);
     }
   }
-  requireExactNumber(config.phrase?.maxHp, 100, "phrase.maxHp");
+  requireExactNumber(config.phrase?.maxHp, 140, "phrase.maxHp");
 
   if (!Array.isArray(config.rounds) || config.rounds.length !== WORD_BREAKER_GUARDIANS.length) {
     addError(errors, `${label} rounds must contain exactly five guardian rounds`);
@@ -681,10 +686,15 @@ function validateWordBreakerConfig(config, battle, errors) {
       addError(errors, `${label} rounds[${index}] must be an object`);
       continue;
     }
-    if (round.guardian?.code !== expectedGuardian.code || round.guardian?.color !== expectedGuardian.color) {
+    if (
+      round.guardian?.code !== expectedGuardian.code
+      || round.guardian?.color !== expectedGuardian.color
+      || round.guardian?.inkColor !== expectedGuardian.inkColor
+      || round.guardian?.imageSrc !== expectedGuardian.imageSrc
+    ) {
       addError(
         errors,
-        `${label} rounds[${index}] guardian must be ${expectedGuardian.code} ${expectedGuardian.color}`,
+        `${label} rounds[${index}] guardian art must match ${expectedGuardian.code}`,
       );
     }
     const gimmick = round.gimmick;
@@ -733,6 +743,15 @@ function validateWordBreakerConfig(config, battle, errors) {
       }
       if (!Number.isInteger(gimmick.laneCount) || gimmick.laneCount < 3 || gimmick.laneCount > 16) {
         addError(errors, `${label} rounds[${index}].gimmick.laneCount must be an integer between 3 and 16`);
+      }
+      if (gimmick.glyphHits !== 2) {
+        addError(errors, `${label} rounds[${index}].gimmick.glyphHits must be 2`);
+      }
+      if (gimmick.surgeHits !== 3) {
+        addError(errors, `${label} rounds[${index}].gimmick.surgeHits must be 3`);
+      }
+      if (gimmick.breakableSurgeCount !== 2) {
+        addError(errors, `${label} rounds[${index}].gimmick.breakableSurgeCount must be 2`);
       }
     }
     for (const field of ["omenMessage", "collapseMessage", "guardianMessage", "recoveryMessage"]) {
@@ -816,17 +835,17 @@ function validateWordBreakerConfig(config, battle, errors) {
         Math.ceil(defaultPhraseHp / shotDamage),
         visibleTargetGlyphs,
       );
-      if (normalizedHitBudget < 5 || normalizedHitBudget > 6) {
+      if (normalizedHitBudget !== 7) {
         addError(
           errors,
-          `${label} phrase ${phrase.id ?? "(unknown)"} must normalize to a 5-6 meaningful-hit budget; received ${normalizedHitBudget}`,
+          `${label} phrase ${phrase.id ?? "(unknown)"} must normalize to a 7-hit target budget; received ${normalizedHitBudget}`,
         );
       }
       const effectiveMaxHp = normalizedHitBudget * shotDamage;
-      if (phrase.maxHp !== effectiveMaxHp) {
+      if (effectiveMaxHp !== defaultPhraseHp) {
         addError(
           errors,
-          `${label} phrase ${phrase.id ?? "(unknown)"}.maxHp must match its effective hit budget (${effectiveMaxHp}); received ${phrase.maxHp}`,
+          `${label} phrase ${phrase.id ?? "(unknown)"} effective maxHp must match phrase.maxHp (${defaultPhraseHp}); received ${effectiveMaxHp}`,
         );
       }
     }
@@ -856,13 +875,79 @@ function validateActions(scriptDocuments, gameIds, scriptIds, assetIds, errors) 
   }
 }
 
-function validateMapReferences(mapData, games, departmentByCode, scriptIds, errors) {
+function validateGuardianCatalog(guardianEggs, games, departmentByCode, assets, errors) {
+  requireUniqueIds(guardianEggs, "guardian egg", errors);
+  const gameById = new Map(games.map((game) => [game?.id, game]));
+  const guardianImageSources = new Set(
+    assets
+      .filter((asset) => asset?.group === "guardian-eggs" && asset?.type === "image")
+      .map((asset) => asset.src),
+  );
+  const guardianById = new Map();
+  const storyIds = new Set();
+
+  for (const guardian of guardianEggs) {
+    if (!guardian || typeof guardian !== "object" || typeof guardian.id !== "string") {
+      continue;
+    }
+    if (!guardianById.has(guardian.id)) {
+      guardianById.set(guardian.id, guardian);
+    }
+    if (!departmentByCode.has(guardian.departmentCode)) {
+      addError(
+        errors,
+        `guardian egg ${guardian.id} departmentCode does not resolve: ${guardian.departmentCode}`
+      );
+    }
+    const linkedGame = gameById.get(guardian.miniGameId);
+    if (!linkedGame) {
+      addError(
+        errors,
+        `guardian egg ${guardian.id} miniGameId does not resolve: ${guardian.miniGameId}`
+      );
+    } else if (linkedGame.departmentCode !== guardian.departmentCode) {
+      addError(
+        errors,
+        `guardian egg ${guardian.id} departmentCode ${guardian.departmentCode} does not match mini game ${guardian.miniGameId} (${linkedGame.departmentCode})`
+      );
+    }
+    if (typeof guardian.storyId !== "string" || guardian.storyId.length === 0) {
+      addError(errors, `guardian egg ${guardian.id} is missing a non-empty storyId`);
+    } else if (storyIds.has(guardian.storyId)) {
+      addError(errors, `guardian egg storyId is duplicated: ${guardian.storyId}`);
+    } else {
+      storyIds.add(guardian.storyId);
+    }
+    if (typeof guardian.color !== "string" || !HEX_COLOR_PATTERN.test(guardian.color)) {
+      addError(errors, `guardian egg ${guardian.id} requires a six-digit color`);
+    }
+    if (typeof guardian.inkColor !== "string" || !HEX_COLOR_PATTERN.test(guardian.inkColor)) {
+      addError(errors, `guardian egg ${guardian.id} requires a six-digit inkColor`);
+    }
+    if (typeof guardian.imageSrc !== "string" || !guardianImageSources.has(guardian.imageSrc)) {
+      addError(errors, `guardian egg ${guardian.id} imageSrc does not resolve: ${guardian.imageSrc}`);
+    }
+  }
+
+  return guardianById;
+}
+
+function validateMapReferences(
+  mapData,
+  games,
+  departmentByCode,
+  scriptIds,
+  guardianById,
+  guardianEggs,
+  errors
+) {
   const gameIds = new Set(games.map((game) => game?.id).filter(Boolean));
   const gameById = new Map(games.map((game) => [game?.id, game]));
   const maps = Array.isArray(mapData?.maps) ? mapData.maps : mapData ? [mapData] : [];
   requireUniqueIds(maps, "map", errors);
   const npcs = maps.flatMap((map) => (Array.isArray(map?.npcs) ? map.npcs : []));
   requireUniqueIds(npcs, "NPC", errors);
+  const usedGuardianEggIds = new Set();
 
   for (const npc of npcs) {
     if (!departmentByCode.has(npc.departmentCode)) {
@@ -878,18 +963,56 @@ function validateMapReferences(mapData, games, departmentByCode, scriptIds, erro
         `NPC ${npc.id} departmentCode ${npc.departmentCode} does not match mini game ${npc.miniGameId} (${linkedGame.departmentCode})`
       );
     }
-    for (const field of ["firstScript", "revisitScript"]) {
+    for (const field of ["firstScript", "revisitScript", "clearScriptId"]) {
       if (typeof npc[field] !== "string" || !scriptIds.has(npc[field])) {
         addError(errors, `NPC ${npc.id} ${field} does not resolve: ${npc[field]}`);
       }
     }
 
+    const guardian = guardianById.get(npc.guardianEggId);
+    if (typeof npc.guardianEggId !== "string" || !guardian) {
+      addError(errors, `NPC ${npc.id} guardianEggId does not resolve: ${npc.guardianEggId}`);
+    } else {
+      if (usedGuardianEggIds.has(npc.guardianEggId)) {
+        addError(errors, `guardian egg ${npc.guardianEggId} is linked to more than one NPC`);
+      }
+      usedGuardianEggIds.add(npc.guardianEggId);
+      for (const field of ["departmentCode", "miniGameId"]) {
+        if (guardian[field] !== npc[field]) {
+          addError(
+            errors,
+            `NPC ${npc.id} ${field} ${npc[field]} does not match guardian egg ${guardian.id} (${guardian[field]})`
+          );
+        }
+      }
+      if (guardian.storyId !== npc.clearStoryId) {
+        addError(
+          errors,
+          `NPC ${npc.id} clearStoryId ${npc.clearStoryId} does not match guardian egg ${guardian.id} storyId (${guardian.storyId})`
+        );
+      }
+    }
+
     const completionRule = npc.completionRule;
-    if (completionRule?.type === "MINIGAME_CLEAR" && !gameIds.has(completionRule.target)) {
-      addError(errors, `NPC ${npc.id} completionRule mini game does not resolve: ${completionRule.target}`);
+    if (completionRule?.type === "MINIGAME_CLEAR") {
+      if (!gameIds.has(completionRule.target)) {
+        addError(errors, `NPC ${npc.id} completionRule mini game does not resolve: ${completionRule.target}`);
+      }
+      if (completionRule.target !== npc.miniGameId) {
+        addError(
+          errors,
+          `NPC ${npc.id} MINIGAME_CLEAR target must match miniGameId ${npc.miniGameId}; received ${completionRule.target}`
+        );
+      }
     }
     if (completionRule?.type === "DIALOGUE_COMPLETE" && !scriptIds.has(completionRule.target)) {
       addError(errors, `NPC ${npc.id} completionRule dialogue does not resolve: ${completionRule.target}`);
+    }
+  }
+
+  for (const guardian of guardianEggs) {
+    if (typeof guardian?.id === "string" && !usedGuardianEggIds.has(guardian.id)) {
+      addError(errors, `guardian egg ${guardian.id} is not linked to a map NPC`);
     }
   }
 }
@@ -898,10 +1021,23 @@ export function validateReferenceGraph(snapshot) {
   const errors = [];
   const games = asArray(snapshot.minigames, ["minigames", "games"], "minigames.json", errors);
   const battles = asArray(snapshot.battles, ["battles"], "battles.json", errors);
+  const guardianEggs = asArray(
+    snapshot.guardianEggs,
+    ["guardianEggs"],
+    "guardian-eggs.json",
+    errors
+  );
   const assets = asArray(snapshot.manifest, ["assets"], "asset-manifest.json", errors);
   const scripts = extractDialogueScripts(snapshot.scriptDocuments ?? []);
   const scriptIds = requireUniqueIds(scripts, "dialogue script", errors);
   const departmentByCode = validateDepartments(snapshot.departments, errors);
+  const guardianById = validateGuardianCatalog(
+    guardianEggs,
+    games,
+    departmentByCode,
+    assets,
+    errors
+  );
   const assetIds = validateManifest(assets, errors);
   const gameIds = validateGameRegistry(
     games,
@@ -925,7 +1061,15 @@ export function validateReferenceGraph(snapshot) {
   validateVersionContract(snapshot, errors);
   validateAppConfig(snapshot.appConfig, battles, snapshot.mapData, errors);
   validateActions(snapshot.scriptDocuments ?? [], gameIds, scriptIds, assetIds, errors);
-  validateMapReferences(snapshot.mapData, games, departmentByCode, scriptIds, errors);
+  validateMapReferences(
+    snapshot.mapData,
+    games,
+    departmentByCode,
+    scriptIds,
+    guardianById,
+    guardianEggs,
+    errors
+  );
 
   return errors;
 }
@@ -1162,6 +1306,7 @@ export async function validateProject(projectRoot = defaultRoot) {
     appConfig: jsonByRelativePath.get("data/app-config.json"),
     battles: jsonByRelativePath.get("data/battles.json"),
     departments: jsonByRelativePath.get("data/departments.json"),
+    guardianEggs: jsonByRelativePath.get("data/guardian-eggs.json"),
     htmlVersion: extractHtmlContentVersion(html),
     javaScriptVersion: extractJavaScriptContentVersion(versionSource),
     manifest: jsonByRelativePath.get("data/asset-manifest.json"),
