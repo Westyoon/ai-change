@@ -38,6 +38,15 @@
       "sourceRef": "CONTENT-COMMON-004"
     },
     {
+      "id": "guardian-eggs-data",
+      "group": "common",
+      "type": "json",
+      "src": "./data/guardian-eggs.json",
+      "required": true,
+      "alt": null,
+      "sourceRef": "CONTENT-COMMON-008"
+    },
+    {
       "id": "npc-dialogues-data",
       "group": "common",
       "type": "json",
@@ -74,6 +83,51 @@
       "sourceRef": "ASSET-COMMON-002"
     },
     {
+      "id": "guardian-egg-ds",
+      "group": "guardian-eggs",
+      "type": "image",
+      "src": "./assets/images/guardian-eggs/guardian-ds.png",
+      "required": true,
+      "alt": "데이터사이언스 통찰의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-DS-001"
+    },
+    {
+      "id": "guardian-egg-cs",
+      "group": "guardian-eggs",
+      "type": "image",
+      "src": "./assets/images/guardian-eggs/guardian-cs.png",
+      "required": true,
+      "alt": "사이버보안 신뢰의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-CS-001"
+    },
+    {
+      "id": "guardian-egg-cse",
+      "group": "guardian-eggs",
+      "type": "image",
+      "src": "./assets/images/guardian-eggs/guardian-cse.png",
+      "required": true,
+      "alt": "컴퓨터공학 창조의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-CSE-001"
+    },
+    {
+      "id": "guardian-egg-ai",
+      "group": "guardian-eggs",
+      "type": "image",
+      "src": "./assets/images/guardian-eggs/guardian-ai.png",
+      "required": true,
+      "alt": "인공지능 성장의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-AI-001"
+    },
+    {
+      "id": "guardian-egg-aids",
+      "group": "guardian-eggs",
+      "type": "image",
+      "src": "./assets/images/guardian-eggs/guardian-aids.png",
+      "required": true,
+      "alt": "인공지능데이터사이언스 융합의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-AIDS-001"
+    },
+    {
       "id": "number-baseball-config",
       "group": "data-number-baseball",
       "type": "json",
@@ -83,12 +137,12 @@
       "sourceRef": "CONTENT-DS-001"
     },
     {
-      "id": "number-baseball-thumbnail",
+      "id": "number-baseball-background",
       "group": "data-number-baseball",
       "type": "image",
-      "src": "./assets/minigames/number-baseball/thumbnail.svg",
+      "src": "./assets/minigames/number-baseball/game-background.png",
       "required": true,
-      "alt": "DS 숫자 야구 미니게임 미리보기",
+      "alt": "별이 뜬 밤의 흰 성으로 꾸민 숫자 야구 게임 배경",
       "sourceRef": "ASSET-DS-001"
     },
     {
@@ -101,13 +155,22 @@
       "sourceRef": "CONTENT-CS-001"
     },
     {
-      "id": "click-to-purify-thumbnail",
+      "id": "click-to-purify-stage-background",
       "group": "cyber-click-to-purify",
       "type": "image",
-      "src": "./assets/minigames/click-to-purify/thumbnail.svg",
+      "src": "./assets/minigames/click-to-purify/stage-background.png",
       "required": true,
-      "alt": "CS CLICK to PURIFY 미니게임 미리보기",
+      "alt": "별똥별이 흐르는 보라색 사이버보안 게임 배경",
       "sourceRef": "ASSET-CS-001"
+    },
+    {
+      "id": "click-to-purify-arena-background",
+      "group": "cyber-click-to-purify",
+      "type": "image",
+      "src": "./assets/minigames/click-to-purify/arena-background.png",
+      "required": true,
+      "alt": "고양이 별자리가 빛나는 사이버보안 플레이 영역",
+      "sourceRef": "ASSET-CS-002"
     },
     {
       "id": "code-heart-config",
@@ -119,12 +182,12 @@
       "sourceRef": "CONTENT-CSE-001"
     },
     {
-      "id": "code-heart-thumbnail",
+      "id": "code-heart-background",
       "group": "computer-code-heart",
       "type": "image",
-      "src": "./assets/minigames/code-heart/thumbnail.svg",
+      "src": "./assets/minigames/code-heart/game-background.png",
       "required": true,
-      "alt": "CSE Code Heart 미니게임 미리보기",
+      "alt": "하트와 X 무늬가 둘러진 분홍 체크무늬 코드 하트 게임 배경",
       "sourceRef": "ASSET-CSE-001"
     },
     {
@@ -137,13 +200,31 @@
       "sourceRef": "CONTENT-AI-001"
     },
     {
-      "id": "ai-ball-classification-thumbnail",
+      "id": "ai-ball-classification-background",
       "group": "ai-ball-classification",
       "type": "image",
-      "src": "./assets/minigames/ai-ball-classification/thumbnail.svg",
+      "src": "./assets/minigames/ai-ball-classification/game-background.png",
       "required": true,
-      "alt": "AI Ball Classification 미니게임 미리보기",
+      "alt": "별이 반짝이는 남색 인공지능 공 분류 게임 배경",
       "sourceRef": "ASSET-AI-001"
+    },
+    {
+      "id": "ai-ball-classification-sorting-bin",
+      "group": "ai-ball-classification",
+      "type": "image",
+        "src": "./assets/images/인지 상자 몸통.png",
+      "required": true,
+      "alt": "체크무늬와 하트로 꾸민 픽셀아트 정보 선별 상자",
+        "sourceRef": "ASSET-AI-005"
+      },
+      {
+        "id": "ai-ball-classification-sorting-lid",
+        "group": "ai-ball-classification",
+        "type": "image",
+        "src": "./assets/images/인지 상자 뚜껑.png",
+        "required": true,
+        "alt": "정보 선별 상자의 열고 닫는 체크무늬 뚜껑",
+        "sourceRef": "ASSET-AI-005"
     },
     {
       "id": "ai-ball-classification-sample",
@@ -164,12 +245,30 @@
       "sourceRef": "CONTENT-AIDS-001"
     },
     {
-      "id": "ai-data-egg-sort-thumbnail",
+      "id": "ai-data-egg-sort-guardian-ai",
       "group": "ai-data-egg-sort",
       "type": "image",
-      "src": "./assets/minigames/ai-data-egg-sort/thumbnail.svg",
+      "src": "./assets/images/guardian-eggs/guardian-ai.png",
       "required": true,
-      "alt": "AIDS 인지알·데사알 분류 미니게임 미리보기",
+      "alt": "인지 분류용 성장의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-AI-001"
+    },
+    {
+      "id": "ai-data-egg-sort-guardian-ds",
+      "group": "ai-data-egg-sort",
+      "type": "image",
+      "src": "./assets/images/guardian-eggs/guardian-ds.png",
+      "required": true,
+      "alt": "데사 분류용 통찰의 수호알",
+      "sourceRef": "ASSET-GUARDIAN-DS-001"
+    },
+    {
+      "id": "ai-data-egg-sort-background",
+      "group": "ai-data-egg-sort",
+      "type": "image",
+      "src": "./assets/minigames/ai-data-egg-sort/game-background.png",
+      "required": true,
+      "alt": "인지알·데사알 분류 게임의 분홍색 픽셀 아트 배경",
       "sourceRef": "ASSET-AIDS-001"
     },
     {
@@ -207,6 +306,24 @@
       "required": true,
       "alt": null,
       "sourceRef": "CONTENT-BATTLE-004"
+    },
+    {
+      "id": "xr-egg-art",
+      "group": "xr-egg-trials",
+      "type": "image",
+      "src": "./assets/images/story-eggs/xr-egg.png",
+      "required": true,
+      "alt": "흰 X 문양이 새겨진 검은 X알",
+      "sourceRef": "ASSET-STORY-EGG-001"
+    },
+    {
+      "id": "heart-egg-art",
+      "group": "xr-egg-trials",
+      "type": "image",
+      "src": "./assets/images/story-eggs/heart-egg.png",
+      "required": true,
+      "alt": "금색 하트와 날개 문양이 새겨진 하얀 마음의 알",
+      "sourceRef": "ASSET-STORY-EGG-002"
     },
     {
       "id": "word-breaker-config",
