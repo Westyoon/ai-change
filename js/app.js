@@ -12,6 +12,7 @@ import { createCharacterPreviewScene } from "./scenes/character-preview-scene.js
 import { createDialogueScene } from "./scenes/dialogue-scene.js";
 import { createErrorScene } from "./scenes/error-scene.js";
 import { createHowToScene } from "./scenes/how-to-scene.js";
+import { createGuardianRewardScene } from "./scenes/guardian-reward-scene.js";
 import { createLoadingScene } from "./scenes/loading-scene.js";
 import { createMainMenuScene } from "./scenes/main-menu-scene.js";
 import { createMapScene } from "./scenes/map-scene.js";
@@ -19,6 +20,9 @@ import { createMiniGameIntroScene } from "./scenes/minigame-intro-scene.js";
 import { createMiniGameScene } from "./scenes/minigame-scene.js";
 import { createRankingScene } from "./scenes/ranking-scene.js";
 import { createSettingsScene } from "./scenes/settings-scene.js";
+import { createStoryIntroScene } from "./scenes/story-intro-scene.js";
+import { createStoryMemoriesScene } from "./scenes/story-memories-scene.js";
+import { createStoryMemoryScene } from "./scenes/story-memory-scene.js";
 import { bindTopNavigation } from "./ui/top-navigation.js";
 
 async function fetchJson(path) {
@@ -77,6 +81,7 @@ async function bootstrap() {
         minigames: [],
         battles: [],
         maps: [],
+        guardianEggs: [],
         scripts: [],
       },
       state: {
@@ -104,8 +109,12 @@ async function bootstrap() {
       "main-menu": createMainMenuScene,
       "how-to": createHowToScene,
       settings: createSettingsScene,
+      "story-intro": createStoryIntroScene,
+      "story-memories": createStoryMemoriesScene,
+      "story-memory": createStoryMemoryScene,
       map: createMapScene,
       dialogue: createDialogueScene,
+      "guardian-reward": createGuardianRewardScene,
       "minigame-intro": createMiniGameIntroScene,
       minigame: createMiniGameScene,
       battle: createBattleScene,
@@ -130,7 +139,7 @@ async function bootstrap() {
     const title = document.createElement("h1");
     title.textContent = "시작할 수 없습니다";
     const copy = document.createElement("p");
-    copy.textContent = error instanceof Error ? error.message : String(error);
+    copy.textContent = "앱을 불러오지 못했습니다. 페이지를 다시 불러와 주세요.";
     const retry = document.createElement("button");
     retry.className = "button button--primary";
     retry.type = "button";

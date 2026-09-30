@@ -22,6 +22,7 @@ const VALID_MINI_GAME_STATUSES = new Set(["published", "locked", "coming-soon"])
 const VALID_BATTLE_STATUSES = new Set(["published", "locked", "coming-soon"]);
 const VALID_RESULT_STATUSES = new Set(["CLEAR", "FAIL", "QUIT", "ERROR"]);
 const CANDIDATE_FIELDS = new Set(["status", "score", "failureReason", "metrics", "reward"]);
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/iu;
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -111,6 +112,7 @@ export function validateScaffoldContent(bundle = {}) {
   const manifest = bundle.manifest ?? bundle.assetManifest ?? null;
   const assets = unwrapList(manifest, ["assets", "items"]);
   const maps = collectMaps(bundle.mapData ?? bundle.maps);
+  const guardianEggs = unwrapList(bundle.guardianEggs, ["guardianEggs", "items"]);
   const scripts = collectDialogueScripts(bundle.scripts ?? bundle.dialogues);
 
   validateAppConfig(appConfig, errors);
@@ -155,7 +157,21 @@ export function validateScaffoldContent(bundle = {}) {
       `app-config.features.battleContent must equal runnable published Battle presence (${runnableBattleCount > 0}).`,
     );
   }
-  validateMaps(maps, appConfig, miniGameById, departmentByCode, scriptIds, errors);
+  const guardianEggById = validateGuardianEggs(
+    guardianEggs,
+    departmentByCode,
+    miniGameById,
+    errors,
+  );
+  validateMaps(
+    maps,
+    appConfig,
+    miniGameById,
+    departmentByCode,
+    scriptIds,
+    guardianEggById,
+    errors,
+  );
   validateDialogueActions(scripts, miniGameById, scriptIds, errors);
 
   return { errors, warnings };
@@ -399,20 +415,12 @@ function validateMiniGames(
     if (!configAsset || configAsset.type !== "json") {
       errors.push(`Mini-game ${game.id} configAssetId must reference a JSON asset.`);
     }
-    const thumbnailAsset = assetById.get(game.thumbnailAssetId);
-    if (!thumbnailAsset || thumbnailAsset.type !== "image") {
-      errors.push(`Mini-game ${game.id} thumbnailAssetId must reference an image asset.`);
-    }
     if (!knownGroups.has(game.assetGroup)) {
       errors.push(`Mini-game ${game.id} references missing asset group ${String(game.assetGroup)}.`);
     }
     if (configAsset && configAsset.group !== game.assetGroup) {
       errors.push(`Mini-game ${game.id} config asset must belong to group ${game.assetGroup}.`);
     }
-    if (thumbnailAsset && thumbnailAsset.group !== game.assetGroup) {
-      errors.push(`Mini-game ${game.id} thumbnail must belong to group ${game.assetGroup}.`);
-    }
-
     for (const field of ["introScript", "clearOutroScript", "failOutroScript"]) {
       if (typeof game[field] !== "string" || !scriptIds.has(game[field])) {
         errors.push(`Mini-game ${game.id} references missing ${field}: ${String(game[field])}.`);
@@ -428,7 +436,82 @@ function validateMiniGames(
   return byId;
 }
 
-function validateMaps(maps, appConfig, miniGameById, departmentByCode, scriptIds, errors) {
+function validateGuardianEggs(guardianEggs, departmentByCode, miniGameById, errors) {
+  const byId = new Map();
+  const departmentCodes = new Set();
+  const miniGameIds = new Set();
+  const storyIds = new Set();
+
+  for (const egg of guardianEggs) {
+    if (!isObject(egg) || typeof egg.id !== "string" || egg.id.length === 0) {
+      errors.push("Every guardian egg requires a non-empty id.");
+      continue;
+    }
+    if (byId.has(egg.id)) {
+      errors.push(`Duplicate guardian egg id: ${egg.id}.`);
+      continue;
+    }
+    byId.set(egg.id, egg);
+    if (!departmentByCode.has(egg.departmentCode)) {
+      errors.push(`Guardian egg ${egg.id} references unknown departmentCode ${String(egg.departmentCode)}.`);
+    } else if (departmentCodes.has(egg.departmentCode)) {
+      errors.push(`Duplicate guardian egg departmentCode: ${egg.departmentCode}.`);
+    }
+    if (typeof egg.departmentCode === "string" && egg.departmentCode.length > 0) {
+      departmentCodes.add(egg.departmentCode);
+    }
+
+    const miniGame = miniGameById.get(egg.miniGameId);
+    if (!miniGame) {
+      errors.push(`Guardian egg ${egg.id} references missing miniGameId ${String(egg.miniGameId)}.`);
+    } else if (miniGame.departmentCode !== egg.departmentCode) {
+      errors.push(`Guardian egg ${egg.id} departmentCode must match mini-game ${egg.miniGameId}.`);
+    }
+    if (miniGameIds.has(egg.miniGameId)) {
+      errors.push(`Duplicate guardian egg miniGameId: ${String(egg.miniGameId)}.`);
+    }
+    if (typeof egg.miniGameId === "string" && egg.miniGameId.length > 0) {
+      miniGameIds.add(egg.miniGameId);
+    }
+
+    if (typeof egg.storyId !== "string" || egg.storyId.length === 0) {
+      errors.push(`Guardian egg ${egg.id} requires a storyId.`);
+    } else if (storyIds.has(egg.storyId)) {
+      errors.push(`Duplicate guardian egg storyId: ${egg.storyId}.`);
+    }
+    if (typeof egg.storyId === "string" && egg.storyId.length > 0) {
+      storyIds.add(egg.storyId);
+    }
+    for (const field of ["departmentName", "name", "description", "imageSrc"]) {
+      if (typeof egg[field] !== "string" || egg[field].trim().length === 0) {
+        errors.push(`Guardian egg ${egg.id} requires ${field}.`);
+      }
+    }
+    if (typeof egg.color !== "string" || !HEX_COLOR_PATTERN.test(egg.color)) {
+      errors.push(`Guardian egg ${egg.id} requires a six-digit hex color.`);
+    }
+    if (typeof egg.inkColor !== "string" || !HEX_COLOR_PATTERN.test(egg.inkColor)) {
+      errors.push(`Guardian egg ${egg.id} requires a six-digit hex inkColor.`);
+    }
+  }
+
+  for (const code of Object.keys(DEPARTMENT_DISPLAY_NAMES)) {
+    if (!departmentCodes.has(code)) {
+      errors.push(`Missing guardian egg definition: ${code}.`);
+    }
+  }
+  return byId;
+}
+
+function validateMaps(
+  maps,
+  appConfig,
+  miniGameById,
+  departmentByCode,
+  scriptIds,
+  guardianEggById,
+  errors,
+) {
   const mapIds = new Set();
   const npcIds = new Set();
 
@@ -458,9 +541,34 @@ function validateMaps(maps, appConfig, miniGameById, departmentByCode, scriptIds
       if (npc.miniGameId != null && !miniGameById.has(npc.miniGameId)) {
         errors.push(`NPC ${npc.id} references missing miniGameId ${String(npc.miniGameId)}.`);
       }
-      for (const field of ["firstScript", "revisitScript"]) {
+      for (const field of ["firstScript", "revisitScript", "clearScriptId"]) {
         if (npc[field] != null && !scriptIds.has(npc[field])) {
           errors.push(`NPC ${npc.id} references missing ${field}: ${String(npc[field])}.`);
+        }
+      }
+      if (npc.completionRule?.type === "MINIGAME_CLEAR") {
+        if (npc.completionRule.target !== npc.miniGameId) {
+          errors.push(`NPC ${npc.id} completionRule target must match miniGameId.`);
+        }
+        if (typeof npc.clearScriptId !== "string" || npc.clearScriptId.length === 0) {
+          errors.push(`NPC ${npc.id} requires clearScriptId for its guardian reward.`);
+        }
+        if (typeof npc.clearStoryId !== "string" || npc.clearStoryId.length === 0) {
+          errors.push(`NPC ${npc.id} requires clearStoryId for its guardian reward.`);
+        }
+        const egg = guardianEggById.get(npc.guardianEggId);
+        if (!egg) {
+          errors.push(`NPC ${npc.id} references missing guardianEggId ${String(npc.guardianEggId)}.`);
+        } else {
+          if (egg.departmentCode !== npc.departmentCode) {
+            errors.push(`NPC ${npc.id} guardian egg departmentCode does not match.`);
+          }
+          if (egg.miniGameId !== npc.miniGameId) {
+            errors.push(`NPC ${npc.id} guardian egg miniGameId does not match.`);
+          }
+          if (egg.storyId !== npc.clearStoryId) {
+            errors.push(`NPC ${npc.id} guardian egg storyId does not match clearStoryId.`);
+          }
         }
       }
     }

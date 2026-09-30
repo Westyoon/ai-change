@@ -1,11 +1,19 @@
 import { isWithinRadius } from "./collision.js";
 
 const DEPARTMENT_COLORS = Object.freeze({
-  AI: "#7567ff",
-  DS: "#2d9cdb",
-  CSE: "#f2994a",
-  CS: "#eb5757",
-  AIDS: "#27ae60",
+  AI: "#0e7ffd",
+  DS: "#fcb5dd",
+  CSE: "#ac51fa",
+  CS: "#a2c05e",
+  AIDS: "#fdd044",
+});
+
+const DEPARTMENT_INK_COLORS = Object.freeze({
+  AI: "#0010a0",
+  DS: "#501060",
+  CSE: "#301040",
+  CS: "#304010",
+  AIDS: "#703000",
 });
 
 export class Npc {
@@ -57,7 +65,7 @@ export class Npc {
     context.lineWidth = active ? 3 : 1;
     context.strokeRect(left, top, this.width, this.height);
 
-    context.fillStyle = "#ffffff";
+    context.fillStyle = DEPARTMENT_INK_COLORS[this.departmentCode] ?? "#ffffff";
     context.font = "bold 12px sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";

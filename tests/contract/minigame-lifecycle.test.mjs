@@ -135,6 +135,29 @@ test("all five registered mini-games are integrated MVPs rather than scaffolds",
   );
 });
 
+test("the pre-game host result screen returns to navigation without an in-place retry", async () => {
+  const source = await readFile(new URL("../../js/scenes/minigame-scene.js", import.meta.url), "utf8");
+  const overlayOptions = source.match(
+    /overlay\s*=\s*createResultOverlay\(\{(?<options>[\s\S]*?)backgroundElements:/u,
+  )?.groups?.options;
+
+  assert.ok(overlayOptions, "mini-game result overlay options");
+  assert.doesNotMatch(overlayOptions, /\bonRetry\s*:/u);
+  assert.match(overlayOptions, /\bonMap\s*:/u);
+  assert.match(overlayOptions, /\bonMenu\s*:/u);
+});
+
+test("the live pre-game toolbar hides department and game names", async () => {
+  const source = await readFile(new URL("../../js/scenes/minigame-scene.js", import.meta.url), "utf8");
+  const toolbar = source.match(
+    /const\s+toolbar\s*=\s*createElement\("header",(?<toolbar>[\s\S]*?)const\s+stage/u,
+  )?.groups?.toolbar;
+
+  assert.ok(toolbar, "mini-game toolbar source");
+  assert.match(toolbar, /"aria-label":\s*"미니게임 조작"/u);
+  assert.doesNotMatch(toolbar, /game\.(?:departmentCode|department|title)/u);
+});
+
 test("the independent Battle registry exposes every published post-game through static loaders", async () => {
   assert.deepEqual(listBattleModuleKeys(), EXPECTED_BATTLE_MODULE_KEYS);
   for (const key of EXPECTED_BATTLE_MODULE_KEYS) {

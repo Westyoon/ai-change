@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "MVP",
   "maps": [
     {
       "id": "festival-main-map",
@@ -23,6 +23,9 @@
           "interactionRadius": 64,
           "firstScript": "ai-npc-first",
           "revisitScript": "ai-npc-revisit",
+          "clearStoryId": "afterstory:ai",
+          "clearScriptId": "ai-npc-clear",
+          "guardianEggId": "guardian-ai",
           "miniGameId": "ai-ball-classification",
           "completionRule": {
             "type": "MINIGAME_CLEAR",
@@ -37,6 +40,9 @@
           "interactionRadius": 64,
           "firstScript": "ds-npc-first",
           "revisitScript": "ds-npc-revisit",
+          "clearStoryId": "afterstory:ds",
+          "clearScriptId": "ds-npc-clear",
+          "guardianEggId": "guardian-ds",
           "miniGameId": "data-number-baseball",
           "completionRule": {
             "type": "MINIGAME_CLEAR",
@@ -51,6 +57,9 @@
           "interactionRadius": 64,
           "firstScript": "cse-npc-first",
           "revisitScript": "cse-npc-revisit",
+          "clearStoryId": "afterstory:cse",
+          "clearScriptId": "cse-npc-clear",
+          "guardianEggId": "guardian-cse",
           "miniGameId": "computer-code-heart",
           "completionRule": {
             "type": "MINIGAME_CLEAR",
@@ -65,6 +74,9 @@
           "interactionRadius": 64,
           "firstScript": "cs-npc-first",
           "revisitScript": "cs-npc-revisit",
+          "clearStoryId": "afterstory:cs",
+          "clearScriptId": "cs-npc-clear",
+          "guardianEggId": "guardian-cs",
           "miniGameId": "cyber-click-to-purify",
           "completionRule": {
             "type": "MINIGAME_CLEAR",
@@ -79,6 +91,9 @@
           "interactionRadius": 64,
           "firstScript": "aids-npc-first",
           "revisitScript": "aids-npc-revisit",
+          "clearStoryId": "afterstory:aids",
+          "clearScriptId": "aids-npc-clear",
+          "guardianEggId": "guardian-aids",
           "miniGameId": "ai-data-egg-sort",
           "completionRule": {
             "type": "MINIGAME_CLEAR",

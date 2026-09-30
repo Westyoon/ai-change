@@ -22,13 +22,14 @@ async function readJson(relativeUrl) {
 }
 
 test("runtime config validator accepts the checked-in runtime data graph", async () => {
-  const [appConfig, departments, minigames, battles, manifest, mapData, ...scripts] = await Promise.all([
+  const [appConfig, departments, minigames, battles, manifest, mapData, guardianEggs, ...scripts] = await Promise.all([
     readJson("../../data/app-config.json"),
     readJson("../../data/departments.json"),
     readJson("../../data/minigames.json"),
     readJson("../../data/battles.json"),
     readJson("../../data/asset-manifest.json"),
     readJson("../../data/map-data.json"),
+    readJson("../../data/guardian-eggs.json"),
     readJson("../../data/scripts/npc-dialogues.json"),
     readJson("../../data/scripts/minigame-outros.json")
   ]);
@@ -40,6 +41,7 @@ test("runtime config validator accepts the checked-in runtime data graph", async
     battles,
     manifest,
     mapData,
+    guardianEggs,
     scripts,
     htmlContentVersion: 1
   });
@@ -78,7 +80,9 @@ test("runtime config validator accepts the checked-in runtime data graph", async
   const normalizedWordBreaker = normalizeWordBreakerConfig(wordBreakerConfig);
   const normalizedRoundPhrases = normalizedWordBreaker.rounds.flatMap((round) => round.phrases);
   assert.equal(wordBreakerConfig.implementationStatus, "MVP");
-  assert.equal(wordBreakerConfig.phrase.maxHp, 100);
+  assert.equal(wordBreakerConfig.phrase.maxHp, 140);
+  assert.equal(wordBreakerConfig.shot.speed, 320);
+  assert.equal(wordBreakerConfig.shot.intervalMs, 260);
   assert.equal(wordBreakerConfig.finalPhrase.maxHp, 5);
   assert.equal(normalizedWordBreaker.finalPhrase.maxHp, 5);
   assert.equal(wordBreakerConfig.roundDurationMs, 13500);
@@ -100,12 +104,17 @@ test("runtime config validator accepts the checked-in runtime data graph", async
   assert.deepEqual(
     wordBreakerConfig.rounds.map(({ guardian }) => [guardian.code, guardian.color]),
     [
-      ["DS", "#d82f76"],
-      ["CS", "#363367"],
-      ["CSE", "#e333bb"],
-      ["AI", "#2ab5e4"],
-      ["AIDS", "#fac804"],
+      ["DS", "#fcb5dd"],
+      ["CS", "#a2c05e"],
+      ["CSE", "#ac51fa"],
+      ["AI", "#0e7ffd"],
+      ["AIDS", "#fdd044"],
     ],
+  );
+  assert.deepEqual(
+    wordBreakerConfig.rounds.map(({ guardian }) => guardian.imageSrc),
+    ["ds", "cs", "cse", "ai", "aids"]
+      .map((code) => `./assets/images/guardian-eggs/guardian-${code}.png`),
   );
   assert.deepEqual(
     wordBreakerConfig.rounds.map(({ gimmick }) => gimmick.type),
@@ -132,6 +141,9 @@ test("runtime config validator accepts the checked-in runtime data graph", async
     assert.ok(Number.isInteger(gimmick.maxGlyphs) && gimmick.maxGlyphs >= 1 && gimmick.maxGlyphs <= 64);
     assert.ok(Number.isInteger(gimmick.contactThreshold) && gimmick.contactThreshold >= 1 && gimmick.contactThreshold <= 8);
     assert.ok(Number.isInteger(gimmick.laneCount) && gimmick.laneCount >= 3 && gimmick.laneCount <= 16);
+    assert.equal(gimmick.glyphHits, 2);
+    assert.equal(gimmick.surgeHits, 3);
+    assert.equal(gimmick.breakableSurgeCount, 2);
     assert.ok(
       gimmick.forceAtMs
         > wordBreakerConfig.overloadGraceMs + wordBreakerConfig.overloadAttackLeadMs,
@@ -146,25 +158,25 @@ test("runtime config validator accepts the checked-in runtime data graph", async
   assert.equal(normalizedRoundPhrases.length, roundPhrases.length);
   const normalizedPhraseById = new Map(normalizedRoundPhrases.map((phrase) => [phrase.id, phrase]));
   for (const phrase of normalizedRoundPhrases) {
-    assert.ok(phrase.targetHits >= 5 && phrase.targetHits <= 6, `${phrase.id}: ${phrase.targetHits} hits`);
+    assert.equal(phrase.targetHits, 7, `${phrase.id}: ${phrase.targetHits} hits`);
     assert.equal(phrase.maxHp, phrase.targetHits * normalizedWordBreaker.shot.damage, phrase.id);
+    assert.equal(phrase.maxHp, 140, `${phrase.id}: effective maxHp`);
   }
-  for (const phrase of roundPhrases) {
-    assert.equal(phrase.maxHp, normalizedPhraseById.get(phrase.id)?.maxHp, `${phrase.id}: raw/effective maxHp`);
-  }
+  assert.equal(normalizedPhraseById.size, roundPhrases.length);
   for (const phrase of [...roundPhrases, wordBreakerConfig.finalPhrase]) {
     assert.equal(phrase.negative.split(phrase.target).length - 1, 1, phrase.id);
   }
 });
 
 test("runtime config validator rejects an unregistered or invalidly unlocked published Battle", async () => {
-  const [appConfig, departments, minigames, battles, manifest, mapData, ...scripts] = await Promise.all([
+  const [appConfig, departments, minigames, battles, manifest, mapData, guardianEggs, ...scripts] = await Promise.all([
     readJson("../../data/app-config.json"),
     readJson("../../data/departments.json"),
     readJson("../../data/minigames.json"),
     readJson("../../data/battles.json"),
     readJson("../../data/asset-manifest.json"),
     readJson("../../data/map-data.json"),
+    readJson("../../data/guardian-eggs.json"),
     readJson("../../data/scripts/npc-dialogues.json"),
     readJson("../../data/scripts/minigame-outros.json")
   ]);
@@ -181,6 +193,7 @@ test("runtime config validator rejects an unregistered or invalidly unlocked pub
     battles,
     manifest,
     mapData,
+    guardianEggs,
     scripts,
   });
 
@@ -189,6 +202,41 @@ test("runtime config validator rejects an unregistered or invalidly unlocked pub
   assert.ok(result.errors.some((error) => error.includes("all five mini-games")));
   assert.ok(result.errors.some((error) => error.includes("missing mini-game")));
   assert.ok(result.errors.some((error) => error.includes("runnable published Battle")));
+});
+
+test("runtime config validator rejects mismatched guardian reward wiring", async () => {
+  const [appConfig, departments, minigames, battles, manifest, mapData, guardianEggs, ...scripts] = await Promise.all([
+    readJson("../../data/app-config.json"),
+    readJson("../../data/departments.json"),
+    readJson("../../data/minigames.json"),
+    readJson("../../data/battles.json"),
+    readJson("../../data/asset-manifest.json"),
+    readJson("../../data/map-data.json"),
+    readJson("../../data/guardian-eggs.json"),
+    readJson("../../data/scripts/npc-dialogues.json"),
+    readJson("../../data/scripts/minigame-outros.json"),
+  ]);
+
+  const [aiNpc, dsNpc, cseNpc] = mapData.maps[0].npcs;
+  aiNpc.guardianEggId = "guardian-ds";
+  dsNpc.clearStoryId = "afterstory:ai";
+  cseNpc.completionRule.target = "data-number-baseball";
+
+  const result = validateScaffoldContent({
+    appConfig,
+    departments,
+    minigames,
+    battles,
+    manifest,
+    mapData,
+    guardianEggs,
+    scripts,
+  });
+
+  assert.ok(result.errors.some((error) => error.includes("guardian egg departmentCode does not match")));
+  assert.ok(result.errors.some((error) => error.includes("guardian egg miniGameId does not match")));
+  assert.ok(result.errors.some((error) => error.includes("guardian egg storyId does not match clearStoryId")));
+  assert.ok(result.errors.some((error) => error.includes("completionRule target must match miniGameId")));
 });
 
 test("runtime department constants preserve all user-approved abbreviations", () => {

@@ -7,6 +7,7 @@ const COMMON_CONTENT_IDS = [
   "minigames-data",
   "battles-data",
   "map-data",
+  "guardian-eggs-data",
   "npc-dialogues-data",
   "minigame-outros-data",
   "app-logo",
@@ -25,8 +26,12 @@ function progressPercent(progress) {
 }
 
 const AUTH_QUERY_KEYS = Object.freeze(["login", "error", "auth_error", "reason", "error_description"]);
-const AUTH_SESSION_RETRY_DELAYS_MS = Object.freeze([200, 500]);
-const AUTH_SESSION_REQUEST_TIMEOUT_MS = 1_800;
+// /api/me also loads stats and completed games. A cold Worker/D1 request can
+// legitimately take longer than the old 1.8 second probe, so keep the loading
+// checks bounded but give each request enough time to finish before treating it
+// as a transient connection failure.
+const AUTH_SESSION_RETRY_DELAYS_MS = Object.freeze([300, 1_200]);
+const AUTH_SESSION_REQUEST_TIMEOUT_MS = 4_000;
 const MAIN_THEME_TRACK_ID = "main-theme";
 const MAIN_THEME_SOURCE = "./assets/bgm/main-theme.mp3";
 
@@ -171,6 +176,7 @@ export function createLoadingScene(context) {
       const miniGamesData = context.services.assets.get("minigames-data");
       const battlesData = context.services.assets.get("battles-data");
       const mapData = context.services.assets.get("map-data");
+      const guardianEggsData = context.services.assets.get("guardian-eggs-data");
       const scriptGroups = [
         context.services.assets.get("npc-dialogues-data"),
         context.services.assets.get("minigame-outros-data"),
@@ -180,6 +186,7 @@ export function createLoadingScene(context) {
       context.content.minigames = collection(miniGamesData, "minigames");
       context.content.battles = collection(battlesData, "battles");
       context.content.maps = collection(mapData, "maps");
+      context.content.guardianEggs = collection(guardianEggsData, "guardianEggs");
       context.content.scripts = scriptGroups.flatMap((group) => collection(group, "scripts"));
 
       const validation = validateScaffoldContent({
@@ -189,6 +196,7 @@ export function createLoadingScene(context) {
         minigames: context.content.minigames,
         battles: context.content.battles,
         maps: context.content.maps,
+        guardianEggs: context.content.guardianEggs,
         scripts: context.content.scripts,
       });
       if (validation.errors.length > 0) {
@@ -211,9 +219,14 @@ export function createLoadingScene(context) {
       context.services.audio.playWhenAllowed?.(MAIN_THEME_TRACK_ID, { restart: false });
       void sessionRefresh.then((accountState) => {
         if (!accountState.authenticated) return null;
-        return context.services.account.importCompletedGameIds(
-          context.services.save.getCompletedMiniGameIds(),
-        );
+        return Promise.all([
+          context.services.account.importCompletedGameIds(
+            context.services.save.getCompletedMiniGameIds(),
+          ),
+          context.services.account.importSeenStoryIds(
+            context.services.save.getSeenStoryIds?.() ?? [],
+          ),
+        ]);
       }).catch((error) => {
         console.warn(
           "Guest progress sync failed",

@@ -1,7 +1,167 @@
 {
   "schemaVersion": 1,
-  "implementationStatus": "SCAFFOLD",
+  "implementationStatus": "PROTOTYPE",
   "scripts": [
+    {
+      "id": "main-story-intro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "독백",
+          "portraitLabel": "◇",
+          "portraitAssetId": null,
+          "text": "누구나 마음속에 알을 가지고 있다."
+        },
+        {
+          "speaker": "독백",
+          "portraitLabel": "◇",
+          "portraitAssetId": null,
+          "text": "눈에는 보이지 않는, ‘되고 싶은 나’의 모습."
+        },
+        {
+          "speaker": "학생 실루엣 1",
+          "portraitLabel": "학",
+          "portraitAssetId": null,
+          "text": "밤새워 공부했는데… 이번에도 평균보다 낮네."
+        },
+        {
+          "speaker": "학생 실루엣 2",
+          "portraitLabel": "학",
+          "portraitAssetId": null,
+          "text": "휴학하고 싶은데… 쉬었다가 나만 뒤처지면 어떡하지."
+        },
+        {
+          "speaker": "학생 실루엣 3",
+          "portraitLabel": "학",
+          "portraitAssetId": null,
+          "text": "이번에도 장학금 못 받으면… 다음 학기 등록금은 어떻게 하지."
+        },
+        {
+          "speaker": "독백",
+          "portraitLabel": "◇",
+          "portraitAssetId": null,
+          "text": "‘되고 싶은 나’보다 ‘되어야 하는 나’가 커질 때, 마음의 알은 조금씩 빛을 잃기도 한다."
+        },
+        {
+          "speaker": "이아이",
+          "portraitLabel": "이",
+          "portraitAssetId": null,
+          "text": "너희의 걱정을 조금이라도 덜어주고 싶었어."
+        },
+        {
+          "speaker": "이아이",
+          "portraitLabel": "이",
+          "portraitAssetId": null,
+          "text": "모두의 꿈을 밝혀주고 싶었는데… 이제 내 꿈은 하나도 남지 않았어."
+        },
+        {
+          "speaker": "플레이어",
+          "portraitLabel": "나",
+          "portraitAssetId": null,
+          "text": "이아이가…! 이게 무슨 일이지?"
+        },
+        {
+          "speaker": "아무",
+          "portraitLabel": "A",
+          "portraitAssetId": null,
+          "text": "이아이는 그동안 학생들의 부정적인 감정을 대신 품어주고 있었어."
+        },
+        {
+          "speaker": "아무",
+          "portraitLabel": "A",
+          "portraitAssetId": null,
+          "text": "그렇지만 걱정이 너무 커져버려서, 걱정에 잡아먹혀 X알로 변해버린 거야."
+        },
+        {
+          "speaker": "플레이어",
+          "portraitLabel": "나",
+          "portraitAssetId": null,
+          "text": "그러면 어떻게 해야 하지?"
+        },
+        {
+          "speaker": "아무",
+          "portraitLabel": "A",
+          "portraitAssetId": null,
+          "text": "아직 늦지 않았어. 이아이는 지금, 걱정 속에 갇혀 있어."
+        },
+        {
+          "speaker": "아무",
+          "portraitLabel": "A",
+          "portraitAssetId": null,
+          "text": "다섯 학과의 수호알과 수호캐릭터를 찾아줘."
+        },
+        {
+          "speaker": "아무",
+          "portraitLabel": "A",
+          "portraitAssetId": null,
+          "text": "모두의 꿈을 모으면, 이아이에게 닿을 수 있을 거야."
+        }
+      ],
+      "nextAction": {
+        "type": "returnToMap"
+      }
+    },
+    {
+      "id": "main-story-outro",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {
+          "speaker": "플레이어",
+          "portraitAssetId": null,
+          "text": "그동안 고생 많았어. 이제 네 꿈도 우리가 함께 지켜줄게."
+        },
+        {
+          "speaker": "이아이",
+          "portraitAssetId": null,
+          "text": "…생각났어. 나는 너희랑 같이 웃고 싶었어."
+        },
+        {
+          "speaker": "이아이",
+          "portraitAssetId": null,
+          "text": "내 꿈도 사라진 게 아니라… 잠시 잠들어 있었구나."
+        },
+        {
+          "speaker": "아무",
+          "portraitAssetId": null,
+          "text": "봐, 엠브리오야. 모두의 꿈이 모여 돌아왔어!"
+        },
+        {
+          "speaker": "아무",
+          "portraitAssetId": null,
+          "text": "이번에는 네 소원을 들려줄래?"
+        },
+        {
+          "speaker": "독백",
+          "portraitAssetId": null,
+          "text": "아직 모든 걱정이 사라진 것은 아니다."
+        },
+        {
+          "speaker": "독백",
+          "portraitAssetId": null,
+          "text": "그래도 이제, 혼자서만 품지 않아도 된다는 걸 안다."
+        },
+        {
+          "speaker": "독백",
+          "portraitAssetId": null,
+          "text": "잠들어 있던 마음의 알과, 아직 이름 붙이지 못한 꿈까지."
+        },
+        {
+          "speaker": "독백",
+          "portraitAssetId": null,
+          "text": "다시 만난 이아이와 함께, 우리들의 축제를 시작하자."
+        },
+        {
+          "speaker": "독백",
+          "portraitAssetId": null,
+          "text": "우리의 꿈은, 여기서 다시 시작된다."
+        }
+      ],
+      "nextAction": {
+        "type": "returnToMap"
+      }
+    },
     {
       "id": "ai-npc-first",
       "type": "dialogue",
@@ -10,7 +170,17 @@
         {
           "speaker": "인공지능",
           "portraitAssetId": null,
-          "text": "AI 미니게임을 소개할게요. 목표 이미지를 보고 공을 분류해 보세요."
+          "text": "어제 배운 것도 아직 모르겠는데, 또 새로운 게 나왔대."
+        },
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "text": "AI는 답을 내놓는데, 나는 왜 그 답인지 설명도 못 하겠어."
+        },
+        {
+          "speaker": "인공지능",
+          "portraitAssetId": null,
+          "text": "졸업할 때쯤엔… 내가 할 수 있는 일이 남아 있을까."
         }
       ],
       "nextAction": {
@@ -42,7 +212,17 @@
         {
           "speaker": "데이터사이언스",
           "portraitAssetId": null,
-          "text": "데이터를 관찰하고 숫자 패턴을 추론하는 미니게임을 만나 보세요."
+          "text": "데이터에서는 답을 찾으라는데… 내 미래는 뭘 봐야 알 수 있어?"
+        },
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "text": "친구들은 인턴도 정했는데, 난 무슨 일을 하고 싶은지도 몰라."
+        },
+        {
+          "speaker": "데이터사이언스",
+          "portraitAssetId": null,
+          "text": "성적이라도 잘 받으면 좀 괜찮아질 줄 알았는데."
         }
       ],
       "nextAction": {
@@ -72,9 +252,19 @@
       "skippable": true,
       "lines": [
         {
-          "speaker": "컴공",
+          "speaker": "컴퓨터공학",
           "portraitAssetId": null,
-          "text": "개발 재료를 순서대로 조합하는 Code Heart를 소개할게요."
+          "text": "이 오류 하나 때문에 오늘도 아무것도 못 끝냈어."
+        },
+        {
+          "speaker": "컴퓨터공학",
+          "portraitAssetId": null,
+          "text": "다들 다음 과제 하고 있는데, 나만 아직 여기야."
+        },
+        {
+          "speaker": "컴퓨터공학",
+          "portraitAssetId": null,
+          "text": "아무리 노력해도… 도저히 따라갈 수 없으면 어떡하지? 이것만으론 안 되나 봐."
         }
       ],
       "nextAction": {
@@ -106,7 +296,17 @@
         {
           "speaker": "사이버보안",
           "portraitAssetId": null,
-          "text": "위협을 살펴보고 알맞은 순간에 정화하는 미니게임을 만나 보세요."
+          "text": "분명 다 확인했는데… 또 놓친 게 있대."
+        },
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "text": "내 실수 하나로 팀 과제가 잘못될까 봐 무서워."
+        },
+        {
+          "speaker": "사이버보안",
+          "portraitAssetId": null,
+          "text": "나도 확신이 없는데… 나중에 누구를 지킬 수 있겠어."
         }
       ],
       "nextAction": {
@@ -136,9 +336,19 @@
       "skippable": true,
       "lines": [
         {
-          "speaker": "인데부",
+          "speaker": "인공지능데이터사이언스",
           "portraitAssetId": null,
-          "text": "인지알과 데사알을 알맞은 상자로 분류해 보세요."
+          "text": "AI도 데이터도… 뭘 잘하냐고 하면 말이 안 나와."
+        },
+        {
+          "speaker": "인공지능데이터사이언스",
+          "portraitAssetId": null,
+          "text": "어느 쪽을 골라도, 다른 사람들보다 모자란 것 같아."
+        },
+        {
+          "speaker": "인공지능데이터사이언스",
+          "portraitAssetId": null,
+          "text": "어느 길도 못 고른 채 시간만 보내고 있는 걸까."
         }
       ],
       "nextAction": {

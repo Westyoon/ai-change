@@ -2,7 +2,16 @@ import { loadMiniGameModule } from "../minigames/registry.js";
 import { FINAL_BATTLE_ID, getPublishedBattles } from "../battle/registry.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
+import {
+  getGuardianEggCatalog,
+  getGuardianEggProgressFromState,
+} from "../core/guardian-inventory.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
+import {
+  FINAL_BATTLE_UNLOCK_STORY_ID,
+  hasSeenStory,
+  markStorySeen,
+} from "../core/story-progress.js";
 import { createResultOverlay } from "../ui/result-overlay.js";
 import { createButton, createElement, findMap, findMiniGame, findScript, showToast } from "./scene-utils.js";
 
@@ -44,6 +53,29 @@ function finalizeHostResult({ miniGameId, id, status, durationMs, failureReason 
   });
 }
 
+export function getPendingGuardianClearFlow(context, miniGameId) {
+  const npc = (findMap(context)?.npcs ?? []).find((item) => (
+    item.miniGameId === miniGameId
+    && item.completionRule?.type === "MINIGAME_CLEAR"
+  ));
+  if (
+    !npc
+    || typeof npc.clearStoryId !== "string"
+    || typeof npc.clearScriptId !== "string"
+    || typeof npc.guardianEggId !== "string"
+    || !findScript(context, npc.clearScriptId)?.lines?.length
+    || hasSeenStory(context, npc.clearStoryId)
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    npcId: npc.id,
+    storyId: npc.clearStoryId,
+    scriptId: npc.clearScriptId,
+    guardianEggId: npc.guardianEggId,
+  });
+}
+
 export function createMiniGameScene(context) {
   let instance = null;
   let currentAttemptId = null;
@@ -58,7 +90,6 @@ export function createMiniGameScene(context) {
   let miniGameId = null;
   let unsubscribeInput = null;
   let unsubscribeVisibility = null;
-  let restartInProgress = false;
 
   return {
     async mount(root, params, { signal }) {
@@ -76,7 +107,6 @@ export function createMiniGameScene(context) {
       if (signal.aborted) return;
 
       const frame = createElement("section", { className: "scene minigame-frame" });
-      const title = createElement("strong", { text: `${game.departmentCode} · ${game.title}` });
       let pauseButton;
       const activeDurationMs = () => {
         if (startedAt === null) return 0;
@@ -147,8 +177,11 @@ export function createMiniGameScene(context) {
         }
         void context.router.navigate("map");
       }, "ghost");
-      const toolbar = createElement("header", { className: "minigame-toolbar" }, [
-        title,
+      const toolbar = createElement("header", {
+        className: "minigame-toolbar",
+        attributes: { "aria-label": "미니게임 조작" },
+      }, [
+        createElement("span", { attributes: { "aria-hidden": "true" } }),
         createElement("div", { className: "button-row" }, [pauseButton, quitButton]),
       ]);
       const stage = createElement("div", { className: "minigame-stage" });
@@ -177,6 +210,9 @@ export function createMiniGameScene(context) {
         context.state.lastResult = result;
         const persistsProgress =
           game.scaffold !== true && config?.implementationStatus !== "PROTOTYPE";
+        const guardianClearFlow = result.status === "CLEAR" && persistsProgress
+          ? getPendingGuardianClearFlow(context, miniGameId)
+          : null;
         const completedNpcIds = result.status === "CLEAR" && persistsProgress
           ? (findMap(context)?.npcs ?? [])
               .filter((npc) => npc.miniGameId === miniGameId && npc.completionRule?.type === "MINIGAME_CLEAR")
@@ -197,7 +233,7 @@ export function createMiniGameScene(context) {
               context,
               submission.duplicate
                 ? "이미 반영된 클리어 기록입니다."
-                : "클리어를 서버에 저장했습니다. 스탯 포인트 +1",
+                : "클리어를 서버에 저장했습니다.",
             );
           }).catch(() => {
             if (!context.services.account.getState().authenticated) return;
@@ -206,7 +242,15 @@ export function createMiniGameScene(context) {
         }
         const outroScriptId = result.status === "CLEAR" ? game.clearOutroScript : game.failOutroScript;
         const outroText = findScript(context, outroScriptId)?.lines?.[0]?.text;
-        const unlockedFinalBattle = result.status === "CLEAR" && context.config.features?.battleContent === true
+        const guardianProgress = getGuardianEggProgressFromState(
+          context.services.save?.getState?.() ?? {},
+          context.services.account.getState(),
+          getGuardianEggCatalog(context),
+        );
+        const unlockedFinalBattle = result.status === "CLEAR"
+          && guardianProgress.acquired === guardianProgress.total
+          && context.config.features?.battleContent === true
+          && !hasSeenStory(context, FINAL_BATTLE_UNLOCK_STORY_ID)
           ? getPublishedBattles(context.content.battles).find((battle) =>
               battle.id === FINAL_BATTLE_ID &&
               getBattleUnlockStatus(
@@ -215,35 +259,29 @@ export function createMiniGameScene(context) {
                 context.services.account.getState(),
               ).unlocked)
           : null;
+        if (unlockedFinalBattle) {
+          // The unlock call-to-action is a one-time announcement. The Battle
+          // entry itself remains available from both the menu and Story map.
+          markStorySeen(context, FINAL_BATTLE_UNLOCK_STORY_ID);
+        }
         overlay = createResultOverlay({
           result,
           miniGameId,
           departmentCode: game.departmentCode,
           outroText,
           presentation: config?.resultPresentation,
-          onRetry: () => {
-            if (restartInProgress || destroyed) return;
-            restartInProgress = true;
-            overlay?.destroy();
-            overlay = null;
-            terminal = false;
-            pauseReasons.clear();
-            pauseStartedAt = null;
-            accumulatedPauseMs = 0;
-            updatePauseButton();
-            currentAttemptId = attemptId(miniGameId);
-            startedAt = module.hasInternalStartGate === true ? null : performance.now();
-            try {
-              instance.restart?.({ attemptId: currentAttemptId });
-              if (globalThis.document?.hidden) requestPause("VISIBILITY");
-              requestAnimationFrame(() => uiRoot.querySelector("button, [tabindex]:not([tabindex='-1'])")?.focus());
-            } finally {
-              restartInProgress = false;
-            }
-          },
           onMap: () => context.router.navigate("map"),
           onMenu: () => context.router.navigate("main-menu"),
-          primaryAction: unlockedFinalBattle
+          primaryOnly: Boolean(guardianClearFlow),
+          primaryAction: guardianClearFlow
+            ? {
+                label: "이야기 이어보기",
+                onClick: () => context.router.navigate("dialogue", {
+                  npcId: guardianClearFlow.npcId,
+                  scriptId: guardianClearFlow.scriptId,
+                }),
+              }
+            : unlockedFinalBattle
             ? {
                 label: "최종전 확인하기",
                 onClick: () => context.router.navigate("map"),

@@ -4,15 +4,8 @@ import {
   createScene,
   findDepartment,
   findMiniGame,
-  findScript,
 } from "./scene-utils.js";
-
-function normalizeControls(config, key) {
-  const direct = config?.controls?.[key];
-  if (Array.isArray(direct)) return direct;
-  const legacy = key === "pc" ? config?.pcControls : config?.mobileControls;
-  return Array.isArray(legacy) ? legacy : [];
-}
+import { getMiniGameInstructions } from "./minigame-instructions.js";
 
 export function createMiniGameIntroScene(context) {
   let assetLease = null;
@@ -30,57 +23,40 @@ export function createMiniGameIntroScene(context) {
       }
       if (signal.aborted) return;
       const config = context.services.assets.get(game.configAssetId);
-      const thumbnail = context.services.assets.get(game.thumbnailAssetId);
-      const intro = findScript(context, game.introScript);
-      const introText = intro?.lines
-        ?.map((line) => line?.text)
-        .filter(Boolean)
-        .join(" ");
-      const objective = config?.goal ?? config?.objective ?? config?.scaffold?.objective ?? "실제 게임 목표는 후속 구현 단계에서 연결됩니다.";
-      const implementationStatus = config?.implementationStatus ?? (game.scaffold ? "SCAFFOLD" : "MVP");
-      const statusDescription = {
-        MVP: "통합된 게임 규칙을 플레이할 수 있습니다.",
-        PROTOTYPE: "검토 중인 규칙을 적용한 프로토타입입니다.",
-        SCAFFOLD: "공통 lifecycle 확인용 스캐폴드입니다.",
-      }[implementationStatus] ?? "개발 중인 미니게임입니다.";
+      const instructions = getMiniGameInstructions(config);
 
       const scene = createScene({
         className: "scene--panel",
         eyebrow: `${game.departmentCode} · ${department?.displayName ?? game.department}`,
         title: game.title,
-        description: introText ?? objective,
       });
-      if (thumbnail instanceof HTMLImageElement) {
-        const image = thumbnail.cloneNode(true);
-        image.className = "minigame-thumbnail";
-        image.alt = thumbnail.alt || `${game.title} 미리보기`;
-        image.width = 640;
-        image.height = 360;
-        scene.append(image);
-      }
 
-      const columns = createElement("div", { className: "card-grid" });
-      columns.append(createElement("section", { className: "info-card" }, [
+      const howToTitle = `${miniGameId}-how-to-title`;
+      const columns = createElement("section", {
+        className: "card-grid minigame-how-to",
+        attributes: { "aria-labelledby": howToTitle },
+      });
+      columns.append(createElement("h2", {
+        className: "minigame-how-to__title",
+        text: "게임 방법",
+        attributes: { id: howToTitle },
+      }));
+      columns.append(createElement("section", { className: "info-card minigame-how-to__goal" }, [
         createElement("strong", { text: "게임 목표" }),
-        createElement("span", { text: objective }),
+        createElement("span", { text: instructions.goal }),
       ]));
       for (const [label, key] of [["PC 조작", "pc"], ["모바일 조작", "mobile"]]) {
-        const items = normalizeControls(config, key);
         const list = createElement("ul", { className: "control-list" },
-          (items.length ? items : ["공통 개발 버튼으로 lifecycle을 확인합니다."]).map((item) => createElement("li", { text: item })),
+          instructions[key].map((item) => createElement("li", { text: item })),
         );
         columns.append(createElement("section", { className: "info-card" }, [createElement("strong", { text: label }), list]));
       }
 
+      scene.append(columns);
       scene.append(
-        createElement("p", {
-          className: "status-badge",
-          text: `${implementationStatus} · ${statusDescription}`,
-        }),
-        columns,
         createElement("div", { className: "button-row" }, [
           createButton(
-            game.scaffold ? "스캐폴드 실행" : "미니게임 실행",
+            "게임 시작",
             () => context.router.navigate("minigame", { miniGameId }),
             "primary",
           ),

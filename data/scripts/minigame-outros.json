@@ -71,6 +71,61 @@
       "skippable": true,
       "lines": [{"speaker": "인데부", "portraitAssetId": null, "text": "결과를 확인하고 다시 도전해 보세요."}],
       "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "ds-npc-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {"speaker": "데이터사이언스", "portraitAssetId": null, "text": "난 정해진 답보다, 몰랐던 걸 발견할 때 즐거웠어."},
+        {"speaker": "데이터사이언스", "portraitAssetId": null, "text": "그런데 내 미래에만 당장 정답을 내놓으라고 하고 있었네."},
+        {"speaker": "데이터사이언스", "portraitAssetId": null, "text": "아직 잘 모르겠는 나로, 조금 더 알아가 보고 싶어."}
+      ],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "cs-npc-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {"speaker": "사이버보안", "portraitAssetId": null, "text": "처음엔 누군가 안심할 수 있게 돕고 싶었어."},
+        {"speaker": "사이버보안", "portraitAssetId": null, "text": "처음부터 혼자 다 책임져야 하는 건 아니었는데."},
+        {"speaker": "사이버보안", "portraitAssetId": null, "text": "모르는 건 같이 확인하면서, 지키는 법을 배워갈래."}
+      ],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "cse-npc-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {"speaker": "컴퓨터공학", "portraitAssetId": null, "text": "…내가 만든 게 처음 움직였을 때, 정말 신났었는데."},
+        {"speaker": "컴퓨터공학", "portraitAssetId": null, "text": "언제부턴가 남들보다 못한다는 생각만 남아 있었어."},
+        {"speaker": "컴퓨터공학", "portraitAssetId": null, "text": "아직 막히는 건 많지만… 만들고 싶은 건 여전히 있어."}
+      ],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "ai-npc-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {"speaker": "인공지능", "portraitAssetId": null, "text": "처음엔 ‘이런 것도 만들 수 있을까?’ 궁금해서 시작했어."},
+        {"speaker": "인공지능", "portraitAssetId": null, "text": "따라잡아야 한다는 생각에, 내가 궁금했던 걸 잊었네."},
+        {"speaker": "인공지능", "portraitAssetId": null, "text": "아직 모르는 건 많지만… 그 질문부터 다시 꺼내볼래."}
+      ],
+      "nextAction": {"type": "returnToMap"}
+    },
+    {
+      "id": "aids-npc-clear",
+      "type": "dialogue",
+      "skippable": true,
+      "lines": [
+        {"speaker": "인공지능데이터사이언스", "portraitAssetId": null, "text": "둘 다 궁금해서 여기까지 왔던 거였는데."},
+        {"speaker": "인공지능데이터사이언스", "portraitAssetId": null, "text": "아직 못 고른 게 아니라, 더 알아보고 있었던 걸지도 몰라."},
+        {"speaker": "인공지능데이터사이언스", "portraitAssetId": null, "text": "조금만 더 고민해서, 내가 하고 싶은 걸 하나씩 찾아갈래."}
+      ],
+      "nextAction": {"type": "returnToMap"}
     }
   ]
 }

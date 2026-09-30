@@ -2,6 +2,291 @@
   align-content: start;
 }
 
+.story-world-scene {
+  display: grid;
+  grid-template-rows: auto minmax(260px, 1fr) auto;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  padding: clamp(14px, 2.6vw, 30px);
+  overflow: hidden;
+}
+
+.story-world__toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.story-world__heading {
+  min-width: 0;
+}
+
+.story-world__heading .eyebrow {
+  margin-bottom: 4px;
+}
+
+.story-world__heading h2 {
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+}
+
+.story-world__toolbar-right,
+.story-world__toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.story-world__toolbar-actions .button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 14px;
+  font-size: 0.72rem;
+}
+
+.story-world__inventory-slot:empty {
+  display: none;
+}
+
+.story-world__viewport {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: calc(100dvh - 180px);
+  overflow: hidden;
+  border: 3px solid var(--line);
+  border-radius: 20px;
+  background: #241623;
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 3%), var(--shadow);
+  touch-action: none;
+}
+
+.story-world__surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgb(255 209 102 / 12%) 0 9%, transparent 9.5%),
+    linear-gradient(135deg, transparent 0 46%, rgb(227 51 187 / 8%) 46% 54%, transparent 54%),
+    linear-gradient(45deg, transparent 0 46%, rgb(42 181 228 / 7%) 46% 54%, transparent 54%),
+    linear-gradient(180deg, #53314e, #352033 72%, #2a1a29);
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.story-world__grid {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px);
+  background-size: 6.25% 10%;
+  pointer-events: none;
+}
+
+.story-world__plaza-mark {
+  position: absolute;
+  z-index: 1;
+  border: 2px dashed rgb(255 169 213 / 24%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.story-world__plaza-mark--one {
+  top: 14%;
+  left: 12%;
+  width: 76%;
+  height: 68%;
+}
+
+.story-world__plaza-mark--two {
+  top: 25%;
+  left: 25%;
+  width: 50%;
+  height: 48%;
+  border-color: rgb(250 200 4 / 18%);
+}
+
+.story-world__npc,
+.story-world__final-portal {
+  position: absolute;
+  display: grid;
+  place-items: end center;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.story-world__npc {
+  --story-npc-color: #e333bb;
+  z-index: 120;
+}
+
+.story-world__npc[data-department-code="AI"] { --story-npc-color: #0e7ffd; }
+.story-world__npc[data-department-code="DS"] { --story-npc-color: #fcb5dd; }
+.story-world__npc[data-department-code="CSE"] { --story-npc-color: #ac51fa; }
+.story-world__npc[data-department-code="CS"] { --story-npc-color: #a2c05e; }
+.story-world__npc[data-department-code="AIDS"] { --story-npc-color: #fdd044; }
+
+.story-world__npc-sprite {
+  display: block;
+  width: 72%;
+  height: 78%;
+  border: 3px solid #fff5fb;
+  border-radius: 48% 48% 24% 24%;
+  background:
+    radial-gradient(circle at 50% 28%, #fff4e8 0 17%, transparent 18%),
+    linear-gradient(90deg, transparent 18%, var(--story-npc-color) 18% 82%, transparent 82%);
+  box-shadow: 4px 5px 0 color-mix(in srgb, var(--story-npc-color) 52%, #241623);
+  image-rendering: pixelated;
+}
+
+.story-world__npc-indicator {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  display: grid;
+  width: clamp(24px, 58%, 36px);
+  aspect-ratio: 1;
+  place-items: center;
+  border: 2px solid #fff5fb;
+  border-radius: 50%;
+  color: #241623;
+  background: var(--warning);
+  box-shadow: 2px 3px 0 rgb(36 22 35 / 66%);
+  font-weight: 1000;
+  transform: translateX(-50%);
+}
+
+.story-world__npc[data-progress="seen"] .story-world__npc-indicator {
+  color: #fff;
+  background: var(--accent-warm);
+}
+
+.story-world__npc[data-progress="reward-pending"] .story-world__npc-indicator {
+  color: #241623;
+  background: var(--warning);
+  box-shadow:
+    0 0 0 4px rgb(255 209 102 / 24%),
+    2px 3px 0 rgb(36 22 35 / 66%);
+}
+
+.story-world__npc[data-progress="complete"] .story-world__npc-indicator {
+  color: #102a22;
+  background: #78f0c1;
+}
+
+.story-world__npc[data-nearby="true"] .story-world__npc-sprite {
+  filter: drop-shadow(0 0 8px var(--story-npc-color));
+  animation: story-npc-ready 700ms ease-in-out infinite alternate;
+}
+
+.story-world__final-portal {
+  z-index: 110;
+  color: #f9e8f3;
+}
+
+.story-world__final-portal-icon {
+  display: grid;
+  width: 76%;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 4px solid currentColor;
+  border-radius: 50% 50% 44% 44%;
+  background: radial-gradient(circle, #d82f76, #363367 68%, #1c1222 69%);
+  box-shadow: 0 0 0 6px rgb(227 51 187 / 13%), 5px 7px 0 rgb(23 11 21 / 48%);
+  font-size: clamp(1rem, 3vw, 1.8rem);
+}
+
+.story-world__final-portal-label {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: rgb(36 22 35 / 88%);
+  font-size: clamp(0.38rem, 0.9vw, 0.62rem);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.story-world__final-portal[data-locked="true"] {
+  opacity: 0.38;
+  filter: grayscale(0.8);
+}
+
+.story-world__final-portal[data-nearby="true"]:not([data-locked="true"]) .story-world__final-portal-icon {
+  animation: story-portal-ready 800ms ease-in-out infinite alternate;
+}
+
+.story-world__surface > .character-actor {
+  z-index: 1000;
+}
+
+.story-world__prompt {
+  position: absolute;
+  z-index: 6000;
+  bottom: 18px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 9px 14px;
+  border: 2px solid var(--accent-soft);
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(36 22 35 / 92%);
+  box-shadow: 4px 5px 0 rgb(20 9 18 / 45%);
+  font-size: clamp(0.62rem, 1.5vw, 0.82rem);
+  font-weight: 900;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.story-world__prompt[hidden] {
+  display: none;
+}
+
+.story-world__viewport .story-world__touch-controls {
+  position: absolute;
+  inset: auto 10px 10px;
+  z-index: 5500;
+  display: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.story-world__interact-button:disabled {
+  cursor: default;
+  opacity: 0.38;
+  filter: grayscale(0.7);
+}
+
+.story-world__controls {
+  margin: 0;
+  font-size: clamp(0.65rem, 1.5vw, 0.82rem);
+  text-align: center;
+}
+
+@keyframes story-npc-ready {
+  to { translate: 0 -4px; }
+}
+
+@keyframes story-portal-ready {
+  to { filter: drop-shadow(0 0 10px #e333bb); }
+}
+
 .map-header {
   display: flex;
   flex-wrap: wrap;
@@ -45,14 +330,119 @@
   text-align: left;
 }
 
+.npc-card-shell {
+  display: grid;
+  grid-column: span 2;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+.npc-card-shell:nth-child(4),
+.npc-card-shell:nth-child(5) {
+  grid-column: span 3;
+}
+
+.npc-card-shell .npc-card {
+  grid-column: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.story-memory-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+}
+
+.story-memory-card,
+.story-memory-grid > .story-memory-card:nth-child(4),
+.story-memory-grid > .story-memory-card:nth-child(5) {
+  grid-column: auto;
+  min-height: 124px;
+}
+
+.story-memory-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.story-memory-card:disabled,
+.story-memory-card[aria-disabled="true"] {
+  filter: grayscale(0.7);
+  opacity: 0.52;
+  box-shadow: none;
+}
+
+.npc-card.story-memory-card {
+  cursor: default;
+}
+
+.npc-card.story-memory-card:hover,
+.npc-card.story-memory-card:focus-within {
+  translate: none;
+  background: rgb(43 24 38 / 92%);
+}
+
+.story-memory-chapters {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.story-memory-chapter {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 2px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--paper);
+  cursor: pointer;
+  text-align: left;
+}
+
+.story-memory-chapter span {
+  font-weight: 900;
+}
+
+.story-memory-chapter small {
+  color: var(--ink-muted);
+}
+
+.story-memory-chapter:not(:disabled):hover,
+.story-memory-chapter:not(:disabled):focus-visible {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+}
+
+.story-memory-chapter:not(:disabled):hover small,
+.story-memory-chapter:not(:disabled):focus-visible small {
+  color: #fff;
+}
+
+.story-memory-chapter:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .npc-card:nth-child(4),
 .npc-card:nth-child(5) {
   grid-column: span 3;
 }
 
-.npc-card:hover {
+.npc-card:not(:disabled):not([aria-disabled="true"]):hover,
+.npc-card:not(:disabled):not([aria-disabled="true"]):focus-visible {
   translate: 0 -3px;
   background: var(--surface-strong);
+}
+
+.npc-card:disabled,
+.npc-card[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 .npc-indicator {
@@ -71,11 +461,16 @@
   font-weight: 1000;
 }
 
-.npc-card[data-department-code="AI"] { --dept-color: #9a8cff; }
-.npc-card[data-department-code="DS"] { --dept-color: #65dbff; }
-.npc-card[data-department-code="CSE"] { --dept-color: #ff91c8; }
-.npc-card[data-department-code="CS"] { --dept-color: #ffd166; }
-.npc-card[data-department-code="AIDS"] { --dept-color: #78f0c1; }
+.npc-card[data-department-code="AI"],
+.npc-card-shell[data-department-code="AI"] { --dept-color: #0e7ffd; }
+.npc-card[data-department-code="DS"],
+.npc-card-shell[data-department-code="DS"] { --dept-color: #fcb5dd; }
+.npc-card[data-department-code="CSE"],
+.npc-card-shell[data-department-code="CSE"] { --dept-color: #ac51fa; }
+.npc-card[data-department-code="CS"],
+.npc-card-shell[data-department-code="CS"] { --dept-color: #a2c05e; }
+.npc-card[data-department-code="AIDS"],
+.npc-card-shell[data-department-code="AIDS"] { --dept-color: #fdd044; }
 
 .npc-card--final {
   --dept-color: #ffd166;
@@ -107,15 +502,121 @@
 }
 
 @media (max-width: 760px) {
+  .story-world-scene {
+    grid-template-rows: auto minmax(260px, 1fr);
+    gap: 10px;
+    height: 100%;
+    padding: 10px;
+    border-radius: 18px;
+  }
+
+  .story-world__toolbar {
+    align-items: flex-start;
+  }
+
+  .story-world__heading .eyebrow {
+    font-size: 0.58rem;
+  }
+
+  .story-world__heading h2 {
+    font-size: 1.35rem;
+  }
+
+  .story-world__toolbar-right {
+    gap: 5px;
+  }
+
+  .story-world__toolbar-actions .button {
+    min-height: 36px;
+    padding: 6px 9px;
+    font-size: 0.6rem;
+  }
+
+  .story-world__viewport {
+    height: 100%;
+    min-height: 260px;
+    max-height: calc(100dvh - 150px);
+    aspect-ratio: auto;
+    border-radius: 15px;
+  }
+
+  .story-world__viewport .story-world__touch-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .story-world__viewport .story-world__joystick,
+  .story-world__viewport .story-world__interact-button {
+    pointer-events: auto;
+  }
+
+  .story-world__viewport .story-world__joystick {
+    width: clamp(88px, 25vw, 112px);
+    height: clamp(88px, 25vw, 112px);
+  }
+
+  .story-world__viewport .story-world__interact-button {
+    width: clamp(70px, 20vw, 88px);
+    height: clamp(70px, 20vw, 88px);
+    font-size: 0.7rem;
+  }
+
+  .story-world__prompt {
+    bottom: 126px;
+  }
+
+  .story-world__controls {
+    display: none;
+  }
+
   .department-map {
     grid-template-columns: 1fr;
     min-height: 0;
   }
 
   .npc-card,
+  .npc-card-shell,
+  .npc-card-shell:nth-child(4),
+  .npc-card-shell:nth-child(5),
   .npc-card:nth-child(4),
   .npc-card:nth-child(5),
   .npc-card--final {
     grid-column: auto;
+  }
+
+  .story-memory-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .story-memory-card:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .story-world__viewport .story-world__touch-controls {
+    position: absolute;
+    inset: auto 10px 10px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .story-world__viewport .story-world__joystick,
+  .story-world__viewport .story-world__interact-button {
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-world__npc[data-nearby="true"] .story-world__npc-sprite,
+  .story-world__final-portal[data-nearby="true"] .story-world__final-portal-icon {
+    animation: none;
   }
 }

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "guardianEggs": [
+    {
+      "id": "guardian-ds",
+      "departmentCode": "DS",
+      "departmentName": "데이터사이언스",
+      "miniGameId": "data-number-baseball",
+      "storyId": "afterstory:ds",
+      "name": "통찰의 수호알",
+      "color": "#fcb5dd",
+      "inkColor": "#501060",
+      "imageSrc": "./assets/images/guardian-eggs/guardian-ds.png",
+      "description": "흩어진 숫자 속에서 의미 있는 규칙을 발견할 용기를 품은 수호알입니다."
+    },
+    {
+      "id": "guardian-cs",
+      "departmentCode": "CS",
+      "departmentName": "사이버보안",
+      "miniGameId": "cyber-click-to-purify",
+      "storyId": "afterstory:cs",
+      "name": "신뢰의 수호알",
+      "color": "#a2c05e",
+      "inkColor": "#304010",
+      "imageSrc": "./assets/images/guardian-eggs/guardian-cs.png",
+      "description": "위협 속에서도 소중한 것을 지키고 서로를 믿는 마음을 품은 수호알입니다."
+    },
+    {
+      "id": "guardian-cse",
+      "departmentCode": "CSE",
+      "departmentName": "컴퓨터공학",
+      "miniGameId": "computer-code-heart",
+      "storyId": "afterstory:cse",
+      "name": "창조의 수호알",
+      "color": "#ac51fa",
+      "inkColor": "#301040",
+      "imageSrc": "./assets/images/guardian-eggs/guardian-cse.png",
+      "description": "작은 코드 조각을 이어 새로운 세계를 만들어 내는 끈기를 품은 수호알입니다."
+    },
+    {
+      "id": "guardian-ai",
+      "departmentCode": "AI",
+      "departmentName": "인공지능",
+      "miniGameId": "ai-ball-classification",
+      "storyId": "afterstory:ai",
+      "name": "성장의 수호알",
+      "color": "#0e7ffd",
+      "inkColor": "#0010a0",
+      "imageSrc": "./assets/images/guardian-eggs/guardian-ai.png",
+      "description": "실수와 학습을 거듭하며 더 나은 답을 찾아가는 가능성을 품은 수호알입니다."
+    },
+    {
+      "id": "guardian-aids",
+      "departmentCode": "AIDS",
+      "departmentName": "인공지능데이터사이언스",
+      "miniGameId": "ai-data-egg-sort",
+      "storyId": "afterstory:aids",
+      "name": "융합의 수호알",
+      "color": "#fdd044",
+      "inkColor": "#703000",
+      "imageSrc": "./assets/images/guardian-eggs/guardian-aids.png",
+      "description": "서로 다른 생각과 기술을 연결해 더 큰 가능성으로 나아가는 마음을 품은 수호알입니다."
+    }
+  ]
+}

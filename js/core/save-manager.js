@@ -43,6 +43,7 @@ function createDefaultState(miniGameIds, defaults) {
     updatedAt: null,
     story: {
       introSeen: false,
+      seenStoryIds: [],
       completedNpcIds: [],
       lastMapId: null,
       lastPlayerPosition: null,
@@ -203,6 +204,10 @@ export class SaveManager {
     );
   }
 
+  getSeenStoryIds() {
+    return Object.freeze([...(this.#state.story?.seenStoryIds ?? [])]);
+  }
+
   save() {
     this.lastError = null;
     if (!this.#storage || this.#readOnly) {
@@ -261,16 +266,36 @@ export class SaveManager {
       if (!this.#state.story.completedNpcIds.includes(npcId)) {
         this.#state.story.completedNpcIds.push(npcId);
       }
+      if (!this.#state.story.seenStoryIds.includes(npcId)) {
+        this.#state.story.seenStoryIds.push(npcId);
+      }
     }
     this.save();
     return this.getState();
   }
 
   markIntroSeen() {
-    if (this.#state.story.introSeen) {
+    const alreadySeen = this.#state.story.introSeen
+      && this.#state.story.seenStoryIds.includes("main-story-intro");
+    if (alreadySeen) {
       return this.getState();
     }
     this.#state.story.introSeen = true;
+    if (!this.#state.story.seenStoryIds.includes("main-story-intro")) {
+      this.#state.story.seenStoryIds.push("main-story-intro");
+    }
+    this.save();
+    return this.getState();
+  }
+
+  markStorySeen(storyId) {
+    if (typeof storyId !== "string" || storyId.length === 0) {
+      throw new TypeError("Story id must be a non-empty string.");
+    }
+    if (this.#state.story.seenStoryIds.includes(storyId)) {
+      return this.getState();
+    }
+    this.#state.story.seenStoryIds.push(storyId);
     this.save();
     return this.getState();
   }
@@ -280,9 +305,12 @@ export class SaveManager {
       throw new TypeError("NPC id must be a non-empty string.");
     }
     if (this.#state.story.completedNpcIds.includes(npcId)) {
-      return this.getState();
+      return this.markStorySeen(npcId);
     }
     this.#state.story.completedNpcIds.push(npcId);
+    if (!this.#state.story.seenStoryIds.includes(npcId)) {
+      this.#state.story.seenStoryIds.push(npcId);
+    }
     this.save();
     return this.getState();
   }
@@ -354,9 +382,20 @@ export class SaveManager {
 
     if (isObject(stored.story)) {
       normalized.story.introSeen = stored.story.introSeen === true;
+      normalized.story.seenStoryIds = Array.isArray(stored.story.seenStoryIds)
+        ? [...new Set(stored.story.seenStoryIds.filter((id) => typeof id === "string" && id.length > 0))]
+        : [];
+      if (normalized.story.introSeen && !normalized.story.seenStoryIds.includes("main-story-intro")) {
+        normalized.story.seenStoryIds.push("main-story-intro");
+      }
       normalized.story.completedNpcIds = Array.isArray(stored.story.completedNpcIds)
         ? [...new Set(stored.story.completedNpcIds.filter((id) => typeof id === "string"))]
         : [];
+      for (const npcId of normalized.story.completedNpcIds) {
+        if (!normalized.story.seenStoryIds.includes(npcId)) {
+          normalized.story.seenStoryIds.push(npcId);
+        }
+      }
       normalized.story.lastMapId =
         typeof stored.story.lastMapId === "string" ? stored.story.lastMapId : normalized.story.lastMapId;
       const position = stored.story.lastPlayerPosition;
