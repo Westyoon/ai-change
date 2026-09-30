@@ -94,7 +94,8 @@ function lobbyStateSignature(state, battleId, pendingAction, pendingRoomId) {
   ]);
 }
 
-function statusCopy(status) {
+function statusCopy(status, mode = null) {
+  if (mode === "local-test") return "게스트 테스트 방 · 온라인 파티 동기화 없음";
   if (status === "connected") return "서버 연결됨";
   if (status === "connecting" || status === "reconnecting") return "서버 연결 중…";
   if (status === "unavailable") return "로그인 후 온라인 방을 이용할 수 있습니다.";
@@ -111,7 +112,6 @@ export function createPostgameRoomLobby({
   onJoin,
   onLeave,
   onStart,
-  onSolo,
   onClose,
   setTimeoutImpl = globalThis.setTimeout,
   clearTimeoutImpl = globalThis.clearTimeout,
@@ -142,14 +142,6 @@ export function createPostgameRoomLobby({
     className: "postgame-room-lobby__connection",
     attributes: { role: "status", "aria-live": "polite" },
   });
-  const soloFallbackButton = createButton("서버 없이 혼자 입장", () => {
-    if (!selectedBattle || currentRoomFromState(latestState)) return;
-    element.hidden = true;
-    element.dataset.open = "false";
-    onSolo?.({ battle: selectedBattle, returnSpawn });
-  }, "ghost");
-  soloFallbackButton.className += " postgame-room-lobby__solo-fallback";
-  soloFallbackButton.hidden = true;
   const roomList = createElement("div", {
     className: "postgame-room-lobby__rooms",
     attributes: { role: "list", "aria-label": "참가할 수 있는 보스방" },
@@ -335,7 +327,6 @@ export function createPostgameRoomLobby({
       closeButton,
     ]),
     connectionStatus,
-    soloFallbackButton,
     directoryView,
     createView,
     membership,
@@ -454,11 +445,6 @@ export function createPostgameRoomLobby({
     directoryView.hidden = effectiveView !== ROOM_LOBBY_VIEWS.DIRECTORY;
     createView.hidden = effectiveView !== ROOM_LOBBY_VIEWS.CREATE;
     membership.hidden = effectiveView !== ROOM_LOBBY_VIEWS.WAITING;
-    soloFallbackButton.hidden = (
-      effectiveView !== ROOM_LOBBY_VIEWS.DIRECTORY
-      || latestState.status === "connected"
-      || Boolean(currentRoom)
-    );
     closeButton.disabled = Boolean(pendingAction);
     createBackButton.disabled = Boolean(pendingAction);
     if (renderedView !== effectiveView) {
@@ -652,10 +638,9 @@ export function createPostgameRoomLobby({
   function render(state = {}) {
     latestState = state;
     syncPendingAction(state);
-    connectionStatus.textContent = state.error || statusCopy(state.status);
+    connectionStatus.textContent = state.error || statusCopy(state.status, state.mode);
     connectionStatus.dataset.status = state.status ?? "idle";
     const currentRoom = currentRoomFromState(state);
-    soloFallbackButton.disabled = Boolean(currentRoom);
     openCreateButton.disabled = Boolean(pendingAction) || state.status !== "connected" || Boolean(currentRoom);
     updateCreateControls();
     const nextSignature = lobbyStateSignature(

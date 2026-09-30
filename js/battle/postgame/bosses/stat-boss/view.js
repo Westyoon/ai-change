@@ -52,6 +52,12 @@ function formatClock(ms) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatCombatValue(value) {
+  const numeric = Math.max(0, Number(value) || 0);
+  const rounded = Math.round((numeric + Number.EPSILON) * 1_000_000) / 1_000_000;
+  return String(rounded);
+}
+
 export class StatBossView {
   /**
    * @param {{arena: {width:number, height:number}, localPlayerId: string}} options
@@ -113,7 +119,7 @@ export class StatBossView {
     if (snapshot.boss) {
       const ratio = clampRatio(snapshot.boss.hp, snapshot.boss.maxHp);
       this.bossHpFill.style.width = `${ratio * 100}%`;
-      this.bossHpText.textContent = `${Math.max(0, Math.round(snapshot.boss.hp))} / ${snapshot.boss.maxHp}`;
+      this.bossHpText.textContent = `${formatCombatValue(snapshot.boss.hp)} / ${formatCombatValue(snapshot.boss.maxHp)}`;
       this.bossHpTrack.dataset.low = String(ratio <= 0.25);
     }
 
@@ -149,9 +155,9 @@ export class StatBossView {
     this.timerText.textContent = formatClock(snapshot.elapsedMs);
     const me = snapshot.players?.[this.localPlayerId];
     if (me) {
-      this.statAtk.textContent = String(me.attackStat);
-      this.statDef.textContent = String(me.defenseStat);
-      this.statHp.textContent = `${Math.max(0, Math.round(me.hp))}/${me.maxHp}`;
+      this.statAtk.textContent = formatCombatValue(me.attackDamage ?? me.attackStat);
+      this.statDef.textContent = `${formatCombatValue((me.defenseReduction ?? 0) * 100)}%`;
+      this.statHp.textContent = `${formatCombatValue(me.hp)}/${formatCombatValue(me.maxHp)}`;
 
       // 2026-09-16 버그 수정: 캐릭터 액터(z-index 20)가 격자 칸(z-index 1)보다
       // 위에 그려져서, 내가 지금 서 있는 칸이 위험/누적위험 칸이어도 그 빗금·색이
@@ -185,7 +191,7 @@ export class StatBossView {
   /** encounter의 onEvent로 "counter-hit"/"counter-miss"가 오면 화면에 잠깐 표시. */
   flashCounter({ hit, damage } = {}) {
     if (this._counterFlashTimer) clearTimeout(this._counterFlashTimer);
-    this.counterFlashEl.textContent = hit ? `반격 성공! -${damage}` : "반격 실패";
+    this.counterFlashEl.textContent = hit ? `반격 성공! -${formatCombatValue(damage)}` : "반격 실패";
     this.counterFlashEl.dataset.tone = hit ? "hit" : "miss";
     this.counterFlashEl.dataset.visible = "true";
     this._counterFlashTimer = setTimeout(() => {

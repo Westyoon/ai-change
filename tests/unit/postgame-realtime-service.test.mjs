@@ -104,6 +104,35 @@ test("same-origin HTTP endpoints become secure WebSocket URLs", () => {
   );
 });
 
+test("browser timers keep their Window receiver for presence, reconnect and cleanup", () => {
+  const timers = timerHarness();
+  const { service } = makeService({
+    now: timers.now,
+    setTimeoutImpl: function (callback, delay) {
+      assert.equal(this, globalThis, "setTimeout requires the browser global receiver");
+      return timers.setTimeout(callback, delay);
+    },
+    clearTimeoutImpl: function (id) {
+      assert.equal(this, globalThis, "clearTimeout requires the browser global receiver");
+      timers.clearTimeout(id);
+    },
+  });
+  service.connect();
+  const socket = FakeWebSocket.instances.at(-1);
+  socket.open();
+  service.updatePresence({ zone: "plaza", x: 0.5, y: 0.5 });
+  service.updatePresence({ zone: "plaza", x: 0.6, y: 0.5 });
+  assert.equal(timers.count(), 1);
+  timers.advance(100);
+  assert.equal(socket.sent.at(-1).x, 0.6);
+  service.updatePresence({ zone: "plaza", x: 0.7, y: 0.5 });
+  socket.serverClose(1006);
+  assert.equal(service.getState().status, "reconnecting");
+  assert.equal(timers.count(), 1);
+  service.disconnect();
+  assert.equal(timers.count(), 0);
+});
+
 test("room names use the same Unicode normalization as the server", () => {
   assert.equal(normalizeRoomName("  Ａ팀   같이 가요\t\n\u0000\u200b  "), "A팀 같이 가요");
   assert.equal([...normalizeRoomName("😀".repeat(32))].length, 32);
@@ -125,6 +154,10 @@ test("connect opens the authenticated endpoint and sends validated room commands
   assert.equal(service.joinRoom("room:abc-123"), true);
   assert.equal(service.startRoom(), true);
   assert.equal(service.sendBattleReady("room:abc-123"), true);
+  assert.equal(
+    service.sendBattleHealth({ roomId: "room:abc-123", hp: 75.123456789, maxHp: 100 }),
+    true,
+  );
   assert.equal(service.sendBattleHit({
     roomId: "room:abc-123",
     kind: "counter-hit",
@@ -138,6 +171,7 @@ test("connect opens the authenticated endpoint and sends validated room commands
     { type: "room.join", roomId: "room:abc-123" },
     { type: "room.start" },
     { type: "battle.ready", roomId: "room:abc-123" },
+    { type: "battle.health", roomId: "room:abc-123", hp: 75.123457, maxHp: 100 },
     {
       type: "battle.hit",
       roomId: "room:abc-123",
@@ -153,6 +187,18 @@ test("connect opens the authenticated endpoint and sends validated room commands
   assert.throws(() => service.createRoom("stat-boss", 2, "  "), /roomName/u);
   assert.throws(() => service.createRoom("stat-boss", 2, "😀".repeat(33)), /1 to 32/u);
   assert.throws(() => service.joinRoom(""), /roomId/u);
+  assert.throws(
+    () => service.sendBattleHealth({ roomId: "room:abc-123", hp: 101, maxHp: 100 }),
+    /health/u,
+  );
+  assert.throws(
+    () => service.sendBattleHealth({ roomId: "room:abc-123", hp: Number.POSITIVE_INFINITY, maxHp: 100 }),
+    /health/u,
+  );
+  assert.throws(
+    () => service.sendBattleHealth({ roomId: "room:abc-123", hp: 75.5, maxHp: 100.5 }),
+    /health/u,
+  );
   assert.throws(
     () => service.sendBattleHit({ roomId: "room:abc-123", kind: "bad kind", actionId: "1" }),
     /kind/u,
@@ -346,8 +392,8 @@ test("shared battle snapshots are normalized, immutable, and recover after recon
     seed: "seed:room:shared-1",
     allReady: false,
     roster: [
-      { id: "host", name: "방장", ready: true, connected: true, email: "hidden@example.test" },
-      { userId: "guest", displayName: "참가자", ready: false, connected: false },
+      { id: "host", name: "방장", ready: true, connected: true, hp: 82, maxHp: 100, email: "hidden@example.test" },
+      { userId: "guest", displayName: "참가자", ready: false, connected: false, hp: 0, maxHp: 130 },
     ],
     startedAt: 1234,
     privateState: "hidden",
@@ -361,8 +407,8 @@ test("shared battle snapshots are normalized, immutable, and recover after recon
     bossMaxHp: 1_000,
     revision: 4,
     roster: [
-      { id: "host", name: "방장", ready: true, connected: true },
-      { id: "guest", name: "참가자", ready: false, connected: false },
+      { id: "host", name: "방장", ready: true, connected: true, hp: 82, maxHp: 100, alive: true },
+      { id: "guest", name: "참가자", ready: false, connected: false, hp: 0, maxHp: 130, alive: false },
     ],
     seed: "seed:room:shared-1",
     allReady: false,
@@ -404,6 +450,24 @@ test("shared battle snapshots are normalized, immutable, and recover after recon
   });
   assert.equal(service.getState().battle.finishedAt, 5678);
   assert.equal(events.at(-1).type, "battle.finished");
+
+  second.receive({
+    type: "battle.finished",
+    roomId: "room:shared-defeat",
+    battleId: "control-boss",
+    status: "finished",
+    bossHp: 640,
+    bossMaxHp: 1_000,
+    revision: 8,
+    roster: [{ id: "host", name: "방장", ready: false, connected: true, hp: 0, maxHp: 100 }],
+    result: { outcome: "defeat", reason: "party-defeated" },
+    startedAt: 6000,
+    finishedAt: 7000,
+  });
+  assert.deepEqual(service.getState().battle.result, {
+    outcome: "defeat",
+    reason: "party-defeated",
+  });
 });
 
 test("battle leave acknowledgement clears shared state before a deferred socket close", () => {
@@ -473,12 +537,53 @@ test("pending battle leave survives a dropped socket and is resent after reconne
     type: "error",
     code: "not_in_battle",
     message: "참가 중인 전투가 아닙니다.",
+    requestType: "battle.leave",
+    roomId: "room:leave-race",
   });
   assert.equal(service.getState().leavingBattleRoomId, null);
   assert.equal(service.getState().battle, null);
   assert.equal(service.getState().lastError, null);
   assert.equal(service.getState().lastEvent.type, "battle.left");
   assert.equal(service.getState().lastEvent.recovered, true);
+});
+
+test("a failed battle leave unlocks retry without confusing unrelated health errors", () => {
+  const { service } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  socket.receive({
+    type: "battle.snapshot",
+    roomId: "room:leave-failed",
+    battleId: "stat-boss",
+    status: "running",
+    bossHp: 1_000,
+    bossMaxHp: 1_000,
+    revision: 1,
+    roster: [],
+  });
+  service.sendBattleLeave("room:leave-failed");
+
+  socket.receive({
+    type: "error",
+    code: "battle_not_ready",
+    message: "체력 요청 실패",
+    requestType: "battle.health",
+    roomId: "room:leave-failed",
+  });
+  assert.equal(service.getState().leavingBattleRoomId, "room:leave-failed");
+
+  socket.receive({
+    type: "error",
+    code: "server_error",
+    message: "저장 실패",
+    requestType: "battle.leave",
+    roomId: "room:leave-failed",
+  });
+  assert.equal(service.getState().leavingBattleRoomId, null);
+  assert.equal(service.getState().battle.roomId, "room:leave-failed");
+  assert.equal(service.getState().lastEvent.type, "battle.leave.failed");
+  assert.equal(service.getState().lastEvent.error.message, "저장 실패");
 });
 
 test("a leave requested while disconnected remains pending until reconnect can send it", () => {

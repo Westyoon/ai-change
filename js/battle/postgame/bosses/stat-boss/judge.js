@@ -40,7 +40,7 @@ export function judgeDodgeForAll(players, dangerCells, arena) {
  * 경직 시간 동안에만 반격이 유효하다.
  * @param {number} staggerStartedAt - 경직이 시작된 시각 (ms 단위 타임스탬프)
  * @param {number} now - 반격을 시도한 시각 (ms)
- * @param {number} staggerDurationMs - 경직 지속 시간 (예: 1200ms, v3 3-4절 예시)
+ * @param {number} staggerDurationMs - 반격 가능 경직 시간 (운영값 1000ms)
  * @returns {boolean} true면 지금 반격이 유효하게 들어간다
  */
 export function isCounterValid(staggerStartedAt, now, staggerDurationMs) {

@@ -31,24 +31,44 @@ function nearBossBounds() {
 
 test("Control Boss config preserves the prototype constants and explicit account-stat formulas", () => {
   assert.deepEqual(config.world.bounds, { x: 0, y: 0, width: 450, height: 800 });
+  assert.deepEqual(config.world.altarArea, {
+    startX: 75,
+    startY: 380,
+    tileW: 60,
+    tileH: 50,
+    rows: 3,
+    cols: 3,
+    gapX: 60,
+    gapY: 45,
+  });
+  assert.deepEqual(
+    resolveControlBossConfig({}).world.altarArea,
+    config.world.altarArea,
+    "the runtime fallback must retain the merged PR #27 altar values",
+  );
   assert.equal(config.boss.maxHp, 1000);
   assert.equal(config.boss.maxShield, 500);
   assert.equal(config.boss.phase2CastSec, 3);
   assert.equal(config.boss.phase3DurationSec, 30);
   assert.equal(config.boss.groggyDurationSec, 10);
+  assert.equal(config.boss.attackRange, 65);
+  assert.equal(config.boss.shockwaveSpeed, 168);
   assert.equal(config.boss.groggyDirectDamageRate, 0.2);
+  assert.equal(config.player.shieldDamage, 50);
+  assert.equal(config.player.attackCooldownMs, 1000);
   assert.equal(config.boss.attackIntervalSec, 1.3);
   assert.equal(config.boss.bulletSpeed, 240);
   assert.equal(config.boss.bulletDamage, 15);
   assert.equal(config.gimmick.collapsedTileCount, 2);
   assert.equal(config.gimmick.sequenceLength, 4);
 
-  assert.equal(calcControlBossAttackDamage(1, config.player), 40);
-  assert.equal(calcControlBossAttackDamage(3, config.player), 44);
+  assert.equal(calcControlBossAttackDamage(1, config.player), 10);
+  assert.equal(calcControlBossAttackDamage(3, config.player), 11.025);
   assert.equal(calcControlBossMaxHp(1, config.player), 100);
-  assert.equal(calcControlBossMaxHp(3, config.player), 120);
+  assert.equal(calcControlBossMaxHp(3, config.player), 300);
   assert.equal(calcControlBossIncomingDamage(15, 1, config.player), 15);
-  assert.equal(calcControlBossIncomingDamage(15, 3, config.player), 13);
+  assert.equal(calcControlBossIncomingDamage(15, 3, config.player), 14.4);
+  assert.equal(calcControlBossIncomingDamage(15, 26, config.player), 7.5);
   assert.throws(
     () => resolveControlBossConfig({ gimmick: { collapsedTileCount: 8, sequenceLength: 4 } }),
     /enough tiles/u,
@@ -62,10 +82,71 @@ test("Control Boss config preserves the prototype constants and explicit account
   assert.deepEqual(isolated.controls.pc.attack, ["Space"]);
 });
 
-test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", () => {
+test("Control Boss uses PR #27 inner hitboxes and treats cleared plates as floor", () => {
   const completions = [];
   const encounter = new ControlBossEncounter({
     config,
+    random: () => 0.25,
+    onComplete: (_attemptId, candidate) => completions.push(candidate),
+  });
+  encounter.init();
+  encounter.start({ attemptId: "control-boss:pr-27-hitboxes" });
+  encounter.enterPhase3();
+
+  let snapshot = encounter.getSnapshot();
+  const hole = snapshot.tiles.find((tile) => tile.id === snapshot.collapsedTileIds[0]);
+  encounter.setPlayerBounds({
+    x: hole.bounds.x + 1,
+    y: hole.bounds.y + hole.bounds.height / 2,
+    width: 1,
+    height: 1,
+  });
+  encounter.tick(0);
+  assert.equal(completions.length, 0, "the outer 20% of a hole remains safe floor");
+
+  const firstPlateId = snapshot.platesSequence[0];
+  const firstPlate = snapshot.tiles.find((tile) => tile.id === firstPlateId);
+  encounter.setPlayerBounds({
+    x: firstPlate.bounds.x + 1,
+    y: firstPlate.bounds.y + firstPlate.bounds.height / 2,
+    width: 1,
+    height: 1,
+  });
+  encounter.tick(0);
+  assert.equal(encounter.getSnapshot().currentPlateStep, 0, "a plate's outer 10px is not active");
+
+  encounter.setPlayerBounds({
+    x: firstPlate.bounds.x + firstPlate.bounds.width / 2,
+    y: firstPlate.bounds.y + firstPlate.bounds.height / 2,
+    width: 1,
+    height: 1,
+  });
+  encounter.tick(0);
+  assert.equal(encounter.getSnapshot().currentPlateStep, 1);
+
+  encounter.setPlayerBounds({ x: 0, y: 700, width: 1, height: 1 });
+  encounter.tick(0);
+  encounter.setPlayerBounds({
+    x: firstPlate.bounds.x + firstPlate.bounds.width / 2,
+    y: firstPlate.bounds.y + firstPlate.bounds.height / 2,
+    width: 1,
+    height: 1,
+  });
+  encounter.tick(0);
+  snapshot = encounter.getSnapshot();
+  assert.equal(snapshot.currentPlateStep, 1);
+  assert.equal(snapshot.isStunned, false, "an already-cleared plate behaves like ordinary floor");
+
+  encounter.destroy();
+});
+
+test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", () => {
+  const completions = [];
+  const encounter = new ControlBossEncounter({
+    config: resolveControlBossConfig({
+      ...config,
+      boss: { ...config.boss, groggyDurationSec: 100 },
+    }),
     random: () => 0.5,
     onComplete: (attemptId, candidate) => completions.push({ attemptId, candidate }),
   });
@@ -73,7 +154,11 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   encounter.start({ attemptId: "control-boss:phase-run" });
   encounter.setPlayerBounds(nearBossBounds());
 
-  for (let index = 0; index < 13; index += 1) encounter.attack();
+  for (let index = 0; index < 10; index += 1) {
+    assert.equal(encounter.attack(), true);
+    assert.equal(encounter.attack(), false, "a second attack inside the cooldown is ignored");
+    encounter.tick(config.player.attackCooldownMs);
+  }
   let snapshot = encounter.getSnapshot();
   assert.equal(snapshot.currentShield, 0);
   assert.equal(snapshot.phase, CONTROL_BOSS_PHASES.INSTANT_KILL);
@@ -92,7 +177,10 @@ test("Control Boss keeps the four-phase shield, cover, altar and groggy rules", 
   assert.equal(snapshot.currentHp, 800, "altar success removes 20% of max boss HP");
 
   encounter.setPlayerBounds(nearBossBounds());
-  for (let index = 0; index < 20; index += 1) encounter.attack();
+  for (let index = 0; index < 80; index += 1) {
+    assert.equal(encounter.attack(), true);
+    encounter.tick(config.player.attackCooldownMs);
+  }
   snapshot = encounter.getSnapshot();
   assert.equal(snapshot.state, CONTROL_BOSS_STATES.COMPLETED);
   assert.equal(snapshot.currentHp, 0);
@@ -457,6 +545,16 @@ test("Control Boss hazards share one logical size between collision and responsi
       "the rendered band spans the same radius +/- thickness used by collision",
     );
 
+    const firstPlate = encounter.getSnapshot().platesSequence[0];
+    assert.equal(encounter.activatePlate(firstPlate), true);
+    assert.equal(encounter.getSnapshot().currentPlateStep, 1);
+    encounter.setPlayerBounds({ x: 209, y: 59, width: 32, height: 42 });
+    encounter.tick(0);
+    snapshot = encounter.getSnapshot();
+    assert.equal(snapshot.playerHp, snapshot.playerMaxHp - hazardConfig.boss.shockwaveDamage);
+    assert.equal(snapshot.currentPlateStep, 0, "shockwave hit resets plate progress");
+    assert.equal(snapshot.tiles.some((tile) => tile.cleared), false, "shockwave hit clears plate markers");
+
     view.destroy();
     assert.equal(root.children.length, 0);
   } finally {
@@ -491,12 +589,17 @@ test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup wit
     await battle.init(configSource);
     assert.equal(root.children.length, 1);
     assert.ok(root.querySelector(".control-boss-world"));
+    assert.ok(root.querySelector(".control-boss-attack-range"));
     assert.ok(root.querySelector(".control-boss-joystick"));
     assert.ok(root.querySelector(".control-boss-attack"));
     assert.equal(root.querySelector(".control-boss-modal"), null);
 
     battle.start({ attemptId: "control-boss:lifecycle-1" });
     frames.step(0);
+    const attackRange = root.querySelector(".control-boss-attack-range");
+    assert.equal(attackRange.dataset.active, "true");
+    assert.equal(attackRange.style.width, `${(130 / config.world.bounds.width) * 100}%`);
+    assert.equal(attackRange.style.height, `${(130 / config.world.bounds.height) * 100}%`);
     const initialX = battle.getState().playerBounds.x;
     input.vector = { x: 1, y: 0 };
     frames.step(100);
@@ -519,8 +622,9 @@ test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup wit
     const afterKeyboard = battle.getState().metrics.attacks;
     assert.equal(afterKeyboard, 1, "Space produces one attack command");
 
+    frames.step(1200);
     root.querySelector(".control-boss-attack").dispatchEvent({ type: "click", detail: 0 });
-    frames.step(300);
+    frames.step(1300);
     assert.equal(battle.getState().metrics.attacks, 2, "accessible/mobile attack button produces one command");
 
     assert.equal(battle.pause("MANUAL"), true);
@@ -539,6 +643,73 @@ test("createBattle satisfies lifecycle, PC/mobile input and complete cleanup wit
     assert.equal(frames.callbacks.size, 0, "destroy cancels the shared GameLoop frame");
     assert.equal(input.listeners.size, 0, "destroy removes the injected input subscription");
   } finally {
+    frames.restore();
+  }
+});
+
+test("Control Boss restores player HP only for the initial mount", async () => {
+  const frames = installFrameHarness();
+  try {
+    const root = frames.document.createElement("div");
+    const battle = createBattle({ root, events: new EventBus(), input: new FakeInput() });
+    await battle.init({
+      ...configSource,
+      initialPlayerHealth: { hp: 37, maxHp: 120 },
+    });
+
+    assert.equal(battle.getState().playerHp, 37);
+    assert.equal(battle.getState().playerMaxHp, 120);
+    assert.equal(root.querySelector(".control-boss-player-hp").textContent, "37 / 120");
+
+    battle.start({ attemptId: "control-boss:restored-health" });
+    assert.equal(battle.restart({ attemptId: "control-boss:fresh-retry" }), true);
+    assert.equal(battle.getState().playerHp, 100);
+    assert.equal(battle.getState().playerMaxHp, 100);
+    assert.equal(root.querySelector(".control-boss-player-hp").textContent, "100 / 100");
+    battle.destroy();
+  } finally {
+    frames.restore();
+  }
+});
+
+test("Stat Boss restores player HP only for the initial mount", async () => {
+  const frames = installFrameHarness();
+  const previousNode = globalThis.Node;
+  globalThis.document = frames.document;
+  globalThis.Node = FakeElement;
+  try {
+    const root = frames.document.createElement("div");
+    const battle = createStatBossBattle({
+      root,
+      events: new EventBus(),
+      input: new FakeInput(),
+    });
+    await battle.init({
+      ...statBossConfig,
+      arena: { width: 700, height: 500 },
+      players: [{
+        id: "stat-resume-player",
+        attackStat: 1,
+        defenseStat: 1,
+        healthStat: 1,
+        position: { x: 350, y: 300 },
+      }],
+      initialPlayerHealth: { hp: 37, maxHp: 120 },
+    });
+
+    assert.equal(battle.getState().players["stat-resume-player"].hp, 37);
+    assert.equal(battle.getState().players["stat-resume-player"].maxHp, 120);
+    assert.equal(root.querySelector(".character-health__text").textContent, "37 / 120");
+
+    battle.start({ attemptId: "stat-boss:restored-health" });
+    battle.restart({ attemptId: "stat-boss:fresh-retry" });
+    assert.equal(battle.getState().players["stat-resume-player"].hp, 100);
+    assert.equal(battle.getState().players["stat-resume-player"].maxHp, 100);
+    assert.equal(root.querySelector(".character-health__text").textContent, "100 / 100");
+    battle.destroy();
+  } finally {
+    if (previousNode === undefined) delete globalThis.Node;
+    else globalThis.Node = previousNode;
     frames.restore();
   }
 });

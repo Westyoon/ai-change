@@ -220,6 +220,53 @@ test("control boss reports valid local damage intents while server owns HP and c
   assert.equal(completions[0].candidate.status, "CLEAR");
 });
 
+test("a server-authoritative party defeat stays FAIL for every shared boss", () => {
+  const result = { outcome: "defeat", reason: "party-defeated" };
+
+  const dataCompletions = [];
+  const data = new DataSphinxEncounter({
+    config: sharedSphinxConfig(),
+    sharedBossAuthority: true,
+    onComplete: (_attemptId, candidate) => dataCompletions.push(candidate),
+  });
+  data.init();
+  data.start({ attemptId: "data:defeat" });
+  data.completeSharedBattle({ bossHp: 10, bossMaxHp: 10, result });
+
+  const statCompletions = [];
+  const stat = new StatBossEncounter({
+    arena: { width: 960, height: 600 },
+    players: [{
+      id: "p1",
+      attackStat: 1,
+      defenseStat: 1,
+      healthStat: 1,
+      position: { x: 480, y: 500 },
+    }],
+    bossBaseHp: 1_000,
+    sharedBossAuthority: true,
+    onComplete: (_attemptId, candidate) => statCompletions.push(candidate),
+  });
+  stat.init();
+  stat.start({ attemptId: "stat:defeat" });
+  stat.completeSharedBattle({ bossHp: 900, bossMaxHp: 1_000, result });
+
+  const controlCompletions = [];
+  const control = new ControlBossEncounter({
+    config: resolveControlBossConfig(controlSource),
+    sharedBossAuthority: true,
+    onComplete: (_attemptId, candidate) => controlCompletions.push(candidate),
+  });
+  control.init();
+  control.start({ attemptId: "control:defeat" });
+  control.completeSharedBattle({ bossHp: 900, bossMaxHp: 1_000, result });
+
+  for (const candidate of [dataCompletions[0], statCompletions[0], controlCompletions[0]]) {
+    assert.equal(candidate.status, "FAIL");
+    assert.equal(candidate.failureReason, "PARTY_DEFEATED");
+  }
+});
+
 test("shared snapshot normalization clamps HP and rejects mismatched battles", () => {
   assert.deepEqual(
     normalizeSharedBossSnapshot({

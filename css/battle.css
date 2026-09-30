@@ -1,6 +1,10 @@
 .battle-entry {
-  width: min(1180px, calc(100% - 24px));
-  max-width: 1180px;
+  width: 100%;
+  max-width: 1480px;
+}
+
+.scene-root[data-scene-layout="aftergame-world"] {
+  width: min(1480px, 100%);
 }
 
 .battle-node-map-scene {
@@ -94,13 +98,6 @@
   color: var(--danger);
 }
 
-.aftergame-world__help {
-  margin: 8px 0 12px;
-  color: var(--muted);
-  font-size: 0.72rem;
-  line-height: 1.55;
-}
-
 .battle-field-stage {
   overflow: hidden;
   border: 2px solid var(--line-strong);
@@ -111,8 +108,8 @@
 
 .battle-field-world {
   width: 100%;
-  height: clamp(360px, calc(100vh - 400px), 620px);
-  height: clamp(360px, calc(100dvh - 400px), 620px);
+  height: clamp(480px, calc(100vh - 300px), 760px);
+  height: clamp(480px, calc(100dvh - 300px), 760px);
   min-height: 0;
   overflow: hidden;
   aspect-ratio: auto;
@@ -314,14 +311,16 @@
     #fff0b8;
 }
 
-.aftergame-world__boss-door:not(:disabled):hover,
-.aftergame-world__edge-gate:not(:disabled):hover {
+.aftergame-world__boss-door:not(:disabled):not([aria-disabled="true"]):hover,
+.aftergame-world__edge-gate:not(:disabled):not([aria-disabled="true"]):hover {
   border-color: var(--warning);
   filter: brightness(1.08);
 }
 
 .aftergame-world__boss-door:disabled,
-.aftergame-world__edge-gate:disabled {
+.aftergame-world__edge-gate:disabled,
+.aftergame-world__boss-door[aria-disabled="true"],
+.aftergame-world__edge-gate[aria-disabled="true"] {
   cursor: not-allowed;
   filter: grayscale(0.6);
   opacity: 0.54;
@@ -362,31 +361,42 @@
   color: var(--warning);
 }
 
+.aftergame-world__status:empty {
+  display: none;
+}
+
 .battle-field-encounter {
   position: absolute;
   z-index: 2400;
   display: grid;
   place-items: center;
-  padding: 5px;
+  padding: 0;
   overflow: visible;
-  border: 3px solid var(--warning);
-  border-radius: 50% 50% 45% 45% / 58% 58% 42% 42%;
+  border: 0;
+  border-radius: 0;
   color: var(--text);
-  background:
-    radial-gradient(circle at 32% 26%, #5f4a70 0 8%, transparent 9%),
-    radial-gradient(circle at 45% 34%, #31213d, #130d19 68%);
-  box-shadow: 0 0 0 5px rgb(250 200 4 / 16%), 0 10px 20px rgb(0 0 0 / 45%);
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
   animation: battle-field-encounter-bob 850ms ease-in-out infinite alternate;
 }
 
-.battle-field-encounter:hover {
+.battle-field-encounter:not(:disabled):not([aria-disabled="true"]):hover {
   filter: brightness(1.15);
 }
 
 .battle-field-encounter__egg {
-  font-size: clamp(1rem, 3vw, 1.55rem);
-  font-weight: 900;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter:
+    drop-shadow(0 0 5px rgb(104 88 136 / 72%))
+    drop-shadow(0 8px 7px rgb(0 0 0 / 42%));
+  transform: scale(1.22);
+  pointer-events: none;
+  user-select: none;
 }
 
 .battle-field-encounter__label {
@@ -460,7 +470,7 @@
 
 .postgame-room-lobby__panel {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   width: min(860px, 100%);
   height: min(720px, calc(100vh - 24px));
   height: min(
@@ -492,12 +502,8 @@
   grid-row: 2;
 }
 
-.postgame-room-lobby__solo-fallback {
-  grid-row: 3;
-}
-
 .postgame-room-lobby__view {
-  grid-row: 4;
+  grid-row: 3;
 }
 
 .postgame-room-lobby__header {
@@ -567,14 +573,6 @@
 .postgame-room-lobby__create-view[hidden],
 .postgame-room-lobby__membership[hidden] {
   display: none !important;
-}
-
-.postgame-room-lobby__solo-fallback {
-  justify-self: start;
-}
-
-.postgame-room-lobby__solo-fallback[hidden] {
-  display: none;
 }
 
 .postgame-room-lobby__directory,
@@ -1016,7 +1014,6 @@
 .postgame-room-lobby__create-actions .button,
 .postgame-room-lobby__directory-toolbar .button,
 .postgame-room-lobby__view-heading .button,
-.postgame-room-lobby__solo-fallback,
 .postgame-room-lobby__header .button {
   min-height: 44px;
   padding: 8px 12px;
@@ -1027,13 +1024,59 @@
   flex: 0 0 auto;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .postgame-room-card:hover {
-    border-color: var(--line);
-    background:
-      linear-gradient(90deg, rgb(233 95 157 / 13%), transparent 58%),
-      rgb(30 15 28 / 86%);
-  }
+.battle-recovery {
+  position: fixed;
+  z-index: 12100;
+  inset: 0;
+  display: grid;
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  place-items: center;
+  background: rgb(18 8 20 / 84%);
+  backdrop-filter: blur(8px);
+}
+
+.battle-recovery[hidden] {
+  display: none;
+}
+
+.battle-recovery__panel {
+  width: min(620px, 100%);
+  box-sizing: border-box;
+  padding: clamp(20px, 4vw, 34px);
+  border: 3px solid var(--line);
+  border-radius: 24px;
+  color: var(--text);
+  background: #351d31;
+  box-shadow: 0 9px 0 rgb(109 56 86 / 62%), 0 26px 70px rgb(0 0 0 / 52%);
+  text-align: center;
+}
+
+.battle-recovery__title {
+  margin: 0;
+  font-size: clamp(1.2rem, 4vw, 1.8rem);
+}
+
+.battle-recovery__summary {
+  margin: 20px 0 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.battle-recovery__roster,
+.battle-recovery__status {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
+.battle-recovery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
 }
 
 .battle-progress,
@@ -1046,12 +1089,6 @@
 .battle-notice {
   border: 1px solid var(--warning);
   color: var(--warning);
-}
-
-.battle-unlock-source {
-  margin: 16px auto 0;
-  font-size: 0.7rem;
-  text-align: center;
 }
 
 @keyframes battle-field-encounter-bob {
@@ -1126,6 +1163,109 @@
   display: block;
   min-height: 0;
   overflow: hidden;
+}
+
+.battle-play-area {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.battle-play-area > .battle-stage {
+  width: 100%;
+  height: 100%;
+}
+
+.battle-party-hud {
+  position: absolute;
+  z-index: 80;
+  top: 12px;
+  left: 12px;
+  width: min(190px, 26%);
+  box-sizing: border-box;
+  padding: 10px;
+  border: 2px solid rgb(227 51 187 / 58%);
+  border-radius: 13px;
+  color: #fff8fb;
+  background: rgb(43 24 38 / 88%);
+  box-shadow: 0 5px 14px rgb(0 0 0 / 24%);
+  pointer-events: none;
+}
+
+.battle-party-hud__title {
+  display: block;
+  margin-bottom: 8px;
+  color: #ff9bd3;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+
+.battle-party-hud__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.battle-party-hud__member {
+  min-width: 0;
+}
+
+.battle-party-hud__label {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.battle-party-hud__label strong {
+  overflow: hidden;
+  font-size: 0.58rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.battle-party-hud__label span {
+  flex: 0 0 auto;
+  color: #ffd4ea;
+  font-size: 0.46rem;
+}
+
+.battle-party-hud__track {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 18%);
+}
+
+.battle-party-hud__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d82f76, #e333bb);
+  transition: width 180ms ease;
+}
+
+.battle-party-hud__member[data-dead="true"] .battle-party-hud__label,
+.battle-party-hud__member[data-dead="true"] .battle-party-hud__label span {
+  color: #a6a0a8;
+}
+
+.battle-party-hud__member[data-dead="true"] .battle-party-hud__fill {
+  background: #77727b;
+}
+
+.battle-party-hud__member[data-dead="true"] .battle-party-hud__track {
+  background: #77727b;
+}
+
+.battle-party-hud__member[data-connected="false"]:not([data-dead="true"]) {
+  opacity: 0.62;
 }
 
 /* Keep the host-owned result card above each Battle module's HUD and touch UI. */
@@ -1204,14 +1344,9 @@
     font-size: 0.5rem;
   }
 
-  .aftergame-world__help {
-    margin: 7px 0 9px;
-    font-size: 0.66rem;
-  }
-
   .battle-field-world {
-    height: clamp(400px, 54vh, 540px);
-    height: clamp(400px, 54dvh, 540px);
+    height: clamp(480px, 64vh, 680px);
+    height: clamp(480px, 64dvh, 680px);
     min-width: 0;
   }
 
@@ -1424,7 +1559,6 @@
   .postgame-room-lobby__create-actions .button,
   .postgame-room-lobby__directory-toolbar .button,
   .postgame-room-lobby__view-heading .button,
-  .postgame-room-lobby__solo-fallback,
   .postgame-room-lobby__header .button {
     min-height: 44px;
     padding: 7px 9px;
@@ -1446,6 +1580,40 @@
 
   .battle-controls__list {
     gap: 3px 16px;
+  }
+
+  .battle-party-hud {
+    top: 7px;
+    left: 7px;
+    width: min(150px, 42%);
+    padding: 7px;
+    border-width: 1px;
+    border-radius: 9px;
+  }
+
+  .battle-party-hud__title {
+    margin-bottom: 5px;
+    font-size: 0.46rem;
+  }
+
+  .battle-party-hud__list {
+    gap: 5px;
+  }
+
+  .battle-party-hud__label {
+    margin-bottom: 2px;
+  }
+
+  .battle-party-hud__label strong {
+    font-size: 0.46rem;
+  }
+
+  .battle-party-hud__label span {
+    font-size: 0.38rem;
+  }
+
+  .battle-party-hud__track {
+    height: 5px;
   }
 }
 

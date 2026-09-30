@@ -465,6 +465,42 @@ test("battle owns its loop, cleans up on retry/destroy, and never reveals an ans
   }
 });
 
+test("Data Sphinx restores player HP only for the initial mount", async () => {
+  const frames = installFrameHarness();
+  const root = createRoot();
+  const input = createInput();
+  const battle = createBattle({
+    root,
+    input,
+    events: { emit() {} },
+  });
+
+  try {
+    await battle.init({
+      ...oneQuizConfig(),
+      initialPlayerHealth: { hp: 37, maxHp: 120 },
+    });
+    assert.equal(battle.getState().playerHealth, 37);
+    assert.equal(battle.getState().playerMaxHealth, 120);
+    assert.equal(root.querySelector(".character-health__text").textContent, "37 / 120");
+
+    input.setVector({ x: -1, y: 0 });
+    battle.start({ attemptId: "data-sphinx:restored-health" });
+    frames.frame(0);
+    frames.frame(100);
+    frames.frame(101);
+    assert.equal(battle.getState().state, "COMPLETED");
+
+    assert.equal(battle.restart({ attemptId: "data-sphinx:fresh-retry" }), true);
+    assert.equal(battle.getState().playerHealth, 100);
+    assert.equal(battle.getState().playerMaxHealth, 100);
+    assert.equal(root.querySelector(".character-health__text").textContent, "100 / 100");
+  } finally {
+    battle.destroy();
+    frames.restore();
+  }
+});
+
 test("an init aborted at the async boundary mounts nothing and disposes idempotently", async () => {
   const root = createRoot();
   const controller = new AbortController();

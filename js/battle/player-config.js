@@ -22,7 +22,8 @@ export const DEFAULT_PLAYER_APPEARANCE = Object.freeze({
 });
 
 /**
- * D1 stores allocated attack/defense points from 0 and HP from a 100 baseline.
+ * D1 stores allocated attack/defense points from 0 and the actual maximum HP
+ * in 100-point units (100, 200, 300, ...).
  * The stat-boss formulas use 1 as their no-bonus baseline, so this adapter is
  * the single explicit boundary between the two representations.
  */
@@ -36,7 +37,7 @@ export function createStatBossPlayer(accountState, arena = { width: 960, height:
     id: "player-1",
     attackStat: attack + 1,
     defenseStat: defense + 1,
-    healthStat: 1 + Math.max(0, hp - 100),
+    healthStat: 1 + Math.floor(Math.max(0, hp - 100) / 100),
     accountStats: Object.freeze({ attack, hp, defense }),
     position: Object.freeze({ x: arena.width / 2, y: arena.height * 0.8 }),
     appearance: DEFAULT_PLAYER_APPEARANCE,

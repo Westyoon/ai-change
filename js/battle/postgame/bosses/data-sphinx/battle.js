@@ -137,13 +137,23 @@ export function createBattle({
     render();
   }
 
-  function setupRuntime(runtimeConfig) {
+  function setupRuntime(runtimeConfig, initialPlayerHealth = null) {
     const position = spawnTopLeft(runtimeConfig);
     view = new DataSphinxView({
       arena: runtimeConfig.arena,
       documentRef: root.ownerDocument ?? globalThis.document,
     });
     view.mount(root);
+
+    encounter = new DataSphinxEncounter({
+      config: runtimeConfig,
+      onEvent: handleEncounterEvent,
+      onComplete: forwardCompletion,
+      sharedBossAuthority: sharedMode,
+    });
+    encounter.init();
+    if (initialPlayerHealth) encounter.restorePlayerHealth(initialPlayerHealth);
+    const initialSnapshot = encounter.getSnapshot();
 
     system = new CharacterSystem({
       events,
@@ -155,8 +165,8 @@ export function createBattle({
         width: runtimeConfig.player.width,
         height: runtimeConfig.player.height,
         speed: runtimeConfig.player.speed,
-        maxHealth: runtimeConfig.player.maxHealth,
-        currentHealth: runtimeConfig.player.maxHealth,
+        maxHealth: initialSnapshot.playerMaxHealth,
+        currentHealth: initialSnapshot.playerHealth,
         stats: runtimeConfig.player.accountStats,
         appearance: runtimeConfig.player.appearance,
       },
@@ -172,13 +182,6 @@ export function createBattle({
       knob: view.joystickKnob,
       onChange: (vector) => system?.setJoystickVector(vector),
     });
-    encounter = new DataSphinxEncounter({
-      config: runtimeConfig,
-      onEvent: handleEncounterEvent,
-      onComplete: forwardCompletion,
-      sharedBossAuthority: sharedMode,
-    });
-    encounter.init();
     sharedBinding = bindSharedBossBattle({
       sharedBattle: sharedBattleSource,
       battleId: "data-sphinx",
@@ -252,7 +255,7 @@ export function createBattle({
         sharedActionSequence = 0;
         latestSharedSnapshot = null;
         config = normalizeDataSphinxConfig(candidateConfig);
-        setupRuntime(config);
+        setupRuntime(config, candidateConfig.initialPlayerHealth);
       } catch (error) {
         destroy();
         throw error;

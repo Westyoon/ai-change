@@ -8,6 +8,7 @@ const DIRECTIONS = new Set(["up", "down", "left", "right"]);
 const ROOM_STATUSES = new Set(["waiting", "started"]);
 const BATTLE_STATUSES = new Set(["running", "finished"]);
 const NON_RETRYABLE_CLOSE_CODES = new Set([1000, 1008, 4001, 4401, 4403]);
+const COMBAT_VALUE_SCALE = 1_000_000;
 
 function cleanText(value, { fallback = "", maxLength = 80 } = {}) {
   return typeof value === "string" && value.trim()
@@ -27,6 +28,11 @@ function normalizeRoomName(value) {
 function finiteNumber(value, fallback = 0) {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function roundCombatValue(value) {
+  if (Math.abs(value) >= Number.MAX_SAFE_INTEGER / COMBAT_VALUE_SCALE) return value;
+  return Math.round((value + Number.EPSILON) * COMBAT_VALUE_SCALE) / COMBAT_VALUE_SCALE;
 }
 
 function normalizedCoordinate(value) {
@@ -76,18 +82,33 @@ function publicMember(candidate) {
 function publicBattleMember(candidate) {
   const member = publicMember(candidate);
   if (!member) return null;
+  const rawMaxHp = finiteNumber(candidate.maxHp, Number.NaN);
+  const maxHp = Number.isFinite(rawMaxHp) && rawMaxHp >= 1
+    ? Math.max(1, Math.trunc(rawMaxHp))
+    : null;
+  const rawHp = finiteNumber(candidate.hp, Number.NaN);
+  const hp = maxHp !== null && Number.isFinite(rawHp)
+    ? Math.min(maxHp, Math.max(0, roundCombatValue(rawHp)))
+    : null;
   return Object.freeze({
     ...member,
     ready: candidate.ready === true,
     connected: candidate.connected === true,
+    hp,
+    maxHp,
+    alive: candidate.alive !== false && hp !== 0,
   });
 }
 
 function publicBattleResult(candidate) {
   if (!candidate || typeof candidate !== "object") return null;
-  const outcome = candidate.outcome === "victory" ? "victory" : null;
-  const reason = candidate.reason === "boss-defeated" ? "boss-defeated" : null;
-  return outcome && reason ? Object.freeze({ outcome, reason }) : null;
+  if (candidate.outcome === "victory" && candidate.reason === "boss-defeated") {
+    return Object.freeze({ outcome: "victory", reason: "boss-defeated" });
+  }
+  if (candidate.outcome === "defeat" && candidate.reason === "party-defeated") {
+    return Object.freeze({ outcome: "defeat", reason: "party-defeated" });
+  }
+  return null;
 }
 
 function publicBattleSnapshot(candidate, eventType = "battle.snapshot") {
@@ -117,7 +138,7 @@ function publicBattleSnapshot(candidate, eventType = "battle.snapshot") {
     roomId,
     battleId,
     status,
-    bossHp: Math.min(bossMaxHp, Math.max(0, Math.trunc(finiteNumber(candidate.bossHp, bossMaxHp)))),
+    bossHp: Math.min(bossMaxHp, Math.max(0, roundCombatValue(finiteNumber(candidate.bossHp, bossMaxHp)))),
     bossMaxHp,
     revision: Math.max(0, Math.trunc(finiteNumber(candidate.revision, 0))),
     roster,
@@ -295,8 +316,11 @@ export class PostgameRealtimeService {
     this.#WebSocket = WebSocketImpl;
     this.#endpoint = endpoint;
     this.#location = location;
-    this.#setTimeout = setTimeoutImpl;
-    this.#clearTimeout = clearTimeoutImpl;
+    // Window timers reject a service instance as their receiver in browsers.
+    // Without binding, the first throttled presence update or reconnect throws
+    // Illegal invocation and the global error handler tears down the game.
+    this.#setTimeout = setTimeoutImpl.bind(globalThis);
+    this.#clearTimeout = clearTimeoutImpl.bind(globalThis);
     this.#now = now;
     this.#random = random;
     this.#presenceIntervalMs = Math.max(50, finiteNumber(presenceIntervalMs, DEFAULT_PRESENCE_INTERVAL_MS));
@@ -410,6 +434,31 @@ export class PostgameRealtimeService {
     return this.#send({
       type: "battle.ready",
       roomId: validateIdentifier(roomId, "roomId"),
+    });
+  }
+
+  sendBattleHealth({
+    roomId = this.#state.battle?.roomId ?? this.#state.currentRoomId,
+    hp,
+    maxHp,
+  } = {}) {
+    const normalizedHp = Number(hp);
+    const normalizedMaxHp = Number(maxHp);
+    if (
+      !Number.isFinite(normalizedHp)
+      || normalizedHp < 0
+      || !Number.isInteger(normalizedMaxHp)
+      || normalizedMaxHp < 1
+      || normalizedMaxHp > Number.MAX_SAFE_INTEGER
+      || normalizedHp > normalizedMaxHp
+    ) {
+      throw new RangeError("Battle health must contain finite hp and integer maxHp values in range.");
+    }
+    return this.#send({
+      type: "battle.health",
+      roomId: validateIdentifier(roomId, "roomId"),
+      hp: roundCombatValue(normalizedHp),
+      maxHp: normalizedMaxHp,
     });
   }
 
@@ -550,7 +599,7 @@ export class PostgameRealtimeService {
         currentRoomId: this.#state.battle?.roomId ?? null,
         lastError: Object.freeze({
           code: "RECONNECT_EXHAUSTED",
-          message: "실시간 서버에 연결할 수 없습니다. 솔로 입장을 이용해 주세요.",
+          message: "실시간 서버에 연결할 수 없습니다. 연결을 확인한 뒤 다시 시도해 주세요.",
         }),
       });
       return;
@@ -808,15 +857,29 @@ export class PostgameRealtimeService {
         break;
       }
       case "error": {
+        const requestType = cleanText(message.requestType, { maxLength: 80 });
+        const roomId = cleanText(message.roomId, { maxLength: 128 });
         const error = Object.freeze({
           code: cleanText(message.code, { fallback: "SERVER_ERROR", maxLength: 80 }),
           message: cleanText(message.message, {
             fallback: "실시간 서버 요청을 처리하지 못했습니다.",
             maxLength: 240,
           }),
+          ...(requestType ? { requestType } : {}),
+          ...(roomId ? { roomId } : {}),
         });
-        const abandonedRoomId = ["not_battle_member", "not_in_battle", "battle_not_found"].includes(error.code)
-          ? this.#state.leavingBattleRoomId
+        const pendingLeaveRoomId = this.#state.leavingBattleRoomId;
+        const isPendingLeaveResponse = Boolean(
+          pendingLeaveRoomId
+          && error.requestType === "battle.leave"
+          && error.roomId === pendingLeaveRoomId,
+        );
+        const abandonedRoomId = isPendingLeaveResponse
+          && ["not_battle_member", "not_in_battle", "battle_not_found"].includes(error.code)
+          ? pendingLeaveRoomId
+          : null;
+        const failedLeaveRoomId = isPendingLeaveResponse && !abandonedRoomId
+          ? pendingLeaveRoomId
           : null;
         this.#setState({
           ...this.#state,
@@ -826,13 +889,23 @@ export class PostgameRealtimeService {
           battle: abandonedRoomId && this.#state.battle?.roomId === abandonedRoomId
             ? null
             : this.#state.battle,
-          leavingBattleRoomId: abandonedRoomId ? null : this.#state.leavingBattleRoomId,
+          leavingBattleRoomId: abandonedRoomId || failedLeaveRoomId
+            ? null
+            : this.#state.leavingBattleRoomId,
           lastError: abandonedRoomId ? null : error,
           lastEvent: abandonedRoomId
             ? freezeEvent("battle.left", { roomId: abandonedRoomId, recovered: true })
+            : failedLeaveRoomId
+              ? freezeEvent("battle.leave.failed", { roomId: failedLeaveRoomId, error })
             : freezeEvent("error", { error }),
         });
         completedDeferredLeaveRoomId = abandonedRoomId;
+        if (
+          failedLeaveRoomId
+          && failedLeaveRoomId === this.#disconnectAfterBattleRoomId
+        ) {
+          this.#cancelDeferredDisconnect();
+        }
         break;
       }
       default:

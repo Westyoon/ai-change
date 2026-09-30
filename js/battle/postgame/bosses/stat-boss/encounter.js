@@ -24,7 +24,13 @@
 
 import { positionToCell, GRID, isCellInSet } from "./grid.js";
 import { getAvailablePatterns } from "./patterns.js";
-import { calcPlayerDamage, calcIncomingDamage, calcMaxHp, DEFAULT_BALANCE } from "./stats.js";
+import {
+  calcDefenseReduction,
+  calcPlayerDamage,
+  calcIncomingDamage,
+  calcMaxHp,
+  DEFAULT_BALANCE,
+} from "./stats.js";
 import { getDifficultyTier, getBossHpMultiplier } from "./difficulty.js";
 import { judgeDodgeForAll, isCounterValid } from "./judge.js";
 import { createRandom } from "./random.js";
@@ -73,7 +79,7 @@ export class StatBossEncounter {
    * @param {{id:string, attackStat:number, defenseStat:number, healthStat:number, position:{x:number,y:number}}[]} config.players
    * @param {number} [config.bossAttack=10] - 회피 실패 시 기본 피해.
    * @param {number} [config.bossBaseHp=1000] - 인원수와 무관한 보스 총 체력.
-   * @param {number} [config.staggerDurationMs=1200] - 경직 지속 시간 (v3 3-4절 예시 수치)
+   * @param {number} [config.staggerDurationMs=1000] - 반격 가능한 경직 지속 시간.
    * @param {number} [config.timeLimitSec] - 제한시간(초). v3 문서에서 정확한 값을 확인하기 전까지는
    *   생략하면 시간초과 실패 조건이 꺼져 있다(무제한). 값이 확인되는 대로 넣어줄 것.
    * @param {string[]} [config.patternIds] - 등장 후보로 쓸 패턴 id 목록(난이도 필터링 전 전체 후보). 생략하면 5종 전부.
@@ -132,6 +138,8 @@ export class StatBossEncounter {
         id: p.id,
         attackStat: p.attackStat,
         defenseStat: p.defenseStat,
+        attackDamage: calcPlayerDamage(p.attackStat, balance),
+        defenseReduction: calcDefenseReduction(p.defenseStat, balance),
         position: { ...p.position },
         maxHp,
         hp: maxHp,
@@ -174,6 +182,25 @@ export class StatBossEncounter {
     this._setupInitialState();
     this._setState(STATE.READY);
     this._emit({ type: "ready" });
+  }
+
+  restorePlayerHealth(playerId, { hp, maxHp } = {}) {
+    if (this.state !== STATE.READY) return false;
+    const player = this.players?.get(playerId);
+    const restoredHp = Number(hp);
+    const restoredMaxHp = Number(maxHp);
+    if (
+      !player
+      || !Number.isFinite(restoredHp)
+      || restoredHp < 0
+      || !Number.isFinite(restoredMaxHp)
+      || restoredMaxHp <= 0
+    ) {
+      return false;
+    }
+    player.maxHp = restoredMaxHp;
+    player.hp = Math.min(restoredMaxHp, restoredHp);
+    return true;
   }
 
   /**
@@ -248,16 +275,19 @@ export class StatBossEncounter {
     ) {
       return false;
     }
-    this.syncSharedBossHealth({ ...snapshot, bossHp: 0 });
+    const partyDefeated = snapshot?.result?.outcome === "defeat";
+    const status = partyDefeated ? "FAIL" : "CLEAR";
+    const failureReason = partyDefeated ? "PARTY_DEFEATED" : null;
+    this.syncSharedBossHealth(partyDefeated ? snapshot : { ...snapshot, bossHp: 0 });
     this.sharedCompletionSent = true;
     if (this.state === STATE.PAUSED) this._setState(STATE.RUNNING);
     if (this.state === STATE.RUNNING) {
-      this._resolve("CLEAR", null);
+      this._resolve(status, failureReason);
       return true;
     }
     if (this.state !== STATE.COMPLETED) return false;
 
-    const candidate = this._buildCandidate("CLEAR", null);
+    const candidate = this._buildCandidate(status, failureReason);
     this._emit({ type: "complete", candidate, shared: true });
     this.config.onComplete?.(this.attemptId, candidate);
     return true;
@@ -279,7 +309,7 @@ export class StatBossEncounter {
   // ---- 반격 시도 (경직 중에만 유효) ----
 
   /**
-   * 2026-09-06: 경직 시간(예: 1.2초) 안이기만 하면 몇 번을 시도하든 전부 명중 처리되고
+   * 2026-09-06: 경직 시간(현재 운영값 1.0초) 안이기만 하면 몇 번을 시도하든 전부 명중 처리되고
    * 있었음(연타 무제한) - v3 3-4절 "경직 시간 동안에만 공격 가능"이 "그 시간 안에서
    * 무제한 연타 가능"이라는 뜻은 아닐 것: 1절/표0에 "회피만 정확하면 데미지는 스탯이
    * 좌우"라고 명시돼있는데, 연타 속도(=컨트롤/반응속도)로 데미지가 무한정 늘어나면
@@ -296,7 +326,7 @@ export class StatBossEncounter {
     if (!player) return { hit: false };
     if (this._staggerHitPlayers.has(playerId)) return { hit: false }; // 이번 경직에 이미 반격 성공함 - 추가 연타는 무시
 
-    const staggerDurationMs = this.config.staggerDurationMs ?? 1200;
+    const staggerDurationMs = this.config.staggerDurationMs ?? 1000;
     const valid = isCounterValid(this.staggerStartedAt, this.elapsedMs, staggerDurationMs);
     if (!valid) {
       this.metrics.counterMisses++;
@@ -304,7 +334,7 @@ export class StatBossEncounter {
       return { hit: false };
     }
 
-    const damage = calcPlayerDamage(player.attackStat, this.balance);
+    const damage = player.attackDamage;
     if (!this.sharedBossAuthority) this.boss.hp = Math.max(0, this.boss.hp - damage);
     this.metrics.damageDealt += damage;
     this.metrics.counterSuccesses++;
@@ -424,7 +454,7 @@ export class StatBossEncounter {
     for (const result of results) {
       if (result.dodged) continue;
       const player = this.players.get(result.playerId);
-      const damage = calcIncomingDamage(this.boss.attack, player.defenseStat);
+      const damage = calcIncomingDamage(this.boss.attack, player.defenseStat, this.balance);
       player.hp = Math.max(0, player.hp - damage);
       this.metrics.damageTaken += damage;
     }
@@ -461,7 +491,7 @@ export class StatBossEncounter {
   _beginStagger() {
     this.phase = "STAGGER";
     this.staggerStartedAt = this.elapsedMs;
-    this.phaseRemainingMs = this.config.staggerDurationMs ?? 1200;
+    this.phaseRemainingMs = this.config.staggerDurationMs ?? 1000;
     this._staggerHitPlayers = new Set(); // 경직 1회당 반격 1회 제한 - 매번 새로 초기화
     this.metrics.patternsResolved++;
     this._emit({ type: "stagger-start", durationMs: this.phaseRemainingMs });

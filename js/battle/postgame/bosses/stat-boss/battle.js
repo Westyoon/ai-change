@@ -160,7 +160,7 @@ export function createBattle({
 
   /** init()과 restart()가 공유하는 "DOM/시스템 준비" 부분. 실제 시작(encounter.start
    *  /loop.start)은 여기서 하지 않는다 - Battle lifecycle 계약상 init과 start는 별개. */
-  function setup(config, { signal } = {}) {
+  function setup(config, { signal, initialPlayerHealth = null } = {}) {
     arena = config.arena ?? DEFAULT_ARENA;
     const players = config.players ?? defaultPlayers(arena);
     localPlayerId = players[0]?.id ?? "player-1";
@@ -188,6 +188,9 @@ export function createBattle({
       },
     });
     encounter.init();
+    if (initialPlayerHealth) {
+      encounter.restorePlayerHealth(localPlayerId, initialPlayerHealth);
+    }
 
     sharedBinding = bindSharedBossBattle({
       sharedBattle,
@@ -206,7 +209,7 @@ export function createBattle({
         if (view && encounter) view.render(encounter.getSnapshot());
       },
     });
-    const initialMaxHp = encounter.getSnapshot().players[localPlayerId].maxHp;
+    const initialPlayerState = encounter.getSnapshot().players[localPlayerId];
 
     system = new CharacterSystem({
       events,
@@ -218,8 +221,8 @@ export function createBattle({
         width: 34,
         height: 44,
         speed: 180,
-        maxHealth: initialMaxHp,
-        currentHealth: initialMaxHp,
+        maxHealth: initialPlayerState.maxHp,
+        currentHealth: initialPlayerState.hp,
         stats: localPlayer.accountStats,
         appearance: localPlayer.appearance ?? DEFAULT_PLAYER_APPEARANCE,
       },
@@ -283,7 +286,7 @@ export function createBattle({
     async init(config = {}, { signal } = {}) {
       lastConfig = config;
       lastSignal = signal;
-      setup(config, { signal });
+      setup(config, { signal, initialPlayerHealth: config.initialPlayerHealth });
       signal?.addEventListener("abort", destroy, { once: true });
     },
 

@@ -143,7 +143,7 @@ export function createAftergameNodeMap(definitions) {
   }));
 
   return Object.freeze({
-    initialZoneId: AFTERGAME_ZONE_IDS.FIELD,
+    initialZoneId: AFTERGAME_ZONE_IDS.PLAZA,
     bossRooms: Object.freeze(bossRooms),
     field: Object.freeze({
       id: AFTERGAME_ZONE_IDS.FIELD,

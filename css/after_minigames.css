@@ -320,7 +320,7 @@ button {
     transition: transform 0.12s ease, background 0.12s ease;
 }
 
-.mg-btn:hover {
+.mg-btn:not(:disabled):hover {
     background: var(--accent-violet-dim);
     transform: translateY(-1px);
 }
@@ -335,7 +335,7 @@ button {
     border: 2px solid var(--parchment-edge);
 }
 
-.mg-btn--ghost:hover {
+.mg-btn--ghost:not(:disabled):hover {
     background: rgba(0, 0, 0, 0.04);
 }
 
@@ -413,7 +413,7 @@ button {
     transition: transform 0.12s ease, border-color 0.12s ease;
 }
 
-.rps-choice:hover {
+.rps-choice:not(:disabled):hover {
     transform: translateY(-3px);
     border-color: var(--accent-violet);
 }

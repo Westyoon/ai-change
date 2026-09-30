@@ -9,9 +9,12 @@ import {
   calcPlayerDamage,
 } from "../../js/battle/postgame/bosses/stat-boss/stats.js";
 import { getCharacterJudgementPosition } from "../../js/battle/postgame/bosses/stat-boss/battle.js";
+import { isCounterValid } from "../../js/battle/postgame/bosses/stat-boss/judge.js";
 import {
   finalizeBattleCandidate,
   getBattleReturnDestination,
+  requiresAuthenticatedBattleSession,
+  sharedBattleSeed,
 } from "../../js/scenes/battle-scene.js";
 
 const MINI_GAME_IDS = ["ds", "cs", "cse", "ai", "aids"];
@@ -80,15 +83,45 @@ test("account stats map from D1 baselines to stat-boss baselines exactly once", 
 
   const allocated = createStatBossPlayer({
     authenticated: true,
-    stats: { attack: 1, hp: 101, defense: 1 },
+    stats: { attack: 1, hp: 200, defense: 1 },
   });
   assert.equal(allocated.attackStat, 2);
   assert.equal(allocated.healthStat, 2);
   assert.equal(allocated.defenseStat, 2);
   assert.equal(calcPlayerDamage(allocated.attackStat), 10.5);
-  assert.equal(calcMaxHp(allocated.healthStat), 110);
-  assert.equal(calcIncomingDamage(34, allocated.defenseStat), 33);
-  assert.deepEqual(allocated.accountStats, { attack: 1, hp: 101, defense: 1 });
+  assert.equal(calcMaxHp(allocated.healthStat), 200);
+  assert.equal(calcIncomingDamage(34, allocated.defenseStat), 33.32);
+  assert.deepEqual(allocated.accountStats, { attack: 1, hp: 200, defense: 1 });
+});
+
+test("stat-boss attack compounds by 5% while defense reduces 2% per point up to 50%", () => {
+  assert.equal(calcPlayerDamage(1), 10, "zero invested attack points keep the base damage");
+  assert.equal(calcPlayerDamage(2), 10.5, "the first point adds 5% of the base attack");
+  assert.equal(calcPlayerDamage(3), 11.025, "the second point compounds instead of adding a flat 0.5");
+  assert.equal(calcPlayerDamage(11), 16.288946, "ten points remain uncapped and compound");
+
+  assert.equal(calcIncomingDamage(10, 1), 10, "zero invested defense points keep full damage");
+  assert.equal(calcIncomingDamage(10, 2), 9.8, "one point reduces incoming damage by 2%");
+  assert.equal(calcIncomingDamage(10, 11), 8, "ten points reduce incoming damage by 20%");
+  assert.equal(calcIncomingDamage(10, 25), 5.2, "twenty-four points reduce incoming damage by 48%");
+  assert.equal(calcIncomingDamage(10, 26), 5, "twenty-five points reach the 50% cap");
+  assert.equal(calcIncomingDamage(10, 101), 5, "additional defense cannot exceed the 50% cap");
+});
+
+test("stat-boss counter is valid for exactly the configured one-second window", () => {
+  const startedAt = 5_000;
+  assert.equal(isCounterValid(startedAt, startedAt - 1, 1_000), false);
+  assert.equal(isCounterValid(startedAt, startedAt, 1_000), true);
+  assert.equal(isCounterValid(startedAt, startedAt + 999, 1_000), true);
+  assert.equal(isCounterValid(startedAt, startedAt + 1_000, 1_000), true);
+  assert.equal(isCounterValid(startedAt, startedAt + 1_001, 1_000), false);
+});
+
+test("shared rooms turn their server seed into one stable non-zero encounter seed", () => {
+  assert.equal(sharedBattleSeed("seed:ROOM-A"), sharedBattleSeed("seed:ROOM-A"));
+  assert.notEqual(sharedBattleSeed("seed:ROOM-A"), sharedBattleSeed("seed:ROOM-B"));
+  assert.equal(sharedBattleSeed(0), 1);
+  assert.equal(sharedBattleSeed(null), null);
 });
 
 test("published stat-boss keeps 1000 total HP and 10 attack without a solo timeout", async () => {
@@ -97,6 +130,13 @@ test("published stat-boss keeps 1000 total HP and 10 attack without a solo timeo
   );
   assert.equal(config.bossBaseHp, 1000);
   assert.equal(config.bossAttack, 10);
+  assert.equal(config.staggerDurationMs, 1000);
+  assert.equal(config.balance.baseDamage, 10);
+  assert.equal(config.balance.damageCoefficient, 0.05);
+  assert.equal(config.balance.defenseReductionPerPoint, 0.02);
+  assert.equal(config.balance.maxDefenseReduction, 0.5);
+  assert.equal(config.balance.baseHp, 100);
+  assert.equal(config.balance.hpPerPoint, 100);
   assert.equal(calcIncomingDamage(config.bossAttack, 1), 10);
   assert.equal(calcPlayerDamage(1, config.balance), 10);
   assert.equal(Math.ceil(config.bossBaseHp / calcPlayerDamage(1, config.balance)), 100);
@@ -184,12 +224,41 @@ test("the final battle returns to the pre-game map while after-games return to t
   );
 });
 
+test("guest testing can temporarily bypass after-game login without changing the default", () => {
+  assert.equal(requiresAuthenticatedBattleSession("word-breaker"), false);
+  assert.equal(requiresAuthenticatedBattleSession("stat-boss"), true);
+  assert.equal(requiresAuthenticatedBattleSession("data-sphinx"), true);
+  assert.equal(requiresAuthenticatedBattleSession("control-boss"), true);
+  assert.equal(requiresAuthenticatedBattleSession("xr-egg-trials"), true);
+  assert.equal(requiresAuthenticatedBattleSession(), true);
+  const guestTesting = { guestBattleTesting: true };
+  assert.equal(requiresAuthenticatedBattleSession("stat-boss", guestTesting), false);
+  assert.equal(requiresAuthenticatedBattleSession("data-sphinx", guestTesting), false);
+  assert.equal(requiresAuthenticatedBattleSession("control-boss", guestTesting), false);
+  assert.equal(requiresAuthenticatedBattleSession("xr-egg-trials", guestTesting), false);
+  assert.equal(requiresAuthenticatedBattleSession(null, guestTesting), false);
+});
+
 test("Battle result card stays above module-owned HUD and touch controls", async () => {
   const css = await readFile(new URL("../../css/battle.css", import.meta.url), "utf8");
   assert.match(
     css,
     /\.battle-stage\s*>\s*\.result-backdrop\s*\{[^}]*z-index:\s*10000;/su,
   );
+});
+
+test("shared Battle keeps all five party rows visible and greys a defeated life bar", async () => {
+  const css = await readFile(new URL("../../css/battle.css", import.meta.url), "utf8");
+  assert.match(
+    css,
+    /\.battle-party-hud__member\[data-dead="true"\]\s+\.battle-party-hud__track\s*\{[^}]*background:\s*#77727b;/su,
+  );
+  const mobilePartyHud = css.match(
+    /@media \(hover: none\), \(pointer: coarse\), \(max-width: 720px\)\s*\{[\s\S]*?\.battle-party-hud\s*\{([^}]*)\}/u,
+  )?.[1] ?? "";
+  assert.ok(mobilePartyHud, "mobile party HUD rules must exist");
+  assert.doesNotMatch(mobilePartyHud, /overflow:\s*hidden/u);
+  assert.doesNotMatch(mobilePartyHud, /max-height:\s*42%/u);
 });
 
 test("festival sprite is enlarged and bottom-anchored independently from its actor", async () => {

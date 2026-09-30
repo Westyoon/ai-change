@@ -3,12 +3,14 @@
   "implementationStatus": "MVP",
   "bossBaseHp": 1000,
   "bossAttack": 10,
-  "staggerDurationMs": 1400,
+  "staggerDurationMs": 1000,
   "balance": {
     "baseDamage": 10,
     "damageCoefficient": 0.05,
+    "defenseReductionPerPoint": 0.02,
+    "maxDefenseReduction": 0.5,
     "baseHp": 100,
-    "hpPerPoint": 10
+    "hpPerPoint": 100
   },
   "controls": {
     "pc": ["WASD 또는 방향키로 이동", "Space로 경직 중 반격", "Esc 또는 P로 일시정지"],

@@ -63,9 +63,13 @@ check("isCellInSet: 포함 안 된 경우 false", isCellInSet({ row: 2, col: 1 }
 
 console.log("\n[stats.js]");
 check("공격력 0이면 기본 데미지 그대로(10)", calcPlayerDamage(0), 10);
-check("공격력 10 (스탯1=보너스0 기준, 보너스 9포인트 x 0.05)면 데미지 14.5", calcPlayerDamage(10), 14.5);
-check("방어력이 보스공격보다 높아도 최소 1데미지는 들어감", calcIncomingDamage(5, 100), 1);
-check("체력 스탯 8 (스탯1=보너스0 기준, 보너스 7포인트)이면 최대HP 170 (100 + 7*10)", calcMaxHp(8), 170);
+check("공격 투자 1포인트(전투 스탯 2)는 기본 10에서 5% 복리 증가", calcPlayerDamage(2), 10.5);
+check("공격 투자 2포인트(전투 스탯 3)는 선형 11이 아니라 복리 11.025", calcPlayerDamage(3), 11.025);
+check("공격 투자 9포인트(전투 스탯 10)는 소수 6자리로 반올림", calcPlayerDamage(10), 15.513282);
+check("방어 투자 1포인트는 원본 피해를 2% 줄임", calcIncomingDamage(10, 2), 9.8);
+check("방어 투자 25포인트부터 피해 감소율은 50%로 고정", calcIncomingDamage(10, 26), 5);
+check("방어 투자 100포인트도 50% 상한을 넘지 않음", calcIncomingDamage(10, 101), 5);
+check("체력 스탯 8 (스탯1=보너스0 기준, 보너스 7포인트)이면 최대HP 800 (100 + 7*100)", calcMaxHp(8), 800);
 
 console.log("\n[difficulty.js]");
 check("10초 시점엔 단일 저격만 등장", getDifficultyTier(10).patternIds, ["single-snipe"]);
@@ -136,8 +140,9 @@ check(
   judgeDodge({ x: 50, y: 50 }, [{ row: 0, col: 0 }], { width: 960, height: 600 }),
   false
 );
-check("경직 시작 직후엔 반격 유효", isCounterValid(1000, 1100, 1200), true);
-check("경직 시간이 지나면 반격 무효", isCounterValid(1000, 2500, 1200), false);
+check("경직 시작 직후엔 반격 유효", isCounterValid(1000, 1100, 1000), true);
+check("1.0초 경계까지 반격 유효", isCounterValid(1000, 2000, 1000), true);
+check("1.0초가 지나면 반격 무효", isCounterValid(1000, 2001, 1000), false);
 
 console.log("\n[state.js]");
 check("READY -> RUNNING은 허용됨", canTransition(STATE.READY, STATE.RUNNING), true);
@@ -170,7 +175,7 @@ const enc1 = new StatBossEncounter({
   players: [{ id: "p1", attackStat: 10, defenseStat: 0, healthStat: 0, position: p1Position }],
   bossAttack: 20,
   bossBaseHp: 1000,
-  staggerDurationMs: 1200,
+  staggerDurationMs: 1000,
   patternIds: ["single-snipe"], // 항상 단일 저격만 나오게 고정 (결과를 예측 가능하게)
   seed: 42,
 });
@@ -194,17 +199,17 @@ check(
   enc1.players.get("p1").hp,
   80
 );
-check("경직 지속시간 1200ms 적용", enc1.phaseRemainingMs, 1200);
+check("반격 가능한 경직 시간이 1000ms 적용", enc1.phaseRemainingMs, 1000);
 
 const counterResult = enc1.attemptCounter("p1"); // 경직 시작 직후 반격 -> 유효해야 함
 check("경직 시작 직후 반격은 명중", counterResult.hit, true);
 check(
-  "반격 데미지(공격력10 -> 스탯1까지는 보너스 없음, 기본10*(1+(10-1)*0.05)=14.5) 만큼 보스 HP 감소",
+  "반격 데미지(공격 투자 9포인트 -> 10*1.05^9=15.513282) 만큼 보스 HP 감소",
   enc1.boss.hp,
-  985.5
+  984.486718
 );
 
-enc1.tick(1200); // 경직 종료 -> 다음 패턴으로
+enc1.tick(1000); // 경직 종료 -> 다음 패턴으로
 check("경직이 끝나면 다시 TELEGRAPH phase (다음 패턴)", enc1.phase, "TELEGRAPH");
 check("패턴 1회 완료 카운트 반영", enc1.metrics.patternsResolved, 1);
 
@@ -236,7 +241,7 @@ enc2.start();
 for (let i = 0; i < 5 && enc2.state === STATE.RUNNING; i++) {
   enc2.tick(1500); // 예고 종료 -> 피격
   if (enc2.state !== STATE.RUNNING) break;
-  enc2.tick(1200); // 경직 종료 -> 다음 패턴
+  enc2.tick(1000); // 경직 종료 -> 다음 패턴
 }
 check("전멸하면 상태가 COMPLETED로 전환됨", enc2.state, STATE.COMPLETED);
 check("실패 결과 status는 'FAIL' (팀 공용 결과 계약)", lastCandidate2?.status, "FAIL");
@@ -262,8 +267,8 @@ const enc3 = new StatBossEncounter({
 });
 enc3.init();
 enc3.start();
-enc3.tick(1500); // 예고 종료 (방어 100이라 최소 데미지 1만 받음, 안 죽음) -> 경직 시작
-enc3.attemptCounter("p1"); // 반격 15데미지 -> 보스 체력 10 -> 0 이하로 즉시 승리 처리
+enc3.tick(1500); // 예고 종료 (방어 99포인트의 50% 상한으로 10데미지만 받음) -> 경직 시작
+enc3.attemptCounter("p1"); // 반격 15.513282데미지 -> 보스 체력 10 -> 0 이하로 즉시 승리 처리
 check("보스 체력이 0 이하가 되면 바로 COMPLETED", enc3.state, STATE.COMPLETED);
 check("성공 결과 status는 'CLEAR' (팀 공용 결과 계약)", lastCandidate3?.status, "CLEAR");
 check("성공해도 failureReason은 null (필드는 존재)", lastCandidate3?.failureReason, null);
@@ -303,18 +308,18 @@ const enc5 = new StatBossEncounter({
   ],
   bossAttack: 20,
   bossBaseHp: 100000, // 반격을 안 해서 중간에 클리어되지 않도록 크게 잡음
-  staggerDurationMs: 1200,
+  staggerDurationMs: 1000,
   patternIds: ["single-snipe"],
   seed: 3,
 });
 enc5.init();
 enc5.start();
 
-enc5.tick(1500); // 1차 예고 종료 -> cellA에서 맞음 (방어100이라 최소 1데미지)
+enc5.tick(1500); // 1차 예고 종료 -> cellA에서 맞음 (방어99포인트, 50% 상한으로 10데미지)
 check("1차 피격 후 누적 위험 칸에 cellA 포함", isCellInSet(cellA, enc5.accumulatedHazardCells), true);
 
 enc5.setPlayerPosition("p1", cellCenter(cellB.row, cellB.col).x, cellCenter(cellB.row, cellB.col).y);
-enc5.tick(1200); // 경직 종료 -> 다음 패턴 시작, 이 시점 위치(cellB)가 타겟으로 잡힘
+enc5.tick(1000); // 경직 종료 -> 다음 패턴 시작, 이 시점 위치(cellB)가 타겟으로 잡힘
 check("이동한 cellB가 다음 패턴 타겟으로 잡힘", enc5.currentDangerCells, [cellB]);
 
 const hpBeforeReturn = enc5.players.get("p1").hp;
@@ -324,7 +329,7 @@ enc5.tick(1500); // 이번 예고 종료
 check(
   "현재 타겟(cellB)은 피해도 누적 위험 칸(cellA) 위에 있으면 맞는다",
   enc5.players.get("p1").hp,
-  hpBeforeReturn - 1 // 방어100 vs 보스공격20 -> 최소 데미지 1
+  hpBeforeReturn - 10 // 방어 투자 99포인트 -> 50% 상한, 보스공격 20 -> 피해 10
 );
 check(
   "누적 위험 칸에 cellA, cellB 둘 다 남아있음",

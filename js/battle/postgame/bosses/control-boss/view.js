@@ -95,6 +95,18 @@ export class ControlBossView {
     }
 
     this.cover.dataset.active = String(snapshot.isCovered);
+    const attackRangeVisible = [CONTROL_BOSS_PHASES.SHIELD, CONTROL_BOSS_PHASES.GROGGY].includes(snapshot.phase);
+    this.attackRange.dataset.active = String(attackRangeVisible);
+    positionRect(
+      this.attackRange,
+      {
+        x: snapshot.playerBounds.x + snapshot.playerBounds.width / 2 - this.config.boss.attackRange,
+        y: snapshot.playerBounds.y + snapshot.playerBounds.height / 2 - this.config.boss.attackRange,
+        width: this.config.boss.attackRange * 2,
+        height: this.config.boss.attackRange * 2,
+      },
+      this.arena,
+    );
     this.status.textContent = snapshot.status.text;
     this.status.dataset.tone = snapshot.status.tone;
     this.status.dataset.sequence = String(snapshot.status.sequence);
@@ -270,10 +282,15 @@ export class ControlBossView {
     this.playerActor = createCharacterActorElement({ document: this.document, local: true });
     this.playerActor.dataset.characterId = this.localPlayerId;
     this.characterView = new CharacterView({ element: this.playerActor, worldSize: this.arena });
+    this.attackRange = element("div", {
+      className: "control-boss-attack-range",
+      dataset: { active: "false" },
+      attributes: { "aria-hidden": "true" },
+    });
     this.world = element("div", {
       className: "control-boss-world",
       attributes: { role: "application", "aria-label": "컨트롤 보스 전투 필드" },
-    }, [this.tilesLayer, this.cover, this.bossActor, this.shockwaveLayer, this.bulletLayer, this.playerActor]);
+    }, [this.tilesLayer, this.cover, this.bossActor, this.shockwaveLayer, this.bulletLayer, this.attackRange, this.playerActor]);
 
     this.playerHpText = element("output", { className: "control-boss-player-hp", text: "100 / 100" });
     this.playerState = element("output", { className: "control-boss-player-state", text: "전투 준비" });

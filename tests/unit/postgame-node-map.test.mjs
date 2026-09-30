@@ -28,11 +28,11 @@ function sequenceRandom(values) {
   return random;
 }
 
-test("사후 월드는 입장 필드와 중심 광장을 잇고 광장 북쪽에 독립 보스문 3개를 둔다", () => {
+test("사후 월드는 중심 광장에서 시작해 오른쪽 필드와 광장 북쪽 보스문 3개를 잇는다", () => {
   const aftergameBattles = battles.filter((battle) => battle.id !== "word-breaker");
   const map = createAftergameNodeMap(aftergameBattles);
 
-  assert.equal(map.initialZoneId, AFTERGAME_ZONE_IDS.FIELD);
+  assert.equal(map.initialZoneId, AFTERGAME_ZONE_IDS.PLAZA);
   assert.deepEqual(map.bossRooms.map((room) => room.battle.id), BOSS_ROOM_IDS);
   assert.deepEqual(
     map.bossRooms.map((room) => room.route),
@@ -231,7 +231,15 @@ test("사후 월드 UI는 카드 대시보드 없이 단일 이동 화면과 모
   );
   assert.match(
     cssSource,
-    /@media \(max-width: 720px\)\s*\{[\s\S]*?\.battle-field-world\s*\{[^}]*height:\s*clamp\(400px, 54dvh, 540px\);/u,
+    /@media \(max-width: 720px\)\s*\{[\s\S]*?\.battle-field-world\s*\{[^}]*height:\s*clamp\(480px, 64dvh, 680px\);/u,
+  );
+  assert.match(
+    cssSource,
+    /\.scene-root\[data-scene-layout="aftergame-world"\]\s*\{[^}]*width:\s*min\(1480px, 100%\);/su,
+  );
+  assert.match(
+    cssSource,
+    /\.aftergame-world__status:empty\s*\{[^}]*display:\s*none;/su,
   );
   assert.match(
     cssSource,

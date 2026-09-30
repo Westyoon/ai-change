@@ -46,6 +46,15 @@ function rect(value = {}) {
   });
 }
 
+function insetRect(bounds, insetX, insetY = insetX) {
+  return Object.freeze({
+    x: bounds.x + insetX,
+    y: bounds.y + insetY,
+    width: Math.max(0, bounds.width - insetX * 2),
+    height: Math.max(0, bounds.height - insetY * 2),
+  });
+}
+
 function center(bounds) {
   return {
     x: bounds.x + bounds.width / 2,
@@ -88,6 +97,7 @@ function normalizePlayer(source, config) {
     healthStat,
     maxHp: calcControlBossMaxHp(healthStat, config.player),
     attackDamage: calcControlBossAttackDamage(attackStat, config.player),
+    shieldDamage: config.player.shieldDamage,
     position: Object.freeze({ x: start.x, y: start.y }),
     appearance: source?.appearance ?? null,
     accountStats: source?.accountStats ?? null,
@@ -124,6 +134,23 @@ export class ControlBossEncounter {
     this.#resetRuntime();
     this.state = CONTROL_BOSS_STATES.READY;
     return this.getSnapshot();
+  }
+
+  restorePlayerHealth({ hp, maxHp } = {}) {
+    if (this.state !== CONTROL_BOSS_STATES.READY) return false;
+    const restoredHp = Number(hp);
+    const restoredMaxHp = Number(maxHp);
+    if (
+      !Number.isFinite(restoredHp)
+      || restoredHp < 0
+      || !Number.isFinite(restoredMaxHp)
+      || restoredMaxHp <= 0
+    ) {
+      return false;
+    }
+    this.playerMaxHp = restoredMaxHp;
+    this.playerHp = Math.min(restoredMaxHp, restoredHp);
+    return true;
   }
 
   start({ attemptId } = {}) {
@@ -200,18 +227,25 @@ export class ControlBossEncounter {
     ) {
       return false;
     }
-    this.syncSharedBossHealth({ ...snapshot, bossHp: 0 });
+    const partyDefeated = snapshot?.result?.outcome === "defeat";
+    const status = partyDefeated ? "FAIL" : "CLEAR";
+    const failureReason = partyDefeated ? "PARTY_DEFEATED" : null;
+    this.syncSharedBossHealth(partyDefeated ? snapshot : { ...snapshot, bossHp: 0 });
     this.sharedCompletionSent = true;
-    if (this.state !== CONTROL_BOSS_STATES.COMPLETED) return this.#complete("CLEAR", null);
+    if (this.state !== CONTROL_BOSS_STATES.COMPLETED) return this.#complete(status, failureReason);
 
-    const candidate = this.#buildCandidate("CLEAR", null);
+    const candidate = this.#buildCandidate(status, failureReason);
     this.#emit({ type: "complete", attemptId: this.attemptId, candidate, shared: true });
     this.onComplete?.(this.attemptId, candidate);
     return true;
   }
 
   attack() {
-    if (this.state !== CONTROL_BOSS_STATES.RUNNING || this.isStunned) return false;
+    if (
+      this.state !== CONTROL_BOSS_STATES.RUNNING ||
+      this.isStunned ||
+      this.playerAttackCooldownMs > 0
+    ) return false;
     this.metrics.attacks += 1;
     const playerCenter = center(this.playerBounds);
     const boss = this.config.world.bossZone;
@@ -225,8 +259,9 @@ export class ControlBossEncounter {
     }
 
     if (this.phase === CONTROL_BOSS_PHASES.SHIELD) {
-      this.currentShield = Math.max(0, this.currentShield - this.player.attackDamage);
-      this.metrics.shieldDamage += this.player.attackDamage;
+      this.playerAttackCooldownMs = this.config.player.attackCooldownMs;
+      this.currentShield = Math.max(0, this.currentShield - this.player.shieldDamage);
+      this.metrics.shieldDamage += this.player.shieldDamage;
       if (this.currentShield === 0) {
         this.#enterPhase2();
       } else {
@@ -235,6 +270,7 @@ export class ControlBossEncounter {
       return true;
     }
     if (this.phase === CONTROL_BOSS_PHASES.GROGGY) {
+      this.playerAttackCooldownMs = this.config.player.attackCooldownMs;
       this.#applyBossDamage(this.player.attackDamage, "attack");
       return true;
     }
@@ -247,6 +283,7 @@ export class ControlBossEncounter {
     const elapsedMs = Math.max(0, finite(deltaMs));
     const seconds = elapsedMs / 1000;
     this.elapsedMs += elapsedMs;
+    this.playerAttackCooldownMs = Math.max(0, this.playerAttackCooldownMs - elapsedMs);
     this.isCovered = overlaps(this.playerBounds, this.config.world.coverZone);
     this.#updateStun(elapsedMs);
     this.#updateTileContacts();
@@ -362,6 +399,7 @@ export class ControlBossEncounter {
       phase: this.phase,
       elapsedMs: rounded(this.elapsedMs),
       phaseTimerMs: rounded(this.phaseTimerMs),
+      playerAttackCooldownMs: rounded(this.playerAttackCooldownMs),
       bossAttackTimerMs: rounded(this.bossAttackTimerMs),
       shockwaveTimerMs: rounded(this.shockwaveTimerMs),
       currentHp: rounded(this.currentHp),
@@ -369,7 +407,7 @@ export class ControlBossEncounter {
       currentShield: rounded(this.currentShield),
       maxShield: this.config.boss.maxShield,
       playerHp: rounded(this.playerHp),
-      playerMaxHp: this.player.maxHp,
+      playerMaxHp: this.playerMaxHp,
       playerBounds: rect(this.playerBounds),
       isCovered: this.isCovered,
       isStunned: this.isStunned,
@@ -399,12 +437,14 @@ export class ControlBossEncounter {
     this.maxPhaseReached = CONTROL_BOSS_PHASES.SHIELD;
     this.elapsedMs = 0;
     this.phaseTimerMs = 0;
+    this.playerAttackCooldownMs = 0;
     this.bossAttackTimerMs = 0;
     this.shockwaveTimerMs = 0;
     this.currentHp = this.config?.boss?.maxHp ?? 0;
     this.sharedBossMaxHp = this.config?.boss?.maxHp ?? 0;
     this.currentShield = this.config?.boss?.maxShield ?? 0;
-    this.playerHp = this.player?.maxHp ?? 1;
+    this.playerMaxHp = this.player?.maxHp ?? 1;
+    this.playerHp = this.playerMaxHp;
     this.playerBounds = rect({ ...start, width: playerConfig.width, height: playerConfig.height });
     this.isCovered = false;
     this.isStunned = false;
@@ -587,7 +627,13 @@ export class ControlBossEncounter {
     }
     const next = new Set();
     for (const tile of this.tiles) {
-      if (!overlaps(this.playerBounds, tile.bounds)) continue;
+      if (this.clearedPlateIds.has(tile.id)) continue;
+      const contactBounds = this.collapsedTileIds.has(tile.id)
+        ? insetRect(tile.bounds, tile.bounds.width * 0.2, tile.bounds.height * 0.2)
+        : this.platesSequence.includes(tile.id)
+          ? insetRect(tile.bounds, 10)
+          : tile.bounds;
+      if (!overlaps(this.playerBounds, contactBounds)) continue;
       next.add(tile.id);
       if (this.activeTileContacts.has(tile.id)) continue;
       if (this.collapsedTileIds.has(tile.id)) {
@@ -602,6 +648,8 @@ export class ControlBossEncounter {
 
   #applyStun() {
     if (this.state !== CONTROL_BOSS_STATES.RUNNING) return;
+    this.currentPlateStep = 0;
+    this.clearedPlateIds.clear();
     this.isStunned = true;
     this.stunRemainingMs = this.config.player.stunDurationMs;
     this.#status("⚠️ 경직! 발판 순서가 초기화되었습니다.", "error");

@@ -140,6 +140,23 @@ export class DataSphinxEncounter {
     return this.playerLocation;
   }
 
+  restorePlayerHealth({ hp, maxHp } = {}) {
+    if (this.state !== DATA_SPHINX_STATES.READY) return false;
+    const restoredHp = Number(hp);
+    const restoredMaxHp = Number(maxHp);
+    if (
+      !Number.isFinite(restoredHp)
+      || restoredHp < 0
+      || !Number.isFinite(restoredMaxHp)
+      || restoredMaxHp <= 0
+    ) {
+      return false;
+    }
+    this.playerMaxHealth = restoredMaxHp;
+    this.playerHealth = Math.min(restoredMaxHp, restoredHp);
+    return true;
+  }
+
   syncSharedBossHealth({ bossHp, bossMaxHp } = {}) {
     if (!this.sharedBossAuthority) return false;
     const maxHp = Number(bossMaxHp);
@@ -160,15 +177,18 @@ export class DataSphinxEncounter {
     ) {
       return false;
     }
-    this.syncSharedBossHealth({ ...snapshot, bossHp: 0 });
+    const partyDefeated = snapshot?.result?.outcome === "defeat";
+    const status = partyDefeated ? "FAIL" : "CLEAR";
+    const failureReason = partyDefeated ? "PARTY_DEFEATED" : null;
+    this.syncSharedBossHealth(partyDefeated ? snapshot : { ...snapshot, bossHp: 0 });
     this.sharedCompletedAttemptIds.add(id);
     if (this.state === DATA_SPHINX_STATES.PAUSED) this.state = DATA_SPHINX_STATES.RUNNING;
-    if (this.state === DATA_SPHINX_STATES.RUNNING) return this._complete("CLEAR", null);
+    if (this.state === DATA_SPHINX_STATES.RUNNING) return this._complete(status, failureReason);
 
     const candidate = Object.freeze({
-      status: "CLEAR",
+      status,
       score: null,
-      failureReason: null,
+      failureReason,
       metrics: metricsSnapshot(this.metrics),
       reward: null,
     });
@@ -210,7 +230,7 @@ export class DataSphinxEncounter {
       delayRemainingMs: this.delayRemainingMs,
       playerLocation: this.playerLocation,
       playerHealth: this.playerHealth,
-      playerMaxHealth: this.config.player.maxHealth,
+      playerMaxHealth: this.playerMaxHealth,
       bossHealth: this.bossHealth,
       bossMaxHealth: this.sharedBossMaxHealth,
       metrics: metricsSnapshot(this.metrics),
@@ -225,7 +245,8 @@ export class DataSphinxEncounter {
     this.timeRemainingMs = 0;
     this.delayRemainingMs = 0;
     this.playerLocation = DATA_SPHINX_SELECTIONS.NEUTRAL;
-    this.playerHealth = this.config.player.maxHealth;
+    this.playerMaxHealth = this.config.player.maxHealth;
+    this.playerHealth = this.playerMaxHealth;
     this.bossHealth = this.config.bossMaxHealth;
     this.sharedBossMaxHealth = this.config.bossMaxHealth;
     this.phase = DATA_SPHINX_PHASES.INIT;

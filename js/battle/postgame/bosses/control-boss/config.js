@@ -3,14 +3,14 @@ const DEFAULT_WORLD = Object.freeze({
   bossZone: Object.freeze({ x: 165, y: 40, width: 120, height: 80 }),
   coverZone: Object.freeze({ x: 175, y: 280, width: 100, height: 60 }),
   altarArea: Object.freeze({
-    startX: 45,
+    startX: 75,
     startY: 380,
-    tileW: 100,
-    tileH: 60,
+    tileW: 60,
+    tileH: 50,
     rows: 3,
     cols: 3,
-    gapX: 18,
-    gapY: 12,
+    gapX: 60,
+    gapY: 45,
   }),
 });
 
@@ -24,12 +24,12 @@ const DEFAULT_BOSS = Object.freeze({
   groggyDurationSec: 10,
   groggyDirectDamageRate: 0.2,
   attackIntervalSec: 1.3,
-  attackRange: 130,
+  attackRange: 65,
   bulletSpeed: 240,
   bulletDamage: 15,
   shockwaveInitialDelaySec: 2,
   shockwaveIntervalSec: 4.5,
-  shockwaveSpeed: 240,
+  shockwaveSpeed: 168,
   shockwaveMaxRadius: 650,
   shockwaveThickness: 30,
   shockwaveDamage: 25,
@@ -40,12 +40,14 @@ const DEFAULT_PLAYER = Object.freeze({
   height: 42,
   speed: 200,
   baseHp: 100,
-  hpPerPoint: 10,
-  baseAttackDamage: 40,
+  hpPerPoint: 100,
+  baseAttackDamage: 10,
+  shieldDamage: 50,
   attackCoefficient: 0.05,
-  defensePerPoint: 1,
-  minimumIncomingDamage: 1,
+  defenseReductionPerPoint: 0.02,
+  maxDefenseReduction: 0.5,
   stunDurationMs: 1000,
+  attackCooldownMs: 1000,
   startPosition: Object.freeze({ x: 209, y: 529 }),
 });
 
@@ -128,28 +130,40 @@ export function resolveControlBossConfig(source = {}) {
       "player.baseAttackDamage",
       { min: 1 },
     ),
+    shieldDamage: finite(
+      playerSource.shieldDamage,
+      DEFAULT_PLAYER.shieldDamage,
+      "player.shieldDamage",
+      { min: 1 },
+    ),
     attackCoefficient: finite(
       playerSource.attackCoefficient,
       DEFAULT_PLAYER.attackCoefficient,
       "player.attackCoefficient",
       { min: 0 },
     ),
-    defensePerPoint: finite(
-      playerSource.defensePerPoint,
-      DEFAULT_PLAYER.defensePerPoint,
-      "player.defensePerPoint",
+    defenseReductionPerPoint: finite(
+      playerSource.defenseReductionPerPoint,
+      DEFAULT_PLAYER.defenseReductionPerPoint,
+      "player.defenseReductionPerPoint",
       { min: 0 },
     ),
-    minimumIncomingDamage: finite(
-      playerSource.minimumIncomingDamage,
-      DEFAULT_PLAYER.minimumIncomingDamage,
-      "player.minimumIncomingDamage",
-      { min: 0 },
+    maxDefenseReduction: finite(
+      playerSource.maxDefenseReduction,
+      DEFAULT_PLAYER.maxDefenseReduction,
+      "player.maxDefenseReduction",
+      { min: 0, max: 1 },
     ),
     stunDurationMs: finite(
       playerSource.stunDurationMs,
       DEFAULT_PLAYER.stunDurationMs,
       "player.stunDurationMs",
+      { min: 0 },
+    ),
+    attackCooldownMs: finite(
+      playerSource.attackCooldownMs,
+      DEFAULT_PLAYER.attackCooldownMs,
+      "player.attackCooldownMs",
       { min: 0 },
     ),
     startPosition: point(playerSource.startPosition, DEFAULT_PLAYER.startPosition, "player.startPosition"),
@@ -276,23 +290,33 @@ function bonusPoints(stat) {
   return Math.max(0, Number.isFinite(stat) ? stat - 1 : 0);
 }
 
-/** 공격 피해 = 기본 40 × (1 + (공격력-1) × 0.05). */
-export function calcControlBossAttackDamage(attackStat, playerConfig = DEFAULT_PLAYER) {
-  return playerConfig.baseAttackDamage * (1 + bonusPoints(attackStat) * playerConfig.attackCoefficient);
+const COMBAT_VALUE_SCALE = 1_000_000;
+
+function roundCombatValue(value) {
+  if (Math.abs(value) >= Number.MAX_SAFE_INTEGER / COMBAT_VALUE_SCALE) return value;
+  return Math.round((value + Number.EPSILON) * COMBAT_VALUE_SCALE) / COMBAT_VALUE_SCALE;
 }
 
-/** 최대 HP = 기본 100 + (체력-1) × 10. */
+/** 공격 피해 = 기본 10 × 1.05^(공격력-1). */
+export function calcControlBossAttackDamage(attackStat, playerConfig = DEFAULT_PLAYER) {
+  const damage = playerConfig.baseAttackDamage
+    * ((1 + playerConfig.attackCoefficient) ** bonusPoints(attackStat));
+  return roundCombatValue(Math.min(Number.MAX_SAFE_INTEGER, damage));
+}
+
+/** 최대 HP = 기본 100 + (체력-1) × 100. */
 export function calcControlBossMaxHp(healthStat, playerConfig = DEFAULT_PLAYER) {
   return playerConfig.baseHp + bonusPoints(healthStat) * playerConfig.hpPerPoint;
 }
 
-/** 최종 피격 = max(최소 피해, 원본 피해 - (방어력-1) × 포인트 계수). */
+/** 최종 피격 = 원본 피해 × (1 - min((방어력-1) × 0.02, 0.5)). */
 export function calcControlBossIncomingDamage(rawDamage, defenseStat, playerConfig = DEFAULT_PLAYER) {
   const incoming = Math.max(0, Number.isFinite(rawDamage) ? rawDamage : 0);
-  return Math.max(
-    playerConfig.minimumIncomingDamage,
-    incoming - bonusPoints(defenseStat) * playerConfig.defensePerPoint,
+  const reduction = Math.min(
+    bonusPoints(defenseStat) * playerConfig.defenseReductionPerPoint,
+    playerConfig.maxDefenseReduction,
   );
+  return roundCombatValue(incoming * (1 - reduction));
 }
 
 export function buildControlBossTiles(config) {

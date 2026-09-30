@@ -7,13 +7,18 @@ import {
   CHARACTER_EVENTS,
 } from "../../js/battle/character/index.js";
 import { EventBus } from "../../js/core/event-bus.js";
+import { PostgameRealtimeService } from "../../js/core/postgame-realtime-service.js";
 import {
   createBattleScene,
   createSharedBattleSession,
+  getBattleResultIllustration,
+  getBattlePlayerHealth,
+  getPartyMemberHealthView,
+  getResumedPartyHealth,
   isSharedPartyReady,
   releaseSharedBattleSession,
   runBattleRetryAction,
-  scheduleSharedBattleRejoin,
+  shouldOfferBattleRetry,
 } from "../../js/scenes/battle-scene.js";
 
 const battles = JSON.parse(
@@ -22,6 +27,18 @@ const battles = JSON.parse(
 
 const requiredMiniGameIds = battles[0].unlockCondition.miniGameIds;
 const expectedBossIds = new Set(["data-sphinx", "stat-boss", "control-boss"]);
+
+test("X알 전투 결과는 실패 시 X알, 클리어 시 마음의 알 이미지를 사용한다", () => {
+  assert.equal(
+    getBattleResultIllustration("xr-egg-trials", "FAIL")?.src,
+    "./assets/images/story-eggs/xr-egg.png",
+  );
+  assert.equal(
+    getBattleResultIllustration("xr-egg-trials", "CLEAR")?.src,
+    "./assets/images/story-eggs/heart-egg.png",
+  );
+  assert.equal(getBattleResultIllustration("stat-boss", "CLEAR"), null);
+});
 
 class FakeStyle {
   setProperty(name, value) {
@@ -275,6 +292,7 @@ class FakeRealtime {
   leaveRoom() { this.commands.push({ type: "room.leave" }); return true; }
   startRoom() { this.commands.push({ type: "room.start" }); return true; }
   sendBattleReady(roomId) { this.commands.push({ type: "battle.ready", roomId }); return true; }
+  sendBattleHealth(payload) { this.commands.push({ type: "battle.health", ...payload }); return true; }
   sendBattleHit(payload) { this.commands.push({ type: "battle.hit", ...payload }); return true; }
   sendBattleLeave(roomId) {
     this.commands.push({ type: "battle.leave", roomId });
@@ -356,17 +374,21 @@ function createContext(documentRef, {
   completedIds = requiredMiniGameIds,
   worldState = null,
   realtime = null,
-  authenticated = false,
+  authenticated = true,
+  sessionSequence = null,
+  guestBattleTesting = false,
 } = {}) {
   const events = new EventBus();
   const input = new FakeInput();
   const navigations = [];
+  let currentAuthenticated = authenticated;
+  let refreshCount = 0;
   const completedMinigames = Object.fromEntries(
     requiredMiniGameIds.map((id) => [id, { completed: completedIds.includes(id) }]),
   );
   return {
     context: {
-      config: { features: { battleContent: true } },
+      config: { features: { battleContent: true, guestBattleTesting } },
       content: {
         battles,
         minigames: requiredMiniGameIds.map((id) => ({ id, title: id })),
@@ -375,11 +397,16 @@ function createContext(documentRef, {
         account: {
           getState: () => ({
             status: "ready",
-            authenticated,
-            user: authenticated ? { name: "테스트 유저" } : null,
+            authenticated: currentAuthenticated,
+            user: currentAuthenticated ? { name: "테스트 유저" } : null,
             completedGameIds: [],
           }),
-          refreshSession: async () => {},
+          refreshSession: async () => {
+            if (Array.isArray(sessionSequence) && refreshCount < sessionSequence.length) {
+              currentAuthenticated = sessionSequence[refreshCount] === true;
+            }
+            refreshCount += 1;
+          },
         },
         ...(realtime ? { postgameRealtime: realtime } : {}),
         save: { getState: () => ({ minigames: completedMinigames }) },
@@ -398,6 +425,7 @@ function createContext(documentRef, {
     events,
     input,
     navigations,
+    accountRefreshCount: () => refreshCount,
   };
 }
 
@@ -406,7 +434,9 @@ async function mountEntryScene({
   completedIds = requiredMiniGameIds,
   worldState = null,
   realtime = null,
-  authenticated = false,
+  authenticated = true,
+  sessionSequence = null,
+  guestBattleTesting = false,
 } = {}) {
   const environment = installEnvironment();
   const setup = createContext(environment.document, {
@@ -414,6 +444,8 @@ async function mountEntryScene({
     worldState,
     realtime,
     authenticated,
+    sessionSequence,
+    guestBattleTesting,
   });
   const controller = new AbortController();
   const root = environment.document.createElement("main");
@@ -461,6 +493,47 @@ function driveUntilEncounter(mounted) {
   }
   return mounted.root.querySelector(".battle-field-encounter");
 }
+
+test("authenticated world stays mounted through real presence throttling and reconnect", async () => {
+  let socket;
+  let nextTimer = 0;
+  const timers = new Map();
+  class BrowserSocket {
+    constructor() { socket = this; this.readyState = 0; this.sent = []; }
+    send(payload) { this.sent.push(JSON.parse(payload)); }
+    close(code = 1000) { this.readyState = 3; this.onclose?.({ code }); }
+  }
+  const realtime = new PostgameRealtimeService({
+    WebSocketImpl: BrowserSocket,
+    location: { href: "https://game.example.test/" },
+    now: () => 1000,
+    setTimeoutImpl: function (callback) {
+      assert.equal(this, globalThis, "browser timer receiver must not be the service");
+      timers.set(++nextTimer, callback);
+      return nextTimer;
+    },
+    clearTimeoutImpl: function (id) {
+      assert.equal(this, globalThis);
+      timers.delete(id);
+    },
+  });
+  const mounted = await mountEntryScene({ authenticated: true, realtime });
+  try {
+    socket.readyState = 1;
+    socket.onopen();
+    driveFrames(mounted, { x: 1, y: 0 }, 3);
+    assert.ok(socket.sent.some((message) => message.type === "presence.update"));
+    assert.equal(timers.size, 1, "movement queues a trailing presence timer");
+    socket.close(1006);
+    assert.equal(realtime.getState().status, "reconnecting");
+    assert.equal(timers.size, 1, "presence timer is replaced with reconnect timer");
+    driveFrames(mounted, { x: -1, y: 0 }, 2);
+    assert.equal(mounted.navigations.length, 0, "connection loss must not leave the map");
+  } finally {
+    mounted.cleanup();
+  }
+  assert.equal(timers.size, 0, "unmount cancels browser timers without throwing");
+});
 
 test("shared battle session re-readies once for each reconnected running snapshot", () => {
   const realtime = new FakeRealtime();
@@ -555,43 +628,58 @@ test("shared battle retry returns to party flow and never restarts a local boss"
   assert.equal(localRestarts, 0);
 });
 
-test("a local co-op FAIL rejoins on a microtask unless the server finishes first", () => {
-  const queued = [];
-  let snapshot = { status: "running" };
-  const fakeModule = {
-    restartCalls: [],
-    restart(options) {
-      this.restartCalls.push(options);
-      return true;
-    },
-  };
-  const sharedBattle = { getSnapshot: () => snapshot };
+test("random X-egg mini-games omit retry while boss Battle results retain it", () => {
+  assert.equal(shouldOfferBattleRetry("xr-egg-trials"), false);
+  assert.equal(shouldOfferBattleRetry("data-sphinx"), true);
+  assert.equal(shouldOfferBattleRetry("stat-boss"), true);
+  assert.equal(shouldOfferBattleRetry("control-boss"), true);
+  assert.equal(shouldOfferBattleRetry("word-breaker"), true);
+});
 
-  assert.equal(scheduleSharedBattleRejoin({
-    sharedBattle,
-    candidate: { status: "FAIL" },
-    restart: () => fakeModule.restart({ attemptId: "stat-boss:retry-1" }),
-    queueTask: (callback) => queued.push(callback),
-  }), true);
-  queued.shift()();
+test("shared battles publish each boss module's local health without auto-revival", () => {
   assert.deepEqual(
-    fakeModule.restartCalls,
-    [{ attemptId: "stat-boss:retry-1" }],
-    "a local defeat rejoins the still-running shared boss",
+    getBattlePlayerHealth("data-sphinx", { playerHealth: 72.2, playerMaxHealth: 100 }),
+    { hp: 72.2, maxHp: 100 },
+  );
+  assert.deepEqual(
+    getBattlePlayerHealth("control-boss", { playerHp: 0, playerMaxHp: 140 }),
+    { hp: 0, maxHp: 140 },
+  );
+  assert.deepEqual(
+    getBattlePlayerHealth("stat-boss", {
+      players: { "player-1": { hp: 88, maxHp: 120 } },
+    }, "player-1"),
+    { hp: 88, maxHp: 120 },
   );
 
-  let settled = null;
-  assert.equal(scheduleSharedBattleRejoin({
-    sharedBattle,
-    candidate: { status: "FAIL" },
-    restart: () => fakeModule.restart({ attemptId: "stat-boss:retry-2" }),
-    onSettled: (restarted) => { settled = restarted; },
-    queueTask: (callback) => queued.push(callback),
-  }), true);
-  snapshot = { status: "finished" };
-  queued.shift()();
-  assert.equal(fakeModule.restartCalls.length, 1, "server completion wins over a queued local restart");
-  assert.equal(settled, false);
+  const realtime = new FakeRealtime();
+  const shared = createSharedBattleSession({
+    realtimeService: realtime,
+    roomId: "ROOM-SHARED-HP",
+    battleId: "stat-boss",
+  });
+  assert.equal(shared.health({ hp: 0, maxHp: 120 }), true);
+  assert.deepEqual(realtime.commands.at(-1), {
+    type: "battle.health",
+    roomId: "ROOM-SHARED-HP",
+    hp: 0,
+    maxHp: 120,
+  });
+  shared.destroy();
+});
+
+test("a resumed shared battle restores only the current public player's authoritative health", () => {
+  const snapshot = {
+    roster: [
+      { id: "self", hp: 37, maxHp: 120 },
+      { id: "party", hp: 90, maxHp: 100 },
+    ],
+  };
+  assert.deepEqual(getResumedPartyHealth(snapshot, "self"), { hp: 37, maxHp: 120 });
+  assert.deepEqual(getResumedPartyHealth(snapshot, "party"), { hp: 90, maxHp: 100 });
+  assert.equal(getResumedPartyHealth(snapshot, "missing"), null);
+  assert.equal(getResumedPartyHealth({ roster: [{ id: "self", hp: null, maxHp: null }] }, "self"), null);
+  assert.equal(getResumedPartyHealth({ roster: [{ id: "self", hp: 101, maxHp: 100 }] }, "self"), null);
 });
 
 test("shared party readiness follows the authoritative barrier with a roster fallback", () => {
@@ -609,13 +697,139 @@ test("shared party readiness follows the authoritative barrier with a roster fal
     roster: [{ id: "self", ready: false, connected: true }],
   }), false);
   assert.equal(isSharedPartyReady({ status: "finished", allReady: false }), true);
+  assert.deepEqual(
+    getPartyMemberHealthView({ hp: 0, maxHp: 100, alive: false, connected: true }),
+    { hp: 0, maxHp: 100, dead: true, ratio: 0, label: "전투 불능" },
+  );
+  assert.deepEqual(
+    getPartyMemberHealthView({ hp: 75, maxHp: 100, alive: true, connected: true }),
+    { hp: 75, maxHp: 100, dead: false, ratio: 0.75, label: "75/100" },
+  );
 });
 
-test("입장 필드 서쪽과 중심 광장 동쪽은 실제 이동으로 새로고침 없이 왕복한다", async () => {
+test("guest Battle entry is blocked and opens the Google login flow", async () => {
+  const mounted = await mountEntryScene({ authenticated: false });
+  try {
+    assert.ok(mounted.root.querySelector(".battle-login-required"));
+    assert.equal(mounted.root.querySelector(".aftergame-world"), null);
+    const loginButton = mounted.root.querySelectorAll("button")
+      .find((button) => button.textContent === "Google 로그인");
+    loginButton.dispatchEvent({ type: "click", detail: 1 });
+    assert.deepEqual(mounted.navigations, [{
+      sceneId: "account",
+      params: {
+        notice: "보스 배틀을 시작하려면 Google 로그인이 필요합니다.",
+        noticeTone: "info",
+      },
+    }]);
+  } finally {
+    mounted.cleanup();
+  }
+});
+
+test("guest test mode opens the world and starts a boss only after creating a local room", async () => {
+  const mounted = await mountEntryScene({
+    authenticated: false,
+    guestBattleTesting: true,
+  });
+  try {
+    assert.equal(mounted.root.querySelector(".battle-login-required"), null);
+    assert.ok(mounted.root.querySelector(".aftergame-world"));
+    assert.equal(
+      mounted.root.querySelector(".aftergame-world__network-badge").textContent,
+      "게스트 테스트",
+    );
+
+    const statDoor = mounted.root.querySelectorAll(".aftergame-world__boss-door")
+      .find((button) => button.dataset.battleId === "stat-boss");
+    statDoor.dispatchEvent({ type: "click", detail: 1 });
+    const lobby = mounted.root.querySelector(".postgame-room-lobby");
+    assert.equal(lobby.dataset.open, "true");
+    assert.match(
+      lobby.querySelector(".postgame-room-lobby__connection").textContent,
+      /게스트 테스트 방/u,
+    );
+
+    const openCreate = lobby.querySelectorAll("button")
+      .find((button) => button.textContent === "새 방 만들기");
+    openCreate.dispatchEvent({ type: "click", detail: 1 });
+    const nameInput = lobby.querySelector(".postgame-room-lobby__name");
+    nameInput.value = "스탯 보스 테스트";
+    nameInput.dispatchEvent({ type: "input" });
+    const createRoom = lobby.querySelectorAll("button")
+      .find((button) => button.textContent === "방 생성");
+    createRoom.dispatchEvent({ type: "click", detail: 1 });
+
+    assert.equal(mounted.navigations.length, 0, "creating a room must not auto-start the boss");
+    const startBattle = lobby.querySelectorAll("button")
+      .find((button) => button.textContent === "전투 시작");
+    assert.ok(startBattle);
+    startBattle.dispatchEvent({ type: "click", detail: 1 });
+
+    assert.equal(mounted.navigations.length, 1);
+    assert.equal(mounted.navigations[0].sceneId, "battle");
+    assert.equal(mounted.navigations[0].params.battleId, "stat-boss");
+    assert.equal(mounted.navigations[0].params.party.localTest, true);
+    assert.equal(mounted.navigations[0].params.party.roster.length, 1);
+  } finally {
+    mounted.cleanup();
+  }
+});
+
+test("guest Story finale bypasses the post-game login gate", async () => {
+  const mounted = await mountEntryScene({
+    authenticated: false,
+    params: { battleId: "word-breaker" },
+    completedIds: requiredMiniGameIds.slice(0, 4),
+  });
+  try {
+    assert.equal(mounted.accountRefreshCount(), 0);
+    assert.equal(mounted.root.querySelector(".battle-login-required"), null);
+    assert.ok(mounted.root.querySelector(".battle-notice"));
+  } finally {
+    mounted.cleanup();
+  }
+});
+
+test("each boss door refreshes the login session and redirects an expired player", async () => {
+  const realtime = new FakeRealtime();
+  const mounted = await mountEntryScene({
+    authenticated: true,
+    sessionSequence: [true, false],
+    realtime,
+  });
+  try {
+    const statDoor = mounted.root.querySelectorAll(".aftergame-world__boss-door")
+      .find((button) => button.dataset.battleId === "stat-boss");
+    statDoor.dispatchEvent({ type: "click", detail: 1 });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.equal(mounted.accountRefreshCount(), 2, "mount and door entry both verify the session");
+    assert.deepEqual(mounted.navigations, [{
+      sceneId: "account",
+      params: {
+        notice: "보스 배틀은 로그인 후 이용할 수 있습니다. Google로 로그인해 주세요.",
+        noticeTone: "info",
+      },
+    }]);
+    assert.equal(realtime.disconnected, 1);
+    assert.equal(mounted.root.querySelector(".postgame-room-lobby").dataset.open, "false");
+  } finally {
+    mounted.cleanup();
+  }
+});
+
+test("중심 광장 동쪽과 랜덤 필드 서쪽은 실제 이동으로 새로고침 없이 왕복한다", async () => {
   const mounted = await mountEntryScene();
   try {
     const world = mounted.root.querySelector(".aftergame-world");
-    assert.equal(world.dataset.zoneId, "entry-field");
+    assert.equal(world.dataset.zoneId, "plaza");
+    assert.equal(mounted.root.dataset.sceneLayout, "aftergame-world");
+    assert.equal(mounted.root.querySelector(".aftergame-world__help"), null);
+    assert.equal(mounted.root.querySelector(".battle-unlock-source"), null);
+    assert.equal(mounted.root.querySelector(".aftergame-world__status").textContent, "");
     assert.equal(mounted.root.querySelectorAll(".aftergame-world__boss-door").length, 3);
     assert.deepEqual(
       new Set(mounted.root.querySelectorAll(".aftergame-world__boss-door").map((button) => button.dataset.battleId)),
@@ -626,24 +840,24 @@ test("입장 필드 서쪽과 중심 광장 동쪽은 실제 이동으로 새로
       false,
     );
 
+    driveFrames(mounted, { x: 1, y: 0 }, 34);
+    assert.equal(world.dataset.zoneId, "entry-field");
+    assert.equal(mounted.context.state.aftergameWorldState.zoneId, "entry-field");
+    assert.equal(mounted.navigations.length, 0, "내부 구역 이동은 router를 사용하지 않는다");
+
     driveFrames(mounted, { x: -1, y: 0 }, 34);
     assert.equal(world.dataset.zoneId, "plaza");
     assert.equal(mounted.context.state.aftergameWorldState.zoneId, "plaza");
-    assert.equal(mounted.navigations.length, 0, "내부 구역 이동은 router를 사용하지 않는다");
-
-    driveFrames(mounted, { x: 1, y: 0 }, 22);
-    assert.equal(world.dataset.zoneId, "entry-field");
-    assert.equal(mounted.context.state.aftergameWorldState.zoneId, "entry-field");
     assert.equal(mounted.navigations.length, 0);
 
     driveFrames(mounted, { x: 0, y: 0 }, 2);
-    assert.equal(world.dataset.zoneId, "entry-field", "복귀 직후 반대 구역으로 튕기지 않아야 한다");
+    assert.equal(world.dataset.zoneId, "plaza", "복귀 직후 반대 구역으로 튕기지 않아야 한다");
   } finally {
     mounted.cleanup();
   }
 });
 
-test("중심 광장 북쪽의 세 문은 걸어서 닿은 보스맵으로 각각 한 번만 연결한다", async () => {
+test("중심 광장 북쪽의 세 문은 직접 전투를 시작하지 않고 해당 보스 대기실을 연다", async () => {
   const doorCenters = new Map([
     ["data-sphinx", 0.14],
     ["stat-boss", 0.5],
@@ -652,7 +866,10 @@ test("중심 광장 북쪽의 세 문은 걸어서 닿은 보스맵으로 각각
 
   for (const [expectedBattleId, x] of doorCenters) {
     const position = { x, y: 0.42 };
+    const realtime = new FakeRealtime();
     const mounted = await mountEntryScene({
+      authenticated: true,
+      realtime,
       worldState: {
         zoneId: "plaza",
         position,
@@ -663,23 +880,16 @@ test("중심 광장 북쪽의 세 문은 걸어서 닿은 보스맵으로 각각
     try {
       assert.equal(mounted.root.querySelector(".aftergame-world").dataset.zoneId, "plaza");
       driveFrames(mounted, { x: 0, y: -1 }, 14);
-      assert.deepEqual(mounted.navigations, [{
-        sceneId: "battle",
-        params: { battleId: expectedBattleId },
-      }]);
-      assert.equal(mounted.context.state.aftergameWorldState.zoneId, "plaza");
-      assert.equal(mounted.context.state.aftergameWorldState.direction, "down");
-      assert.ok(mounted.context.state.aftergameWorldState.position.y > 0.12);
-
-      const savedState = mounted.context.state.aftergameWorldState;
-      const returned = await mountEntryScene({ worldState: savedState });
-      try {
-        driveFrames(returned, { x: 0, y: 0 }, 2);
-        assert.equal(returned.root.querySelector(".aftergame-world").dataset.zoneId, "plaza");
-        assert.equal(returned.navigations.length, 0, "보스 복귀점에서 즉시 재입장하지 않아야 한다");
-      } finally {
-        returned.cleanup();
-      }
+      await Promise.resolve();
+      await Promise.resolve();
+      assert.equal(mounted.navigations.length, 0, "문 접촉만으로 솔로 전투를 시작하면 안 된다");
+      const lobby = mounted.root.querySelector(".postgame-room-lobby");
+      assert.equal(lobby.dataset.open, "true");
+      assert.match(lobby.querySelector(".postgame-room-lobby__title").textContent, new RegExp(expectedBattleId === "data-sphinx"
+        ? "데이터"
+        : expectedBattleId === "stat-boss"
+          ? "스탯"
+          : "컨트롤", "u"));
     } finally {
       mounted.cleanup();
     }
@@ -721,6 +931,8 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
     const statDoor = mounted.root.querySelectorAll(".aftergame-world__boss-door")
       .find((button) => button.dataset.battleId === "stat-boss");
     statDoor.dispatchEvent({ type: "click", detail: 1 });
+    await Promise.resolve();
+    await Promise.resolve();
     assert.equal(mounted.navigations.length, 0, "authenticated boss entry opens a lobby first");
     assert.equal(mounted.root.querySelector(".postgame-room-lobby").dataset.open, "true");
 
@@ -800,7 +1012,7 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
   }
 });
 
-test("running battle snapshot restores a refreshed player once before or after entry mount", async () => {
+test("running battle snapshot asks whether to continue instead of auto-entering", async () => {
   const createRunningSnapshot = () => Object.freeze({
     roomId: "ROOMRSM001",
     battleId: "stat-boss",
@@ -847,6 +1059,14 @@ test("running battle snapshot restores a refreshed player once before or after e
         });
       }
 
+      assert.equal(mounted.navigations.length, 0, "an existing battle must not auto-navigate");
+      const recovery = mounted.root.querySelector(".battle-recovery");
+      assert.equal(recovery.dataset.open, "true");
+      assert.match(recovery.querySelector(".battle-recovery__summary").textContent, /730\/1000/u);
+      const continueButton = mounted.root.querySelectorAll("button")
+        .find((button) => button.textContent === "이어하기");
+      continueButton.dispatchEvent({ type: "click", detail: 1 });
+
       assert.equal(mounted.navigations.length, 1);
       const navigation = mounted.navigations[0];
       assert.equal(navigation.sceneId, "battle");
@@ -867,13 +1087,50 @@ test("running battle snapshot restores a refreshed player once before or after e
         roster: createRunningSnapshot().roster,
         startedAt: 9_876,
       });
-      realtime.setState({ battle: Object.freeze({ ...createRunningSnapshot(), revision: 9 }) });
+      realtime.setState({ battle: Object.freeze({ ...createRunningSnapshot(), revision: 10 }) });
       assert.equal(mounted.navigations.length, 1, "room.started and later updates cannot double-navigate");
     } finally {
       mounted.cleanup();
       sharedBattle?.destroy();
       assert.equal(realtime.disconnected, 0, "the recovered battle owns the existing socket");
     }
+  }
+});
+
+test("running battle recovery waits for leave acknowledgement before closing", async () => {
+  const realtime = new FakeRealtime();
+  const mounted = await mountEntryScene({ authenticated: true, realtime });
+  try {
+    realtime.setState({
+      battle: Object.freeze({
+        roomId: "ROOMLEAVE1",
+        battleId: "control-boss",
+        status: "running",
+        bossHp: 640,
+        bossMaxHp: 1_000,
+        revision: 3,
+        roster: Object.freeze([
+          Object.freeze({ id: "self-online", name: "나", ready: false, connected: false }),
+        ]),
+        seed: "seed:ROOMLEAVE1",
+        allReady: false,
+        startedAt: 123,
+      }),
+    });
+    const recovery = mounted.root.querySelector(".battle-recovery");
+    assert.equal(recovery.dataset.open, "true");
+    const leaveButton = mounted.root.querySelectorAll("button")
+      .find((button) => button.textContent === "전투 나가기");
+    leaveButton.dispatchEvent({ type: "click", detail: 1 });
+    assert.deepEqual(realtime.commands.at(-1), { type: "battle.leave", roomId: "ROOMLEAVE1" });
+    assert.equal(recovery.dataset.open, "true");
+    assert.equal(recovery.dataset.leaving, "true");
+
+    realtime.setState({ battle: null, leavingBattleRoomId: null });
+    assert.equal(recovery.dataset.open, "false");
+    assert.equal(mounted.navigations.length, 0);
+  } finally {
+    mounted.cleanup();
   }
 });
 
@@ -915,9 +1172,16 @@ test("필드 이동 중 marker 하나만 출현하고 click/contact는 단일 �
   const mounted = await mountEntryScene();
   try {
     assert.equal(mounted.root.querySelectorAll(".battle-field-encounter").length, 0);
+    mounted.root.querySelector(".aftergame-world__edge-gate--east")
+      .dispatchEvent({ type: "click", detail: 1 });
+    assert.equal(mounted.root.querySelector(".aftergame-world").dataset.zoneId, "entry-field");
     const marker = driveUntilEncounter(mounted);
     assert.ok(marker, "actual movement should produce a random encounter marker");
     assert.equal(mounted.root.querySelectorAll(".battle-field-encounter").length, 1);
+    const eggArt = marker.querySelector(".battle-field-encounter__egg");
+    assert.equal(eggArt?.tagName, "IMG");
+    assert.equal(eggArt?.getAttribute("src"), "./assets/images/story-eggs/xr-egg.png");
+    assert.equal(eggArt?.getAttribute("alt"), "");
 
     marker.dispatchEvent({ type: "click", detail: 1 });
     marker.dispatchEvent({ type: "click", detail: 1 });
@@ -962,7 +1226,7 @@ test("랜덤 인카운터는 광장에서는 멈추고 입장 필드에서만 �
   }
 });
 
-test("모바일 조이스틱 이동도 필드 서쪽 출구를 통해 중심 광장으로 전환한다", async () => {
+test("모바일 조이스틱 이동도 중심 광장 동쪽 출구를 통해 랜덤 필드로 전환한다", async () => {
   const mounted = await mountEntryScene();
   try {
     const joystick = mounted.root.querySelector(".battle-field-joystick");
@@ -981,19 +1245,19 @@ test("모바일 조이스틱 이동도 필드 서쪽 출구를 통해 중심 광
       pointerId: 1,
       pointerType: "touch",
       isPrimary: true,
-      clientX: 0,
+      clientX: 104,
       clientY: 52,
       preventDefault,
     });
     driveFrames(mounted, { x: 0, y: 0 }, 34);
-    assert.equal(mounted.root.querySelector(".aftergame-world").dataset.zoneId, "plaza");
+    assert.equal(mounted.root.querySelector(".aftergame-world").dataset.zoneId, "entry-field");
     assert.equal(mounted.navigations.length, 0);
 
     joystick.dispatchEvent({
       type: "pointerup",
       pointerId: 1,
       pointerType: "touch",
-      clientX: 0,
+      clientX: 104,
       clientY: 52,
       preventDefault,
     });
@@ -1021,6 +1285,20 @@ test("잠긴 최종전 직접 접근은 전투를 시작하지 않고 사후 맵
   }
 });
 
+test("a direct boss route cannot auto-start without joining a room", async () => {
+  const mounted = await mountEntryScene({
+    authenticated: true,
+    params: { battleId: "stat-boss" },
+  });
+  try {
+    assert.ok(mounted.root.querySelector(".aftergame-world"));
+    assert.match(mounted.root.querySelector(".battle-notice").textContent, /방을 만들거나 참가/u);
+    assert.equal(mounted.navigations.length, 0);
+  } finally {
+    mounted.cleanup();
+  }
+});
+
 test("실제 router 순서의 abort/unmount는 RAF와 입력·접촉·resize listener를 모두 정리한다", async () => {
   const mounted = await mountEntryScene();
   const joystick = mounted.root.querySelector(".battle-field-joystick");
@@ -1034,6 +1312,7 @@ test("실제 router 순서의 abort/unmount는 RAF와 입력·접촉·resize lis
   mounted.controller.abort();
   mounted.scene.unmount();
 
+  assert.equal(mounted.root.dataset.sceneLayout, undefined);
   assert.equal(mounted.environment.scheduledFrameCount(), 0);
   assert.equal(mounted.input.listenerCount(), 0);
   assert.equal(mounted.environment.window.listenerCount("resize"), 0);

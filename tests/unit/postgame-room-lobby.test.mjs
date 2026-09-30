@@ -12,6 +12,37 @@ import {
   roomCapacity,
   roomName,
 } from "../../js/battle/postgame/room-lobby.js";
+import { createGuestTestRoomSession } from "../../js/battle/postgame/guest-test-room-session.js";
+
+test("guest test rooms require an explicit room creation and host start", () => {
+  const session = createGuestTestRoomSession({
+    playerName: "테스트 게스트",
+    createId: () => "LOCAL-TEST-1",
+  });
+
+  assert.equal(session.startRoom(), null);
+  assert.equal(session.createRoom("stat-boss", 9, "  게스트 점검방  "), true);
+  assert.equal(session.createRoom("control-boss", 1, "두 번째 방"), false);
+  assert.deepEqual(session.getState().currentRoom, {
+    id: "LOCAL-TEST-1",
+    roomName: "게스트 점검방",
+    battleId: "stat-boss",
+    capacity: 5,
+    hostId: "guest-test-player",
+    status: "waiting",
+    members: [{ id: "guest-test-player", name: "테스트 게스트" }],
+  });
+
+  assert.deepEqual(session.startRoom(), {
+    roomId: "LOCAL-TEST-1",
+    battleId: "stat-boss",
+    selfId: "guest-test-player",
+    roster: [{ id: "guest-test-player", name: "테스트 게스트" }],
+  });
+  assert.equal(session.getState().currentRoom.status, "started");
+  assert.equal(session.leaveRoom(), true);
+  assert.equal(session.getState().currentRoom, null);
+});
 
 class FakeNode {
   constructor() {
@@ -562,28 +593,19 @@ test("a lobby never labels another boss room as the selected boss", () => {
   }
 });
 
-test("a disconnected player can enter the selected boss alone without the server", () => {
+test("a disconnected player cannot bypass the room flow with a solo fallback", () => {
   const restore = installFakeDom();
   try {
-    const entries = [];
     const battle = { id: "stat-boss", title: "스탯 보스" };
     const spawn = { zone: "plaza", x: 0.5, y: 0.75 };
-    const lobby = createPostgameRoomLobby({
-      onSolo: (context) => entries.push(context),
-    });
+    const lobby = createPostgameRoomLobby();
     lobby.open({ battle, spawn });
     lobby.render({ status: "reconnecting", selfId: "self", rooms: [] });
 
     const solo = button(lobby.element, "서버 없이 혼자 입장");
-    assert.ok(solo);
-    assert.equal(solo.hidden, false);
-    solo.click();
-    assert.deepEqual(entries, [{ battle, returnSpawn: spawn }]);
-    assert.equal(lobby.isOpen(), false);
-
-    lobby.open({ battle, spawn });
-    lobby.render({ status: "connected", selfId: "self", rooms: [] });
-    assert.equal(solo.hidden, true);
+    assert.equal(solo, null);
+    assert.equal(lobby.isOpen(), true);
+    assert.match(byClass(lobby.element, "postgame-room-lobby__connection")[0].textContent, /서버 연결/u);
   } finally {
     restore();
   }

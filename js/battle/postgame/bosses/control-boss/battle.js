@@ -92,7 +92,7 @@ export function createBattle({
       sharedActionSequence += 1;
       const actionKind = event.kind === "gimmick" ? "gimmick" : "attack";
       sharedBinding.hit({
-        kind: "boss-hit",
+        kind: event.kind === "gimmick" ? "control-gimmick" : "control-attack",
         actionId: createSharedActionId(activeAttemptId, actionKind, sharedActionSequence),
       });
     }
@@ -116,7 +116,7 @@ export function createBattle({
     render();
   }
 
-  function setup(source) {
+  function setup(source, initialPlayerHealth = null) {
     config = resolveControlBossConfig(source);
     sharedBattleSource = source.sharedBattle ?? factorySharedBattle;
     sharedMode = isSharedBattleOnline(sharedBattleSource, "control-boss");
@@ -148,6 +148,8 @@ export function createBattle({
       sharedBossAuthority: sharedMode,
     });
     encounter.init();
+    if (initialPlayerHealth) encounter.restorePlayerHealth(initialPlayerHealth);
+    const initialSnapshot = encounter.getSnapshot();
     sharedBinding = bindSharedBossBattle({
       sharedBattle: sharedBattleSource,
       battleId: "control-boss",
@@ -177,8 +179,8 @@ export function createBattle({
         width: config.player.width,
         height: config.player.height,
         speed: config.player.speed,
-        maxHealth: encounter.player.maxHp,
-        currentHealth: encounter.player.maxHp,
+        maxHealth: initialSnapshot.playerMaxHp,
+        currentHealth: initialSnapshot.playerHp,
         stats: player.accountStats,
         appearance: player.appearance ?? defaultPlayer().appearance,
       },
@@ -249,7 +251,7 @@ export function createBattle({
       await Promise.resolve();
       try {
         throwIfAborted(signal);
-        setup(source);
+        setup(source, source.initialPlayerHealth);
         throwIfAborted(signal);
         if (signal) {
           const handleAbort = () => destroy();
