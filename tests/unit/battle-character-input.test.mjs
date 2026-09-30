@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CharacterInput } from "../../js/battle/character/character-input.js";
+import { CharacterSystem } from "../../js/battle/character/character-system.js";
+import { CHARACTER_EVENTS } from "../../js/battle/character/constants.js";
 import {
   DEFAULT_KEY_BINDINGS,
   InputManager,
@@ -87,4 +89,52 @@ test("keyboard and joystick movement share one normalized vector", () => {
   assert.deepEqual(vector, { x: 0.6, y: 0.8 });
 
   input.destroy();
+});
+
+test("attack-disabled character input leaves Space and ATTACK available to the host scene", () => {
+  const { handlers, manager } = createInputHarness();
+  const input = new CharacterInput({ inputManager: manager, attackEnabled: false }).start();
+
+  handlers.get("keydown")(keyboardEvent("Space"));
+  manager.trigger(INPUT_ACTIONS.ATTACK, "press", "pointer");
+  input.queueAttack("programmatic");
+
+  assert.equal(input.consumeAttack(), null);
+
+  input.destroy();
+  manager.destroy();
+});
+
+test("character system forwards attack-disabled input options without changing its default input", () => {
+  let emitAction = () => {};
+  const attacks = [];
+  const inputManager = {
+    onAction(listener) {
+      emitAction = listener;
+      return () => { emitAction = () => {}; };
+    },
+    getMovementVector: () => ({ x: 0, y: 0 }),
+  };
+  const system = new CharacterSystem({
+    inputManager,
+    inputOptions: { attackEnabled: false },
+    events: {
+      emit(type, detail) {
+        if (type === CHARACTER_EVENTS.ATTACK) attacks.push(detail);
+      },
+    },
+  }).start();
+
+  emitAction({
+    action: INPUT_ACTIONS.CONFIRM,
+    phase: "press",
+    source: "keyboard",
+    originalEvent: { code: "Space" },
+  });
+  system.update(16);
+
+  assert.equal(system.getSnapshot().attackSequence, 0);
+  assert.deepEqual(attacks, []);
+
+  system.destroy();
 });

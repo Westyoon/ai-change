@@ -26,9 +26,13 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
   KeyP: INPUT_ACTIONS.PAUSE,
 });
 
+const NATIVE_KEYBOARD_TARGET_SELECTOR =
+  'button, a[href], input, select, textarea, summary, [contenteditable="true"], [role="button"]';
+
 export class InputManager {
   #pressed = new Set();
   #justPressed = new Set();
+  #activeKeyboardCodes = new Map();
   #listeners = new Set();
   #activePointers = new Map();
   #started = false;
@@ -36,6 +40,7 @@ export class InputManager {
   #boundKeyUp;
   #boundPointerDown;
   #boundPointerEnd;
+  #boundVisibilityChange;
 
   constructor({
     target = globalThis.window ?? null,
@@ -57,6 +62,7 @@ export class InputManager {
     this.#boundKeyUp = this.#handleKeyUp.bind(this);
     this.#boundPointerDown = this.#handlePointerDown.bind(this);
     this.#boundPointerEnd = this.#handlePointerEnd.bind(this);
+    this.#boundVisibilityChange = this.#handleVisibilityChange.bind(this);
   }
 
   start() {
@@ -69,6 +75,8 @@ export class InputManager {
     this.target?.addEventListener?.("pointerup", this.#boundPointerEnd);
     this.target?.addEventListener?.("pointercancel", this.#boundPointerEnd);
     this.target?.addEventListener?.("blur", this.#boundPointerEnd);
+    this.target?.addEventListener?.("pagehide", this.#boundPointerEnd);
+    this.root?.addEventListener?.("visibilitychange", this.#boundVisibilityChange);
     this.#started = true;
     return this;
   }
@@ -83,6 +91,8 @@ export class InputManager {
     this.target?.removeEventListener?.("pointerup", this.#boundPointerEnd);
     this.target?.removeEventListener?.("pointercancel", this.#boundPointerEnd);
     this.target?.removeEventListener?.("blur", this.#boundPointerEnd);
+    this.target?.removeEventListener?.("pagehide", this.#boundPointerEnd);
+    this.root?.removeEventListener?.("visibilitychange", this.#boundVisibilityChange);
     this.#started = false;
     this.clear();
     this.#listeners.clear();
@@ -142,6 +152,7 @@ export class InputManager {
   clear() {
     this.#pressed.clear();
     this.#justPressed.clear();
+    this.#activeKeyboardCodes.clear();
     this.#activePointers.clear();
   }
 
@@ -150,7 +161,7 @@ export class InputManager {
     if (
       !this.enabled ||
       !action ||
-      (action !== INPUT_ACTIONS.PAUSE && this.#usesNativeKeyboardActivation(event.target))
+      this.#usesNativeKeyboardActivation(event.target, action)
     ) {
       return;
     }
@@ -158,6 +169,7 @@ export class InputManager {
       event.preventDefault();
     }
     const wasPressed = this.#pressed.has(action);
+    this.#activeKeyboardCodes.set(event.code, action);
     this.#pressed.add(action);
     if (!wasPressed) {
       this.#justPressed.add(action);
@@ -166,17 +178,16 @@ export class InputManager {
   }
 
   #handleKeyUp(event) {
-    const action = this.bindings[event.code];
-    if (
-      !action ||
-      (action !== INPUT_ACTIONS.PAUSE && this.#usesNativeKeyboardActivation(event.target))
-    ) {
-      return;
-    }
-    if (this.preventDefault) {
+    const action = this.#activeKeyboardCodes.get(event.code) ?? this.bindings[event.code];
+    if (!action) return;
+
+    const nativeTarget = this.#getNativeKeyboardTarget(event.target);
+    if (this.preventDefault && !nativeTarget) {
       event.preventDefault();
     }
-    if (this.#pressed.delete(action)) {
+    this.#activeKeyboardCodes.delete(event.code);
+    const remainsPressed = this.#hasKeyboardAction(action) || this.#hasPointerAction(action);
+    if (!remainsPressed && this.#pressed.delete(action)) {
       this.#emit({ action, phase: "release", source: "keyboard", originalEvent: event });
     }
   }
@@ -202,11 +213,8 @@ export class InputManager {
   }
 
   #handlePointerEnd(event) {
-    if (event?.type === "blur") {
-      for (const action of [...this.#pressed]) {
-        this.#emit({ action, phase: "release", source: "system", originalEvent: event });
-      }
-      this.clear();
+    if (event?.type === "blur" || event?.type === "pagehide") {
+      this.#releaseAll(event);
       return;
     }
     const action = this.#activePointers.get(event.pointerId);
@@ -214,10 +222,29 @@ export class InputManager {
       return;
     }
     this.#activePointers.delete(event.pointerId);
-    if (![...this.#activePointers.values()].includes(action)) {
+    if (!this.#hasPointerAction(action) && !this.#hasKeyboardAction(action)) {
       this.#pressed.delete(action);
     }
     this.#emit({ action, phase: "release", source: "pointer", originalEvent: event });
+  }
+
+  #handleVisibilityChange(event) {
+    if (this.root?.hidden) this.#releaseAll(event);
+  }
+
+  #releaseAll(originalEvent) {
+    for (const action of [...this.#pressed]) {
+      this.#emit({ action, phase: "release", source: "system", originalEvent });
+    }
+    this.clear();
+  }
+
+  #hasKeyboardAction(action) {
+    return [...this.#activeKeyboardCodes.values()].includes(action);
+  }
+
+  #hasPointerAction(action) {
+    return [...this.#activePointers.values()].includes(action);
   }
 
   #emit(event) {
@@ -226,12 +253,23 @@ export class InputManager {
     }
   }
 
-  #usesNativeKeyboardActivation(target) {
-    return Boolean(
-      target?.closest?.(
-        'button, a[href], input, select, textarea, summary, [contenteditable="true"], [role="button"]',
-      ),
-    );
+  #usesNativeKeyboardActivation(target, action) {
+    const nativeTarget = this.#getNativeKeyboardTarget(target);
+    if (!nativeTarget || action === INPUT_ACTIONS.PAUSE) return false;
+
+    const tagName = String(nativeTarget.tagName ?? "").toLowerCase();
+    const editable = ["input", "select", "textarea"].includes(tagName)
+      || nativeTarget.isContentEditable === true
+      || nativeTarget.getAttribute?.("contenteditable") === "true";
+    if (editable) return true;
+
+    return action === INPUT_ACTIONS.CONFIRM
+      || action === INPUT_ACTIONS.INTERACT
+      || action === INPUT_ACTIONS.ATTACK;
+  }
+
+  #getNativeKeyboardTarget(target) {
+    return target?.closest?.(NATIVE_KEYBOARD_TARGET_SELECTOR) ?? null;
   }
 }
 

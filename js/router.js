@@ -30,6 +30,7 @@ export class SceneRouter {
 
     this.transitioning = true;
     this.context.state.transitioning = true;
+    this.context.services?.input?.clear?.();
     const generation = ++this.generation;
     this.controller?.abort();
     this.controller = new AbortController();

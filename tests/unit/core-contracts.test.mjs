@@ -83,6 +83,171 @@ test("InputManager maps Escape to pause and preserves native button activation",
   input.destroy();
 });
 
+test("InputManager releases a held game key after focus moves to a native button", () => {
+  const handlers = new Map();
+  const target = {
+    addEventListener(type, listener) {
+      handlers.set(type, listener);
+    },
+    removeEventListener() {},
+  };
+  const root = { addEventListener() {}, removeEventListener() {} };
+  const received = [];
+  const input = new InputManager({
+    target,
+    root,
+    onAction: ({ action, phase }) => received.push(`${action}:${phase}`),
+  });
+  input.start();
+
+  handlers.get("keydown")({
+    code: "KeyD",
+    target: { closest: () => null },
+    preventDefault() {},
+  });
+  assert.equal(input.isPressed(INPUT_ACTIONS.MOVE_RIGHT), true);
+
+  let prevented = false;
+  handlers.get("keyup")({
+    code: "KeyD",
+    target: { closest: () => ({ tagName: "BUTTON" }) },
+    preventDefault: () => { prevented = true; },
+  });
+
+  assert.equal(input.isPressed(INPUT_ACTIONS.MOVE_RIGHT), false);
+  assert.equal(prevented, false, "native button keyup must keep its browser default");
+  assert.deepEqual(received, ["MOVE_RIGHT:press", "MOVE_RIGHT:release"]);
+  input.destroy();
+});
+
+test("InputManager keeps Shift plus arrow movement usable after focus returns to a button", () => {
+  const targetHandlers = new Map();
+  const rootHandlers = new Map();
+  const target = {
+    addEventListener(type, listener) {
+      targetHandlers.set(type, listener);
+    },
+    removeEventListener() {},
+  };
+  const root = {
+    hidden: false,
+    addEventListener(type, listener) {
+      rootHandlers.set(type, listener);
+    },
+    removeEventListener() {},
+  };
+  const received = [];
+  const input = new InputManager({
+    target,
+    root,
+    onAction: ({ action, phase }) => received.push(`${action}:${phase}`),
+  }).start();
+  const focusedButton = {
+    closest: () => ({ tagName: "BUTTON" }),
+  };
+
+  targetHandlers.get("keydown")({
+    code: "ShiftLeft",
+    target: focusedButton,
+    preventDefault() {},
+  });
+  let prevented = false;
+  targetHandlers.get("keydown")({
+    code: "ArrowRight",
+    shiftKey: true,
+    target: focusedButton,
+    preventDefault: () => { prevented = true; },
+  });
+
+  assert.equal(prevented, true);
+  assert.deepEqual(input.getMovementVector(), { x: 1, y: 0 });
+  targetHandlers.get("keyup")({
+    code: "ShiftLeft",
+    target: focusedButton,
+    preventDefault() {},
+  });
+  assert.deepEqual(input.getMovementVector(), { x: 1, y: 0 });
+  targetHandlers.get("keyup")({
+    code: "ArrowRight",
+    target: focusedButton,
+    preventDefault() {},
+  });
+
+  assert.deepEqual(input.getMovementVector(), { x: 0, y: 0 });
+  assert.deepEqual(received, ["MOVE_RIGHT:press", "MOVE_RIGHT:release"]);
+  input.destroy();
+});
+
+test("InputManager tracks physical aliases until the final movement key is released", () => {
+  const handlers = new Map();
+  const target = {
+    addEventListener(type, listener) {
+      handlers.set(type, listener);
+    },
+    removeEventListener() {},
+  };
+  const root = { addEventListener() {}, removeEventListener() {} };
+  const received = [];
+  const input = new InputManager({
+    target,
+    root,
+    onAction: ({ action, phase }) => received.push(`${action}:${phase}`),
+  }).start();
+  const event = (code) => ({ code, target: { closest: () => null }, preventDefault() {} });
+
+  handlers.get("keydown")(event("ArrowRight"));
+  handlers.get("keydown")(event("KeyD"));
+  handlers.get("keyup")(event("ArrowRight"));
+  assert.deepEqual(input.getMovementVector(), { x: 1, y: 0 });
+  handlers.get("keyup")(event("KeyD"));
+
+  assert.deepEqual(input.getMovementVector(), { x: 0, y: 0 });
+  assert.deepEqual(received, ["MOVE_RIGHT:press", "MOVE_RIGHT:release"]);
+  input.destroy();
+});
+
+test("InputManager releases lost keys when the document becomes hidden", () => {
+  const targetHandlers = new Map();
+  const rootHandlers = new Map();
+  const target = {
+    addEventListener(type, listener) {
+      targetHandlers.set(type, listener);
+    },
+    removeEventListener() {},
+  };
+  const root = {
+    hidden: false,
+    addEventListener(type, listener) {
+      rootHandlers.set(type, listener);
+    },
+    removeEventListener() {},
+  };
+  const received = [];
+  const input = new InputManager({
+    target,
+    root,
+    onAction: ({ action, phase, source }) => received.push(`${action}:${phase}:${source}`),
+  }).start();
+
+  targetHandlers.get("keydown")({
+    code: "ArrowLeft",
+    target: { closest: () => null },
+    preventDefault() {},
+  });
+  root.hidden = true;
+  rootHandlers.get("visibilitychange")({ type: "visibilitychange" });
+
+  assert.deepEqual(input.getMovementVector(), { x: 0, y: 0 });
+  assert.deepEqual(received, ["MOVE_LEFT:press:keyboard", "MOVE_LEFT:release:system"]);
+  targetHandlers.get("keyup")({
+    code: "ArrowLeft",
+    target: { closest: () => null },
+    preventDefault() {},
+  });
+  assert.equal(received.length, 2, "a late keyup must not emit a duplicate release");
+  input.destroy();
+});
+
 test("SaveManager persists game and NPC completion in one write and keeps QUIT as no-op", () => {
   const values = new Map();
   let writes = 0;
@@ -108,6 +273,7 @@ test("SaveManager persists game and NPC completion in one write and keeps QUIT a
   assert.equal(state.minigames["data-number-baseball"].completed, true);
   assert.equal(state.minigames["data-number-baseball"].playCount, 1);
   assert.deepEqual(state.story.completedNpcIds, ["npc-ds"]);
+  assert.deepEqual(state.story.seenStoryIds, ["npc-ds"]);
 
   save.applyResult("data-number-baseball", { status: "QUIT" });
   assert.equal(writes, 1);
@@ -182,11 +348,44 @@ test("SaveManager copies the legacy development save into production without del
   const state = save.load();
   assert.equal(state.minigames["data-number-baseball"].completed, true);
   assert.equal(state.story.introSeen, true);
+  assert.deepEqual(
+    state.story.seenStoryIds,
+    ["main-story-intro", "npc-ds"],
+    "legacy intro and NPC completion migrate into one-time story progress",
+  );
   assert.equal(state.settings.muted, true);
   assert.equal(state.revision, 8);
   assert.deepEqual(save.getCompletedMiniGameIds(), ["data-number-baseball"]);
   assert.ok(values.has(productionKey));
   assert.ok(values.has(legacyKey), "legacy progress remains recoverable after migration");
+});
+
+test("SaveManager stores generic one-time story announcements idempotently", () => {
+  const values = new Map();
+  let writes = 0;
+  const save = new SaveManager({
+    appId: "ai-change",
+    storageChannel: "story-progress",
+    miniGameIds: [],
+    storage: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem(key, value) {
+        writes += 1;
+        values.set(key, value);
+      },
+    },
+  });
+  save.load();
+
+  save.markStorySeen("battle-unlock:word-breaker");
+  save.markStorySeen("battle-unlock:word-breaker");
+  assert.equal(writes, 1);
+  assert.deepEqual(save.getState().story.seenStoryIds, ["battle-unlock:word-breaker"]);
+  const seenStoryIds = save.getSeenStoryIds();
+  assert.deepEqual(seenStoryIds, ["battle-unlock:word-breaker"]);
+  assert.equal(Object.isFrozen(seenStoryIds), true);
+  assert.throws(() => seenStoryIds.push("npc-ai"), TypeError);
+  assert.throws(() => save.markStorySeen(""), /non-empty/u);
 });
 
 test("InputLock remains locked until every independent reason is released", async () => {

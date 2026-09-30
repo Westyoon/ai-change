@@ -16,8 +16,9 @@ export class CharacterInput {
   #joystickVector = { x: 0, y: 0 };
   #buttonCleanups = new Set();
 
-  constructor({ inputManager = null } = {}) {
+  constructor({ inputManager = null, attackEnabled = true } = {}) {
     this.inputManager = inputManager;
+    this.attackEnabled = attackEnabled !== false;
   }
 
   start() {
@@ -41,6 +42,7 @@ export class CharacterInput {
   }
 
   queueAttack(source = "programmatic") {
+    if (!this.attackEnabled) return;
     this.#attackQueue.push(String(source));
   }
 
@@ -88,6 +90,7 @@ export class CharacterInput {
   }
 
   #handleAction(event = {}) {
+    if (!this.attackEnabled) return;
     const mobileAttack = event.action === INPUT_ACTIONS.ATTACK;
     const keyboardSpace =
       event.action === INPUT_ACTIONS.CONFIRM &&

@@ -10,10 +10,17 @@ export class CharacterSystem {
   #started = false;
   #destroyed = false;
 
-  constructor({ events = null, inputManager = null, character = {}, world = {}, input = null } = {}) {
+  constructor({
+    events = null,
+    inputManager = null,
+    inputOptions = {},
+    character = {},
+    world = {},
+    input = null,
+  } = {}) {
     this.events = events;
     this.ownsInput = input == null;
-    this.input = input ?? new CharacterInput({ inputManager });
+    this.input = input ?? new CharacterInput({ ...inputOptions, inputManager });
     this.character = character instanceof Character
       ? character
       : new Character({ ...character, events });

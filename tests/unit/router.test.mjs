@@ -119,3 +119,54 @@ test("SceneRouter keeps a mounted scene when a patched scroll API throws", async
     browser.restore();
   }
 });
+
+test("SceneRouter clears shared held input before every accepted scene transition", async () => {
+  const browser = installBrowserGlobals();
+  try {
+    const root = createRoot();
+    const events = [];
+    const context = {
+      state: {},
+      services: {
+        input: {
+          clear() {
+            events.push("clear");
+          },
+        },
+      },
+    };
+    const router = new SceneRouter({
+      root,
+      context,
+      routes: {
+        first: () => ({
+          async mount() {
+            events.push("mount:first");
+          },
+          async unmount() {
+            events.push("unmount:first");
+          },
+        }),
+        second: () => ({
+          async mount() {
+            events.push("mount:second");
+          },
+        }),
+      },
+    });
+
+    await router.navigate("first");
+    await router.navigate("second");
+
+    assert.deepEqual(events, [
+      "clear",
+      "mount:first",
+      "clear",
+      "unmount:first",
+      "mount:second",
+    ]);
+    router.destroy();
+  } finally {
+    browser.restore();
+  }
+});
