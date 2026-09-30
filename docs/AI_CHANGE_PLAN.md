@@ -26,10 +26,11 @@
 - Canvas 기반 도트 맵·게임 영역과 DOM 기반 메뉴·대화·HUD를 함께 사용합니다.
 - PC, 태블릿, 모바일의 키보드·마우스·터치·가상 패드 입력을 공통 명령으로 변환합니다.
 - 기본 콘텐츠는 `스토리` 모드이며, `배틀` 모드는 메뉴와 확장 지점만 제공하고 1차 배포에서는 `추후 공개`로 표시할 수 있습니다.
-- 2026-08-28 사용자 결정에 따라 기본 진입 흐름은 `인트로 → 학과별 맵 → 학과 카드 선택 → 미니게임 즉시 실행 → 결과 → 맵 복귀`로 적용합니다. NPC 대화와 미니게임 인트로 route·데이터는 선택형 콘텐츠 확장을 위해 유지합니다.
+- 2026-09-28 사용자 결정에 따라 기본 진입 흐름은 `인트로 → 캐릭터 이동형 학과 맵 → NPC 상호작용 → 학과 도입 이야기 → 게임 방법 → 미니게임 → 학과 마무리 이야기 → 수호알 획득 → 맵 복귀`로 적용합니다. 도입·마무리 이야기는 최초 한 번 자동 표시하고, 이후에는 인벤토리의 `우리의 기억`에서 다시 봅니다.
 - 대화, 맵, NPC, 미니게임 metadata, balance parameter는 코드와 분리된 데이터로 관리합니다.
 - 5개 미니게임은 서로 독립된 module로 구현하고 `init`, `start`, `pause`, `resume`, `restart`, `destroy` lifecycle과 host가 주입하는 `onComplete` result callback contract를 공유합니다.
 - 미니게임 결과는 공통 result object로 상위 scene에 반환하고, 게임별 세부 기록은 `metrics`에 저장합니다.
+- 사전게임 5종은 CLEAR·스토리·수호알·해금 상태만 저장하며 계정 경험치·레벨·스탯 포인트를 지급하지 않습니다. 영구 성장은 사후게임 X알과 세 보스의 유효한 CLEAR에서만 발생합니다.
 - 완료한 NPC·미니게임, 최고 기록, 음량 설정은 browser `localStorage`에 version을 포함해 저장합니다.
 - 공통 필수 asset은 초기 로딩하고, 미니게임별 asset은 해당 게임 진입 전에 지연 로딩합니다.
 - resize와 orientation change는 진행 상태를 초기화하지 않고 Canvas와 DOM UI만 다시 배치합니다.
@@ -64,7 +65,7 @@
 | --- | --- | --- | --- |
 | D-01 | 최종 노출 게임명, logo, festival name, 공통 brand palette | `TBD` | 공통 UI final asset 작업 전 |
 | D-02 | 메인 세계관, player character, map 크기·구역, NPC 수·위치·대사, NPC↔game 연결 cardinality와 완료 조건, story intro skip의 `introSeen` 처리, `캐릭캐릭체인지`·X알·X컴공생 설정의 전역 적용 여부 | `TBD` | map·story content 통합 전 |
-| D-03 | `하트`, `정화된 알`, `수호알`을 공통 보상으로 통합할지 여부 | `TBD` | result·save schema final 고정 전 |
+| D-03 | `하트`, `정화된 알`, `수호알`의 표현·수집 방식. 이 선택은 사전게임에 계정 경험치를 지급하는 근거가 될 수 없음 | `TBD` | result·save schema final 고정 전 |
 | D-04 | `CLICK to PURIFY`의 정화도 공식과 wave·판정 window·Miss·제한시간 등 초안 balance 승인값, 최고 기록 eligible status·metric projection·comparator·tie-break | `TBD` | cyber game final 판정 구현 전 |
 | D-05 | cyber game의 동시 target 선택, ransomware lock 중 다른 적 처리, 재도전 penalty | `TBD` | cyber game playtest 전 |
 | D-06 | `Code Heart: Unlock!`의 주문·시간·penalty·clear·retry, 제출 label, category·ingredient 목록, 주문별 중복 재료 허용, 빈 slot 제출, Build Error 후 reset, recipe book 중 timer, 최고 기록 eligible status·metric projection·comparator·tie-break | `TBD` | computer game play 가능한 build 전 |
@@ -645,7 +646,6 @@ runtime state는 memory에만 존재하며 scene 전환의 single source of trut
   "failOutroScript": "data-number-baseball-fail",
   "module": "data-number-baseball",
   "configAssetId": "number-baseball-config",
-  "thumbnailAssetId": "number-baseball-thumbnail",
   "assetGroup": "data-number-baseball",
   "recordPolicy": null,
   "status": "published",
@@ -665,7 +665,6 @@ runtime state는 memory에만 존재하며 scene 전환의 single source of trut
 | `failOutroScript` | fail result에 연결할 script ID |
 | `module` | `registry.js`의 static module loader allowlist에 존재하는 key |
 | `configAssetId` | Asset manifest에 존재하며 해당 game schema를 만족하는 required JSON asset ID |
-| `thumbnailAssetId` | Asset manifest에 존재하고 alt text를 가진 image asset ID |
 | `assetGroup` | `AssetLoader` manifest에 존재하는 group ID |
 | `recordPolicy` | best record 비교 policy key, 미확정 game은 `null` |
 | `status` | `published`, `locked`, `coming-soon` 중 하나 |
@@ -675,21 +674,12 @@ runtime state는 memory에만 존재하며 scene 전환의 single source of trut
 
 ### 7.3.1 Asset manifest schema
 
-`data/asset-manifest.json`은 common preload와 mini game lazy-load group, asset path, alt text의 단일 source of truth입니다. Registry는 path와 alt를 복제하지 않고 `configAssetId`·`thumbnailAssetId`로 이 manifest를 참조합니다.
+`data/asset-manifest.json`은 common preload와 mini game lazy-load group, asset path, alt text의 단일 source of truth입니다. Registry는 path를 복제하지 않고 `configAssetId`로 이 manifest를 참조합니다. 사전게임 설명 화면에는 별도 장식용 썸네일을 두지 않습니다.
 
 ```json
 {
   "contentVersion": 1,
   "assets": [
-    {
-      "id": "number-baseball-thumbnail",
-      "group": "data-number-baseball",
-      "type": "image",
-      "src": "./assets/minigames/number-baseball/thumbnail.webp",
-      "required": true,
-      "alt": "숫자 야구 미니게임 미리보기",
-      "sourceRef": "ASSET-DS-001"
-    },
     {
       "id": "number-baseball-config",
       "group": "data-number-baseball",
@@ -1822,7 +1812,7 @@ Code Heart의 game 내부 시각은 원문대로 분홍·연두 계열의 casual
 | Build Error penalty | 시간 또는 patience 차감 `TBD` | D-06 |
 | clear condition | 완료 order·정화된 알·heart 중 `TBD` | D-06 |
 | submit label | `git push` 또는 `UNLOCK` | D-06 |
-| reward | heart·정화된 알·경험치 등 `TBD` | D-03·D-06 |
+| reward | heart·정화된 알 등 게임 내 표현 `TBD`; 계정 경험치·레벨·스탯 포인트는 지급하지 않음 | D-03·D-06 |
 
 ### 11.3.8 예외 처리
 
@@ -2241,7 +2231,7 @@ Play 화면은 game canvas 또는 DOM play area 외에 공통 pause와 mute cont
 - clear·fail에 맞는 별도 outro script를 실행합니다.
 - `다시 하기`, `맵으로 돌아가기`를 제공합니다.
 - 다음 학과 안내는 content가 확정된 경우에만 표시합니다.
-- reward CTA는 D-03이 확정되기 전 공통 보상 지급을 주장하지 않습니다.
+- reward CTA는 D-03이 확정되기 전 공통 수집 보상을 주장하지 않으며, 확정 후에도 사전게임 경험치·레벨·스탯 포인트 지급을 표시하지 않습니다.
 
 `다시 하기`는 clear·fail result overlay를 닫고 host가 새 `attemptId`를 발급한 뒤 현재 정상 instance의 `restart({attemptId})`로 terminal once guard를 초기화합니다. 초기화 범위와 penalty는 game별 승인 retry policy를 따릅니다. `맵으로 돌아가기`는 synchronous `destroy()`를 호출해 정리를 끝낸 뒤 map을 복원합니다. Runtime error instance는 항상 terminal finalization에서 폐기하므로, ErrorScene의 `다시 시도`는 `recoverable=true`일 때만 registry부터 전체 진입 경로를 실행해 새 instance와 asset lease를 만듭니다.
 
@@ -2426,7 +2416,7 @@ release app-config
 mini game config
 ├── required fields present
 ├── number is finite and within allowed range
-├── every asset ID is globally unique and every referenced configAssetId·thumbnailAssetId·group exists in manifest
+├── every asset ID is globally unique and every referenced configAssetId·group exists in manifest
 ├── referenced script / ingredient / class exists
 ├── recipe length <= 4 and every ingredient exists
 ├── every Code Heart order has approved duplicate-ingredient boolean
@@ -3165,7 +3155,7 @@ Production 배포는 다음 순서를 따릅니다.
 - [ ] Draft config와 fixture는 production artifact와 runtime reference에 포함되지 않습니다.
 - [ ] Production feature는 `story=true`, `localSave=true`이고 `battleContent`가 published Battle entry 유무와 일치합니다.
 - [ ] Production `initialScene`은 `loading`이고 필수 version·asset 검증을 우회하지 않습니다.
-- [ ] Asset manifest ID는 전역 unique이고 registry의 config·thumbnail·group 및 script·map·ingredient·image class reference가 모두 유효합니다.
+- [ ] Asset manifest ID는 전역 unique이고 registry의 config·group 및 script·map·ingredient·image class reference가 모두 유효합니다.
 - [ ] Test mini game은 metadata·config asset ID·static loader key 추가만으로 기존 core와 다른 game module 수정 없이 연결됩니다.
 
 ## 21.2 Loading·menu·story
