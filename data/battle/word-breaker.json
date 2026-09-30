@@ -53,20 +53,20 @@
   "shot": {
     "width": 6,
     "height": 14,
-    "speed": 520,
-    "intervalMs": 180,
+    "speed": 320,
+    "intervalMs": 260,
     "damage": 20
   },
   "phrase": {
     "width": 310,
     "height": 58,
     "targetHeight": 24,
-    "speed": 58,
-    "spawnIntervalMs": 1600,
-    "maxHp": 100,
-    "reframeDurationMs": 650,
+    "speed": 44,
+    "spawnIntervalMs": 1850,
+    "maxHp": 140,
+    "reframeDurationMs": 900,
     "horizontalPadding": 24,
-    "letterSpacing": 1.5,
+    "letterSpacing": 2.4,
     "wobbleAmplitudeX": 4,
     "wobbleAmplitudeY": 3,
     "wobbleWavelength": 96
@@ -91,19 +91,24 @@
         "id": "ds-guardian",
         "code": "DS",
         "label": "데이터 수호알",
-        "color": "#d82f76"
+        "color": "#fcb5dd",
+        "inkColor": "#501060",
+        "imageSrc": "./assets/images/guardian-eggs/guardian-ds.png"
       },
       "gimmick": {
         "type": "lane-rain",
         "name": "결측치·이상치 폭주",
         "cue": "결측값과 이상치 글자가 데이터 축의 상하좌우에서 교차해 날아옵니다.",
         "telegraphMs": 1600,
-        "forceAtMs": 6400,
+        "forceAtMs": 8200,
         "spawnIntervalMs": 130,
         "glyphSpeed": 360,
         "maxGlyphs": 28,
         "contactThreshold": 1,
-        "laneCount": 5
+        "laneCount": 5,
+        "glyphHits": 2,
+        "surgeHits": 3,
+        "breakableSurgeCount": 2
       },
       "omenMessage": "정렬돼 있던 기록 사이에 결측값과 이상치가 섞이기 시작합니다.",
       "collapseMessage": "기준을 잃은 데이터가 열마다 뒤엉켰지만 여기서 끝난 것은 아닙니다.",
@@ -207,19 +212,24 @@
         "id": "cs-guardian",
         "code": "CS",
         "label": "보안 수호알",
-        "color": "#363367"
+        "color": "#a2c05e",
+        "inkColor": "#304010",
+        "imageSrc": "./assets/images/guardian-eggs/guardian-cs.png"
       },
       "gimmick": {
         "type": "firewall-gates",
         "name": "악성 패킷·포트 스캔",
         "cue": "악성 패킷이 한 곳의 넓은 탈출구만 남긴 원형 방화벽으로 좁혀 오며, 폭주하면 열린 포트까지 닫힙니다.",
         "telegraphMs": 1800,
-        "forceAtMs": 6800,
+        "forceAtMs": 8600,
         "spawnIntervalMs": 1500,
         "glyphSpeed": 380,
         "maxGlyphs": 28,
         "contactThreshold": 1,
-        "laneCount": 7
+        "laneCount": 7,
+        "glyphHits": 2,
+        "surgeHits": 3,
+        "breakableSurgeCount": 2
       },
       "omenMessage": "정상 연결 사이로 위장한 악성 패킷이 열린 포트를 탐색합니다.",
       "collapseMessage": "방화벽 규칙이 무너져도 위험한 연결은 다시 구분할 수 있습니다.",
@@ -323,19 +333,24 @@
         "id": "cse-guardian",
         "code": "CSE",
         "label": "컴퓨터공학 수호알",
-        "color": "#e333bb"
+        "color": "#ac51fa",
+        "inkColor": "#301040",
+        "imageSrc": "./assets/images/guardian-eggs/guardian-cse.png"
       },
       "gimmick": {
         "type": "recursive-fork",
         "name": "무한 재귀·스택 오버플로",
         "cue": "하나의 오류 호출이 1→2→4→8개로 복제되며 스택을 반복해서 채웁니다.",
         "telegraphMs": 1600,
-        "forceAtMs": 6600,
+        "forceAtMs": 8400,
         "spawnIntervalMs": 360,
         "glyphSpeed": 300,
         "maxGlyphs": 28,
         "contactThreshold": 1,
-        "laneCount": 8
+        "laneCount": 8,
+        "glyphHits": 2,
+        "surgeHits": 3,
+        "breakableSurgeCount": 2
       },
       "omenMessage": "하나의 작은 오류가 재귀 호출을 따라 1개, 2개, 4개, 8개로 복제됩니다.",
       "collapseMessage": "호출이 끝나지 않아 스택이 넘쳤지만 코드는 고쳐 다시 실행할 수 있습니다.",
@@ -439,19 +454,24 @@
         "id": "ai-guardian",
         "code": "AI",
         "label": "인공지능 수호알",
-        "color": "#2ab5e4"
+        "color": "#0e7ffd",
+        "inkColor": "#0010a0",
+        "imageSrc": "./assets/images/guardian-eggs/guardian-ai.png"
       },
       "gimmick": {
         "type": "prediction-lock",
         "name": "오분류·신뢰도 락온",
         "cue": "여러 예측 후보가 점점 좁아지며 마지막에는 하나의 틀린 확신으로 고정됩니다.",
         "telegraphMs": 1800,
-        "forceAtMs": 6400,
+        "forceAtMs": 8200,
         "spawnIntervalMs": 350,
         "glyphSpeed": 520,
         "maxGlyphs": 28,
         "contactThreshold": 1,
-        "laneCount": 5
+        "laneCount": 5,
+        "glyphHits": 2,
+        "surgeHits": 3,
+        "breakableSurgeCount": 2
       },
       "omenMessage": "여러 예측 후보가 하나의 오분류로 좁혀지며 틀린 확신이 굳어집니다.",
       "collapseMessage": "신뢰도가 높아도 예측은 틀릴 수 있고 배움의 과정은 계속됩니다.",
@@ -555,19 +575,24 @@
         "id": "aids-guardian",
         "code": "AIDS",
         "label": "AI·데이터 수호알",
-        "color": "#fac804"
+        "color": "#fdd044",
+        "inkColor": "#703000",
+        "imageSrc": "./assets/images/guardian-eggs/guardian-aids.png"
       },
       "gimmick": {
         "type": "convergence-ring",
         "name": "데이터↔AI 피드백 폭주",
         "cue": "데이터 입력이 모델을 거쳐 예측이 되고, 되돌아온 피드백이 양쪽에서 증폭됩니다.",
         "telegraphMs": 2000,
-        "forceAtMs": 7000,
+        "forceAtMs": 8800,
         "spawnIntervalMs": 850,
         "glyphSpeed": 105,
         "maxGlyphs": 28,
         "contactThreshold": 1,
-        "laneCount": 12
+        "laneCount": 12,
+        "glyphHits": 2,
+        "surgeHits": 3,
+        "breakableSurgeCount": 2
       },
       "omenMessage": "데이터 입력과 AI 예측이 피드백 고리 안에서 서로를 증폭하기 시작합니다.",
       "collapseMessage": "뒤엉킨 파이프라인 앞에서 잠시 멈춰도 흐름은 다시 연결할 수 있습니다.",

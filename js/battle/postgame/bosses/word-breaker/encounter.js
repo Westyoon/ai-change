@@ -10,13 +10,12 @@ import { normalizeWordBreakerConfig } from "./config.js";
 import {
   chooseRoundPhrase,
   createWordBreakerFinalePhrase,
-  createWordBreakerGuardian,
   createWordBreakerOverloadSurge,
   createWordBreakerOverloadWave,
   createWordBreakerPhrase,
   createWordBreakerShot,
   movePhraseDown,
-  moveShotUp,
+  moveWordBreakerShot,
   moveWordBreakerOverloadGlyph,
 } from "./patterns.js";
 
@@ -33,6 +32,7 @@ export const WORD_BREAKER_PHASES = Object.freeze({
   PLAY: "PLAY",
   OMEN: "OMEN",
   OVERLOAD: "OVERLOAD",
+  STAGGERED: "STAGGERED",
   KNOCKED_OUT: "KNOCKED_OUT",
   GUARDIAN_REVEAL: "GUARDIAN_REVEAL",
   RECOVERING: "RECOVERING",
@@ -41,9 +41,9 @@ export const WORD_BREAKER_PHASES = Object.freeze({
 });
 
 const EPSILON = 1e-7;
-const OVERLOAD_SURGE_LEAD_MS = 650;
-const OVERLOAD_SURGE_INTERVAL_MS = 3_600;
-const OVERLOAD_SURGE_TRAVEL_MS = 2_400;
+const OVERLOAD_SURGE_LEAD_MS = 800;
+const OVERLOAD_SURGE_INTERVAL_MS = 2_400;
+const OVERLOAD_SURGE_TRAVEL_MS = 3_000;
 const OVERLOAD_DENSE_SPAWN_MIN_MS = 80;
 
 function rounded(value) {
@@ -75,6 +75,7 @@ function snapshotPhrase(phrase) {
     height: rounded(phrase.height),
     negative: phrase.negative,
     target: phrase.target,
+    targetSide: phrase.targetSide ?? "right",
     reframe: phrase.reframe,
     hp: rounded(phrase.hp),
     maxHp: rounded(phrase.maxHp),
@@ -93,6 +94,7 @@ function snapshotGlyph(glyph) {
     width: rounded(glyph.width),
     height: rounded(glyph.height),
     collidable: glyph.collidable !== false,
+    attackable: glyph.attackable !== false && glyph.collidable !== false,
     isTarget: glyph.isTarget === true,
     broken: glyph.broken === true,
     hp: rounded(glyph.hp),
@@ -119,6 +121,11 @@ function snapshotOverloadGlyph(glyph) {
     telegraphing: rounded(glyph.delayRemainingMs) > 0,
     delayRemainingMs: rounded(glyph.delayRemainingMs),
     surge: glyph.surge === true,
+    unavoidable: glyph.unavoidable === true,
+    attackable: glyph.attackable !== false,
+    broken: glyph.broken === true,
+    hp: rounded(glyph.hp),
+    maxHp: rounded(glyph.maxHp),
     contacted: glyph.contacted === true,
   });
 }
@@ -130,6 +137,11 @@ function snapshotShot(shot) {
     y: rounded(shot.y),
     width: rounded(shot.width),
     height: rounded(shot.height),
+    directionX: rounded(shot.directionX),
+    directionY: rounded(shot.directionY),
+    facingDirection: shot.facingDirection ?? "up",
+    targetGlyphId: shot.targetGlyphId ?? null,
+    targetSide: shot.targetSide ?? "center",
   });
 }
 
@@ -239,6 +251,9 @@ export class WordBreakerEncounter {
       height: Number.isFinite(bounds?.height) && bounds.height > 0 ? bounds.height : this.playerBounds.height,
     });
     this.playerBounds = clampAabbToArena(candidate, this.config.arena);
+    if (["up", "down", "left", "right"].includes(bounds?.direction)) {
+      this.playerFacing = bounds.direction;
+    }
     this.#resolveImmediateContact();
     return true;
   }
@@ -266,7 +281,10 @@ export class WordBreakerEncounter {
         if (!this.overloadEscalated && untilEscalation > EPSILON) {
           stepMs = Math.min(stepMs, untilEscalation);
         }
-      } else if (this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT) {
+      } else if (
+        this.phase === WORD_BREAKER_PHASES.STAGGERED
+        || this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT
+      ) {
         const untilRecovery = this.config.collapseImpactMs - this.knockoutElapsedMs;
         if (untilRecovery > EPSILON) stepMs = Math.min(stepMs, untilRecovery);
       } else if (this.phase === WORD_BREAKER_PHASES.GUARDIAN_REVEAL) {
@@ -287,6 +305,7 @@ export class WordBreakerEncounter {
           if (!this.overloadArmed) this.#armOverload();
           else if (!this.overloadEscalated) this.#beginOverloadEscalation();
         }
+        else if (this.phase === WORD_BREAKER_PHASES.STAGGERED) this.#finishStagger();
         else if (this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT) this.#beginGuardianReveal();
         else if (this.phase === WORD_BREAKER_PHASES.GUARDIAN_REVEAL) this.#beginRecovery();
         else if (this.phase === WORD_BREAKER_PHASES.REVIVED) this.#finishRecoveryHold();
@@ -300,7 +319,10 @@ export class WordBreakerEncounter {
       if (this.phase === WORD_BREAKER_PHASES.PLAY) this.#stepPlay(stepMs);
       else if (this.phase === WORD_BREAKER_PHASES.OMEN) this.#stepOmen(stepMs);
       else if (this.phase === WORD_BREAKER_PHASES.OVERLOAD) this.#stepOverload(stepMs);
-      else if (this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT) this.#stepKnockedOut(stepMs);
+      else if (
+        this.phase === WORD_BREAKER_PHASES.STAGGERED
+        || this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT
+      ) this.#stepKnockedOut(stepMs);
       else if (this.phase === WORD_BREAKER_PHASES.GUARDIAN_REVEAL) this.#stepGuardianReveal(stepMs);
       else if (this.phase === WORD_BREAKER_PHASES.RECOVERING) this.#stepRecovering(stepMs);
       else if (this.phase === WORD_BREAKER_PHASES.REVIVED) this.#stepRecoveryHold(stepMs);
@@ -326,12 +348,18 @@ export class WordBreakerEncounter {
       recoveryHoldRemainingMs: rounded(this.recoveryHoldRemainingMs),
       finaleRemainingMs: rounded(this.finaleRemainingMs),
       invulnerableRemainingMs: rounded(this.invulnerableRemainingMs),
-      controlLocked: this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT
+      playerHealth: this.playerHealth,
+      playerMaxHealth: this.playerMaxHealth,
+      playerDead: this.playerHealth <= 0,
+      lifeFraction: rounded(this.playerHealth / Math.max(1, this.playerMaxHealth)),
+      controlLocked: this.phase === WORD_BREAKER_PHASES.STAGGERED
+        || this.phase === WORD_BREAKER_PHASES.KNOCKED_OUT
         || this.phase === WORD_BREAKER_PHASES.GUARDIAN_REVEAL
         || this.phase === WORD_BREAKER_PHASES.REVIVED
         || this.phase === WORD_BREAKER_PHASES.FINALE,
       score: rounded(this.score),
       playerBounds: snapshotTargetBounds(this.playerBounds),
+      playerFacing: this.playerFacing,
       phrases: Object.freeze(this.phrases.map(snapshotPhrase)),
       overloadGlyphs: Object.freeze(this.overloadGlyphs.map(snapshotOverloadGlyph)),
       overload: Object.freeze({
@@ -392,6 +420,10 @@ export class WordBreakerEncounter {
     this.currentGimmick = this.config.rounds[0]?.gimmick ?? null;
     this.finaleGuardianCount = 0;
     this.invulnerableRemainingMs = 0;
+    this.playerMaxHealth = this.config.rounds.length;
+    this.playerHealth = this.playerMaxHealth;
+    this.playerFacing = "up";
+    this.shotSide = -1;
     this.elapsedMs = 0;
     this.score = 0;
     this.phrases = [];
@@ -418,6 +450,7 @@ export class WordBreakerEncounter {
       shotsFired: 0,
       glyphsBroken: 0,
       overloadGlyphsSpawned: 0,
+      overloadGlyphsBroken: 0,
       overloadContacts: 0,
       knockoutCount: 0,
       guardiansCollected: 0,
@@ -537,10 +570,16 @@ export class WordBreakerEncounter {
 
   #moveShots(seconds) {
     const survivors = [];
+    const { arena } = this.config;
     for (const shot of this.shots) {
       shot.previousBounds = { x: shot.x, y: shot.y, width: shot.width, height: shot.height };
-      moveShotUp(shot, this.config.shot.speed * seconds);
-      if (shot.y + shot.height >= this.config.arena.y) survivors.push(shot);
+      moveWordBreakerShot(shot, this.config.shot.speed * seconds);
+      if (
+        shot.x + shot.width >= arena.x
+        && shot.x <= arena.x + arena.width
+        && shot.y + shot.height >= arena.y
+        && shot.y <= arena.y + arena.height
+      ) survivors.push(shot);
     }
     this.shots = survivors;
   }
@@ -548,12 +587,47 @@ export class WordBreakerEncounter {
   #resolveShotHits() {
     const survivingShots = [];
     for (const shot of this.shots) {
+      const overloadGlyph = this.overloadGlyphs.find((glyph) => (
+        glyph.attackable !== false
+        && !glyph.broken
+        && !glyph.contacted
+        && glyph.delayRemainingMs <= EPSILON
+        && sweptAabbIntersects(shot.previousBounds ?? shot, shot, glyph)
+      ));
+      if (overloadGlyph) {
+        overloadGlyph.hp = Math.max(0, overloadGlyph.hp - 1);
+        this.#emit({
+          type: "overload-glyph-hit",
+          roundIndex: this.roundIndex,
+          gimmickType: this.currentGimmick?.type ?? null,
+          glyphId: overloadGlyph.id,
+          hp: rounded(overloadGlyph.hp),
+          maxHp: rounded(overloadGlyph.maxHp),
+          surge: overloadGlyph.surge === true,
+          unavoidable: overloadGlyph.unavoidable === true,
+        });
+        if (overloadGlyph.hp <= EPSILON) {
+          overloadGlyph.broken = true;
+          overloadGlyph.expired = true;
+          this.metrics.overloadGlyphsBroken += 1;
+          this.#emit({
+            type: "overload-glyph-broken",
+            roundIndex: this.roundIndex,
+            gimmickType: this.currentGimmick?.type ?? null,
+            glyphId: overloadGlyph.id,
+            surge: overloadGlyph.surge === true,
+          });
+        }
+        delete shot.previousBounds;
+        continue;
+      }
       let targetPhrase = null;
       let targetGlyph = null;
       for (const phrase of this.phrases) {
         if (phrase.tone !== "negative") continue;
         targetGlyph = (phrase.glyphs ?? []).find((glyph) => (
-          glyph.isTarget
+          glyph.collidable !== false
+          && glyph.attackable !== false
           && !glyph.broken
           && sweptAabbIntersects(shot.previousBounds ?? shot, shot, glyph)
         ));
@@ -567,8 +641,10 @@ export class WordBreakerEncounter {
         survivingShots.push(shot);
         continue;
       }
-      targetGlyph.hp = Math.max(0, targetGlyph.hp - this.config.shot.damage);
-      if (targetGlyph.hp <= EPSILON && !targetGlyph.broken) {
+      const appliedDamage = Math.min(this.config.shot.damage, targetGlyph.hp);
+      targetPhrase.hp = Math.max(0, targetPhrase.hp - appliedDamage);
+      targetGlyph.hp = Math.max(0, targetGlyph.hp - appliedDamage);
+      if (targetGlyph.hp <= EPSILON) {
         targetGlyph.broken = true;
         this.metrics.glyphsBroken += 1;
         this.#emit({
@@ -578,9 +654,6 @@ export class WordBreakerEncounter {
           text: targetGlyph.text,
         });
       }
-      targetPhrase.hp = (targetPhrase.glyphs ?? [])
-        .filter(({ isTarget }) => isTarget)
-        .reduce((total, glyph) => total + Math.max(0, glyph.hp), 0);
       this.#emit({
         type: "phrase-hit",
         phraseId: targetPhrase.id,
@@ -590,10 +663,7 @@ export class WordBreakerEncounter {
         hp: rounded(targetPhrase.hp),
         maxHp: rounded(targetPhrase.maxHp),
       });
-      const allTargetsBroken = (targetPhrase.glyphs ?? [])
-        .filter(({ isTarget }) => isTarget)
-        .every(({ broken }) => broken);
-      if (allTargetsBroken) this.#purifyPhrase(targetPhrase);
+      if (targetPhrase.hp <= EPSILON) this.#purifyPhrase(targetPhrase);
     }
     this.shots = survivingShots;
   }
@@ -689,6 +759,8 @@ export class WordBreakerEncounter {
       playerBounds: this.playerBounds,
       shotConfig: this.config.shot,
       sequence: ++this.shotSequence,
+      facingDirection: "up",
+      targetSide: "up",
     });
     this.shots.push(shot);
     this.metrics.shotsFired += 1;
@@ -734,6 +806,15 @@ export class WordBreakerEncounter {
     if (!this.overloadNormalAttackRetired) {
       this.#stepNormalAttackObjects(stepMs);
       this.#stepNormalAttackSpawns(stepMs);
+    } else {
+      const seconds = stepMs / 1000;
+      this.#moveShots(seconds);
+      this.#resolveShotHits();
+      this.shotTimerMs -= stepMs;
+      while (this.shotTimerMs <= EPSILON) {
+        this.#spawnShot();
+        this.shotTimerMs += this.config.shot.intervalMs;
+      }
     }
     if (!this.overloadArmed && this.overloadElapsedMs + EPSILON >= this.config.overloadGraceMs) {
       this.#armOverload();
@@ -807,9 +888,8 @@ export class WordBreakerEncounter {
     if (this.phase !== WORD_BREAKER_PHASES.OVERLOAD || this.overloadNormalAttackRetired) return false;
     this.overloadNormalAttackRetired = true;
     this.phrases = [];
-    this.shots = [];
     this.phraseSpawnTimerMs = Number.POSITIVE_INFINITY;
-    this.shotTimerMs = Number.POSITIVE_INFINITY;
+    this.shotTimerMs = Math.min(this.shotTimerMs, this.config.shot.intervalMs);
     this.#setStatus(this.currentGimmick.name, "collapse");
     return true;
   }
@@ -855,7 +935,7 @@ export class WordBreakerEncounter {
   #removeExpiredOverloadGlyphs() {
     const { arena } = this.config;
     this.overloadGlyphs = this.overloadGlyphs.filter((glyph) => {
-      if (glyph.expired) return false;
+      if (glyph.expired || glyph.broken) return false;
       const margin = glyph.pattern === "firewall-gates" ? 220 : 80;
       return (
         glyph.x + glyph.width >= arena.x - margin
@@ -874,7 +954,7 @@ export class WordBreakerEncounter {
       delete glyph.previousBounds;
       const crossedPlayer = aabbIntersects(this.playerBounds, glyph)
         || sweptAabbIntersects(previousBounds, glyph, this.playerBounds);
-      if (glyph.contacted || glyph.delayRemainingMs > EPSILON || !crossedPlayer) {
+      if (glyph.broken || glyph.contacted || glyph.delayRemainingMs > EPSILON || !crossedPlayer) {
         continue;
       }
       glyph.contacted = true;
@@ -887,9 +967,26 @@ export class WordBreakerEncounter {
         glyph: snapshotOverloadGlyph(glyph),
         contactCount: this.overloadContactCount,
       });
-      if (this.overloadContactCount >= this.currentGimmick.contactThreshold) {
+      if (glyph.surge === true && glyph.unavoidable === true) {
         this.#knockOutPlayer({ glyph, reason: glyph.surge ? "surge-contact" : "contact" });
         return true;
+      }
+      if (this.invulnerableRemainingMs <= EPSILON) {
+        this.metrics.hitCount += 1;
+        this.metrics.combo = 0;
+        this.invulnerableRemainingMs = this.config.player.invulnerableMs;
+        this.#setStatus("HIT · 피할 수 있는 공격", "warning");
+        this.#emit({
+          type: "player-hit",
+          phraseId: null,
+          glyphId: glyph.id,
+          hitCount: this.metrics.hitCount,
+          forced: false,
+          healthLost: 0,
+          playerHealth: this.playerHealth,
+          playerMaxHealth: this.playerMaxHealth,
+          invulnerableMs: this.config.player.invulnerableMs,
+        });
       }
     }
     return false;
@@ -927,6 +1024,7 @@ export class WordBreakerEncounter {
     const round = this.config.rounds[this.roundIndex];
     const surgeIndex = this.overloadSurgeIndex;
     this.overloadSurgeIndex += 1;
+    const unavoidable = surgeIndex >= this.currentGimmick.breakableSurgeCount;
     const glyphs = createWordBreakerOverloadSurge({
       round,
       arena: this.config.arena,
@@ -936,12 +1034,22 @@ export class WordBreakerEncounter {
       surgeIndex,
       delayMs: OVERLOAD_SURGE_LEAD_MS,
       travelMs: OVERLOAD_SURGE_TRAVEL_MS,
+      unavoidable,
     });
     const overflow = Math.max(
       0,
       this.overloadGlyphs.length + glyphs.length - this.currentGimmick.maxGlyphs,
     );
-    if (overflow > 0) this.overloadGlyphs.splice(0, overflow);
+    if (overflow > 0) {
+      let removable = overflow;
+      // Never discard the final, unavoidable wall just because a later wave
+      // reaches the visual density cap before that wall crosses the player.
+      this.overloadGlyphs = this.overloadGlyphs.filter((glyph) => {
+        if (removable <= 0 || glyph.unavoidable === true) return true;
+        removable -= 1;
+        return false;
+      });
+    }
     this.overloadGlyphs.push(...glyphs);
     this.metrics.overloadGlyphsSpawned += glyphs.length;
     this.#emit({
@@ -949,6 +1057,7 @@ export class WordBreakerEncounter {
       roundIndex: this.roundIndex,
       gimmickType: this.currentGimmick.type,
       surgeIndex,
+      unavoidable,
       glyphs: Object.freeze(glyphs.map(snapshotOverloadGlyph)),
     });
     return true;
@@ -957,26 +1066,54 @@ export class WordBreakerEncounter {
   #knockOutPlayer({ glyph = null, reason = "contact" } = {}) {
     if (this.phase !== WORD_BREAKER_PHASES.OVERLOAD) return false;
     const round = this.config.rounds[this.roundIndex];
-    this.phase = WORD_BREAKER_PHASES.KNOCKED_OUT;
+    this.playerHealth = Math.max(0, this.playerHealth - 1);
+    const fatal = this.playerHealth <= 0;
+    this.phase = fatal ? WORD_BREAKER_PHASES.KNOCKED_OUT : WORD_BREAKER_PHASES.STAGGERED;
     this.knockoutElapsedMs = 0;
     this.guardianRevealRemainingMs = 0;
     this.recoveryHoldRemainingMs = 0;
     this.phrases = [];
     this.shots = [];
-    const forced = glyph?.surge === true;
+    const forced = glyph?.unavoidable === true;
     this.metrics.hitCount += 1;
     if (forced) this.metrics.forcedHitCount += 1;
-    this.metrics.knockoutCount += 1;
+    if (fatal) this.metrics.knockoutCount += 1;
     this.metrics.roundsCollapsed += 1;
     this.metrics.combo = 0;
     this.invulnerableRemainingMs = this.config.player.invulnerableMs;
-    this.#setStatus("DOWN", "knockout");
+    const awakened = Object.freeze({
+      ...round.guardian,
+      x: this.config.arena.x + (this.config.arena.width - this.config.guardian.width) / 2,
+      y: this.config.guardian.spawnY,
+      width: this.config.guardian.width,
+      height: this.config.guardian.height,
+      roundIndex: this.roundIndex,
+    });
+    if (!this.collectedGuardians.some(({ id }) => id === awakened.id)) {
+      this.collectedGuardians.push(awakened);
+      this.metrics.guardiansCollected = this.collectedGuardians.length;
+      this.score += this.config.scoring.guardianBonus;
+      this.#emit({
+        type: "guardian-awakened",
+        guardian: awakened,
+        roundIndex: this.roundIndex,
+        collectedCount: this.collectedGuardians.length,
+      });
+    }
+    this.#setStatus(
+      fatal ? "DOWN · 다섯 수호알이 응답합니다" : `LIFE · ${this.playerHealth}/${this.playerMaxHealth}`,
+      fatal ? "knockout" : "warning",
+    );
     this.#emit({
       type: "player-hit",
       phraseId: null,
       glyphId: glyph?.id ?? null,
       hitCount: this.metrics.hitCount,
       forced,
+      fatal,
+      healthLost: 1,
+      playerHealth: this.playerHealth,
+      playerMaxHealth: this.playerMaxHealth,
       invulnerableMs: this.config.player.invulnerableMs,
     });
     this.#emit({
@@ -986,24 +1123,40 @@ export class WordBreakerEncounter {
       message: round.collapseMessage,
       gimmick: Object.freeze({ ...round.gimmick }),
       glyph: glyph ? snapshotOverloadGlyph(glyph) : null,
-      guardian: null,
+      guardian: awakened,
     });
     this.#emit({
-      type: "player-knockout",
+      type: fatal ? "player-knockout" : "player-staggered",
       roundIndex: this.roundIndex,
       roundId: round.id,
       gimmickType: this.currentGimmick.type,
       glyph: glyph ? snapshotOverloadGlyph(glyph) : null,
       reason,
+      fatal,
+      playerHealth: this.playerHealth,
+      playerMaxHealth: this.playerMaxHealth,
       durationMs: this.config.collapseImpactMs,
     });
     return true;
   }
 
   #stepKnockedOut(stepMs) {
-    if (this.phase !== WORD_BREAKER_PHASES.KNOCKED_OUT) return;
+    if (
+      this.phase !== WORD_BREAKER_PHASES.STAGGERED
+      && this.phase !== WORD_BREAKER_PHASES.KNOCKED_OUT
+    ) return;
     this.knockoutElapsedMs = Math.min(this.config.collapseImpactMs, this.knockoutElapsedMs + stepMs);
-    if (this.knockoutElapsedMs + EPSILON >= this.config.collapseImpactMs) this.#beginGuardianReveal();
+    if (this.knockoutElapsedMs + EPSILON < this.config.collapseImpactMs) return;
+    if (this.phase === WORD_BREAKER_PHASES.STAGGERED) this.#finishStagger();
+    else this.#beginGuardianReveal();
+  }
+
+  #finishStagger() {
+    if (this.phase !== WORD_BREAKER_PHASES.STAGGERED) return false;
+    this.knockoutElapsedMs = 0;
+    this.overloadGlyphs = [];
+    this.#enterRound(this.roundIndex + 1);
+    return true;
   }
 
   #beginGuardianReveal() {
@@ -1012,19 +1165,14 @@ export class WordBreakerEncounter {
     this.phase = WORD_BREAKER_PHASES.GUARDIAN_REVEAL;
     this.overloadGlyphs = [];
     this.guardianRevealRemainingMs = this.config.guardianRevealMs;
-    this.guardian = createWordBreakerGuardian({
-      round,
-      arena: this.config.arena,
-      guardianConfig: this.config.guardian,
-      roundIndex: this.roundIndex,
-      random: this.random,
-    });
-    this.#setStatus(`${round.guardian.label} · 등장`, "guardian");
+    this.guardian = null;
+    this.#setStatus("다섯 수호알 · 함께 부활 준비", "guardian");
     this.#emit({
       type: "guardian-reveal",
       roundIndex: this.roundIndex,
       roundId: round.id,
-      guardian: snapshotGuardian(this.guardian),
+      guardian: null,
+      guardians: Object.freeze(this.collectedGuardians.map(snapshotGuardian)),
       message: round.guardianMessage,
       durationMs: this.config.guardianRevealMs,
     });
@@ -1041,26 +1189,27 @@ export class WordBreakerEncounter {
   #beginRecovery() {
     if (this.phase !== WORD_BREAKER_PHASES.GUARDIAN_REVEAL) return false;
     const round = this.config.rounds[this.roundIndex];
-    this.phase = WORD_BREAKER_PHASES.RECOVERING;
+    this.phase = WORD_BREAKER_PHASES.REVIVED;
     this.guardianRevealRemainingMs = 0;
     this.guardianElapsedMs = 0;
-    if (!this.guardian) {
-      this.guardian = createWordBreakerGuardian({
-        round,
-        arena: this.config.arena,
-        guardianConfig: this.config.guardian,
-        roundIndex: this.roundIndex,
-        random: this.random,
-      });
-    }
-    this.#setStatus("수호알에게 이동", "recovery");
+    this.recoveryHoldRemainingMs = this.config.recoveryHoldMs;
+    this.playerHealth = this.playerMaxHealth;
+    this.#setStatus("다섯 수호알이 함께 일으켜 세웠습니다.", "success");
     this.#emit({
-      type: "recovery-start",
+      type: "guardian-revival",
       roundIndex: this.roundIndex,
       roundId: round.id,
-      guardian: snapshotGuardian(this.guardian),
+      guardians: Object.freeze(this.collectedGuardians.map(snapshotGuardian)),
       message: round.recoveryMessage,
+      playerHealth: this.playerHealth,
+      playerMaxHealth: this.playerMaxHealth,
     });
+    this.#emit({
+      type: "player-revived",
+      roundIndex: this.roundIndex,
+      guardians: Object.freeze(this.collectedGuardians.map(snapshotGuardian)),
+    });
+    if (this.recoveryHoldRemainingMs <= EPSILON) this.#finishRecoveryHold();
     return true;
   }
 
@@ -1238,6 +1387,7 @@ export class WordBreakerEncounter {
       shotsFired: this.metrics.shotsFired,
       glyphsBroken: this.metrics.glyphsBroken,
       overloadGlyphsSpawned: this.metrics.overloadGlyphsSpawned,
+      overloadGlyphsBroken: this.metrics.overloadGlyphsBroken,
       overloadContacts: this.metrics.overloadContacts,
       knockoutCount: this.metrics.knockoutCount,
       guardiansCollected: this.metrics.guardiansCollected,

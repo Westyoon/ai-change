@@ -72,6 +72,9 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   function handleEncounterEvent(event) {
     if (event.type === "round-start") {
       system?.setControlLocked(false, "word-breaker-transition");
+      system?.setControlLocked(false, "word-breaker-stagger");
+    } else if (event.type === "player-staggered") {
+      system?.setControlLocked(true, "word-breaker-stagger");
     } else if (event.type === "player-knockout") {
       system?.setControlLocked(true, "word-breaker-knockout");
     } else if (event.type === "recovery-start") {
@@ -140,8 +143,9 @@ export function createBattle({ root, input = null, events = null, onComplete = n
         width: config.player.width,
         height: config.player.height,
         speed: config.player.speed,
-        maxHealth: 1,
-        currentHealth: 1,
+        direction: "up",
+        maxHealth: config.rounds.length,
+        currentHealth: config.rounds.length,
         stats: player.accountStats,
         appearance: player.appearance ?? DEFAULT_PLAYER_APPEARANCE,
       },

@@ -92,10 +92,32 @@ function applyPhraseWave(phrase) {
   return phrase;
 }
 
-function createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage) {
+function resolveTargetSegments(definition, segments, targetPlacement) {
+  const semanticStart = definition.negative.indexOf(definition.target);
+  const semanticEnd = semanticStart + definition.target.length;
+  const semanticTargets = segments.filter(({ text, index }) => (
+    text.trim().length > 0 && index >= semanticStart && index < semanticEnd
+  ));
+  if (targetPlacement !== "left" || semanticTargets.length === 0) {
+    return {
+      indexes: new Set(semanticTargets.map(({ index }) => index)),
+      text: definition.target,
+      side: "right",
+    };
+  }
+
+  const visible = segments.filter(({ text }) => text.trim().length > 0);
+  const leftTargets = visible.slice(0, semanticTargets.length);
+  return {
+    indexes: new Set(leftTargets.map(({ index }) => index)),
+    text: leftTargets.map(({ text }) => text).join(""),
+    side: "left",
+  };
+}
+
+function createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage, targetPlacement = "right") {
   const segments = segmentGraphemes(definition.negative);
-  const targetStart = definition.negative.indexOf(definition.target);
-  const targetEnd = targetStart + definition.target.length;
+  const resolvedTarget = resolveTargetSegments(definition, segments, targetPlacement);
   const contentX = phrase.x + phraseConfig.horizontalPadding;
   const contentWidth = Math.max(1, phrase.width - phraseConfig.horizontalPadding * 2);
   const slotWidth = contentWidth / Math.max(1, segments.length);
@@ -112,7 +134,7 @@ function createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage) {
   const glyphY = phrase.y + (phrase.height - glyphHeight) / 2;
   const glyphs = segments.map((segment, index) => {
     const collidable = segment.text.trim().length > 0;
-    const isTarget = collidable && segment.index >= targetStart && segment.index < targetEnd;
+    const isTarget = collidable && resolvedTarget.indexes.has(segment.index);
     const trackingOffset = (index - (segments.length - 1) / 2) * letterSpacing;
     const x = contentX + index * slotWidth + (slotWidth - glyphWidth) / 2 + trackingOffset;
     return {
@@ -126,6 +148,7 @@ function createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage) {
       anchorY: glyphY - phrase.y,
       waveIndex: index,
       collidable,
+      attackable: isTarget,
       isTarget,
       broken: false,
       hp: 0,
@@ -147,11 +170,20 @@ function createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage) {
     glyph.maxHp = Math.max(1, hits) * shotDamage;
     glyph.hp = glyph.maxHp;
   }
-  return glyphs;
+  return { glyphs, resolvedTarget };
 }
 
-function attachPhraseGlyphs(phrase, definition, phraseConfig, shotDamage) {
-  phrase.glyphs = createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage);
+function attachPhraseGlyphs(phrase, definition, phraseConfig, shotDamage, targetPlacement = "right") {
+  const { glyphs, resolvedTarget } = createPhraseGlyphs(
+    phrase,
+    definition,
+    phraseConfig,
+    shotDamage,
+    targetPlacement,
+  );
+  phrase.glyphs = glyphs;
+  phrase.target = resolvedTarget.text;
+  phrase.targetSide = resolvedTarget.side;
   const targets = phrase.glyphs.filter(({ isTarget }) => isTarget);
   phrase.targetBounds = unionBounds(targets, {
     x: phrase.x + phraseConfig.horizontalPadding,
@@ -200,7 +232,16 @@ export function createWordBreakerPhrase({
     speed: phraseConfig.speed,
     reframeRemainingMs: 0,
   };
-  attachPhraseGlyphs(phrase, definition, phraseConfig, shotDamage);
+  // The semantic target remains on its authored side for odd spawns. Even
+  // spawns highlight an equally sized phrase fragment on the left, so neither
+  // desktop nor portrait players can clear every sentence from one lane.
+  attachPhraseGlyphs(
+    phrase,
+    definition,
+    phraseConfig,
+    shotDamage,
+    sequence % 2 === 0 ? "left" : "right",
+  );
   const edgeRoom = Math.max(0, Math.min(
     phrase.x - arena.x,
     arena.x + arena.width - phrase.x - phrase.width,
@@ -258,14 +299,46 @@ export function createWordBreakerCollapsePhrase({
   return phrase;
 }
 
-export function createWordBreakerShot({ playerBounds, shotConfig, sequence }) {
+export function createWordBreakerShot({
+  playerBounds,
+  shotConfig,
+  sequence,
+  facingDirection = "up",
+  targetGlyphId = null,
+  targetSide = facingDirection,
+}) {
   const playerCenter = aabbCenter(playerBounds);
+  const directions = {
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 },
+  };
+  const direction = directions[facingDirection] ?? directions.up;
+  const horizontal = direction.x !== 0;
+  const width = horizontal ? shotConfig.height : shotConfig.width;
+  const height = horizontal ? shotConfig.width : shotConfig.height;
+  const x = direction.x < 0
+    ? playerBounds.x - width
+    : direction.x > 0
+      ? playerBounds.x + playerBounds.width
+      : playerCenter.x - width / 2;
+  const y = direction.y < 0
+    ? playerBounds.y - height
+    : direction.y > 0
+      ? playerBounds.y + playerBounds.height
+      : playerCenter.y - height / 2;
   return {
     id: `shot-${sequence}`,
-    x: playerCenter.x - shotConfig.width / 2,
-    y: playerBounds.y - shotConfig.height,
-    width: shotConfig.width,
-    height: shotConfig.height,
+    x,
+    y,
+    width,
+    height,
+    directionX: direction.x,
+    directionY: direction.y,
+    facingDirection: Object.hasOwn(directions, facingDirection) ? facingDirection : "up",
+    targetGlyphId,
+    targetSide,
   };
 }
 
@@ -334,6 +407,26 @@ export function moveShotUp(shot, distance) {
   return shot;
 }
 
+export function moveWordBreakerShot(shot, distance, targetBounds = null) {
+  const traveled = Math.max(0, Number.isFinite(distance) ? distance : 0);
+  if (targetBounds) {
+    const shotCenter = aabbCenter(shot);
+    const targetCenter = aabbCenter(targetBounds);
+    const deltaX = targetCenter.x - shotCenter.x;
+    const deltaY = targetCenter.y - shotCenter.y;
+    const length = Math.hypot(deltaX, deltaY);
+    if (length > Number.EPSILON) {
+      shot.directionX = deltaX / length;
+      shot.directionY = deltaY / length;
+    }
+  }
+  const directionX = Number.isFinite(shot.directionX) ? shot.directionX : 0;
+  const directionY = Number.isFinite(shot.directionY) ? shot.directionY : -1;
+  shot.x += directionX * traveled;
+  shot.y += directionY * traveled;
+  return shot;
+}
+
 function overloadGlyph({
   id,
   text,
@@ -346,6 +439,7 @@ function overloadGlyph({
   vy = 0,
   delayMs = 0,
   surge = false,
+  unavoidable = false,
   width = GLYPH_WIDTH,
   height = GLYPH_HEIGHT,
   variant = "default",
@@ -354,6 +448,7 @@ function overloadGlyph({
   targetX = null,
   targetY = null,
   spin = 0,
+  hitPoints = 2,
 }) {
   return {
     id,
@@ -375,6 +470,11 @@ function overloadGlyph({
     targetX,
     targetY,
     spin,
+    hp: Math.max(1, Math.trunc(hitPoints)),
+    maxHp: Math.max(1, Math.trunc(hitPoints)),
+    attackable: !unavoidable,
+    broken: false,
+    unavoidable,
     contacted: false,
   };
 }
@@ -422,7 +522,7 @@ function movementClearance(arena, playerBounds, angle) {
   return Math.max(0, Math.min(clearanceX, clearanceY));
 }
 
-function chooseFirewallGapSlot({ arena, playerBounds, radius, slots, roundIndex, waveIndex }) {
+function chooseFirewallGapSlot({ arena, playerBounds, radius, slots, roundIndex, waveIndex, random }) {
   const candidates = Array.from({ length: slots }, (_, slot) => {
     const angle = -Math.PI / 2 + (slot / slots) * FULL_TURN;
     return { slot, clearance: movementClearance(arena, playerBounds, angle) };
@@ -430,20 +530,24 @@ function chooseFirewallGapSlot({ arena, playerBounds, radius, slots, roundIndex,
   const maximumClearance = Math.max(...candidates.map(({ clearance }) => clearance));
   const minimumPlayableClearance = Math.min(maximumClearance, radius * 0.9);
   const playable = candidates.filter(({ clearance }) => clearance >= minimumPlayableClearance);
-  return playable[(waveIndex + roundIndex) % playable.length].slot;
+  const variation = Math.floor(sample(random) * playable.length);
+  return playable[(waveIndex + roundIndex + variation) % playable.length].slot;
 }
 
-function makeLaneRain({ round, arena, gimmick, roundIndex, waveIndex }) {
+function makeLaneRain({ round, arena, gimmick, roundIndex, waveIndex, random = Math.random }) {
   const count = Math.min(gimmick.maxGlyphs, 4 + Math.floor(waveIndex / 2));
+  const sideOffset = Math.floor(sample(random) * 4);
+  const laneOffset = Math.floor(sample(random) * gimmick.laneCount);
+  const driftSign = sample(random) < 0.5 ? -1 : 1;
   return Array.from({ length: count }, (_, index) => {
-    const side = (waveIndex + index) % 4;
-    const lane = (waveIndex + index * 2) % gimmick.laneCount;
+    const side = (waveIndex + index + sideOffset) % 4;
+    const lane = (waveIndex + index * 2 + laneOffset) % gimmick.laneCount;
     const isOutlier = waveIndex >= 2
       && waveIndex % 3 === 2
       && index === waveIndex % count;
     const isMissingValue = !isOutlier && (waveIndex + index) % 4 === 0;
     const speed = gimmick.glyphSpeed * (isOutlier ? 1.3 : 0.94 + index * 0.025);
-    const drift = isOutlier ? (waveIndex % 2 === 0 ? -64 : 64) : 0;
+    const drift = isOutlier ? driftSign * (waveIndex % 2 === 0 ? -64 : 64) : 0;
     let x;
     let y;
     let vx;
@@ -486,7 +590,7 @@ function makeLaneRain({ round, arena, gimmick, roundIndex, waveIndex }) {
   });
 }
 
-function makeFirewall({ round, arena, playerBounds, gimmick, roundIndex, waveIndex }) {
+function makeFirewall({ round, arena, playerBounds, gimmick, roundIndex, waveIndex, random = Math.random }) {
   const playerCenter = aabbCenter(playerBounds);
   const slots = Math.max(12, gimmick.laneCount * 2);
   const radius = Math.min(arena.width * 0.38, arena.height * 0.215);
@@ -497,7 +601,9 @@ function makeFirewall({ round, arena, playerBounds, gimmick, roundIndex, waveInd
     slots,
     roundIndex,
     waveIndex,
+    random,
   });
+  const spinDirection = sample(random) < 0.5 ? -1 : 1;
   const openSlots = new Set([
     (gapSlot - 1 + slots) % slots,
     gapSlot,
@@ -532,6 +638,7 @@ function makeFirewall({ round, arena, playerBounds, gimmick, roundIndex, waveInd
       badge: slot === (gapSlot + 2) % slots ? "PORT" : "",
       targetX: playerCenter.x,
       targetY: playerCenter.y,
+      spin: spinDirection * (slot % 2 === 0 ? 0.22 : -0.12),
     }));
   }
   return glyphs;
@@ -546,6 +653,7 @@ function makeClosedFirewallSurge({
   surgeIndex,
   delayMs,
   travelMs,
+  unavoidable = false,
 }) {
   const center = playerBounds
     ? aabbCenter(playerBounds)
@@ -570,6 +678,7 @@ function makeClosedFirewallSurge({
       vy: speed,
       delayMs,
       surge: true,
+      unavoidable,
       variant: "ransomware",
       stage: 4,
       badge: index === 0 ? "LOCK" : "",
@@ -579,54 +688,76 @@ function makeClosedFirewallSurge({
   });
 }
 
-function makeRecursiveFork({ round, arena, gimmick, roundIndex, waveIndex }) {
+function makeRecursiveFork({ round, arena, gimmick, roundIndex, waveIndex, random = Math.random }) {
   const depth = waveIndex % 4;
   const branchCount = Math.min(gimmick.laneCount, 2 ** depth);
-  return Array.from({ length: branchCount }, (_, index) => overloadGlyph({
-    id: `overload-${roundIndex + 1}-${waveIndex + 1}-${index + 1}`,
-    text: glyphText(round, waveIndex, index),
-    x: laneCenter(arena, index, branchCount),
-    y: arena.y - GLYPH_HEIGHT - depth * 8,
-    pattern: gimmick.type,
-    waveIndex,
-    color: round.guardian.color,
-    vx: (index - (branchCount - 1) / 2) * (10 + depth * 2),
-    vy: gimmick.glyphSpeed + depth * 45,
-    delayMs: index * 35,
-    variant: depth === 3 ? "stack-overflow" : depth === 0 ? "function-call" : "stack-frame",
-    stage: depth,
-    badge: index === 0 ? (depth === 3 ? "STACK" : depth === 0 ? "CALL" : "") : "",
-  }));
+  const entrySide = Math.floor(sample(random) * 3);
+  const mirrored = sample(random) < 0.5;
+  return Array.from({ length: branchCount }, (_, sourceIndex) => {
+    const index = mirrored ? branchCount - sourceIndex - 1 : sourceIndex;
+    const branchDrift = (index - (branchCount - 1) / 2) * (10 + depth * 2);
+    const speed = gimmick.glyphSpeed + depth * 45;
+    const fromLeft = entrySide === 1;
+    const fromRight = entrySide === 2;
+    return overloadGlyph({
+      id: `overload-${roundIndex + 1}-${waveIndex + 1}-${sourceIndex + 1}`,
+      text: glyphText(round, waveIndex, sourceIndex),
+      x: fromLeft
+        ? arena.x - GLYPH_WIDTH - depth * 8
+        : fromRight
+          ? arena.x + arena.width + depth * 8
+          : laneCenter(arena, index, branchCount),
+      y: fromLeft || fromRight
+        ? verticalLaneCenter(arena, index, branchCount)
+        : arena.y - GLYPH_HEIGHT - depth * 8,
+      pattern: gimmick.type,
+      waveIndex,
+      color: round.guardian.color,
+      vx: fromLeft ? speed : fromRight ? -speed : branchDrift,
+      vy: fromLeft || fromRight ? branchDrift : speed,
+      delayMs: sourceIndex * 35,
+      variant: depth === 3 ? "stack-overflow" : depth === 0 ? "function-call" : "stack-frame",
+      stage: depth,
+      badge: sourceIndex === 0 ? (depth === 3 ? "STACK" : depth === 0 ? "CALL" : "") : "",
+    });
+  });
 }
 
-function makePredictionLock({ round, arena, playerBounds, gimmick, roundIndex, waveIndex }) {
+function makePredictionLock({ round, arena, playerBounds, gimmick, roundIndex, waveIndex, random = Math.random }) {
   const playerCenter = aabbCenter(playerBounds);
   const stage = waveIndex % 4;
   const spread = [76, 54, 34, 18][stage];
   const bias = [40, -26, 12, 0][stage];
   const confidence = [52, 68, 84, 99][stage];
   const hypotheses = [-2, -1, 0, 1, 2];
-  return hypotheses.map((hypothesis, index) => overloadGlyph({
-    id: `overload-${roundIndex + 1}-${waveIndex + 1}-${index + 1}`,
-    text: glyphText(round, waveIndex, index),
-    x: clamp(
-      playerCenter.x + bias + hypothesis * spread - GLYPH_WIDTH / 2,
-      arena.x,
-      arena.x + arena.width - GLYPH_WIDTH,
-    ),
-    y: arena.y + 8,
-    pattern: gimmick.type,
-    waveIndex,
-    color: round.guardian.color,
-    vy: gimmick.glyphSpeed,
-    delayMs: 280 + Math.abs(hypothesis) * 70 + (3 - stage) * 30,
-    variant: stage === 3 && hypothesis === 0 ? "confidence-lock" : "hypothesis",
-    stage,
-    badge: hypothesis === 0 ? `${confidence}%` : "",
-  }));
+  const entrySide = Math.floor(sample(random) * 3);
+  const biasDirection = sample(random) < 0.5 ? -1 : 1;
+  return hypotheses.map((hypothesis, index) => {
+    const offset = bias * biasDirection + hypothesis * spread;
+    const horizontalEntry = entrySide > 0;
+    return overloadGlyph({
+      id: `overload-${roundIndex + 1}-${waveIndex + 1}-${index + 1}`,
+      text: glyphText(round, waveIndex, index),
+      x: horizontalEntry
+        ? entrySide === 1 ? arena.x - GLYPH_WIDTH : arena.x + arena.width
+        : clamp(playerCenter.x + offset - GLYPH_WIDTH / 2, arena.x, arena.x + arena.width - GLYPH_WIDTH),
+      y: horizontalEntry
+        ? clamp(playerCenter.y + offset - GLYPH_HEIGHT / 2, arena.y, arena.y + arena.height - GLYPH_HEIGHT)
+        : arena.y + 8,
+      pattern: gimmick.type,
+      waveIndex,
+      color: round.guardian.color,
+      vx: horizontalEntry ? (entrySide === 1 ? gimmick.glyphSpeed : -gimmick.glyphSpeed) : 0,
+      vy: horizontalEntry ? 0 : gimmick.glyphSpeed,
+      delayMs: 280 + Math.abs(hypothesis) * 70 + (3 - stage) * 30,
+      variant: stage === 3 && hypothesis === 0 ? "confidence-lock" : "hypothesis",
+      stage,
+      badge: hypothesis === 0 ? `${confidence}%` : "",
+    });
+  });
 }
 
-function makeConvergenceRing({ round, arena, playerBounds, gimmick, roundIndex, waveIndex }) {
+function makeConvergenceRing({ round, arena, playerBounds, gimmick, roundIndex, waveIndex, random = Math.random }) {
   const stage = waveIndex % 3;
   const playerCenter = aabbCenter(playerBounds);
   const hub = {
@@ -635,7 +766,10 @@ function makeConvergenceRing({ round, arena, playerBounds, gimmick, roundIndex, 
   };
   const counts = [5, 3, 8];
   const count = counts[stage];
+  const orientation = sample(random) < 0.5 ? -1 : 1;
+  const laneOffset = Math.floor(sample(random) * count);
   return Array.from({ length: count }, (_, index) => {
+    const laneIndex = (index + laneOffset) % count;
     let x;
     let y;
     let targetX = playerCenter.x;
@@ -645,17 +779,17 @@ function makeConvergenceRing({ round, arena, playerBounds, gimmick, roundIndex, 
     let spin = 0;
 
     if (stage === 0) {
-      x = laneCenter(arena, index, count);
+      x = laneCenter(arena, laneIndex, count);
       y = arena.y - GLYPH_HEIGHT;
       targetX = hub.x;
       targetY = hub.y;
       color = "#d82f76";
       variant = "data-input";
     } else if (stage === 1) {
-      x = clamp(hub.x + (index - 1) * 70 - GLYPH_WIDTH / 2, arena.x, arena.x + arena.width - GLYPH_WIDTH);
+      x = clamp(hub.x + (laneIndex - 1) * 70 - GLYPH_WIDTH / 2, arena.x, arena.x + arena.width - GLYPH_WIDTH);
       y = hub.y - GLYPH_HEIGHT / 2;
     } else {
-      const side = index % 2 === 0 ? -1 : 1;
+      const side = (laneIndex % 2 === 0 ? -1 : 1) * orientation;
       const row = Math.floor(index / 2);
       x = side < 0 ? arena.x - GLYPH_WIDTH : arena.x + arena.width;
       y = arena.y + arena.height * (0.18 + row * 0.12);
@@ -695,7 +829,13 @@ const OVERLOAD_FACTORIES = Object.freeze({
 export function createWordBreakerOverloadWave(options) {
   const factory = OVERLOAD_FACTORIES[options?.gimmick?.type];
   if (!factory) throw new RangeError(`Unsupported Word Breaker gimmick: ${options?.gimmick?.type}.`);
-  return factory(options);
+  const glyphs = factory(options);
+  const hitPoints = Math.max(1, Math.trunc(options.gimmick.glyphHits ?? 2));
+  for (const glyph of glyphs) {
+    glyph.hp = hitPoints;
+    glyph.maxHp = hitPoints;
+  }
+  return glyphs;
 }
 
 export function createWordBreakerOverloadSurge({
@@ -707,9 +847,10 @@ export function createWordBreakerOverloadSurge({
   surgeIndex,
   delayMs = 600,
   travelMs = 2_400,
+  unavoidable = false,
 }) {
   if (gimmick.type === "firewall-gates") {
-    return makeClosedFirewallSurge({
+    const glyphs = makeClosedFirewallSurge({
       round,
       arena,
       playerBounds,
@@ -718,7 +859,14 @@ export function createWordBreakerOverloadSurge({
       surgeIndex,
       delayMs,
       travelMs,
+      unavoidable,
     });
+    const hitPoints = Math.max(1, Math.trunc(gimmick.surgeHits ?? 3));
+    for (const glyph of glyphs) {
+      glyph.hp = hitPoints;
+      glyph.maxHp = hitPoints;
+    }
+    return glyphs;
   }
   const idealCount = Math.max(1, Math.ceil(arena.width / GLYPH_WIDTH));
   const count = Math.max(1, Math.min(idealCount, gimmick.maxGlyphs));
@@ -741,8 +889,10 @@ export function createWordBreakerOverloadSurge({
     vy: speed,
     delayMs,
     surge: true,
+    unavoidable,
     variant: "surge",
     stage: 4,
+    hitPoints: gimmick.surgeHits,
   }));
 }
 

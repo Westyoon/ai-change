@@ -297,8 +297,8 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       footY: 720,
       direction: "down",
       state: "idle",
-      currentHealth: 1,
-      maxHealth: 1,
+      currentHealth: 5,
+      maxHealth: 5,
       appearance: { label: "YOU" },
       controlLocked: false,
     };
@@ -309,6 +309,9 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       roundRemainingMs: 0,
       controlLocked: false,
       invulnerableRemainingMs: 0,
+      playerHealth: 5,
+      playerMaxHealth: 5,
+      playerDead: false,
       collectedGuardians: [],
       metrics: { purifiedCount: 0, hitCount: 0 },
       status: { text: "overload", tone: "warning" },
@@ -336,6 +339,13 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
     assert.ok(root.querySelector(".word-breaker-world"));
     assert.ok(root.querySelector(".word-breaker-joystick"));
     assert.equal(root.querySelectorAll(".word-breaker-guardian-chip").length, 5);
+    const guardianArt = root.querySelectorAll(".word-breaker-guardian-art");
+    assert.equal(guardianArt.length, 15, "HUD, revival, and finale each render all five egg images");
+    assert.deepEqual(
+      [...new Set(guardianArt.map((image) => image.getAttribute("src")))],
+      ["ds", "cs", "cse", "ai", "aids"]
+        .map((code) => `./assets/images/guardian-eggs/guardian-${code}.png`),
+    );
     assert.equal(root.querySelector(".word-breaker-modal"), null);
     assert.equal(root.querySelector(".result-modal"), null);
 
@@ -467,34 +477,63 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       "the omen remains an internal phase instead of exposing a separate visual screen",
     );
 
+    const awakenedGuardians = config.rounds.map((round, roundIndex) => ({
+      ...round.guardian,
+      x: 110,
+      y: 100,
+      width: config.guardian.width,
+      height: config.guardian.height,
+      roundIndex,
+    }));
+    view.render(
+      {
+        ...snapshot,
+        phase: WORD_BREAKER_PHASES.STAGGERED,
+        playerHealth: 4,
+        collectedGuardians: awakenedGuardians.slice(0, 1),
+        controlLocked: true,
+        status: { text: "life 4/5", tone: "warning" },
+      },
+      { ...characterSnapshot, controlLocked: true },
+    );
+    assert.match(treeText(root.querySelector(".word-breaker-phase")), /IMPACT/u);
+    assert.equal(player.dataset.staggered, "true");
+    assert.equal(player.dataset.knockedOut, "false");
+    assert.equal(root.querySelectorAll(".word-breaker-life-pip").filter(({ dataset }) => dataset.active === "true").length, 4);
+    assert.equal(root.querySelector(".word-breaker-vitality").parentNode, root.querySelector(".word-breaker-world"));
+    assert.equal(root.querySelector(".word-breaker-stage").dataset.damageLevel, "1");
+    assert.equal(root.querySelector(".word-breaker-life-fill").style.width, "80%");
+
     view.render(
       {
         ...snapshot,
         phase: WORD_BREAKER_PHASES.KNOCKED_OUT,
+        roundIndex: 4,
+        playerHealth: 0,
+        playerDead: true,
+        collectedGuardians: awakenedGuardians,
         controlLocked: true,
-        status: { text: "knocked out", tone: "danger" },
+        status: { text: "knocked out", tone: "knockout" },
       },
       { ...characterSnapshot, controlLocked: true },
     );
     assert.match(treeText(root.querySelector(".word-breaker-phase")), /DOWN/u);
     assert.equal(player.dataset.knockedOut, "true");
     assert.equal(player.dataset.controlLocked, "true");
+    assert.equal(root.querySelector(".word-breaker-stage").dataset.damageLevel, "5");
+    assert.equal(root.querySelector(".word-breaker-life-fill").style.width, "0%");
 
-    const guardian = {
-      ...config.rounds[0].guardian,
-      x: 110,
-      y: 100,
-      width: config.guardian.width,
-      height: config.guardian.height,
-      roundIndex: 0,
-    };
     view.render(
       {
         ...snapshot,
         phase: WORD_BREAKER_PHASES.GUARDIAN_REVEAL,
+        roundIndex: 4,
+        playerHealth: 0,
+        playerDead: true,
         overload: null,
         overloadGlyphs: [],
-        guardian,
+        guardian: null,
+        collectedGuardians: awakenedGuardians,
         guardianRevealRemainingMs: 2_000,
         controlLocked: true,
         status: { text: "guardian", tone: "guardian" },
@@ -503,59 +542,42 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
     );
     assert.match(treeText(root.querySelector(".word-breaker-phase")), /GUARDIAN/u);
     assert.equal(player.dataset.knockedOut, "true");
-    assert.ok(root.querySelector(".word-breaker-guardian"));
-
-    view.render(
-      {
-        ...snapshot,
-        phase: WORD_BREAKER_PHASES.RECOVERING,
-        overload: null,
-        overloadGlyphs: [],
-        guardian,
-        controlLocked: false,
-        status: { text: "recovering", tone: "recovery" },
-      },
-      characterSnapshot,
-    );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /RECOVERY/u);
-    assert.equal(player.dataset.knockedOut, "false", "the KO treatment ends as recovery begins");
-    assert.equal(player.dataset.controlLocked, "false");
-    assert.equal(player.dataset.recovering, "true");
-    assert.equal(player.dataset.revived, "false");
-    assert.equal(root.querySelectorAll(".word-breaker-overload-glyph").length, 0);
-    assert.equal(root.querySelector(".word-breaker-world").dataset.phase, "RECOVERING");
-    const recoveringGuardianNode = root.querySelector(".word-breaker-guardian");
+    assert.equal(root.querySelector(".word-breaker-guardian"), null);
+    const revivalRing = root.querySelector(".word-breaker-revival-guardians");
+    assert.ok(revivalRing);
+    assert.equal(revivalRing.dataset.visible, "true");
+    assert.equal(revivalRing.children.length, 5);
+    assert.equal(revivalRing.children.every(({ dataset }) => dataset.active === "true"), true);
     const guardianCheer = root.querySelector(".word-breaker-guardian-cheer");
-    assert.ok(recoveringGuardianNode);
     assert.ok(guardianCheer);
-    assert.equal(guardianCheer.dataset.visible, "false", "the encouragement waits until the egg is collected");
+    assert.equal(guardianCheer.dataset.visible, "false", "encouragement waits until the five eggs revive the player");
     assert.equal(guardianCheer.textContent, "");
 
     view.render(
       {
         ...snapshot,
         phase: WORD_BREAKER_PHASES.REVIVED,
+        roundIndex: 4,
+        playerHealth: 5,
+        playerDead: false,
         overload: null,
         overloadGlyphs: [],
-        guardian,
-        collectedGuardians: [guardian],
+        guardian: null,
+        collectedGuardians: awakenedGuardians,
         recoveryHoldRemainingMs: 1_500,
         controlLocked: true,
-        status: { text: config.rounds[0].recoveryMessage, tone: "success" },
+        status: { text: "다섯 수호알이 함께 일으켜 세웠습니다.", tone: "success" },
       },
       { ...characterSnapshot, controlLocked: true },
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /RECOVERED/u);
+    assert.match(treeText(root.querySelector(".word-breaker-phase")), /REVIVED/u);
     assert.equal(root.querySelector(".word-breaker-world").dataset.phase, "REVIVED");
-    assert.equal(root.querySelector(".word-breaker-guardian"), recoveringGuardianNode);
+    assert.equal(root.querySelector(".word-breaker-world").dataset.finalRevival, "true");
     assert.equal(player.dataset.recovering, "false");
     assert.equal(player.dataset.revived, "true");
     assert.equal(guardianCheer.dataset.visible, "true");
-    assert.equal(
-      guardianCheer.textContent,
-      `${guardian.code} · “${config.rounds[0].recoveryMessage}”`,
-    );
-    assert.equal(guardianCheer.style["--guardian-color"], guardian.color);
+    assert.match(guardianCheer.textContent, /DS · CS · CSE · AI · AIDS/u);
+    assert.equal(guardianCheer.style["--guardian-color"], "#fdd044");
     assert.equal(root.querySelector(".word-breaker-recovery"), null);
 
     view.render(
@@ -577,7 +599,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
   }
 });
 
-test("Word Breaker adapter keeps pause, knockout, recovery, and terminal locks independent", async () => {
+test("Word Breaker adapter keeps pause, stagger, next-round, and terminal locks independent", async () => {
   const frames = installFrameHarness();
   try {
     const root = frames.document.createElement("div");
@@ -604,6 +626,7 @@ test("Word Breaker adapter keeps pause, knockout, recovery, and terminal locks i
             forceAtMs: 8,
             spawnIntervalMs: 1_000,
             glyphSpeed: 5_000,
+            breakableSurgeCount: 0,
           },
         }
         : round),
@@ -633,13 +656,15 @@ test("Word Breaker adapter keeps pause, knockout, recovery, and terminal locks i
     assert.equal(battle.getState().metrics.knockoutCount, 0);
 
     let frameTime = 30;
-    for (let index = 0; index < 200 && battle.getState().phase !== WORD_BREAKER_PHASES.KNOCKED_OUT; index += 1) {
+    for (let index = 0; index < 200 && battle.getState().phase !== WORD_BREAKER_PHASES.STAGGERED; index += 1) {
       frameTime += 16;
       frames.step(frameTime);
     }
-    assert.equal(battle.getState().phase, WORD_BREAKER_PHASES.KNOCKED_OUT);
+    assert.equal(battle.getState().phase, WORD_BREAKER_PHASES.STAGGERED);
+    assert.equal(battle.getState().playerHealth, 4);
     const player = root.querySelector(".character-actor--local");
-    assert.equal(player.dataset.knockedOut, "true");
+    assert.equal(player.dataset.staggered, "true");
+    assert.equal(player.dataset.knockedOut, "false");
     assert.equal(player.dataset.controlLocked, "true");
 
     assert.equal(battle.pause("MANUAL"), true);
@@ -647,26 +672,21 @@ test("Word Breaker adapter keeps pause, knockout, recovery, and terminal locks i
     assert.equal(player.dataset.controlLocked, "true");
     assert.equal(battle.resume(), true);
     assert.equal(battle.getState().state, WORD_BREAKER_STATES.RUNNING);
-    assert.equal(player.dataset.controlLocked, "true", "resuming does not clear the knockout lock");
+    assert.equal(player.dataset.controlLocked, "true", "resuming does not clear the stagger lock");
 
     let transitionFrameTime = frameTime;
-    for (let index = 0; index < 20 && battle.getState().phase === WORD_BREAKER_PHASES.KNOCKED_OUT; index += 1) {
+    for (let index = 0; index < 20 && battle.getState().roundIndex === 0; index += 1) {
       transitionFrameTime += 16;
       frames.step(transitionFrameTime);
     }
-    assert.equal(battle.getState().phase, WORD_BREAKER_PHASES.GUARDIAN_REVEAL);
-    assert.equal(player.dataset.knockedOut, "true");
-    assert.equal(player.dataset.controlLocked, "true", "guardian reveal keeps the knockout lock");
-    for (let index = 0; index < 20 && battle.getState().phase === WORD_BREAKER_PHASES.GUARDIAN_REVEAL; index += 1) {
-      transitionFrameTime += 16;
-      frames.step(transitionFrameTime);
-    }
-    assert.equal(battle.getState().phase, WORD_BREAKER_PHASES.RECOVERING);
+    assert.equal(battle.getState().roundIndex, 1);
+    assert.equal(battle.getState().phase, WORD_BREAKER_PHASES.PLAY);
     assert.equal(player.dataset.knockedOut, "false");
-    assert.equal(player.dataset.controlLocked, "false", "recovery start clears only the knockout lock");
+    assert.equal(player.dataset.staggered, "false");
+    assert.equal(player.dataset.controlLocked, "false", "the next round clears only the stagger lock");
 
     assert.equal(battle.pause("MANUAL"), true);
-    assert.equal(player.dataset.controlLocked, "true", "pause remains an independent lock during recovery");
+    assert.equal(player.dataset.controlLocked, "true", "pause remains an independent lock between rounds");
     assert.equal(battle.resume(), true);
     assert.equal(player.dataset.controlLocked, "false");
 
@@ -742,6 +762,10 @@ test("Word Breaker runtime delegates shared loop/input and contains no private m
   );
   assert.match(cssSource, /data-phase="GUARDIAN_REVEAL"/u);
   assert.match(cssSource, /data-phase="REVIVED"/u);
+  assert.match(
+    cssSource,
+    /\.word-breaker-guardian-art\s*\{[^}]*object-fit:\s*contain;[^}]*image-rendering:\s*pixelated;/su,
+  );
   assert.doesNotMatch(
     cssSource,
     /data-overload-armed="false"/u,

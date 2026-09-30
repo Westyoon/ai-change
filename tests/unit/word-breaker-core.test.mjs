@@ -23,6 +23,7 @@ import {
   createWordBreakerOverloadWave,
   createWordBreakerOverloadSurge,
   createWordBreakerPhrase,
+  createWordBreakerShot,
   movePhraseDown,
   moveWordBreakerOverloadGlyph,
 } from "../../js/battle/postgame/bosses/word-breaker/patterns.js";
@@ -42,6 +43,7 @@ function gimmick(index, overrides = {}) {
     maxGlyphs: 28,
     contactThreshold: 1,
     laneCount: GIMMICK_LANES[index],
+    breakableSurgeCount: 0,
     ...overrides,
   };
 }
@@ -148,7 +150,7 @@ function productionConfig() {
   return normalizeWordBreakerConfig(source);
 }
 
-test("config freezes five ordered gimmicks and production targets require five or six hits", () => {
+test("config freezes five ordered gimmicks and production targets require seven durable hits", () => {
   const config = productionConfig();
   assert.deepEqual(config.arena, { x: 0, y: 0, width: 450, height: 800 });
   assert.deepEqual(config.rounds.map(({ guardian }) => guardian.code), GUARDIAN_CODES);
@@ -158,11 +160,11 @@ test("config freezes five ordered gimmicks and production targets require five o
   assert.equal(config.omenDurationMs, 2_400);
   assert.equal(config.overloadGraceMs, 4_200);
   assert.deepEqual(config.rounds.map(({ gimmick: roundGimmick }) => roundGimmick.forceAtMs), [
-    6_400,
-    6_800,
-    6_600,
-    6_400,
-    7_000,
+    8_200,
+    8_600,
+    8_400,
+    8_200,
+    8_800,
   ]);
   assert.equal(config.overloadAttackLeadMs, 600);
   assert.equal(config.rounds[1].gimmick.spawnIntervalMs, 1_500);
@@ -170,7 +172,7 @@ test("config freezes five ordered gimmicks and production targets require five o
     config.rounds.map(({ gimmick: roundGimmick }) => (
       roundGimmick.forceAtMs - config.overloadGraceMs - config.overloadAttackLeadMs
     )),
-    [1_600, 2_000, 1_800, 1_600, 2_200],
+    [3_400, 3_800, 3_600, 3_400, 4_000],
     "each escalation starts only after a readable active-hazard interval",
   );
   assert.equal(config.collapseImpactMs, 1_800);
@@ -180,7 +182,11 @@ test("config freezes five ordered gimmicks and production targets require five o
   assert.equal(config.recoveryHoldMs, 1_500);
   assert.equal(config.finaleDurationMs, 3_200);
   assert.equal(config.guardian.speed, 300);
-  assert.equal(config.phrase.letterSpacing, 1.5);
+  assert.equal(config.shot.speed, 320);
+  assert.equal(config.shot.intervalMs, 260);
+  assert.equal(config.phrase.speed, 44);
+  assert.equal(config.phrase.maxHp, 140);
+  assert.equal(config.phrase.letterSpacing, 2.4);
   assert.equal(config.phrase.wobbleAmplitudeX, 4);
   assert.equal(config.phrase.wobbleAmplitudeY, 3);
   assert.equal(config.phrase.wobbleWavelength, 96);
@@ -192,8 +198,8 @@ test("config freezes five ordered gimmicks and production targets require five o
 
   const targetHits = config.rounds.flatMap((round) => round.phrases.map((phrase) => phrase.targetHits));
   assert.ok(targetHits.length > 0);
-  assert.equal(targetHits.every((hits) => hits === 5 || hits === 6), true);
-  assert.equal(targetHits.some((hits) => hits === 6), true);
+  assert.equal(targetHits.every((hits) => hits === 7), true);
+  assert.equal(config.rounds.every(({ gimmick: item }) => item.breakableSurgeCount === 2), true);
 
   assert.throws(
     () => normalizeWordBreakerConfig({ rounds: rounds().slice(0, 4) }),
@@ -204,7 +210,7 @@ test("config freezes five ordered gimmicks and production targets require five o
     /guardian recovery steps/u,
   );
   assert.throws(
-    () => normalizeWordBreakerConfig({ overloadGraceMs: 6_800 }),
+    () => normalizeWordBreakerConfig({ overloadGraceMs: 8_000 }),
     /overloadGraceMs/u,
   );
   assert.throws(
@@ -272,6 +278,11 @@ test("Korean graphemes own individual geometry and spaces remain transparent", (
   const spaces = phrase.glyphs.filter(({ text }) => text === " ");
   assert.ok(spaces.length > 0);
   assert.equal(spaces.every(({ collidable }) => collidable === false), true);
+  assert.equal(
+    phrase.glyphs.filter(({ collidable }) => collidable).every(({ attackable, isTarget }) => attackable === isTarget),
+    true,
+    "only the clearly highlighted fragment receives projectile damage",
+  );
   const transparentPoint = {
     x: spaces[0].x + spaces[0].width / 2,
     y: spaces[0].y + spaces[0].height / 2,
@@ -321,6 +332,39 @@ test("Korean graphemes own individual geometry and spaces remain transparent", (
     width: right - left,
     height: bottom - top,
   }, "the visible target glyphs and collision envelope stay synchronized");
+
+  const leftPhrase = createWordBreakerPhrase({
+    definition: {
+      id: "korean-phrase-left",
+      negative: "나는 못 해",
+      target: "못 해",
+      reframe: "다시 해 볼 수 있어",
+      targetHits: 5,
+      maxHp: 100,
+    },
+    arena: { x: 0, y: 0, width: 120, height: 120 },
+    phraseConfig: {
+      width: 90,
+      height: 12,
+      targetHeight: 10,
+      horizontalPadding: 10,
+      letterSpacing: 1.5,
+      wobbleAmplitudeX: 4,
+      wobbleAmplitudeY: 1,
+      wobbleWavelength: 96,
+      speed: 1,
+    },
+    shotDamage: 20,
+    roundIndex: 0,
+    sequence: 2,
+    random: () => 0,
+  });
+  assert.equal(leftPhrase.targetSide, "left");
+  assert.deepEqual(
+    leftPhrase.glyphs.filter(({ isTarget }) => isTarget).map(({ text }) => text),
+    ["나", "는"],
+    "every second sentence moves the yellow breakable fragment to its left side",
+  );
 });
 
 test("phrase wobble is deterministic across movement splits", () => {
@@ -348,7 +392,7 @@ test("phrase wobble is deterministic across movement splits", () => {
     shotDamage: 20,
     roundIndex: 2,
     sequence: 7,
-    random: () => 0.5,
+    random: () => 0,
   };
   const oneStep = createWordBreakerPhrase(options);
   const splitStep = createWordBreakerPhrase(options);
@@ -406,7 +450,25 @@ test("collision helpers retain edge and swept-shot behavior", () => {
   );
 });
 
-test("shots break every target glyph before one phrase purification", () => {
+test("directional shots use a collision box that matches their visible orientation", () => {
+  const playerBounds = { x: 100, y: 200, width: 30, height: 40 };
+  const shotConfig = { width: 6, height: 14 };
+  const up = createWordBreakerShot({ playerBounds, shotConfig, sequence: 1, facingDirection: "up" });
+  const down = createWordBreakerShot({ playerBounds, shotConfig, sequence: 2, facingDirection: "down" });
+  const left = createWordBreakerShot({ playerBounds, shotConfig, sequence: 3, facingDirection: "left" });
+  const right = createWordBreakerShot({ playerBounds, shotConfig, sequence: 4, facingDirection: "right" });
+
+  assert.deepEqual([up.width, up.height], [6, 14]);
+  assert.deepEqual([down.width, down.height], [6, 14]);
+  assert.deepEqual([left.width, left.height], [14, 6]);
+  assert.deepEqual([right.width, right.height], [14, 6]);
+  assert.equal(left.x + left.width, playerBounds.x);
+  assert.equal(right.x, playerBounds.x + playerBounds.width);
+  assert.equal(left.y, playerBounds.y + (playerBounds.height - left.height) / 2);
+  assert.equal(right.y, left.y);
+});
+
+test("shots always travel upward and durable highlighted letters purify a phrase", () => {
   const events = [];
   const config = compactConfig({
     roundDurationMs: 1_000,
@@ -428,24 +490,37 @@ test("shots break every target glyph before one phrase purification", () => {
       reframeDurationMs: 650,
       horizontalPadding: 0,
     },
+    rounds: rounds({ negative: "왼쪽 가운데 오른쪽", target: "오른쪽", targetHits: 5 }),
   });
   const encounter = new WordBreakerEncounter({ config, random: () => 0, onEvent: (event) => events.push(event) });
   encounter.init();
   encounter.start({ attemptId: "word-breaker:glyph-hits" });
+  encounter.setPlayerBounds({ ...encounter.getSnapshot().playerBounds, direction: "left" });
+  encounter.tick(15);
+  encounter.setPlayerBounds({ ...encounter.getSnapshot().playerBounds, direction: "right" });
+  encounter.tick(15);
+  encounter.setPlayerBounds({ ...encounter.getSnapshot().playerBounds, direction: "up" });
   encounter.tick(250);
 
   const snapshot = encounter.getSnapshot();
   const phrase = snapshot.phrases[0];
   assert.equal(phrase.tone, "reframed");
-  assert.equal(phrase.glyphs.filter(({ isTarget }) => isTarget).length, 5);
-  assert.equal(phrase.glyphs.filter(({ isTarget }) => isTarget).every(({ broken }) => broken), true);
-  assert.equal(snapshot.metrics.glyphsBroken, 5);
+  assert.equal(phrase.glyphs.filter(({ isTarget }) => isTarget).length, 3);
+  const firedShots = events.filter(({ type }) => type === "shot-fired").map(({ shot }) => shot);
+  assert.ok(firedShots.length > 0);
+  assert.equal(
+    firedShots.every(({ facingDirection, directionX, directionY }) => (
+      facingDirection === "up" && directionX === 0 && directionY === -1
+    )),
+    true,
+  );
+  assert.equal(snapshot.metrics.glyphsBroken, 3);
   assert.equal(snapshot.metrics.purifiedCount, 1);
   const brokenIndices = events
     .map((event, index) => event.type === "glyph-broken" ? index : -1)
     .filter((index) => index >= 0);
   const purifiedIndex = events.findIndex(({ type }) => type === "phrase-purified");
-  assert.equal(brokenIndices.length, 5);
+  assert.equal(brokenIndices.length, 3);
   assert.ok(purifiedIndex > Math.max(...brokenIndices), "purification follows the last broken target glyph");
 });
 
@@ -488,7 +563,10 @@ test("shots and the player pass through a transparent parent gap", () => {
   assert.equal(gap.metrics.glyphsBroken, 0);
   assert.equal(gap.metrics.purifiedCount, 0);
   const solid = gapEncounter(5);
-  assert.equal(solid.metrics.hitCount, 1, "the same parent path hits when the player overlaps a real glyph");
+  assert.ok(
+    solid.metrics.hitCount + solid.metrics.glyphsBroken >= 1,
+    "a real glyph on the same path is either hit by the player or intercepted by its auto-aimed light",
+  );
   assert.equal(solid.state, WORD_BREAKER_STATES.RUNNING);
 });
 
@@ -525,7 +603,7 @@ test("five allowlisted overload factories have ordered, distinct deterministic s
     gimmick: config.rounds[roundIndex].gimmick,
     roundIndex,
     waveIndex,
-    random: () => 0.5,
+    random: () => 0,
   });
 
   const dsCrossfire = wave(0, 0);
@@ -540,6 +618,29 @@ test("five allowlisted overload factories have ordered, distinct deterministic s
   assert.ok(
     Math.hypot(dsOutlier.vx, dsOutlier.vy) > config.rounds[0].gimmick.glyphSpeed,
     "DS outliers cross the four-way stream faster than ordinary samples",
+  );
+  const randomizedDsA = createWordBreakerOverloadWave({
+    round: config.rounds[0],
+    arena: config.arena,
+    playerBounds: player,
+    gimmick: config.rounds[0].gimmick,
+    roundIndex: 0,
+    waveIndex: 2,
+    random: mulberry32(1),
+  });
+  const randomizedDsB = createWordBreakerOverloadWave({
+    round: config.rounds[0],
+    arena: config.arena,
+    playerBounds: player,
+    gimmick: config.rounds[0].gimmick,
+    roundIndex: 0,
+    waveIndex: 2,
+    random: mulberry32(2),
+  });
+  assert.notDeepEqual(
+    randomizedDsA.map(({ x, y, vx, vy }) => [x, y, vx, vy]),
+    randomizedDsB.map(({ x, y, vx, vy }) => [x, y, vx, vy]),
+    "different seeded runs vary the entry sides and lanes",
   );
 
   const firewallForward = wave(1, 0);
@@ -813,7 +914,7 @@ test("cyber-security waves replace whole rings instead of truncating them at max
   assert.equal(new Set(activeRing.map(({ waveIndex }) => waveIndex)).size, 1);
 });
 
-test("forceAt starts one bounded escalation without an immediate virtual knockout", () => {
+test("forceAt starts a visible surge before exactly one fifth of life is lost", () => {
   const events = [];
   const cappedRounds = rounds();
   cappedRounds[0].gimmick = gimmick(0, {
@@ -838,7 +939,7 @@ test("forceAt starts one bounded escalation without an immediate virtual knockou
   const firstY = firstWave.overloadGlyphs[0].y;
   encounter.tick(5);
   const moved = encounter.getSnapshot().overloadGlyphs.find(({ id }) => id === movingId);
-  assert.ok(moved.y > firstY);
+  assert.ok(moved.x !== firstWave.overloadGlyphs[0].x || moved.y !== firstY);
   encounter.tick(5);
   assert.equal(encounter.getSnapshot().overload.armed, true);
   assert.equal(encounter.getSnapshot().metrics.knockoutCount, 0, "preview hazards are cleared before activation");
@@ -851,20 +952,22 @@ test("forceAt starts one bounded escalation without an immediate virtual knockou
   assert.equal(escalated.metrics.knockoutCount, 0);
   assert.ok(escalated.overloadGlyphs.some(({ surge }) => surge), "forceAt adds a visible surge wave");
 
-  for (let index = 0; index < 2_000; index += 1) {
-    escalated = encounter.tick(5);
-    assert.equal(escalated.phase, WORD_BREAKER_PHASES.OVERLOAD);
-    assert.ok(escalated.overloadGlyphs.length <= 4, "escalation must honor maxGlyphs indefinitely");
-  }
+  escalated = advanceUntil(
+    encounter,
+    (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.STAGGERED,
+    { stepMs: 5, maxTicks: 2_000 },
+  );
   assert.equal(events.filter(({ type }) => type === "overload-escalated").length, 1);
-  assert.ok(events.filter(({ type }) => type === "overload-surge").length >= 3);
-  assert.ok(events.filter(({ type }) => type === "overload-contact").length < 8);
-  assert.equal(events.filter(({ type }) => type === "collapse").length, 0);
+  assert.ok(events.filter(({ type }) => type === "overload-surge").length >= 1);
+  assert.equal(events.filter(({ type }) => type === "collapse").length, 1);
   assert.equal(events.filter(({ type }) => type === "player-knockout").length, 0);
+  assert.equal(events.filter(({ type }) => type === "player-staggered").length, 1);
   assert.equal(encounter.getSnapshot().metrics.knockoutCount, 0);
+  assert.equal(escalated.playerHealth, 4);
+  assert.equal(escalated.playerMaxHealth, 5);
 });
 
-test("a visible active surge glyph must actually overlap the player before knockout", () => {
+test("a visible active surge glyph must actually overlap the player before one-fifth damage", () => {
   const events = [];
   const surgeRounds = rounds();
   surgeRounds[0].gimmick = gimmick(0, {
@@ -897,16 +1000,21 @@ test("a visible active surge glyph must actually overlap the player before knock
   encounter.tick(telegraphedSurge.delayRemainingMs - 1);
   assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.OVERLOAD);
   assert.equal(encounter.getSnapshot().metrics.knockoutCount, 0);
-  const knockedOut = encounter.tick(1);
-  assert.equal(knockedOut.phase, WORD_BREAKER_PHASES.KNOCKED_OUT);
-  const knockoutEvent = events.find(({ type }) => type === "player-knockout");
-  assert.equal(knockoutEvent?.reason, "surge-contact");
-  assert.equal(knockoutEvent?.glyph?.surge, true);
-  assert.equal(knockoutEvent?.glyph?.telegraphing, false);
-  assert.ok(aabbIntersects(knockedOut.playerBounds, knockoutEvent.glyph));
-  assert.ok(knockedOut.overloadGlyphs.some(({ id }) => id === knockoutEvent.glyph.id));
-  assert.equal(knockedOut.metrics.overloadContacts, 1);
-  assert.equal(knockedOut.metrics.knockoutCount, 1);
+  const staggered = encounter.tick(1);
+  assert.equal(staggered.phase, WORD_BREAKER_PHASES.STAGGERED);
+  const staggerEvent = events.find(({ type }) => type === "player-staggered");
+  assert.equal(staggerEvent?.reason, "surge-contact");
+  assert.equal(staggerEvent?.glyph?.surge, true);
+  assert.equal(staggerEvent?.glyph?.telegraphing, false);
+  assert.ok(aabbIntersects(staggered.playerBounds, staggerEvent.glyph));
+  assert.ok(staggered.overloadGlyphs.some(({ id }) => id === staggerEvent.glyph.id));
+  assert.ok(staggered.metrics.overloadContacts >= 1);
+  assert.equal(
+    events.filter(({ type, glyph }) => type === "overload-contact" && glyph?.surge === true).length,
+    1,
+  );
+  assert.equal(staggered.metrics.knockoutCount, 0);
+  assert.equal(staggered.playerHealth, 4);
 });
 
 test("round pacing keeps normal attacks flowing through omen and overload lead boundaries", () => {
@@ -969,7 +1077,8 @@ test("round pacing keeps normal attacks flowing through omen and overload lead b
     snapshot.phrases.length + snapshot.shots.length > 0,
     "existing normal attacks bridge the armed telegraph instead of disappearing abruptly",
   );
-  const normalSpawnsAtArm = snapshot.metrics.phrasesSpawned + snapshot.metrics.shotsFired;
+  const phrasesSpawnedAtArm = snapshot.metrics.phrasesSpawned;
+  const shotsFiredAtArm = snapshot.metrics.shotsFired;
   encounter.setPlayerBounds({ x: 45, y: 100, width: 10, height: 10 });
   encounter.tick(1);
   snapshot = encounter.getSnapshot();
@@ -979,12 +1088,14 @@ test("round pacing keeps normal attacks flowing through omen and overload lead b
   snapshot = encounter.getSnapshot();
   assert.equal(snapshot.overload.attacking, true);
   assert.equal(snapshot.metrics.knockoutCount, 0);
-  assert.equal(snapshot.phrases.length + snapshot.shots.length, 0);
+  assert.equal(snapshot.phrases.length, 0);
+  assert.ok(snapshot.shots.length > 0, "directional fire remains active against department hazards");
   assert.equal(
-    snapshot.metrics.phrasesSpawned + snapshot.metrics.shotsFired,
-    normalSpawnsAtArm,
-    "normal spawning stops at arm while the existing attacks drain through the lead",
+    snapshot.metrics.phrasesSpawned,
+    phrasesSpawnedAtArm,
+    "phrase spawning stops when the department attack takes over",
   );
+  assert.ok(snapshot.metrics.shotsFired >= shotsFiredAtArm, "projectiles continue through overload");
   encounter.tick(17);
   assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.OVERLOAD);
   encounter.tick(1);
@@ -996,48 +1107,30 @@ test("round pacing keeps normal attacks flowing through omen and overload lead b
 
   snapshot = advanceUntil(
     encounter,
-    (candidate) => candidate.phase === WORD_BREAKER_PHASES.KNOCKED_OUT,
+    (candidate) => candidate.phase === WORD_BREAKER_PHASES.STAGGERED,
     { stepMs: 1, maxTicks: 2_000 },
   );
-  const knockoutEvent = events.find(({ type }) => type === "player-knockout");
-  assert.equal(snapshot.metrics.knockoutCount, 1);
+  const staggerEvent = events.find(({ type }) => type === "player-staggered");
+  assert.equal(snapshot.metrics.knockoutCount, 0);
+  assert.equal(snapshot.playerHealth, 4);
   assert.equal(snapshot.guardian, null);
-  assert.equal(knockoutEvent?.reason, "surge-contact");
-  assert.equal(knockoutEvent?.glyph?.surge, true);
-  assert.equal(knockoutEvent?.glyph?.telegraphing, false);
-  assert.ok(aabbIntersects(snapshot.playerBounds, knockoutEvent.glyph));
+  assert.equal(staggerEvent?.reason, "surge-contact");
+  assert.equal(staggerEvent?.glyph?.surge, true);
+  assert.equal(staggerEvent?.glyph?.telegraphing, false);
+  assert.ok(aabbIntersects(snapshot.playerBounds, staggerEvent.glyph));
+  assert.equal(snapshot.collectedGuardians[0].code, "DS");
 
   encounter.tick(4);
-  assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.KNOCKED_OUT);
+  assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.STAGGERED);
   assert.equal(encounter.getSnapshot().guardian, null);
   encounter.tick(1);
   snapshot = encounter.getSnapshot();
-  assert.equal(snapshot.phase, WORD_BREAKER_PHASES.GUARDIAN_REVEAL);
-  assert.equal(snapshot.guardian.code, "DS");
-  assert.match(snapshot.status.text, /DS guardian/u);
-  encounter.setPlayerBounds(snapshot.guardian);
-  assert.equal(encounter.getSnapshot().metrics.guardiansCollected, 0, "the egg cannot be skipped during its reveal");
-  encounter.tick(6);
-  assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.GUARDIAN_REVEAL);
-
-  encounter.setPlayerBounds({ x: 0, y: 100, width: 10, height: 10 });
-  encounter.tick(1);
-  snapshot = encounter.getSnapshot();
-  assert.equal(snapshot.phase, WORD_BREAKER_PHASES.RECOVERING);
+  assert.equal(snapshot.phase, WORD_BREAKER_PHASES.PLAY);
+  assert.equal(snapshot.roundIndex, 1);
   assert.equal(snapshot.controlLocked, false);
-  encounter.setPlayerBounds(snapshot.guardian);
-  snapshot = encounter.getSnapshot();
-  assert.equal(snapshot.phase, WORD_BREAKER_PHASES.REVIVED);
-  assert.equal(snapshot.roundIndex, 0);
-  assert.equal(snapshot.status.text, pacingRounds[0].recoveryMessage);
-  assert.equal(snapshot.guardian.code, "DS", "the collected egg remains visible through the recovery hold");
-  const collectedEvent = events.find(({ type }) => type === "guardian-collected");
-  assert.equal(collectedEvent?.message, pacingRounds[0].recoveryMessage);
-  assert.equal(collectedEvent?.guardian?.code, "DS");
-  encounter.tick(4);
-  assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.REVIVED);
-  assert.equal(encounter.getSnapshot().roundIndex, 0);
-  assert.equal(encounter.getSnapshot().guardian.code, "DS");
+  assert.equal(snapshot.metrics.guardiansCollected, 1);
+  assert.equal(events.filter(({ type }) => type === "guardian-reveal").length, 0);
+  assert.equal(events.filter(({ type }) => type === "guardian-awakened").length, 1);
   encounter.tick(1);
   assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.PLAY);
   assert.equal(encounter.getSnapshot().roundIndex, 1);
@@ -1049,15 +1142,18 @@ test("round pacing keeps normal attacks flowing through omen and overload lead b
     ["omen-start", "overload-start"],
     ["overload-start", "overload-armed"],
     ["overload-armed", "overload-escalated"],
-    ["overload-escalated", "overload-contact"],
-    ["overload-contact", "collapse"],
-    ["collapse", "player-knockout"],
-    ["player-knockout", "guardian-reveal"],
-    ["guardian-reveal", "recovery-start"],
-    ["recovery-start", "guardian-collected"],
+    ["guardian-awakened", "collapse"],
+    ["collapse", "player-staggered"],
   ]) {
     assert.ok(order.indexOf(before) < order.indexOf(after), `${before} must precede ${after}`);
   }
+  const escalationIndex = events.findIndex(({ type }) => type === "overload-escalated");
+  const forcedContactIndex = events.findIndex(({ type, glyph }) => (
+    type === "overload-contact" && glyph?.unavoidable === true
+  ));
+  const awakenedIndex = events.findIndex(({ type }) => type === "guardian-awakened");
+  assert.ok(escalationIndex < forcedContactIndex, "escalation must precede the unavoidable contact");
+  assert.ok(forcedContactIndex < awakenedIndex, "the unavoidable contact awakens that round's egg");
 });
 
 test("AI pattern-specific telegraphing keeps normal attacks alive until the first glyph activates", () => {
@@ -1098,7 +1194,8 @@ test("AI pattern-specific telegraphing keeps normal attacks alive until the firs
   const firstActivationMs = Math.min(
     ...snapshot.overloadGlyphs.map(({ delayRemainingMs }) => delayRemainingMs),
   );
-  const normalSpawnsAtArm = snapshot.metrics.phrasesSpawned + snapshot.metrics.shotsFired;
+  const phrasesSpawnedAtArm = snapshot.metrics.phrasesSpawned;
+  const shotsFiredAtArm = snapshot.metrics.shotsFired;
   assert.ok(firstActivationMs > 2, "AI prediction glyphs add their own readable delay after the global lead");
   assert.equal(snapshot.overload.attacking, false);
   assert.ok(snapshot.phrases.length + snapshot.shots.length > 0);
@@ -1111,7 +1208,8 @@ test("AI pattern-specific telegraphing keeps normal attacks alive until the firs
     "the old phrase stream remains visible while every AI glyph is still telegraphing",
   );
   assert.ok(
-    snapshot.metrics.phrasesSpawned + snapshot.metrics.shotsFired > normalSpawnsAtArm,
+    snapshot.metrics.phrasesSpawned > phrasesSpawnedAtArm
+      || snapshot.metrics.shotsFired > shotsFiredAtArm,
     "normal attacks keep spawning so a long department telegraph cannot create an empty interval",
   );
 
@@ -1119,14 +1217,13 @@ test("AI pattern-specific telegraphing keeps normal attacks alive until the firs
   snapshot = encounter.getSnapshot();
   assert.equal(snapshot.overload.attacking, true);
   assert.ok(snapshot.overloadGlyphs.some(({ telegraphing }) => !telegraphing));
-  assert.equal(
-    snapshot.phrases.length + snapshot.shots.length,
-    0,
-    "normal attacks retire on the exact simulation step that the first AI glyph becomes active",
-  );
+  assert.equal(snapshot.phrases.length, 0, "falling phrases retire when the AI pattern activates");
+  assert.ok(snapshot.shots.length > 0, "upward shots remain available to break AI pattern glyphs");
+  assert.equal(snapshot.metrics.phrasesSpawned, phrasesSpawnedAtArm);
+  assert.ok(snapshot.metrics.shotsFired >= shotsFiredAtArm);
 });
 
-test("a fast active overload glyph can cause contact knockout before escalation", () => {
+test("avoidable overload contacts shake the player but cannot consume a life before escalation", () => {
   const events = [];
   const contactRounds = rounds();
   contactRounds[0].gimmick = gimmick(0, {
@@ -1153,18 +1250,22 @@ test("a fast active overload glyph can cause contact knockout before escalation"
   });
   encounter.init();
   encounter.start({ attemptId: "word-breaker:contact-ko" });
-  const knockout = advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.KNOCKED_OUT);
-  assert.equal(knockout.metrics.overloadContacts, 1);
-  assert.equal(knockout.metrics.knockoutCount, 1);
+  const contacted = advanceUntil(encounter, (snapshot) => snapshot.metrics.overloadContacts > 0, {
+    stepMs: 1,
+    maxTicks: 100,
+  });
+  assert.ok(contacted.metrics.overloadContacts >= 1);
+  assert.equal(contacted.metrics.knockoutCount, 0);
+  assert.equal(contacted.playerHealth, 5);
+  assert.equal(contacted.phase, WORD_BREAKER_PHASES.OVERLOAD);
   assert.equal(events.filter(({ type }) => type === "overload-escalated").length, 0);
-  const knockoutEvent = events.find(({ type }) => type === "player-knockout");
-  assert.equal(knockoutEvent.reason, "contact");
-  assert.equal(knockoutEvent.glyph.surge, false);
-  assert.equal(knockoutEvent.glyph.telegraphing, false);
-  assert.ok(aabbIntersects(knockout.playerBounds, knockoutEvent.glyph));
+  assert.equal(events.filter(({ type }) => type === "player-knockout").length, 0);
+  const avoidableHit = events.find(({ type, forced }) => type === "player-hit" && forced === false);
+  assert.equal(avoidableHit?.healthLost, 0);
+  assert.equal(avoidableHit?.playerHealth, 5);
 });
 
-test("production overloads give every department a visible lead and eventually hit a stationary player", () => {
+test("production overloads give every department a visible lead and five forced impacts", () => {
   const config = productionConfig();
   const events = [];
   const encounter = new WordBreakerEncounter({
@@ -1175,49 +1276,60 @@ test("production overloads give every department a visible lead and eventually h
   encounter.init();
   encounter.start({ attemptId: "word-breaker:production-arm-lead" });
   const armedAt = [];
-  const knockedOutAt = [];
-  const knockedOutSnapshots = [];
+  const impactAt = [];
+  const impactSnapshots = [];
   let previous = encounter.getSnapshot();
 
-  for (let index = 0; index < 30_000 && knockedOutAt.length < config.rounds.length; index += 1) {
-    if (previous.phase === WORD_BREAKER_PHASES.RECOVERING && previous.guardian) {
-      encounter.setPlayerBounds(previous.guardian);
-    }
+  for (let index = 0; index < 30_000 && impactAt.filter(Number.isFinite).length < config.rounds.length; index += 1) {
     const snapshot = encounter.tick(config.simulationStepMs);
     if (snapshot.overload.armed && !previous.overload.armed) {
       armedAt[snapshot.roundIndex] = snapshot.metrics.elapsedMs;
-      assert.equal(snapshot.metrics.overloadContacts, knockedOutAt.length);
     }
     if (
-      snapshot.phase === WORD_BREAKER_PHASES.KNOCKED_OUT
+      (snapshot.phase === WORD_BREAKER_PHASES.STAGGERED || snapshot.phase === WORD_BREAKER_PHASES.KNOCKED_OUT)
       && previous.phase === WORD_BREAKER_PHASES.OVERLOAD
     ) {
-      knockedOutAt[snapshot.roundIndex] = snapshot.metrics.elapsedMs;
-      knockedOutSnapshots[snapshot.roundIndex] = snapshot;
+      impactAt[snapshot.roundIndex] = snapshot.metrics.elapsedMs;
+      impactSnapshots[snapshot.roundIndex] = snapshot;
     }
     previous = snapshot;
   }
 
   assert.equal(armedAt.filter(Number.isFinite).length, config.rounds.length);
-  assert.equal(knockedOutAt.filter(Number.isFinite).length, config.rounds.length);
+  assert.equal(impactAt.filter(Number.isFinite).length, config.rounds.length);
   for (let index = 0; index < config.rounds.length; index += 1) {
     assert.ok(
-      knockedOutAt[index] - armedAt[index] >= config.overloadAttackLeadMs,
-      `${config.rounds[index].guardian.code} must show its active pattern before knockout`,
+      impactAt[index] - armedAt[index] >= config.overloadAttackLeadMs,
+      `${config.rounds[index].guardian.code} must show its active pattern before forced damage`,
     );
+    assert.equal(impactSnapshots[index].playerHealth, config.rounds.length - index - 1);
   }
+  const staggerEvents = events.filter(({ type }) => type === "player-staggered");
   const knockoutEvents = events.filter(({ type }) => type === "player-knockout");
-  assert.equal(knockoutEvents.length, config.rounds.length);
-  for (const event of knockoutEvents) {
-    assert.ok(["contact", "surge-contact"].includes(event.reason));
+  assert.equal(staggerEvents.length, config.rounds.length - 1);
+  assert.equal(knockoutEvents.length, 1);
+  for (const event of [...staggerEvents, ...knockoutEvents]) {
+    assert.equal(event.reason, "surge-contact");
     assert.equal(event.glyph.telegraphing, false, "telegraph-only glyphs cannot knock out the player");
     assert.equal(Object.hasOwn(event.glyph, "deadline"), false);
-    assert.equal(event.glyph.surge, event.reason === "surge-contact");
-    assert.ok(aabbIntersects(knockedOutSnapshots[event.roundIndex].playerBounds, event.glyph));
+    assert.equal(event.glyph.surge, true);
+    assert.equal(event.glyph.unavoidable, true);
+    assert.ok(aabbIntersects(impactSnapshots[event.roundIndex].playerBounds, event.glyph));
+  }
+  for (let roundIndex = 0; roundIndex < config.rounds.length; roundIndex += 1) {
+    const surges = events.filter(({ type, roundIndex: eventRound }) => (
+      type === "overload-surge" && eventRound === roundIndex
+    ));
+    assert.equal(
+      surges.slice(0, 2).every(({ unavoidable }) => unavoidable === false),
+      true,
+      `${config.rounds[roundIndex].guardian.code} opens with two breakable/dodgeable surge waves`,
+    );
+    assert.equal(surges.some(({ unavoidable }) => unavoidable === true), true);
   }
 });
 
-test("five knockout recoveries stay RUNNING until one deathless CLEAR finale", () => {
+test("five forced impacts drain one life each, then all five eggs revive the player once", () => {
   const events = [];
   const completions = [];
   const encounter = new WordBreakerEncounter({
@@ -1233,53 +1345,58 @@ test("five knockout recoveries stay RUNNING until one deathless CLEAR finale", (
     encounter.setPlayerBounds({ x: 45, y: 100, width: 10, height: 10 });
     advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.OVERLOAD);
     assert.equal(encounter.getSnapshot().state, WORD_BREAKER_STATES.RUNNING);
-    const knockedOut = advanceUntil(
+    const impact = advanceUntil(
       encounter,
-      (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.KNOCKED_OUT,
+      (snapshot) => snapshot.phase === (
+        roundIndex < 4 ? WORD_BREAKER_PHASES.STAGGERED : WORD_BREAKER_PHASES.KNOCKED_OUT
+      ),
     );
-    assert.equal(knockedOut.metrics.knockoutCount, roundIndex + 1);
-    assert.equal(knockedOut.state, WORD_BREAKER_STATES.RUNNING);
+    assert.equal(impact.playerHealth, 4 - roundIndex);
+    assert.equal(impact.playerMaxHealth, 5);
+    assert.equal(impact.playerDead, roundIndex === 4);
+    assert.equal(impact.metrics.knockoutCount, roundIndex === 4 ? 1 : 0);
+    assert.equal(impact.metrics.guardiansCollected, roundIndex + 1);
+    assert.equal(impact.collectedGuardians[roundIndex].code, GUARDIAN_CODES[roundIndex]);
+    assert.equal(impact.state, WORD_BREAKER_STATES.RUNNING);
     assert.equal(completions.length, 0);
-    const recovering = advanceUntil(
-      encounter,
-      (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.RECOVERING,
-    );
-    assert.equal(recovering.guardian.code, GUARDIAN_CODES[roundIndex]);
-    encounter.setPlayerBounds(recovering.guardian);
-    const collected = encounter.getSnapshot();
-    assert.equal(collected.metrics.guardiansCollected, roundIndex + 1);
-    assert.equal(collected.phase, WORD_BREAKER_PHASES.REVIVED);
-    assert.equal(collected.status.text, `${GUARDIAN_CODES[roundIndex]} recovery`);
-    assert.equal(collected.guardian.code, GUARDIAN_CODES[roundIndex]);
     if (roundIndex < 4) {
-      advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.PLAY);
+      const nextRound = advanceUntil(encounter, (snapshot) => (
+        snapshot.phase === WORD_BREAKER_PHASES.PLAY && snapshot.roundIndex === roundIndex + 1
+      ));
+      assert.equal(nextRound.playerHealth, 4 - roundIndex);
     }
   }
 
-  advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.FINALE);
-  assert.equal(encounter.getSnapshot().phase, WORD_BREAKER_PHASES.FINALE);
-  assert.equal(encounter.getSnapshot().state, WORD_BREAKER_STATES.RUNNING);
+  const reveal = advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.GUARDIAN_REVEAL);
+  assert.equal(reveal.playerHealth, 0);
+  assert.equal(reveal.guardian, null);
+  assert.deepEqual(reveal.collectedGuardians.map(({ code }) => code), GUARDIAN_CODES);
+  const revived = advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.REVIVED);
+  assert.equal(revived.playerHealth, 5);
+  assert.equal(revived.playerDead, false);
+  const finale = advanceUntil(encounter, (snapshot) => snapshot.phase === WORD_BREAKER_PHASES.FINALE);
+  assert.equal(finale.state, WORD_BREAKER_STATES.RUNNING);
   encounter.tick(25);
   const completed = encounter.getSnapshot();
   assert.equal(completed.state, WORD_BREAKER_STATES.COMPLETED);
-  assert.equal(completed.metrics.knockoutCount, 5);
+  assert.equal(completed.metrics.knockoutCount, 1);
   assert.equal(completed.metrics.roundsCollapsed, 5);
   assert.equal(completed.metrics.guardiansCollected, 5);
+  assert.equal(completed.metrics.forcedHitCount, 5);
   assert.equal(events.some(({ type }) => type === "fail"), false);
   assert.equal(events.filter(({ type }) => type === "collapse").length, 5);
-  assert.equal(events.filter(({ type }) => type === "player-knockout").length, 5);
-  assert.equal(events.filter(({ type }) => type === "player-knockout").every(({ reason, glyph }) => (
-    ["contact", "surge-contact"].includes(reason)
-    && glyph?.telegraphing === false
-  )), true);
+  assert.equal(events.filter(({ type }) => type === "player-staggered").length, 4);
+  assert.equal(events.filter(({ type }) => type === "player-knockout").length, 1);
+  assert.equal(events.filter(({ type }) => type === "player-knockout")[0].reason, "surge-contact");
   assert.equal(events.filter(({ type }) => type === "omen-start").length, 5);
-  assert.equal(events.filter(({ type }) => type === "guardian-reveal").length, 5);
-  assert.equal(events.filter(({ type }) => type === "recovery-start").length, 5);
-  const guardianCollectedEvents = events.filter(({ type }) => type === "guardian-collected");
-  assert.equal(guardianCollectedEvents.length, 5);
+  assert.equal(events.filter(({ type }) => type === "guardian-reveal").length, 1);
+  assert.equal(events.filter(({ type }) => type === "guardian-revival").length, 1);
+  assert.equal(events.filter(({ type }) => type === "player-revived").length, 1);
+  const guardianAwakenedEvents = events.filter(({ type }) => type === "guardian-awakened");
+  assert.equal(guardianAwakenedEvents.length, 5);
   assert.deepEqual(
-    guardianCollectedEvents.map(({ message }) => message),
-    GUARDIAN_CODES.map((code) => `${code} recovery`),
+    guardianAwakenedEvents.map(({ guardian }) => guardian.code),
+    GUARDIAN_CODES,
   );
   assert.equal(events.filter(({ type }) => type === "complete").length, 1);
   assert.equal(completions.length, 1);
@@ -1307,13 +1424,14 @@ test("one large tick carries visible surge contacts through recovery and the fin
   encounter.tick(30_000);
   const completed = encounter.getSnapshot();
   assert.equal(completed.state, WORD_BREAKER_STATES.COMPLETED);
-  assert.equal(completed.metrics.knockoutCount, 5);
+  assert.equal(completed.metrics.knockoutCount, 1);
+  assert.equal(completed.metrics.forcedHitCount, 5);
   assert.equal(completed.metrics.guardiansCollected, 5);
   assert.equal(events.filter(({ type }) => type === "overload-escalated").length, 5);
+  assert.equal(events.filter(({ type }) => type === "player-staggered").length, 4);
+  assert.equal(events.filter(({ type }) => type === "player-knockout").length, 1);
   assert.equal(events.filter(({ type }) => type === "player-knockout").every(({ reason, glyph }) => (
-    ["contact", "surge-contact"].includes(reason)
-    && glyph?.surge === (reason === "surge-contact")
-    && glyph.telegraphing === false
+    reason === "surge-contact" && glyph?.surge === true && glyph.telegraphing === false
   )), true);
   assert.equal(completions.length, 1);
   assert.equal(completions[0].candidate.status, "CLEAR");
@@ -1392,7 +1510,7 @@ test("partial deltas accumulate and different frame splits produce identical out
     "the same 32 seconds must not change escalation, surge, collisions, score, or events by frame rate",
   );
   assert.ok(sixteenMsFrames.events.some(({ type }) => type === "overload-wave"));
-  assert.ok(sixteenMsFrames.events.some(({ type }) => type === "player-knockout"));
+  assert.ok(sixteenMsFrames.events.some(({ type }) => type === "player-staggered"));
 });
 
 test("injected random and the same tick stream remain deterministic", () => {
