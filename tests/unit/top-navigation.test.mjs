@@ -24,25 +24,28 @@ class FakeButton {
 }
 
 test("pixel top-bar buttons stay locked during bootstrap and route after enable", () => {
+  const mainMenu = new FakeButton("main-menu");
   const account = new FakeButton("account");
   const settings = new FakeButton("settings");
   const ignored = new FakeButton("ranking");
   const calls = [];
   const navigation = bindTopNavigation(
-    { querySelectorAll: () => [account, settings, ignored] },
+    { querySelectorAll: () => [mainMenu, account, settings, ignored] },
     { navigate: (route) => calls.push(route) },
   );
 
+  assert.equal(mainMenu.disabled, true);
   assert.equal(account.disabled, true);
   assert.equal(settings.disabled, true);
   account.click();
   assert.deepEqual(calls, []);
 
   navigation.enable();
+  mainMenu.click();
   account.click();
   settings.click();
   ignored.click();
-  assert.deepEqual(calls, ["account", "settings"]);
+  assert.deepEqual(calls, ["main-menu", "account", "settings"]);
 
   navigation.destroy();
   assert.equal(account.disabled, true);

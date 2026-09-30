@@ -1,4 +1,4 @@
-const ALLOWED_TOP_ROUTES = new Set(["account", "settings"]);
+const ALLOWED_TOP_ROUTES = new Set(["main-menu", "account", "settings"]);
 
 export function bindTopNavigation(root, router) {
   const buttons = [...root.querySelectorAll("[data-top-route]")]

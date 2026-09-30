@@ -15,6 +15,7 @@
   "features": {
     "story": true,
     "localSave": true,
-    "battleContent": true
+    "battleContent": true,
+    "guestBattleTesting": true
   }
 }

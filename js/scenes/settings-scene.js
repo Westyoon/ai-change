@@ -28,7 +28,6 @@ export function createSettingsScene(context) {
         className: "scene--panel",
         eyebrow: "SETTINGS",
         title: "설정",
-        description: `변경값은 ${context.config.storageChannel} 저장 채널에 기록됩니다.`,
       });
       const list = createElement("div", { className: "settings-list" });
       const update = (key, value) => {

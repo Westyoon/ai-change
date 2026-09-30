@@ -22,8 +22,12 @@ test("the festival logo remains on the main and loading scenes while the top bar
   assert.match(logo?.alt ?? "", /인지사전게임/u);
   assert.doesNotMatch(html, /class="brand-mark(?:__logo|__name)?"/u);
   assert.match(html, /class="build-badge">LIVE · v1/u);
+  assert.match(html, /data-top-route="main-menu"/u);
   assert.match(html, /data-top-route="account"/u);
   assert.match(html, /data-top-route="settings"/u);
+  assert.equal((html.match(/class="top-nav__icon-box"/gu) ?? []).length, 3);
+  assert.equal((html.match(/preserveAspectRatio="xMidYMid meet"/gu) ?? []).length, 3);
+  assert.equal((html.match(/width="16"\s+height="16"/gu) ?? []).length, 3);
   assert.match(html, /shape-rendering="crispEdges"/u);
   assert.match(html, /class="scene-brand-logo scene-brand-logo--loading"/u);
   assert.doesNotMatch(html, />\s*ai-change\s*</u);
@@ -45,6 +49,14 @@ test("the shared theme uses the logo palette, responsive plaid, and self-hosted 
   assert.match(common, /repeating-linear-gradient\(\s*0deg/u);
   assert.match(common, /repeating-linear-gradient\(\s*90deg/u);
   assert.match(common, /\.scene-brand-logo\s*\{[\s\S]*?height:\s*auto/u);
+  assert.match(
+    common,
+    /\.top-nav__icon-box\s*\{[\s\S]*?width:\s*20px;[\s\S]*?height:\s*20px;[\s\S]*?aspect-ratio:\s*1\s*\/\s*1/u,
+  );
+  assert.match(
+    common,
+    /\.top-nav__icon\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;[\s\S]*?aspect-ratio:\s*1\s*\/\s*1/u,
+  );
   assert.match(common, /font-family:\s*var\(--font-body\)/u);
   assert.match(responsive, /\.scene-brand-logo/u);
   assert.match(

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="./css/common.css" />
     <link rel="stylesheet" href="./css/dialogue.css" />
     <link rel="stylesheet" href="./css/map.css" />
+    <link rel="stylesheet" href="./css/story-inventory.css" />
     <link rel="stylesheet" href="./css/minigames.css" />
     <link rel="stylesheet" href="./css/click-to-purify.css" />
     <link rel="stylesheet" href="./css/ai-ball-classification.css" />
@@ -25,6 +26,7 @@
     <link rel="stylesheet" href="./css/battle.css" />
     <link rel="stylesheet" href="./css/account.css" />
     <link rel="stylesheet" href="./css/responsive.css" />
+    <link rel="stylesheet" href="./css/game-pixel-theme.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -34,18 +36,55 @@
           <button
             class="top-nav__button"
             type="button"
+            data-top-route="main-menu"
+            aria-label="메인 화면으로 돌아가기"
+            disabled
+          >
+            <span class="top-nav__icon-box" aria-hidden="true">
+              <svg
+                class="top-nav__icon"
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                preserveAspectRatio="xMidYMid meet"
+                focusable="false"
+                shape-rendering="crispEdges"
+              >
+                <rect x="7" y="1" width="2" height="2" fill="currentColor" />
+                <rect x="5" y="3" width="6" height="2" fill="currentColor" />
+                <rect x="3" y="5" width="10" height="2" fill="currentColor" />
+                <rect x="2" y="7" width="12" height="2" fill="currentColor" />
+                <rect x="3" y="9" width="10" height="6" fill="currentColor" />
+                <rect x="7" y="11" width="3" height="4" fill="var(--paper)" />
+              </svg>
+            </span>
+            <span class="top-nav__label">메인</span>
+          </button>
+          <button
+            class="top-nav__button"
+            type="button"
             data-top-route="account"
             aria-label="내 계정 열기"
             disabled
           >
-            <svg class="top-nav__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
-              <rect x="6" y="1" width="4" height="4" fill="currentColor" />
-              <rect x="4" y="2" width="8" height="2" fill="currentColor" />
-              <rect x="3" y="7" width="10" height="2" fill="currentColor" />
-              <rect x="2" y="9" width="12" height="5" fill="currentColor" />
-              <rect x="1" y="11" width="2" height="4" fill="currentColor" />
-              <rect x="13" y="11" width="2" height="4" fill="currentColor" />
-            </svg>
+            <span class="top-nav__icon-box" aria-hidden="true">
+              <svg
+                class="top-nav__icon"
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                preserveAspectRatio="xMidYMid meet"
+                focusable="false"
+                shape-rendering="crispEdges"
+              >
+                <rect x="6" y="1" width="4" height="4" fill="currentColor" />
+                <rect x="4" y="2" width="8" height="2" fill="currentColor" />
+                <rect x="3" y="7" width="10" height="2" fill="currentColor" />
+                <rect x="2" y="9" width="12" height="5" fill="currentColor" />
+                <rect x="1" y="11" width="2" height="4" fill="currentColor" />
+                <rect x="13" y="11" width="2" height="4" fill="currentColor" />
+              </svg>
+            </span>
             <span class="top-nav__label">내 계정</span>
           </button>
           <button
@@ -55,14 +94,24 @@
             aria-label="설정 열기"
             disabled
           >
-            <svg class="top-nav__icon" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
-              <rect x="6" y="1" width="4" height="3" fill="currentColor" />
-              <rect x="6" y="12" width="4" height="3" fill="currentColor" />
-              <rect x="1" y="6" width="3" height="4" fill="currentColor" />
-              <rect x="12" y="6" width="3" height="4" fill="currentColor" />
-              <rect x="4" y="4" width="8" height="8" fill="currentColor" />
-              <rect x="6" y="6" width="4" height="4" fill="var(--paper)" />
-            </svg>
+            <span class="top-nav__icon-box" aria-hidden="true">
+              <svg
+                class="top-nav__icon"
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                preserveAspectRatio="xMidYMid meet"
+                focusable="false"
+                shape-rendering="crispEdges"
+              >
+                <rect x="6" y="1" width="4" height="3" fill="currentColor" />
+                <rect x="6" y="12" width="4" height="3" fill="currentColor" />
+                <rect x="1" y="6" width="3" height="4" fill="currentColor" />
+                <rect x="12" y="6" width="3" height="4" fill="currentColor" />
+                <rect x="4" y="4" width="8" height="8" fill="currentColor" />
+                <rect x="6" y="6" width="4" height="4" fill="var(--paper)" />
+              </svg>
+            </span>
             <span class="top-nav__label">설정</span>
           </button>
         </nav>

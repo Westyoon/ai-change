@@ -1,5 +1,15 @@
 import { getPublishedBattles } from "../battle/registry.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
+import {
+  GUARDIAN_EGGS,
+  getGuardianEggProgressFromState,
+} from "../core/guardian-inventory.js";
+import {
+  FINAL_BATTLE_UNLOCK_STORY_ID,
+  MAIN_STORY_ID,
+  hasSeenStory,
+  markStorySeen,
+} from "../core/story-progress.js";
 import { createElement, createScene } from "./scene-utils.js";
 
 function menuCard(title, onClick, { badge = null, disabled = false } = {}) {
@@ -17,7 +27,40 @@ function menuCard(title, onClick, { badge = null, disabled = false } = {}) {
   return card;
 }
 
-export function resolveBattleMenuAccess(publishedBattles, saveState, accountState) {
+export function createStoryMenuNavigator(context, { replay = false } = {}) {
+  let navigationPending = false;
+  return () => {
+    if (navigationPending) return false;
+    navigationPending = true;
+    let navigation;
+    try {
+      const introSeen = hasSeenStory(context, MAIN_STORY_ID, { legacyIntro: true });
+      navigation = context.router.navigate(
+        replay || !introSeen ? "story-intro" : "map",
+        replay ? { replay: true } : {},
+      );
+    } catch (error) {
+      navigationPending = false;
+      throw error;
+    }
+    void Promise.resolve(navigation).then(
+      (accepted) => {
+        if (accepted === false) navigationPending = false;
+      },
+      () => {
+        navigationPending = false;
+      },
+    );
+    return true;
+  };
+}
+
+export function resolveBattleMenuAccess(
+  publishedBattles,
+  saveState,
+  accountState,
+  guardianEggCatalog = GUARDIAN_EGGS,
+) {
   if (publishedBattles.length === 0) {
     return Object.freeze({ unlocked: false, badge: "COMING SOON" });
   }
@@ -27,10 +70,18 @@ export function resolveBattleMenuAccess(publishedBattles, saveState, accountStat
     (best, current) => current.completed > best.completed ? current : best,
     unlocks[0],
   );
-  const unlocked = unlocks.some((status) => status.unlocked);
+  const guardianProgress = getGuardianEggProgressFromState(
+    saveState,
+    accountState,
+    guardianEggCatalog,
+  );
+  const unlocked = unlocks.some((status) => status.unlocked)
+    && guardianProgress.acquired === guardianProgress.total;
   return Object.freeze({
     unlocked,
-    badge: unlocked ? "OPEN" : `수호알 ${progress.completed}/${progress.total || 5}`,
+    badge: unlocked
+      ? "OPEN"
+      : `수호알 ${guardianProgress.acquired}/${guardianProgress.total || progress.total || 5}`,
   });
 }
 
@@ -64,18 +115,37 @@ export function createMainMenuScene(context) {
       const grid = createElement("div", { className: "menu-grid" });
       scene.append(grid);
       root.append(scene);
+      const openStory = createStoryMenuNavigator(context);
 
       const renderCards = (account) => {
         if (!mounted) return;
         const publishedBattles = context.config.features?.battleContent === true
           ? getPublishedBattles(context.content.battles)
           : [];
+        const guestBattleTesting = context.config.features?.guestBattleTesting === true;
         const saveState = context.services.save?.getState?.() ?? {};
-        const battleAccess = resolveBattleMenuAccess(publishedBattles, saveState, account);
+        const battleAccess = resolveBattleMenuAccess(
+          publishedBattles,
+          saveState,
+          account,
+          context.content.guardianEggs,
+        );
+        const openBattle = () => {
+          if (account?.authenticated || guestBattleTesting) {
+            markStorySeen(context, FINAL_BATTLE_UNLOCK_STORY_ID);
+            return context.router.navigate("battle");
+          }
+          return context.router.navigate("account", {
+              notice: "배틀은 Google 로그인 후 이용할 수 있습니다.",
+              noticeTone: "info",
+            });
+        };
         const cards = [
-          menuCard("Story", () => context.router.navigate("map")),
-          menuCard("Battle", () => context.router.navigate("battle"), {
-            badge: battleAccess.badge,
+          menuCard("Story", openStory),
+          menuCard("Battle", openBattle, {
+            badge: battleAccess.unlocked && !account?.authenticated && !guestBattleTesting
+              ? "LOGIN"
+              : battleAccess.badge,
             disabled: !battleAccess.unlocked,
           }),
           menuCard("랭킹보드", () => context.router.navigate("ranking")),

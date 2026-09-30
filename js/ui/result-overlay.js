@@ -134,6 +134,8 @@ export function createResultOverlay({
   onMap,
   onMenu,
   primaryAction = null,
+  primaryOnly = false,
+  illustration = null,
   backgroundElements = [],
 }) {
   const resolvedPresentation = resolveResultPresentation({ result, outroText, presentation });
@@ -167,6 +169,19 @@ export function createResultOverlay({
     text: resolvedPresentation.title,
     attributes: { id: "result-title" },
   });
+  const illustrationElement = typeof illustration?.src === "string" && illustration.src.length > 0
+    ? createElement("img", {
+        className: "result-card__illustration",
+        attributes: {
+          src: illustration.src,
+          alt: typeof illustration.alt === "string" ? illustration.alt : "",
+          width: String(illustration.width ?? 1254),
+          height: String(illustration.height ?? 1254),
+          decoding: "async",
+          draggable: "false",
+        },
+      })
+    : null;
   const copy = createElement("p", {
     className: "muted",
     text: resolvedPresentation.description,
@@ -202,13 +217,23 @@ export function createResultOverlay({
   const primaryButton = primaryAction
     ? createButton(primaryAction.label, runOnce(primaryAction.onClick), "primary")
     : null;
-  const retryButton = createButton(
-    resolvedPresentation.retryLabel,
-    runOnce(onRetry),
-    primaryButton ? "" : "primary",
-  );
-  const mapButton = createButton(resolvedPresentation.mapLabel, runOnce(onMap));
-  const menuButton = createButton(resolvedPresentation.menuLabel, runOnce(onMenu), "ghost");
+  const retryButton = typeof onRetry === "function"
+    ? createButton(
+        resolvedPresentation.retryLabel,
+        runOnce(onRetry),
+        primaryButton ? "" : "primary",
+      )
+    : null;
+  const mapButton = primaryOnly
+    ? null
+    : createButton(
+        resolvedPresentation.mapLabel,
+        runOnce(onMap),
+        primaryButton || retryButton ? "" : "primary",
+      );
+  const menuButton = primaryOnly
+    ? null
+    : createButton(resolvedPresentation.menuLabel, runOnce(onMenu), "ghost");
   actions = createElement(
     "div",
     { className: "button-row" },
@@ -218,7 +243,7 @@ export function createResultOverlay({
   const handleKeyDown = (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
-      mapButton.click();
+      (primaryButton ?? retryButton ?? mapButton ?? menuButton)?.click();
       return;
     }
     if (event.key !== "Tab") return;
@@ -239,11 +264,11 @@ export function createResultOverlay({
   };
   backdrop.addEventListener("keydown", handleKeyDown);
 
-  card.append(title, copy, meta);
+  card.append(...[illustrationElement, title, copy, meta].filter(Boolean));
   if (metricEntries.length > 0) card.append(metrics);
   card.append(actions);
   backdrop.append(card);
-  const focusFrame = requestAnimationFrame(() => (primaryButton ?? retryButton).focus());
+  const focusFrame = requestAnimationFrame(() => (primaryButton ?? retryButton ?? mapButton ?? menuButton)?.focus());
 
   return {
     element: backdrop,
