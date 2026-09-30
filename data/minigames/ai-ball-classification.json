@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "gameId": "ai-ball-classification",
   "implementationStatus": "MVP",
+  "backgroundAssetId": "ai-ball-classification-background",
+  "sortingBinAssetId": "ai-ball-classification-sorting-bin",
+  "sortingLidAssetId": "ai-ball-classification-sorting-lid",
+  "backgroundSourceRect": { "x": 0, "y": 0, "width": 960, "height": 920 },
+  "binSourceRect": { "x": 45, "y": 96, "width": 1172, "height": 1088 },
+  "lidSourceRect": { "x": 2, "y": 56, "width": 1129, "height": 176 },
   "goal": "목표 이미지와 일치하는 공만 분류함에 담습니다.",
   "controls": {
     "pc": ["Space 또는 OPEN·CLOSE 버튼으로 분류통 뚜껑 전환"],

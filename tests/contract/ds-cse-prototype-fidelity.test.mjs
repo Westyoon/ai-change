@@ -134,6 +134,44 @@ async function readJson(relativeUrl) {
   return JSON.parse(await readFile(new URL(relativeUrl, import.meta.url), "utf8"));
 }
 
+test("CSE and DS consume configured background assets with readable overlays", async () => {
+  const cseConfig = await readJson("../../data/minigames/code-heart.json");
+  const dsConfig = await readJson("../../data/minigames/number-baseball.json");
+  const cseEnvironment = createFakeEnvironment();
+  const dsEnvironment = createFakeEnvironment();
+  const assetRequests = [];
+  const assets = {
+    get(assetId) {
+      assetRequests.push(assetId);
+      if (assetId === "cse-test-background") {
+        return { currentSrc: "/assets/cse-background.png", src: "/assets/fallback.png" };
+      }
+      if (assetId === "ds-test-background") {
+        return { src: "/assets/ds-background.png" };
+      }
+      return null;
+    },
+  };
+  const cseInstance = createCseMiniGame({ uiRoot: cseEnvironment.uiRoot, assets });
+  const dsInstance = createDsMiniGame({ uiRoot: dsEnvironment.uiRoot, assets });
+
+  await cseInstance.init({ ...cseConfig, backgroundAssetId: "cse-test-background" });
+  await dsInstance.init({ ...dsConfig, backgroundAssetId: "ds-test-background" });
+
+  assert.deepEqual(assetRequests, ["cse-test-background", "ds-test-background"]);
+  assert.equal(
+    findByClass(cseEnvironment.uiRoot, "code-heart-game").style.backgroundImage,
+    'linear-gradient(rgba(253, 240, 245, 0.42), rgba(253, 240, 245, 0.42)), url("/assets/cse-background.png")',
+  );
+  assert.equal(
+    findByClass(dsEnvironment.uiRoot, "nb-container").style.backgroundImage,
+    'linear-gradient(160deg, rgba(8, 16, 36, 0.7), rgba(19, 16, 44, 0.82)), url("/assets/ds-background.png")',
+  );
+
+  cseInstance.destroy();
+  dsInstance.destroy();
+});
+
 test("CSE reflows phone portrait hosts without scaled controls and keeps the fluid desktop layout", async () => {
   const config = await readJson("../../data/minigames/code-heart.json");
   const { observers, uiRoot } = createFakeEnvironment({ width: 400, height: 480 });
@@ -178,20 +216,19 @@ test("CSE reflows phone portrait hosts without scaled controls and keeps the flu
   assert.match(uiRoot.className, /\bcse-desktop-layout\b/u);
   assert.doesNotMatch(uiRoot.className, /\bcse-mobile-layout\b/u);
 
-  uiRoot.clientHeight = 539;
+  uiRoot.clientHeight = 440;
   observers[0].callback();
-  assert.equal(viewport.dataset.layout, "fixed", "a short 760px host keeps the fixed desktop frame");
-  assert.equal(frame.style.transform, "scale(0.9)");
-  assert.doesNotMatch(uiRoot.className, /\bcse-mobile-layout\b/u);
+  assert.equal(viewport.dataset.layout, "fluid", "a 760px-wide laptop host keeps the desktop layout");
+  assert.match(uiRoot.className, /\bcse-desktop-layout\b/u);
 
   uiRoot.clientWidth = 800;
   uiRoot.clientHeight = 480;
   observers[0].callback();
-  assert.equal(frame.style.transform, "scale(0.9)");
-  assert.equal(viewport.style.width, "396px");
-  assert.equal(viewport.style.height, "828px");
-  assert.equal(viewport.dataset.layout, "fixed");
-  assert.doesNotMatch(uiRoot.className, /\bcse-desktop-layout\b/u);
+  assert.equal(frame.style.transform, "none");
+  assert.equal(frame.style.width, "100%");
+  assert.equal(frame.style.height, "100%");
+  assert.equal(viewport.dataset.layout, "fluid");
+  assert.match(uiRoot.className, /\bcse-desktop-layout\b/u);
   assert.doesNotMatch(uiRoot.className, /\bcse-mobile-layout\b/u);
 
   uiRoot.clientHeight = 600;
@@ -240,6 +277,17 @@ test("CSE restores prototype material, recipe, button, and shake markup without 
     materials.map((button) => [button.dataset.itemId, button.dataset.cat]),
     config.items.map((item) => [item.id, item.category]),
   );
+  const slots = findAllByClass(uiRoot, "ch-slot-tile");
+  assert.deepEqual(
+    slots.map((slot) => slot.dataset.cat),
+    config.categories.map((category) => category.id),
+  );
+  for (const category of config.categories) {
+    assert.match(
+      stylesheet,
+      new RegExp(`\\.ch-slot-tile\\.filled\\[data-cat="${category.id}"\\]`, "u"),
+    );
+  }
 
   const recipeButton = findByClass(uiRoot, "ch-btn-recipe-trigger");
   assert.ok(findByClass(recipeButton, "ch-book-icon"));
@@ -277,6 +325,11 @@ test("CSE restores prototype material, recipe, button, and shake markup without 
   for (const itemId of ["cpp", "fastapi", "mysql", "docker"]) {
     materials.find((button) => button.dataset.itemId === itemId).dispatchEvent("click");
   }
+  assert.ok(slots.every((slot) => hasClass(slot, "filled")));
+  assert.deepEqual(
+    slots.map((slot) => slot.children[1].textContent),
+    ["C++", "FastAPI", "MySQL", "Docker"],
+  );
   unlockButton.dispatchEvent("click");
 
   const feedback = findByClass(uiRoot, "ch-feedback");
@@ -353,7 +406,8 @@ test("CSE and DS expose host-bounded layouts without replacing their original vi
   const stylesheet = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
   const commonStylesheet = await readFile(new URL("../../css/common.css", import.meta.url), "utf8");
 
-  assert.match(commonStylesheet, /\.scene-root\s*\{[^}]*width:\s*min\(1120px, 100%\)[^}]*min-width:\s*0/su);
+  assert.match(commonStylesheet, /\.app-shell\s*\{[^}]*--app-active-frame-width:\s*1120px/su);
+  assert.match(commonStylesheet, /\.scene-root\s*\{[^}]*width:\s*min\(var\(--app-active-frame-width\), 100%\)[^}]*min-width:\s*0/su);
   assert.match(commonStylesheet, /\.scene\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/su);
   assert.match(
     stylesheet,
@@ -363,21 +417,24 @@ test("CSE and DS expose host-bounded layouts without replacing their original vi
   assert.match(stylesheet, /\.minigame-toolbar\s*>\s*\.button-row\s*\{[^}]*min-width:\s*0[^}]*margin-top:\s*0/u);
   assert.match(
     stylesheet,
-    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-btn-recipe-trigger\s*\{[^}]*min-height:\s*44px[^}]*height:\s*44px/su,
+    /\.minigame-ui-root\.cse-ui-root\.cse-mobile-layout\s*\{[^}]*overflow-y:\s*hidden[^}]*display:\s*flex[^}]*flex-direction:\s*column/su,
   );
   assert.match(
     stylesheet,
-    /\.cse-ui-root\.cse-mobile-layout \.cse-fixed-frame-viewport\s*\{[^}]*width:\s*100%[^}]*max-width:\s*520px/su,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-title\s*\{[^}]*display:\s*none/su,
   );
   assert.match(
     stylesheet,
-    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-materials-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)[^}]*repeat\(4, minmax\(44px, auto\)\)/su,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-workspace-top\s*\{[^}]*display:\s*contents/su,
   );
   assert.match(
     stylesheet,
-    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-btn-unlock\s*\{[^}]*width:\s*100%[^}]*min-height:\s*52px/su,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-materials-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)[^}]*repeat\(4, minmax\(0, 1fr\)\)/su,
   );
-  assert.match(stylesheet, /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-order-bubble\s*\{[^}]*font-size:\s*14px/su);
+  assert.match(
+    stylesheet,
+    /\.cse-ui-root\.cse-mobile-layout \.code-heart-game \.ch-btn-unlock\s*\{[^}]*width:\s*76px[^}]*height:\s*100%/su,
+  );
   assert.match(
     stylesheet,
     /\.cse-ui-root\.cse-desktop-layout \.code-heart-game\s*\{[^}]*grid-template-areas:[^}]*"counter tray"[^}]*"workspace tray"[^}]*"feedback tray"/su,

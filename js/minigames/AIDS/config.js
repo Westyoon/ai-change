@@ -7,6 +7,7 @@ export const DEFAULT_CONFIG = Object.freeze({
         pc: Object.freeze(['왼쪽·오른쪽 방향키 또는 A·D로 발판 조작']),
         mobile: Object.freeze(['왼쪽·오른쪽 버튼을 터치해 발판 조작']),
     }),
+    backgroundAssetId: 'ai-data-egg-sort-background',
 
     totalTimeSec: 45,
     initialLives: 5,
@@ -95,5 +96,8 @@ export function validateConfig(config) {
     }
     if (!Array.isArray(config.platformRows) || config.platformRows.length === 0) {
         throw new TypeError('ai-data-egg-sort config.platformRows must be a non-empty array.');
+    }
+    if (typeof config.backgroundAssetId !== 'string' || config.backgroundAssetId.length === 0) {
+        throw new TypeError('ai-data-egg-sort config.backgroundAssetId must be a non-empty string.');
     }
 }

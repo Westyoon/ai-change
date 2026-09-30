@@ -2,6 +2,7 @@ import { INPUT_ACTIONS } from "../../core/input-manager.js";
 import { InputLock } from "../shared/input-lock.js";
 import { MiniGameClock } from "../shared/minigame-clock.js";
 import { buildMiniGameCandidate } from "../shared/result-builder.js";
+import { drawPixelToken, PIXEL_COLORS } from "../shared/pixel-drawing.js";
 import {
   calculatePurification,
   judgeTiming,
@@ -70,6 +71,22 @@ function addClassName(target, className) {
   const names = new Set(current.split(/\s+/u).filter(Boolean));
   names.add(className);
   target.className = [...names].join(" ");
+}
+
+function getImageSource(image) {
+  const source = typeof image?.currentSrc === "string" && image.currentSrc.length > 0
+    ? image.currentSrc
+    : image?.src;
+  return typeof source === "string" && source.length > 0 ? source : null;
+}
+
+function canDrawImage(context, image) {
+  if (!image || typeof context?.drawImage !== "function") return false;
+  if (image.complete === false) return false;
+  const naturalWidth = Number(image.naturalWidth ?? image.width);
+  const naturalHeight = Number(image.naturalHeight ?? image.height);
+  return Number.isFinite(naturalWidth) && naturalWidth > 0
+    && Number.isFinite(naturalHeight) && naturalHeight > 0;
 }
 
 function requestFrame(callback) {
@@ -279,8 +296,10 @@ export function createMiniGame(context = {}) {
     : "";
   const originalCanvasWidth = canvas?.width;
   const originalCanvasHeight = canvas?.height;
+  const originalStageBackgroundImage = stage?.style?.backgroundImage ?? "";
 
   let config = null;
+  let arenaBackgroundImage = null;
   let ui = emptyUi();
   let lifecycleState = "CREATED";
   let currentAttemptId = null;
@@ -326,6 +345,15 @@ export function createMiniGame(context = {}) {
       canvas.width = CANVAS_SIZE;
       canvas.height = CANVAS_SIZE;
     }
+    const stageBackgroundImage = context.assets?.get?.(config?.stageBackgroundAssetId) ?? null;
+    const stageBackgroundSource = getImageSource(stageBackgroundImage);
+    if (stage?.style && stageBackgroundSource) {
+      stage.style.backgroundImage = [
+        "linear-gradient(rgb(5 7 12 / 34%), rgb(5 7 12 / 34%))",
+        `url(${JSON.stringify(stageBackgroundSource)})`,
+      ].join(", ");
+    }
+    arenaBackgroundImage = context.assets?.get?.(config?.arenaBackgroundAssetId) ?? null;
   }
 
   function restoreOriginalShell() {
@@ -334,8 +362,12 @@ export function createMiniGame(context = {}) {
       if (originalCanvasWidth != null) canvas.width = originalCanvasWidth;
       if (originalCanvasHeight != null) canvas.height = originalCanvasHeight;
     }
-    if (stage) stage.className = originalStageClassName;
+    if (stage) {
+      stage.className = originalStageClassName;
+      if (stage.style) stage.style.backgroundImage = originalStageBackgroundImage;
+    }
     if (context.uiRoot) context.uiRoot.className = originalUiRootClassName;
+    arenaBackgroundImage = null;
   }
 
   function attemptAllowance() {
@@ -835,12 +867,29 @@ export function createMiniGame(context = {}) {
   function renderFrame(elapsedMs) {
     if (!canvasContext || !canvas) return;
     canvasContext.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    if (canDrawImage(canvasContext, arenaBackgroundImage)) {
+      canvasContext.drawImage(
+        arenaBackgroundImage,
+        0,
+        0,
+        Number(arenaBackgroundImage.naturalWidth ?? arenaBackgroundImage.width),
+        Number(arenaBackgroundImage.naturalHeight ?? arenaBackgroundImage.height),
+        0,
+        0,
+        CANVAS_SIZE,
+        CANVAS_SIZE,
+      );
+      if (typeof canvasContext.fillRect === "function") {
+        canvasContext.fillStyle = "rgb(5 7 12 / 22%)";
+        canvasContext.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      }
+    }
 
     const coreHit = elapsedMs < coreFlashUntilMs;
     const ransomLocked = gameplayStarted && mashRemaining > 0;
     canvasContext.beginPath();
     canvasContext.arc(CENTER, CENTER, CORE_RADIUS, 0, Math.PI * 2);
-    canvasContext.fillStyle = coreHit ? "#ff3b3b" : ransomLocked ? "#3a2a4d" : "#111827";
+    canvasContext.fillStyle = coreHit ? "#ff3b3b" : ransomLocked ? PIXEL_COLORS.purple : PIXEL_COLORS.ink;
     canvasContext.fill();
     canvasContext.strokeStyle = coreHit ? "#ff8080" : ransomLocked ? "#8b3fd1" : "#37e6ff";
     canvasContext.lineWidth = 3;
@@ -873,10 +922,7 @@ export function createMiniGame(context = {}) {
       canvasContext.globalAlpha = threat.type === "SPYWARE"
         ? Math.min(1, Math.max(0.1, Number(threat.opacity) || 0.1))
         : 1;
-      canvasContext.beginPath();
-      canvasContext.arc(x, y, 14, 0, Math.PI * 2);
-      canvasContext.fillStyle = color;
-      canvasContext.fill();
+      drawPixelToken(canvasContext, x, y, 14, color);
       canvasContext.globalAlpha = 1;
 
       if (Math.abs(elapsedMs - threat.targetAt) <= finiteAtLeast(config?.goodWindowMs, 0, 500)) {
@@ -911,10 +957,7 @@ export function createMiniGame(context = {}) {
       const progress = Math.max(0, elapsed / IMPACT_DURATION);
       const x = effect.startX + (CENTER - effect.startX) * progress;
       const y = effect.startY + (CENTER - effect.startY) * progress;
-      canvasContext.beginPath();
-      canvasContext.arc(x, y, 10, 0, Math.PI * 2);
-      canvasContext.fillStyle = "#ff3b3b";
-      canvasContext.fill();
+      drawPixelToken(canvasContext, x, y, 10, "#ff3b3b");
       return true;
     });
 
@@ -925,10 +968,7 @@ export function createMiniGame(context = {}) {
       const progress = elapsed / SPLIT_EFFECT_DURATION;
       const x = effect.startX + (effect.endX - effect.startX) * progress;
       const y = effect.startY + (effect.endY - effect.startY) * progress;
-      canvasContext.beginPath();
-      canvasContext.arc(x, y, 8, 0, Math.PI * 2);
-      canvasContext.fillStyle = TYPE_COLORS.WORM;
-      canvasContext.fill();
+      drawPixelToken(canvasContext, x, y, 8, TYPE_COLORS.WORM);
       return true;
     });
 
@@ -1085,6 +1125,22 @@ export function createMiniGame(context = {}) {
         onActionRelease();
       });
       addListener(ui.actionButton, "pointercancel", () => {});
+      // InputManager leaves focused buttons to native keyboard activation.
+      // Judge on keydown (like pointerdown), and suppress the generated click.
+      addListener(ui.actionButton, "keydown", (event) => {
+        if (event.code !== "Space" && event.code !== "Enter") return;
+        event.preventDefault?.();
+        if (!event.repeat) onActionPress();
+      });
+      addListener(ui.actionButton, "keyup", (event) => {
+        if (event.code !== "Space" && event.code !== "Enter") return;
+        event.preventDefault?.();
+        onActionRelease();
+      });
+      addListener(ui.actionButton, "click", (event) => {
+        // Assistive activation has no pointerdown. Pointer clicks were judged already.
+        if (event.detail === 0) onActionPress();
+      });
       const unsubscribeInput = context.input?.onAction?.((event) => {
         if (event.action !== INPUT_ACTIONS.CONFIRM && event.action !== INPUT_ACTIONS.INTERACT) return;
 

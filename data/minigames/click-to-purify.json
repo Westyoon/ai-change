@@ -2,6 +2,8 @@
   "schemaVersion": 1,
   "gameId": "cyber-click-to-purify",
   "implementationStatus": "MVP",
+  "stageBackgroundAssetId": "click-to-purify-stage-background",
+  "arenaBackgroundAssetId": "click-to-purify-arena-background",
   "goal": "몰려드는 악성코드로부터 CORE를 지키고 올바른 타이밍에 위협을 정화합니다.",
   "controls": {
     "pc": ["CLICK 버튼(또는 Space)으로 정화", "스파이웨어는 깜빡이는 순간에 CLICK", "랜섬웨어 감염 시 연타로 해제"],

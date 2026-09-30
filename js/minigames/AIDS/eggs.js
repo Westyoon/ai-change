@@ -1,12 +1,14 @@
 import { findPlatform } from './platforms.js';
 import { showFloatText, flashBox, popHeart, updateHearts } from './hud.js';
+import { createGuardianImage } from './guardian-art.js';
 
 export function spawnEgg(refs, config, state) {
     const doc = refs.field.ownerDocument;
     const type = Math.random() < config.eggTypeProbability.in ? 'in' : 'de';
     const el = doc.createElement('div');
     el.className = 'aids-egg aids-egg-' + type;
-    el.textContent = type === 'in' ? '인지' : '데사';
+    const sprite = createGuardianImage(doc, type, 'aids-egg-sprite');
+    el.appendChild(sprite);
     refs.field.appendChild(el);
 
     const fieldW = refs.field.clientWidth;
@@ -15,6 +17,9 @@ export function spawnEgg(refs, config, state) {
     state.eggs.push({
         type,
         el,
+        sprite,
+        rotation: 0,
+        angularVelocity: 0,
         x: fieldW / 2,
         y: 0,
         vx: 0,

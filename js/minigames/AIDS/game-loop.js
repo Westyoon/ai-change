@@ -1,6 +1,7 @@
 import { platformRestingY, stepFalling, stepRolling } from './physics.js';
 import { spawnEgg, finalizeRelease, resolveEgg, resolveMiss } from './eggs.js';
 import { updateTimerDisplay } from './hud.js';
+import { updateEggRotation } from './guardian-art.js';
 
 export function spawnIntervalFor(config, elapsedSec) {
     for (const rule of config.spawnIntervals) {
@@ -28,6 +29,9 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
 
     for (const egg of state.eggs) {
         if (egg.done) continue;
+        const previousX = egg.x;
+        const previousY = egg.y;
+        const wasRolling = egg.phase === 'rolling';
 
         if (egg.phase === 'falling') {
             stepFalling(egg, dt, config, fieldW, fieldH, physics);
@@ -109,6 +113,7 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
             }
         }
 
+        updateEggRotation(egg, previousX, previousY, wasRolling, dt, eggR);
         egg.el.style.left = egg.x - eggR + 'px';
         egg.el.style.top = egg.y - eggR + 'px';
     }

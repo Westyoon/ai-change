@@ -1,0 +1,272 @@
+/* Runtime game skin. Loaded last so desktop and portrait layouts share the same
+ * materials. Do not change world geometry, hitboxes, images or gameplay states.
+ * #app scopes the skin away from standalone MVP harnesses. */
+:root {
+  --game-ink: #52233f;
+  --game-shadow: #30182e;
+  --game-paper: #fff8e8;
+  --game-paper-shade: #e6cfd0;
+  --game-pink: #d82f76;
+  --game-magenta: #e333bb;
+  --game-purple: #363367;
+  --game-blue: #2ab5e4;
+  --game-yellow: #fdd044;
+  --game-step-round: polygon(25% 0, 75% 0, 75% 8%, 87% 8%, 87% 20%,
+    95% 20%, 95% 33%, 100% 33%, 100% 67%, 95% 67%, 95% 80%,
+    87% 80%, 87% 92%, 75% 92%, 75% 100%, 25% 100%, 25% 92%,
+    13% 92%, 13% 80%, 5% 80%, 5% 67%, 0 67%, 0 33%, 5% 33%,
+    5% 20%, 13% 20%, 13% 8%, 25% 8%);
+}
+
+/* Shared controls: solid pigment, ivory top edge, hard lower edge. */
+#app :is(.minigame-frame, .battle-frame, .postgame-room-lobby, .result-card) .button,
+#app :is(.nb-key, .nb-btn-delete, .nb-btn-submit, .ctp-click-btn, .ctp-start-btn,
+  .ctp-intro-close, .ai-ball-classification .btn-lid, .ai-ball-classification .btn-primary,
+  .code-heart-game button, .xr-trials__choice, .xr-trials__mash-button,
+  .character-attack-button) {
+  border: 2px solid var(--game-ink);
+  border-radius: 2px;
+  box-shadow: inset 0 2px 0 #fff8e866, 0 4px 0 var(--game-shadow);
+  text-shadow: none;
+  transition: background-color 100ms steps(2, end), color 100ms steps(2, end),
+    box-shadow 100ms steps(2, end);
+}
+
+#app :is(.nb-key, .nb-btn-delete, .ctp-intro-close) {
+  color: var(--game-ink);
+  background: var(--game-paper);
+}
+
+#app :is(.nb-btn-submit, .ctp-click-btn, .ctp-start-btn,
+  .ai-ball-classification .btn-primary, .ch-btn-unlock, .ch-btn-action,
+  .xr-trials__choice, .xr-trials__mash-button) {
+  background: var(--game-pink);
+  color: #fff;
+}
+
+#app :is(.ch-btn-recipe-trigger, .ch-btn-close) {
+  background: var(--game-purple);
+  color: #fff;
+}
+
+#app :is(.minigame-frame, .battle-frame, .postgame-room-lobby, .result-card) .button--primary {
+  background: var(--game-pink);
+  color: #fff;
+}
+
+#app :is(.minigame-frame, .battle-frame, .postgame-room-lobby, .result-card) .button:active:not(:disabled),
+#app :is(.nb-key, .nb-btn-delete, .nb-btn-submit, .ctp-click-btn, .ctp-start-btn,
+  .ctp-intro-close, .ai-ball-classification .btn-lid, .ai-ball-classification .btn-primary,
+  .code-heart-game button, .xr-trials__choice, .xr-trials__mash-button,
+  .character-attack-button):active:not(:disabled) {
+  box-shadow: inset 0 2px 0 #30182e33, 0 1px 0 var(--game-shadow);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #app :is(.nb-key, .nb-btn-delete, .nb-btn-submit, .ctp-click-btn, .ctp-start-btn,
+    .ctp-intro-close, .code-heart-game button, .xr-trials__choice,
+    .xr-trials__mash-button, .ai-ball-classification .btn-primary):hover:not(:disabled) {
+    background: var(--game-pink);
+    color: #fff;
+    filter: none;
+  }
+}
+
+#app :is(.nb-key, .nb-btn-delete, .nb-btn-submit, .ctp-click-btn, .ctp-start-btn,
+  .code-heart-game button, .xr-trials__choice, .xr-trials__mash-button):focus-visible {
+  outline: 3px solid var(--game-blue);
+  outline-offset: 3px;
+}
+
+/* Frames keep their background artwork and their existing responsive sizing. */
+#app :is(.minigame-frame, .battle-frame, .nb-container, .code-heart-game,
+  .ai-ball-classification, .stat-boss-battlefield, .control-boss-world,
+  .xr-trials, .postgame-room-lobby__panel, .result-card) {
+  border-radius: 4px;
+  box-shadow: 4px 6px 0 var(--game-shadow);
+}
+
+#app :is(.nb-container, .code-heart-game, .control-boss-world) {
+  border-color: var(--game-ink);
+}
+
+#app :is(.minigame-instructions, .ch-modal-card, .click-to-purify__intro-box,
+  .postgame-room-card, .postgame-room-member, .battle-party-hud) {
+  border-radius: 4px;
+  box-shadow: 3px 4px 0 var(--game-shadow);
+}
+
+/* DS: numbered tiles and keypad, with readable result colors on the dark log. */
+#app .nb-slot {
+  border-color: var(--game-ink);
+  border-radius: 2px;
+  background: var(--game-paper);
+  color: var(--game-ink);
+  box-shadow: inset 0 -4px 0 var(--game-paper-shade), 0 3px 0 var(--game-shadow);
+}
+#app .nb-epoch-text { color: #fcb5dd; }
+#app .nb-history { border-radius: 2px; box-shadow: inset 0 0 0 2px var(--game-ink); }
+#app .nb-history-guess { color: #fff8e8; }
+#app .nb-history-fit { color: #8ee1bd; }
+#app .nb-history-shift { color: var(--game-yellow); }
+#app .nb-history-outlier { color: #fcb5dd; }
+#app .nb-progress-bar { accent-color: var(--game-pink); }
+
+/* CSE: keep category and success/error colors; replace only their materials. */
+#app .code-heart-game :is(.ch-header, .ch-timer, .ch-counter-scene,
+  .ch-order-bubble, .ch-workspace, .ch-slot-tile, .ch-feedback,
+  .ch-modal-card, .ch-recipe-row) {
+  border-radius: 2px;
+  box-shadow: inset 0 -2px 0 #52233f22;
+}
+#app .code-heart-game .ch-header { background-color: var(--game-purple); }
+#app .code-heart-game .ch-timer { color: var(--game-yellow); }
+#app .code-heart-game :is(.ch-counter-scene, .ch-modal-card) {
+  background: var(--game-paper);
+  border-color: var(--game-ink);
+  color: var(--game-ink);
+}
+#app .code-heart-game .ch-order-bubble { border-color: var(--game-ink); }
+#app .code-heart-game .ch-order-bubble::before { border-right-color: var(--game-ink); }
+#app .code-heart-game :is(.ch-sil-head, .ch-sil-body) {
+  border-radius: 0;
+  background-color: var(--game-purple);
+  clip-path: var(--game-step-round);
+}
+#app .code-heart-game .ch-btn-material { box-shadow: inset 0 -3px 0 #52233f22, 0 3px 0 var(--game-shadow); }
+
+/* AI: compact instrument panels around the existing sorting-box artwork. */
+#app .ai-ball-classification-canvas { image-rendering: pixelated; }
+#app .ai-ball-classification :is(.top-area, .ai-ball-classification__hud, .bottom-area) {
+  background: var(--game-purple);
+  border-color: var(--game-ink);
+  box-shadow: inset 0 2px 0 #fff8e833;
+}
+#app .ai-ball-classification :is(.target-badge, .ai-ball-classification__target > strong) {
+  border-radius: 2px;
+  background: #0e7ffd;
+  box-shadow: 2px 2px 0 var(--game-shadow);
+}
+#app .ai-ball-classification :is(.progress-box, .ai-ball-classification__status) { color: var(--game-yellow); }
+#app .ai-ball-classification :is(.control-info, .ai-ball-classification__status > span) { color: var(--game-paper); }
+#app .ai-ball-classification .btn-lid:is(.closed, .is-closed) { background: var(--game-pink); color: #fff; }
+#app .ai-ball-classification .btn-lid:is(.open, .is-open) { background: #6fdad3; color: var(--game-shadow); }
+
+/* CS: preserve threat colors and timing rings; unify the instrument panel. */
+#app .click-to-purify-canvas { border-radius: 2px; border-color: var(--game-ink); }
+#app .click-to-purify-ui-root :is(.ctp-gauge-shell, .ctp-mash-gauge-shell) {
+  border-radius: 0;
+  border-color: var(--game-paper);
+  background: var(--game-purple);
+}
+#app .click-to-purify-ui-root .ctp-gauge { background: #a2c05e; }
+#app .click-to-purify-ui-root .ctp-mash-gauge { background: var(--game-magenta); }
+#app .click-to-purify-ui-root .ctp-gauge-label { text-shadow: 1px 1px 0 var(--game-shadow), -1px -1px 0 var(--game-shadow); }
+
+/* Common health/timer meters: hard edges and flat fills, with state colors kept. */
+#app :is(.character-health__track, .stat-boss-boss-hp-track,
+  .control-boss-bar__track, .control-boss-cast, .data-sphinx-health__track,
+  .data-sphinx-timer__track, .word-breaker-life-meter, .word-breaker-life-pip,
+  .xr-trials__timer-track, .battle-party-hud__track) {
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px #fff8e844;
+}
+#app :is(.character-health__fill, .stat-boss-boss-hp-fill,
+  .data-sphinx-health__fill, .word-breaker-life-fill, .xr-trials__timer-fill,
+  .battle-party-hud__fill) {
+  border-radius: 0;
+  background-image: none;
+  box-shadow: inset 0 2px 0 #fff8e866;
+}
+#app .character-health__fill { background-color: var(--game-blue); }
+#app .battle-party-hud__member:not([data-dead="true"]) .battle-party-hud__fill {
+  background-color: var(--game-pink);
+}
+#app :is(.stat-boss-boss-hp-fill, .data-sphinx-health__fill,
+  .word-breaker-life-fill, .xr-trials__timer-fill) { background-color: var(--game-pink); }
+#app :is(.character-health__track, .stat-boss-boss-hp-track)[data-low="true"] > span {
+  background-color: var(--danger);
+}
+#app :is(.character-state-badge, .stat-boss-phase-badge, .stat-boss-counter-prompt,
+  .control-boss-phase, .data-sphinx-divider span, .word-breaker-vitality,
+  .word-breaker-phase, .aftergame-world__zone-badge, .aftergame-world__network-badge) {
+  border-radius: 2px;
+  box-shadow: 2px 3px 0 var(--game-shadow);
+}
+
+/* Control boss: cream toy board, distinct dangerous/cleared/hole tile states. */
+#app .control-boss-stage { background: var(--game-paper); color: var(--game-ink); }
+#app :is(.control-boss-header, .control-boss-hud, .control-boss-status) {
+  background: #f2e3e8;
+  border-color: var(--game-ink);
+  color: var(--game-ink);
+}
+#app .control-boss-world { background-color: var(--game-paper); }
+#app .control-boss-actor {
+  border-color: var(--game-ink);
+  border-radius: 2px;
+  background: var(--game-pink);
+  box-shadow: inset 0 -4px 0 #9c2056, 3px 4px 0 var(--game-shadow);
+}
+#app .control-boss-bar__fill--hp { background: var(--game-pink); }
+#app .control-boss-bar__fill--shield { background: var(--game-blue); }
+#app :is(.control-boss-cover, .control-boss-tile) { border-radius: 2px; box-shadow: 0 2px 0 var(--game-paper-shade); }
+#app .control-boss-cover[data-active="true"] { box-shadow: inset 0 -3px 0 #2ab5e455, 0 3px 0 var(--game-ink); }
+#app .control-boss-tile[data-kind="plate"] { box-shadow: inset 0 -3px 0 #fdd04488; }
+#app .control-boss-bullet { border-radius: 0; clip-path: var(--game-step-round); box-shadow: none; }
+/* The radial mask defines the damaging ring's shape; keep it aligned to collision. */
+#app .control-boss-shockwave { box-shadow: none; }
+
+#app .stat-boss-boss-actor__sprite {
+  border-radius: 2px;
+  background: var(--game-pink);
+  box-shadow: inset -5px -5px 0 #9c2056, 4px 4px 0 var(--game-shadow);
+}
+#app :is(.stat-boss-hud, .data-sphinx-hud) { background: var(--game-purple); }
+#app :is(.stat-boss-battlefield, .data-sphinx-stage, .data-sphinx-question) {
+  background: #291d39;
+}
+#app .word-breaker-stats > div { border-radius: 2px; box-shadow: inset 0 -2px 0 #30182e88; }
+#app .stat-boss-cell { border-radius: 0; }
+#app .data-sphinx-zone[data-selected="true"] { box-shadow: inset 0 0 0 5px currentcolor; }
+#app .data-sphinx-divider { box-shadow: 2px 0 0 var(--game-shadow); }
+
+/* Touch hit areas remain round; only the drawn knob and its shadow change. */
+#app .character-joystick { box-shadow: 0 4px 0 var(--game-shadow); background: var(--game-purple); }
+#app .character-joystick__knob {
+  border-radius: 0;
+  clip-path: var(--game-step-round);
+  background: var(--game-paper);
+  box-shadow: inset -4px -4px 0 var(--game-paper-shade);
+}
+#app .word-breaker-eiai__face {
+  border-radius: 2px;
+  background: var(--game-purple);
+  box-shadow: inset -4px -4px 0 var(--game-shadow), 0 4px 0 var(--game-shadow);
+}
+#app .code-heart-game button:disabled { transform: none; filter: none; }
+
+/* All six X-egg challenges use the same physical cards and push buttons. */
+#app .xr-trials {
+  --xr-ink: var(--game-ink);
+  --xr-paper: var(--game-paper);
+  --xr-edge: var(--game-ink);
+  --xr-violet: var(--game-purple);
+  --xr-rose: var(--game-pink);
+  background: var(--game-paper);
+  border-color: var(--game-ink);
+}
+#app :is(.xr-trials__status, .xr-trials__rps-slot, .xr-trials__card) {
+  border-radius: 2px;
+  box-shadow: inset 0 -3px 0 #52233f22, 0 3px 0 var(--game-shadow);
+}
+#app .xr-trials__card { background: var(--game-purple); }
+#app .xr-trials__card[data-face-up="true"] { background: var(--game-paper); }
+#app .xr-trials__card[data-matched="true"] { background: #d6f3ef; }
+#app .xr-trials__mash-button { border-radius: 4px; }
+#app .xr-trials__mash-button:active:not(:disabled) { box-shadow: 0 2px 0 var(--game-shadow); }
+
+@media (prefers-reduced-motion: reduce) {
+  #app :is(.nb-container, .code-heart-game, .ai-ball-classification,
+    .click-to-purify, .xr-trials) button { transition: none; }
+}

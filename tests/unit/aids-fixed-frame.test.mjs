@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { DEFAULT_CONFIG } from "../../js/minigames/AIDS/config.js";
@@ -154,7 +155,18 @@ function createDom({ width, height }) {
 
 test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and cleans up", async () => {
   const { frameHost, observers, ownerDocument, stage, uiRoot } = createDom({ width: 195, height: 370 });
-  const instance = createMiniGame({ uiRoot });
+  const requestedAssetIds = [];
+  const instance = createMiniGame({
+    uiRoot,
+    assets: {
+      get(assetId) {
+        requestedAssetIds.push(assetId);
+        return assetId === DEFAULT_CONFIG.backgroundAssetId
+          ? { src: "blob:aids-game-background" }
+          : undefined;
+      },
+    },
+  });
 
   await instance.init(DEFAULT_CONFIG);
 
@@ -171,9 +183,15 @@ test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and
   assert.equal(viewport.className, "aids-frame-viewport");
   assert.equal(frame.className, "aids-logical-frame");
   assert.equal(root.className, "aids-root");
+  assert.deepEqual(requestedAssetIds, ["ai-data-egg-sort-background"]);
+  assert.equal(root.style.backgroundImage, 'url("blob:aids-game-background")');
   assert.match(
     ownerDocument.head.children[0].textContent,
     /\.aids-ui-root\s*\{[^}]*overflow-y:auto[^}]*align-items:safe center/su,
+  );
+  assert.match(
+    ownerDocument.head.children[0].textContent,
+    /\.aids-root\s*\{[^}]*background-size:100% 100%[^}]*overflow:hidden/su,
   );
   assert.doesNotMatch(ownerDocument.head.children[0].textContent, /\.aids-desktop-layout/u);
   assert.equal(frame.style.width, "390px");
@@ -227,6 +245,85 @@ test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and
   uiRoot.clientHeight = 370;
   observers[0].callback();
   assert.equal(frame.style.transform, `scale(${desktopScale})`);
+});
+
+test("AIDS background manifest and PNG preserve the full logical-frame contract", async () => {
+  const [manifestText, configText, png] = await Promise.all([
+    readFile(new URL("../../data/asset-manifest.json", import.meta.url), "utf8"),
+    readFile(new URL("../../data/minigames/ai-data-egg-sort.json", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../../assets/minigames/ai-data-egg-sort/game-background.png",
+        import.meta.url,
+      ),
+    ),
+  ]);
+  const manifest = JSON.parse(manifestText);
+  const config = JSON.parse(configText);
+  const background = manifest.assets.find((asset) => asset.id === config.backgroundAssetId);
+
+  assert.deepEqual(
+    {
+      group: background?.group,
+      type: background?.type,
+      required: background?.required,
+      sourceRef: background?.sourceRef,
+    },
+    {
+      group: "ai-data-egg-sort",
+      type: "image",
+      required: true,
+      sourceRef: "ASSET-AIDS-001",
+    },
+  );
+  assert.equal(png.subarray(1, 4).toString("ascii"), "PNG");
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  assert.ok(width >= AIDS_LOGICAL_WIDTH);
+  assert.ok(height >= AIDS_LOGICAL_HEIGHT);
+  assert.ok(
+    Math.abs(width / height - AIDS_LOGICAL_WIDTH / AIDS_LOGICAL_HEIGHT) < 0.002,
+    `background ratio ${width}x${height} must match ${AIDS_LOGICAL_WIDTH}x${AIDS_LOGICAL_HEIGHT}`,
+  );
+});
+
+test("AIDS pixel chrome stays solid while preserving gameplay geometry", async () => {
+  const source = await readFile(
+    new URL("../../js/minigames/AIDS/styles.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(source, /(?:linear|radial)-gradient|drop-shadow\(|blur\(/u);
+  assert.match(
+    source,
+    /\.aids-logical-frame\s*\{[^}]*width:390px; height:740px;/su,
+  );
+  assert.match(
+    source,
+    /\.aids-egg\s*\{[^}]*width:40px; height:40px;[^}]*border:0; background:transparent/su,
+  );
+  assert.match(
+    source,
+    /\.aids-platform-wrap\s*\{[^}]*width:84px; height:22px;[^}]*margin-left:-42px; margin-top:-11px;/su,
+  );
+  assert.match(
+    source,
+    /\.aids-platform-bar\s*\{[^}]*height:16px;[^}]*border:2px solid var\(--aids-ink\)/su,
+  );
+  assert.match(
+    source,
+    /\.aids-box\s*\{[^}]*width:120px; height:66px;/su,
+  );
+  assert.match(
+    source,
+    /\.aids-ctrl-btn\s*\{[^}]*height:64px;[^}]*border:3px solid var\(--aids-ink\)/su,
+  );
+  assert.match(source, /\.aids-ctrl-left\s*\{ background:#2AB5E4; \}/u);
+  assert.match(source, /\.aids-ctrl-right\s*\{ background:#FCB5DD; \}/u);
+  assert.match(
+    source,
+    /\.aids-ctrl-btn:focus-visible\s*\{[^}]*outline:3px solid var\(--aids-focus\)/su,
+  );
 });
 
 test("AIDS mobile field keeps the original dimensions and physics values", () => {

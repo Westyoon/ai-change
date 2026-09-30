@@ -46,9 +46,9 @@ class FakeElement {
     this.listeners.get(type)?.delete(listener);
   }
 
-  dispatchEvent(type) {
+  dispatchEvent(type, properties = {}) {
     for (const listener of [...(this.listeners.get(type) ?? [])]) {
-      listener({ currentTarget: this, target: this, type });
+      listener({ currentTarget: this, target: this, type, ...properties });
     }
   }
 
@@ -104,6 +104,8 @@ function createRecordingContext() {
   return {
     calls,
     clearRect(...args) { calls.push(["clearRect", ...args]); },
+    drawImage(...args) { calls.push(["drawImage", ...args]); },
+    fillRect(...args) { calls.push(["fillRect", ...args]); },
     beginPath(...args) { calls.push(["beginPath", ...args]); },
     arc(...args) { calls.push(["arc", ...args]); },
     fill(...args) { calls.push(["fill", ...args]); },
@@ -115,7 +117,7 @@ function createRecordingContext() {
 }
 
 function createCanvasEnvironment() {
-  const stage = { className: "minigame-stage" };
+  const stage = { className: "minigame-stage", style: {} };
   const context = createRecordingContext();
   const canvas = {
     width: 960,
@@ -131,6 +133,57 @@ function createCanvasEnvironment() {
   uiRoot.className = "minigame-ui-root";
   return { canvas, context, stage, uiRoot };
 }
+
+test("CS consumes the stage and square arena backgrounds without changing its playfield", async () => {
+  const config = await readConfig();
+  const { canvas, context, stage, uiRoot } = createCanvasEnvironment();
+  stage.style.backgroundImage = "linear-gradient(original, original)";
+  const requestedAssetIds = [];
+  const stageImage = {
+    currentSrc: "https://assets.example/cs-stage.png",
+    complete: true,
+    naturalWidth: 2048,
+    naturalHeight: 1253,
+  };
+  const arenaImage = {
+    src: "https://assets.example/cs-arena.png",
+    complete: true,
+    naturalWidth: 1200,
+    naturalHeight: 1200,
+  };
+  const instance = createMiniGame({
+    canvas,
+    uiRoot,
+    assets: {
+      get(assetId) {
+        requestedAssetIds.push(assetId);
+        if (assetId === config.stageBackgroundAssetId) return stageImage;
+        if (assetId === config.arenaBackgroundAssetId) return arenaImage;
+        return null;
+      },
+    },
+  });
+
+  await instance.init(config);
+  assert.deepEqual(requestedAssetIds, [
+    config.stageBackgroundAssetId,
+    config.arenaBackgroundAssetId,
+  ]);
+  assert.match(stage.style.backgroundImage, /cs-stage\.png/u);
+  assert.match(stage.style.backgroundImage, /linear-gradient/u);
+  assert.equal(canvas.width, 480);
+  assert.equal(canvas.height, 480);
+
+  instance.start({ attemptId: "cs:backgrounds" });
+  assert.ok(context.calls.some((call) => (
+    call[0] === "drawImage"
+    && call[1] === arenaImage
+    && call.slice(2).join(",") === "0,0,1200,1200,0,0,480,480"
+  )));
+
+  instance.destroy();
+  assert.equal(stage.style.backgroundImage, "linear-gradient(original, original)");
+});
 
 async function readConfig() {
   return JSON.parse(await readFile(
@@ -360,7 +413,7 @@ test("CS worm splits are guaranteed (not miss-triggered), and split-child misses
   }
 });
 
-test("CS worm defense purification: a caught split child is worth half the wave, both children together are worth the full wave", async () => {
+test("CS focused Space judges on keydown once, not on repeat or pointer-generated click", async () => {
   const animation = installAnimationFrameStub();
   const baseConfig = await readConfig();
   const { canvas, uiRoot } = createCanvasEnvironment();
@@ -397,13 +450,19 @@ test("CS worm defense purification: a caught split child is worth half the wave,
 
     // 자식 하나만 정확한 타이밍(300)에 잡음 -> 웜 한 마리 몫(전체의 1/1칸) 중 절반만 인정 -> 50%
     now = 300;
-    clickButton.dispatchEvent("pointerdown");
+    let prevented = false;
+    clickButton.dispatchEvent("keydown", { code: "Space", repeat: false, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
     assert.equal(instance.getState().perfectCount, 1);
     assert.equal(instance.getState().activeThreatCount, 1);
     assert.equal(instance.getState().purification, 50);
 
-    // 남은 자식도 잡음 -> 둘 다 잡았으니 웜 한 마리 몫을 온전히 인정 -> 100%
-    clickButton.dispatchEvent("pointerdown");
+    clickButton.dispatchEvent("keydown", { code: "Space", repeat: true });
+    clickButton.dispatchEvent("click", { detail: 1 });
+    clickButton.dispatchEvent("keyup", { code: "Space" });
+    assert.equal(instance.getState().perfectCount, 1);
+    // A fresh Space press can purify the remaining child.
+    clickButton.dispatchEvent("keydown", { code: "Space", repeat: false });
     assert.equal(instance.getState().perfectCount, 2);
     assert.equal(instance.getState().activeThreatCount, 0);
     assert.equal(instance.getState().purification, 100);

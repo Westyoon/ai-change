@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "gameId": "computer-code-heart",
   "implementationStatus": "MVP",
+  "backgroundAssetId": "code-heart-background",
   "goal": "주문에 맞는 각 범주의 개발 재료를 조합해 하트를 완성합니다.",
   "controls": {
     "pc": ["마우스로 재료 선택", "초기화 또는 제출 버튼 선택"],

@@ -135,16 +135,6 @@
   opacity: 0.5;
 }
 
-.minigame-thumbnail {
-  display: block;
-  width: min(640px, 100%);
-  height: auto;
-  margin: 24px auto;
-  border: 3px solid var(--line);
-  border-radius: 18px;
-  image-rendering: pixelated;
-}
-
 .result-backdrop {
   position: absolute;
   z-index: 10;
@@ -171,6 +161,24 @@
 
 .result-card[data-status="FAIL"] {
   border-color: var(--danger);
+}
+
+.result-card__illustration {
+  display: block;
+  width: clamp(124px, 28vw, 176px);
+  aspect-ratio: 1;
+  margin: -12px auto -8px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 9px 8px rgb(35 24 21 / 28%));
+  pointer-events: none;
+  user-select: none;
+}
+
+.result-card[data-status="CLEAR"] .result-card__illustration {
+  filter:
+    drop-shadow(0 9px 8px rgb(35 24 21 / 22%))
+    drop-shadow(0 0 12px rgb(232 168 40 / 42%));
 }
 
 .result-metrics {
@@ -200,6 +208,21 @@
   padding-left: 1.2rem;
   color: var(--muted);
   text-align: left;
+}
+
+.minigame-how-to {
+  width: 100%;
+}
+
+.minigame-how-to__title {
+  grid-column: 1 / -1;
+  margin-top: 8px !important;
+  text-align: center;
+}
+
+.minigame-how-to__goal {
+  grid-column: 1 / -1;
+  min-height: 0;
 }
 
 @media (max-width: 680px) {
@@ -267,6 +290,9 @@
     box-sizing: border-box;
     padding: 20px 18px;
     background: #fdf0f5;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -434,7 +460,7 @@
     z-index: 2;
   }
   
-  .code-heart-game .ch-btn-recipe-trigger:hover { filter: brightness(1.05); }
+  .code-heart-game .ch-btn-recipe-trigger:not(:disabled):hover { filter: brightness(1.05); }
   .code-heart-game .ch-btn-recipe-trigger:active { transform: scale(0.92); }
   .code-heart-game .ch-book-icon { font-size: 13px; }
   .code-heart-game .ch-book-text { font-size: 9.5px; font-weight: bold; margin-top: 0; }
@@ -576,13 +602,21 @@
     justify-content: center;
   }
   
-  .code-heart-game .ch-btn-material:hover { filter: brightness(0.97); }
+  .code-heart-game .ch-btn-material:not(:disabled):hover { filter: brightness(0.97); }
   .code-heart-game .ch-btn-material:active { transform: scale(0.94); }
   
-  .code-heart-game .ch-btn-material[data-cat="lang"]   { border-color: #ffe082; background: #fffde7; color: #e65100; }
-  .code-heart-game .ch-btn-material[data-cat="engine"] { border-color: #90caf9; background: #e3f2fd; color: #1565c0; }
-  .code-heart-game .ch-btn-material[data-cat="lib"]    { border-color: #ce93d8; background: #f3e5f5; color: #6a1b9a; }
-  .code-heart-game .ch-btn-material[data-cat="tool"]   { border-color: #a5d6a7; background: #e8f5e9; color: #2e7d32; }
+  .code-heart-game .ch-btn-material[data-cat="lang"],
+  .code-heart-game .ch-slot-tile.filled[data-cat="lang"]   { border-color: #ffe082; background: #fffde7; color: #e65100; }
+  .code-heart-game .ch-btn-material[data-cat="engine"],
+  .code-heart-game .ch-slot-tile.filled[data-cat="engine"] { border-color: #90caf9; background: #e3f2fd; color: #1565c0; }
+  .code-heart-game .ch-btn-material[data-cat="lib"],
+  .code-heart-game .ch-slot-tile.filled[data-cat="lib"]    { border-color: #ce93d8; background: #f3e5f5; color: #6a1b9a; }
+  .code-heart-game .ch-btn-material[data-cat="tool"],
+  .code-heart-game .ch-slot-tile.filled[data-cat="tool"]   { border-color: #a5d6a7; background: #e8f5e9; color: #2e7d32; }
+
+  .code-heart-game .ch-slot-tile.filled[data-cat] .ch-slot-val {
+    color: inherit;
+  }
   
   .code-heart-game .ch-btn-unlock {
     width: 90px;
@@ -602,7 +636,7 @@
     line-height: 1.2;
   }
   
-  .code-heart-game .ch-btn-unlock:hover { filter: brightness(1.05); }
+  .code-heart-game .ch-btn-unlock:not(:disabled):hover { filter: brightness(1.05); }
   .code-heart-game .ch-btn-unlock:active { transform: scale(0.94); }
   .code-heart-game .ch-btn-unlock small { font-size: 10px; color: #ffeb3b; margin-top: 3px; }
   
@@ -897,149 +931,181 @@
 /* Phone portrait: reflow the original cards instead of shrinking their controls. */
 .minigame-ui-root.cse-ui-root.cse-mobile-layout {
   scrollbar-gutter: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .cse-ui-root.cse-mobile-layout .cse-fixed-frame-viewport {
-  width: 100%;
+  width: 100% !important;
   max-width: 520px;
+  height: 100% !important;
+  flex: 1 1 auto !important;
+  display: flex;
+  flex-direction: column;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game {
-  width: 100%;
+  width: 100% !important;
   min-width: 0;
-  height: auto;
-  min-height: 100%;
+  height: 100% !important;
+  flex: 1 1 auto !important;
+  min-height: 0;
   max-height: none;
   padding: 12px;
-  gap: 10px;
+  gap: 12px;
   border-width: 2px;
-  border-radius: 20px;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
+/* Keep the compact layout from CSE PR #23: every control stays in one portrait screen. */
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-header {
-  gap: 8px;
-  min-height: 48px;
-  padding: 8px 10px;
-  font-size: 14px;
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background: transparent;
+  padding: 0;
+  min-height: 0;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-title {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  display: none;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-timer {
-  flex: 0 0 auto;
-  padding: 6px 8px;
-  font-size: 13px;
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-counter-scene {
-  display: grid;
-  grid-template-areas:
-    "customer order"
-    "recipe recipe";
-  grid-template-columns: 72px minmax(0, 1fr);
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   min-height: 0;
-  padding: 12px;
+  padding: 42px 12px 12px;
   gap: 10px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-customer-unit {
-  grid-area: customer;
-  width: 72px;
+  width: 56px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-person-silhouette {
-  width: 64px;
-  height: 78px;
+  width: 48px;
+  height: 60px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-customer-name {
-  font-size: 13px;
+  font-size: 10px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-order-bubble {
-  grid-area: order;
+  flex: 1;
   min-width: 0;
-  padding: 12px;
-  font-size: 14px;
-  overflow-wrap: anywhere;
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-recipe-trigger {
-  position: static;
-  grid-area: recipe;
-  width: 100%;
-  min-height: 44px;
-  height: 44px;
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 52px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 6px;
+  z-index: 5;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-book-icon {
-  font-size: 16px;
+  font-size: 11px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-book-text {
-  font-size: 13px;
+  font-size: 9px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace {
-  padding: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px;
+  gap: 8px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace-top {
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  display: contents;
 }
-.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-reset {
-  flex: 0 0 auto;
-  min-width: 72px;
-  min-height: 44px;
-  padding: 8px 10px;
-  font-size: 13px;
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-workspace-top span {
+  display: none;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slots-grid {
+  flex: 1;
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-tile {
   min-width: 0;
-  min-height: 58px;
-  padding: 8px 4px;
+  min-height: 42px;
+  padding: 4px 2px;
+  justify-content: center;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-type {
-  font-size: 12px;
+  font-size: 10px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-slot-val {
-  font-size: 14px;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-reset {
+  flex: 0 0 52px;
+  height: 100%;
+  min-height: 88px;
+  padding: 0;
+  font-size: 12px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-feedback {
-  min-height: 44px;
-  padding: 8px 10px;
-  font-size: 14px;
+  min-height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 8px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-tray-section {
-  flex-direction: column;
+  flex-direction: row;
+  flex: 1;
   height: auto;
-  gap: 10px;
+  min-height: 0;
+  gap: 8px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-materials-grid {
+  flex: 1;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(44px, auto));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-material {
   min-width: 0;
-  min-height: 44px;
-  padding: 6px 3px;
-  font-size: 13px;
-  overflow-wrap: anywhere;
+  min-height: 0;
+  height: 100%;
+  padding: 4px 2px;
+  font-size: 12px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-unlock {
-  flex-direction: row;
+  flex-direction: column;
+  justify-content: center;
+  width: 76px;
+  height: 100%;
+  min-height: 0;
   gap: 6px;
-  width: 100%;
-  min-height: 52px;
-  height: 52px;
-  font-size: 14px;
+  font-size: 13px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-unlock small {
   margin-top: 0;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-backdrop {
@@ -1048,21 +1114,21 @@
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-card {
   max-height: calc(100dvh - 24px);
-  padding: 14px;
+  padding: 16px;
   overflow-y: auto;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-modal-card h3 {
-  font-size: 17px;
+  font-size: 16px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-recipe-list {
   max-height: none;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-recipe-row {
-  font-size: 14px;
+  font-size: 12px;
 }
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-close,
 .cse-ui-root.cse-mobile-layout .code-heart-game .ch-btn-action {
-  min-height: 44px;
+  min-height: 42px;
   font-size: 14px;
 }
 
@@ -1217,6 +1283,9 @@
   border: 2px solid #32d9e6;
   border-radius: 22px;
   background: linear-gradient(160deg, #101a31, #13102c);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
 }
 
@@ -1265,6 +1334,8 @@
 
 .nb-history {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 6px;
   min-height: 92px;
   max-height: 170px;
@@ -1279,6 +1350,7 @@
   flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
+  align-items: baseline;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }

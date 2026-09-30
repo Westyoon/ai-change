@@ -7,6 +7,7 @@
     "pc": ["왼쪽·오른쪽 방향키 또는 A·D로 발판 조작"],
     "mobile": ["왼쪽·오른쪽 버튼을 터치해 발판 조작"]
   },
+  "backgroundAssetId": "ai-data-egg-sort-background",
   "totalTimeSec": 45,
   "initialLives": 5,
   "warningThresholdSec": 10,

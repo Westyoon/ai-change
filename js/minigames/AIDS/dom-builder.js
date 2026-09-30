@@ -1,4 +1,5 @@
 import { DEFINITION } from './definition.js';
+import { createGuardianImage } from './guardian-art.js';
 
 export const AIDS_LOGICAL_WIDTH = 390;
 export const AIDS_LOGICAL_HEIGHT = 740;
@@ -72,15 +73,13 @@ export function buildGameDom(uiRoot, config) {
     boxes.className = 'aids-boxes';
     const boxLeft = doc.createElement('div');
     boxLeft.className = 'aids-box aids-box-left';
-    const boxLeftDot = doc.createElement('div');
-    boxLeftDot.className = 'aids-box-dot';
+    const boxLeftDot = createGuardianImage(doc, 'in', 'aids-box-guardian');
     const boxLeftLabel = doc.createElement('span');
     boxLeftLabel.textContent = '인지';
     appendChildren(boxLeft, boxLeftDot, boxLeftLabel);
     const boxRight = doc.createElement('div');
     boxRight.className = 'aids-box aids-box-right';
-    const boxRightDot = doc.createElement('div');
-    boxRightDot.className = 'aids-box-dot';
+    const boxRightDot = createGuardianImage(doc, 'de', 'aids-box-guardian');
     const boxRightLabel = doc.createElement('span');
     boxRightLabel.textContent = '데사';
     appendChildren(boxRight, boxRightDot, boxRightLabel);

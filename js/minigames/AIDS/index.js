@@ -66,6 +66,15 @@ function hasClass(element, className) {
     && element.className.split(/\s+/u).includes(className);
 }
 
+function applyBackgroundImage(root, image) {
+  const source = typeof image?.currentSrc === 'string' && image.currentSrc.length > 0
+    ? image.currentSrc
+    : image?.src;
+  if (!root?.style || typeof source !== 'string' || source.length === 0) return false;
+  root.style.backgroundImage = `url(${JSON.stringify(source)})`;
+  return true;
+}
+
 export function createMiniGame(context = {}) {
   const inputLock = new InputLock();
   const injectedClock = context.clock;
@@ -354,6 +363,10 @@ export function createMiniGame(context = {}) {
         refs = buildGameDom(context.uiRoot, config);
         throwIfUnavailable(signal, () => disposed);
         if (refs.supportsGameplay) {
+          applyBackgroundImage(
+            refs.root,
+            context.assets?.get?.(config.backgroundAssetId),
+          );
           removers.push(attachFixedFrameScaler({
             container: context.uiRoot,
             viewport: refs.viewport,

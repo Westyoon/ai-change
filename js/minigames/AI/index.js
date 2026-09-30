@@ -2,6 +2,8 @@ import { INPUT_ACTIONS } from "../../core/input-manager.js";
 import { InputLock } from "../shared/input-lock.js";
 import { MiniGameClock } from "../shared/minigame-clock.js";
 import { buildMiniGameCandidate } from "../shared/result-builder.js";
+import { drawPixelToken, PIXEL_COLORS } from "../shared/pixel-drawing.js";
+import { advanceLidProgress, drawSortingLid } from "./sorting-bin.js";
 import {
   advanceBall,
   classifyBallResolution,
@@ -12,6 +14,8 @@ import {
 const MINI_GAME_ID = "ai-ball-classification";
 const PROTOTYPE_CANVAS_WIDTH = 480;
 const PROTOTYPE_CANVAS_HEIGHT = 460;
+const FRAME_GAMEPLAY_TOP_FRACTION = 3 / 32;
+const FRAME_GAMEPLAY_HEIGHT_FRACTION = 23 / 32;
 
 export const hasInternalStartGate = true;
 
@@ -193,6 +197,75 @@ function canDrawImage(image) {
   return true;
 }
 
+function imageSize(image) {
+  const width = Number(image?.naturalWidth ?? image?.width);
+  const height = Number(image?.naturalHeight ?? image?.height);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return null;
+  }
+  return { width, height };
+}
+
+function configuredSourceRect(value, image) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const size = imageSize(image);
+  const x = Number(value.x);
+  const y = Number(value.y);
+  const width = Number(value.width);
+  const height = Number(value.height);
+  if (
+    !Number.isFinite(x)
+    || !Number.isFinite(y)
+    || !Number.isFinite(width)
+    || !Number.isFinite(height)
+    || x < 0
+    || y < 0
+    || width <= 0
+    || height <= 0
+  ) {
+    return null;
+  }
+  if (size && (x + width > size.width || y + height > size.height)) return null;
+  return { x, y, width, height };
+}
+
+function defaultGameplaySourceRect(image) {
+  const size = imageSize(image);
+  if (!size) return null;
+  return {
+    x: 0,
+    y: size.height * FRAME_GAMEPLAY_TOP_FRACTION,
+    width: size.width,
+    height: size.height * FRAME_GAMEPLAY_HEIGHT_FRACTION,
+  };
+}
+
+function drawImageIntoRect(canvasContext, image, sourceRect, destinationRect) {
+  if (!canDrawImage(image)) return false;
+  if (sourceRect) {
+    canvasContext.drawImage(
+      image,
+      sourceRect.x,
+      sourceRect.y,
+      sourceRect.width,
+      sourceRect.height,
+      destinationRect.x,
+      destinationRect.y,
+      destinationRect.width,
+      destinationRect.height,
+    );
+  } else {
+    canvasContext.drawImage(
+      image,
+      destinationRect.x,
+      destinationRect.y,
+      destinationRect.width,
+      destinationRect.height,
+    );
+  }
+  return true;
+}
+
 export function createMiniGame(context = {}) {
   const inputLock = new InputLock();
   const clock = new MiniGameClock({
@@ -231,6 +304,10 @@ export function createMiniGame(context = {}) {
   let ballsResolved = 0;
   let failureReason = null;
   let sampleImage = null;
+  let backgroundImage = null;
+  let sortingBinImage = null;
+  let sortingLidImage = null;
+  let lidProgress = 0;
   let feedbackText = "굴러오는 공 중 목표 공만 분류통에 담으세요!";
 
   function addListener(target, type, listener) {
@@ -311,6 +388,13 @@ export function createMiniGame(context = {}) {
 
   function resetRunState() {
     sampleImage = context.assets?.get?.(config.targetAssetId) ?? null;
+    backgroundImage = typeof config.backgroundAssetId === "string"
+      ? context.assets?.get?.(config.backgroundAssetId) ?? null
+      : null;
+    sortingBinImage = typeof config.sortingBinAssetId === "string"
+      ? context.assets?.get?.(config.sortingBinAssetId) ?? null
+      : null;
+    sortingLidImage = context.assets?.get?.(config.sortingLidAssetId) ?? null;
     ballQueue = createBallQueue({
       targetCount: config.targetCount,
       nonTargetCount: config.nonTargetCount,
@@ -319,6 +403,7 @@ export function createMiniGame(context = {}) {
     });
     activeBalls = [];
     lidState = config.initialLidState === "OPEN" ? "OPEN" : "CLOSED";
+    lidProgress = lidState === "OPEN" ? 1 : 0;
     awaitingStart = true;
     countdownRemaining = finiteAtLeast(config.countdownSeconds, 0, 3);
     spawnAccumulator = 0;
@@ -505,6 +590,7 @@ export function createMiniGame(context = {}) {
 
   function update(deltaSeconds) {
     if (lifecycleState !== "RUNNING" || terminal) return;
+    lidProgress = advanceLidProgress(lidProgress, lidState === "OPEN", deltaSeconds);
     if (awaitingStart) {
       updateUi();
       return;
@@ -561,15 +647,15 @@ export function createMiniGame(context = {}) {
     const panelWidth = Math.max(maxBoxSize + 40, 150);
     const panelHeight = maxBoxSize + 35;
     canvasContext.save();
-    canvasContext.fillStyle = "rgba(0, 0, 0, 0.65)";
+    canvasContext.fillStyle = PIXEL_COLORS.ink;
     canvasContext.beginPath();
     if (typeof canvasContext.roundRect === "function") {
-      canvasContext.roundRect(centerX - panelWidth / 2, startY, panelWidth, panelHeight, 12);
+      canvasContext.roundRect(centerX - panelWidth / 2, startY, panelWidth, panelHeight, 2);
     } else {
       canvasContext.rect(centerX - panelWidth / 2, startY, panelWidth, panelHeight);
     }
     canvasContext.fill();
-    canvasContext.fillStyle = "#a29bfe";
+    canvasContext.fillStyle = PIXEL_COLORS.paper;
     canvasContext.font = "bold 13px Galmuri11, sans-serif";
     canvasContext.textAlign = "center";
     canvasContext.textBaseline = "alphabetic";
@@ -600,31 +686,54 @@ export function createMiniGame(context = {}) {
     if (!canvasContext || !canvas) return;
     const scene = layout();
     canvasContext.clearRect(0, 0, scene.width, scene.height);
-    canvasContext.fillStyle = "#3a3d52";
+    const backgroundSourceRect = configuredSourceRect(
+      config?.backgroundSourceRect,
+      backgroundImage,
+    ) ?? defaultGameplaySourceRect(backgroundImage);
+    drawImageIntoRect(
+      canvasContext,
+      backgroundImage,
+      backgroundSourceRect,
+      { x: 0, y: 0, width: scene.width, height: scene.height },
+    );
+    canvasContext.fillStyle = PIXEL_COLORS.ink;
     canvasContext.fillRect(0, scene.trackY, scene.width, 10);
-    canvasContext.fillStyle = "#4a4d66";
-    canvasContext.fillRect(scene.binX, scene.binY, scene.binWidth, scene.binHeight);
-    canvasContext.strokeStyle = "#00cec9";
-    canvasContext.lineWidth = 3;
-    canvasContext.strokeRect(scene.binX, scene.binY, scene.binWidth, scene.binHeight);
+    canvasContext.fillStyle = PIXEL_COLORS.paper;
+    canvasContext.fillRect(0, scene.trackY, scene.width, 3);
+    const binSourceRect = configuredSourceRect(config?.binSourceRect, sortingBinImage);
     canvasContext.save();
-    if (lidState === "CLOSED") {
-      canvasContext.fillStyle = "#ff7675";
-      canvasContext.fillRect(scene.binX - 5, scene.binY - 8, scene.binWidth + 10, 10);
-    } else {
-      canvasContext.fillStyle = "#55efc4";
-      canvasContext.fillRect(scene.binX - 5, scene.binY, 10, scene.binHeight - 10);
-    }
+    canvasContext.imageSmoothingEnabled = false;
+    const renderedSortingBin = drawImageIntoRect(
+      canvasContext,
+      sortingBinImage,
+      binSourceRect,
+      {
+        x: scene.binX,
+        y: scene.binY,
+        width: scene.binWidth,
+        height: binSourceRect
+          ? Math.min(scene.binHeight, scene.binWidth * binSourceRect.height / binSourceRect.width)
+          : scene.binHeight,
+      },
+    );
     canvasContext.restore();
+    if (!renderedSortingBin) {
+      canvasContext.fillStyle = PIXEL_COLORS.purple;
+      canvasContext.fillRect(scene.binX, scene.binY, scene.binWidth, scene.binHeight);
+      canvasContext.strokeStyle = PIXEL_COLORS.paper;
+      canvasContext.lineWidth = 3;
+      canvasContext.strokeRect(scene.binX, scene.binY, scene.binWidth, scene.binHeight);
+    }
+    drawSortingLid(canvasContext, sortingLidImage,
+      configuredSourceRect(config?.lidSourceRect, sortingLidImage), scene, lidProgress);
 
     for (const ball of activeBalls) {
       canvasContext.save();
+      drawPixelToken(canvasContext, ball.x, ball.y, ball.radius,
+        ball.isTarget ? PIXEL_COLORS.blue : PIXEL_COLORS.yellow);
       canvasContext.beginPath();
-      canvasContext.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      canvasContext.arc(ball.x, ball.y, Math.max(1, ball.radius - 4), 0, Math.PI * 2);
       canvasContext.closePath();
-      canvasContext.lineWidth = 3;
-      canvasContext.strokeStyle = ball.isTarget ? "#6c5ce7" : "#fdcb6e";
-      canvasContext.stroke();
       canvasContext.clip();
       if (canDrawImage(ball.image)) {
         canvasContext.drawImage(
@@ -634,9 +743,6 @@ export function createMiniGame(context = {}) {
           ball.radius * 2,
           ball.radius * 2,
         );
-      } else {
-        canvasContext.fillStyle = ball.isTarget ? "#6c5ce7" : "#fdcb6e";
-        canvasContext.fill();
       }
       canvasContext.restore();
     }
@@ -771,6 +877,10 @@ export function createMiniGame(context = {}) {
       currentAttemptId = null;
       activeBalls = [];
       ballQueue = [];
+      sampleImage = null;
+      backgroundImage = null;
+      sortingBinImage = null;
+      sortingLidImage = null;
       for (const remove of removers.splice(0)) remove();
       ui.root?.remove?.();
       ui = emptyUi();

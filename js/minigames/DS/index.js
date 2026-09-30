@@ -34,6 +34,21 @@ function requireAttemptId(attemptId) {
   }
 }
 
+function applyBackgroundImage(element, image) {
+  const source = typeof image?.currentSrc === "string" && image.currentSrc.length > 0
+    ? image.currentSrc
+    : image?.src;
+  if (!element?.style || typeof source !== "string" || source.length === 0) {
+    return false;
+  }
+
+  element.style.backgroundImage = [
+    "linear-gradient(160deg, rgba(8, 16, 36, 0.7), rgba(19, 16, 44, 0.82))",
+    `url(${JSON.stringify(source)})`,
+  ].join(", ");
+  return true;
+}
+
 function normalizeRules(config) {
   if (!config || typeof config !== "object" || Array.isArray(config)) {
     throw new TypeError("Number Baseball config must be an object.");
@@ -113,6 +128,7 @@ export function createMiniGame(context = {}) {
   let terminal = false;
   let disposed = false;
   let originalUiRootClassName = null;
+  let backgroundAssetId = null;
   const removers = [];
 
   const dom = {
@@ -421,6 +437,9 @@ export function createMiniGame(context = {}) {
     container.dataset.miniGameId = GAME_ID;
     container.setAttribute("role", "region");
     container.setAttribute("aria-label", "데이터사이언스전공 숫자 야구");
+    if (backgroundAssetId) {
+      applyBackgroundImage(container, context.assets?.get?.(backgroundAssetId));
+    }
 
     const header = documentRef.createElement("header");
     header.className = "nb-header";
@@ -563,6 +582,9 @@ export function createMiniGame(context = {}) {
       lifecycleState = "INITIALIZING";
       throwIfUnavailable(signal, disposed);
       rules = normalizeRules(config);
+      backgroundAssetId = typeof config.backgroundAssetId === "string"
+        ? config.backgroundAssetId
+        : null;
       state = createInitialState(rules);
 
       await Promise.resolve();

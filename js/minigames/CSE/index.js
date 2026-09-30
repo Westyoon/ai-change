@@ -9,6 +9,7 @@ const LOGICAL_FRAME_HEIGHT = 920;
 const MAX_DISPLAY_SCALE = 1.25;
 const MINIMUM_READABLE_SCALE = 0.9;
 const DESKTOP_LAYOUT_MIN_WIDTH = 760;
+const DESKTOP_LAYOUT_MIN_HEIGHT = 440;
 
 function toggleClassName(element, className, force) {
   if (!element || !className) return;
@@ -37,6 +38,21 @@ function requireAttemptId(attemptId) {
   if (typeof attemptId !== 'string' || attemptId.length === 0) {
     throw new TypeError('Mini-game attemptId must be a non-empty string.');
   }
+}
+
+function applyBackgroundImage(element, image) {
+  const source = typeof image?.currentSrc === 'string' && image.currentSrc.length > 0
+    ? image.currentSrc
+    : image?.src;
+  if (!element?.style || typeof source !== 'string' || source.length === 0) {
+    return false;
+  }
+
+  element.style.backgroundImage = [
+    'linear-gradient(rgba(253, 240, 245, 0.42), rgba(253, 240, 245, 0.42))',
+    `url(${JSON.stringify(source)})`,
+  ].join(', ');
+  return true;
 }
 
 function validateConfig(config) {
@@ -316,6 +332,9 @@ export function createMiniGame(context = {}) {
       attributes: { role: 'region', 'aria-label': '컴퓨터공학과 Code Heart: Unlock!' },
     });
     root.dataset.miniGameId = GAME_ID;
+    if (typeof config.backgroundAssetId === 'string' && config.backgroundAssetId.length > 0) {
+      applyBackgroundImage(root, context.assets?.get?.(config.backgroundAssetId));
+    }
 
     const header = createElement(documentRef, 'header', { className: 'ch-header' });
     const title = createElement(documentRef, 'span', {
@@ -366,6 +385,7 @@ export function createMiniGame(context = {}) {
     const slotRefs = new Map();
     for (const category of config.categories) {
       const tile = createElement(documentRef, 'div', { className: 'ch-slot-tile' });
+      tile.dataset.cat = category.id;
       const label = createElement(documentRef, 'span', { className: 'ch-slot-type', text: category.name });
       const value = createElement(documentRef, 'span', { className: 'ch-slot-val', text: '-' });
       tile.append(label, value);
@@ -506,7 +526,7 @@ export function createMiniGame(context = {}) {
       minimumScale: MINIMUM_READABLE_SCALE,
       fluidLayout: {
         minWidth: DESKTOP_LAYOUT_MIN_WIDTH,
-        minHeight: 540,
+        minHeight: DESKTOP_LAYOUT_MIN_HEIGHT,
         className: 'cse-desktop-layout',
       },
       onLayout: ({ mode, availableWidth }) => {
