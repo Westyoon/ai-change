@@ -9,9 +9,11 @@ import { getMiniGameStoryDestination } from "./map-scene.js";
 import { GameLoop } from "../core/game-loop.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
 import { createElement, createButton, showToast } from "./scene-utils.js";
+import { createCampusLayers } from "../map/campus-layers.js";
 
 const STORAGE_PREFIX = "ai-change:campus-position:";
 const FOOT = { width: 12, height: 8 };
+const ACTOR_SIZE = { width: 25.6, height: 38.4 };
 
 export function createCampusScene(context, { mode = "before" } = {}) {
   let loop, joystick, unsubscribeInput, unsubscribeRealtime, resizeObserver, remoteView;
@@ -48,10 +50,9 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const world = createElement("div", { className: "campus-world" });
       world.style.width = `${map.world.width}px`;
       world.style.height = `${map.world.height}px`;
-      const background = createElement("img", { className: "campus-background", attributes: { src: map.background, alt: "", draggable: "false" } });
-      await background.decode();
+      const layers = await createCampusLayers({ document, map, mask, signal });
       if (signal?.aborted) return;
-      world.append(background);
+      world.append(...layers);
       const actor = createCharacterActorElement({ local: true });
       world.append(actor);
       const characterView = new CharacterView({ element: actor, worldSize: map.world });
@@ -132,8 +133,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       if (realtime) {
         unsubscribeRealtime = realtime.subscribe(state => {
           remotes.update((state.players ?? []).filter(player => player.id !== state.selfId && player.zone === map.presenceZone && player.connected !== false).map(player => ({
-            id: player.id, name: player.name, x: player.x * map.world.width - 16, y: player.y * map.world.height - 48,
-            width: 32, height: 48, direction: player.direction, moving: player.moving,
+            id: player.id, name: player.name, x: player.x * map.world.width - ACTOR_SIZE.width / 2, y: player.y * map.world.height - ACTOR_SIZE.height,
+            ...ACTOR_SIZE, direction: player.direction, moving: player.moving,
             appearance: createPlayerAppearance(player.hairColor, player.name),
           })));
         });
@@ -151,8 +152,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         const camera = followCamera({ target: position, world: map.world, viewport: viewportSize,
           zoom: Math.max(1.6, viewportSize.width / 780, viewportSize.height / 480) });
         world.style.transform = `translate(${-Math.round(camera.x * camera.zoom)}px, ${-Math.round(camera.y * camera.zoom)}px) scale(${camera.zoom})`;
-        characterView.render({ id: "campus-player", name: appearance.label, appearance, x: position.x - 16, y: position.y - 48, footY: position.y,
-          width: 32, height: 48, direction, moving, state: moving ? "moving" : "idle", currentHealth: 1, maxHealth: 1 });
+        characterView.render({ id: "campus-player", name: appearance.label, appearance, x: position.x - ACTOR_SIZE.width / 2, y: position.y - ACTOR_SIZE.height, footY: position.y,
+          ...ACTOR_SIZE, direction, moving, state: moving ? "moving" : "idle", currentHealth: 1, maxHealth: 1 });
       }
       resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(viewport);
