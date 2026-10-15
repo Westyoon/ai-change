@@ -34,6 +34,7 @@
 .campus-terrain { position: absolute; inset: 0; pointer-events: none; }
 .campus-building { position: absolute; object-fit: contain; image-rendering: pixelated; pointer-events: none; user-select: none; }
 .campus-prop { position: absolute; background-image: url("../assets/maps/props/campus-props.png"); background-size: 400% 200%; background-repeat: no-repeat; image-rendering: pixelated; pointer-events: none; }
+.campus-flowerbed { position: absolute; background-image: url("../assets/maps/props/flowerbeds.png"); background-repeat: no-repeat; image-rendering: pixelated; pointer-events: none; }
 .campus-world .character-actor { pointer-events: none; }
 .campus-world .character-actor__name { font-size: 6px; }
 .campus-marker { position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center; gap: 2px; z-index: 2000; pointer-events: none; }

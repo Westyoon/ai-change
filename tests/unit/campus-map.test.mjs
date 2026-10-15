@@ -48,6 +48,11 @@ test("original campus map keeps every gameplay destination reachable with the fu
     assert.ok(allows(point.x,point.y), `${point.id} stands on a path`);
     assert.ok(queue.some(([x,y]) => Math.hypot(x*step-point.x,y*step-point.y)<12), `${point.id} is connected to spawn`);
   }
+  let walkableCount=0;
+  for(let y=0;y<map.world.height;y+=step) for(let x=0;x<map.world.width;x+=step) {
+    if(allows(x,y))walkableCount++;
+  }
+  assert.equal(seen.size,walkableCount,"every walkable path belongs to the spawn network, including northern paths");
   for (const [x,y] of [[835,620],[150,300],[950,470],[700,570]]) assert.equal(allows(x,y),false,"buildings and gardens are blocked");
   assert.deepEqual(manager.restore({ mapId:"campus",version:"old",x:835,y:620 }), { mapId:"campus",version:config.version,...map.spawn });
   assert.throws(()=>manager.get("ecc_interior"),/not available/);

@@ -8,6 +8,37 @@ export const CAMPUS_BUILDINGS = Object.freeze([
 
 export function depthAtFoot(y) { return 1000 + Math.round(y); }
 
+export const CAMPUS_FLOWERBEDS = Object.freeze([
+  { type:0, x:684, y:516, width:112, height:38 },
+  { type:0, x:879, y:516, width:112, height:38 },
+  { type:1, x:674, y:564, width:32, height:132 },
+  { type:1, x:968, y:564, width:32, height:132 },
+  { type:4, x:682, y:712, width:118, height:42 },
+  { type:4, x:871, y:712, width:118, height:42 },
+  { type:2, x:710, y:797, width:48, height:48 },
+  { type:2, x:918, y:797, width:48, height:48 },
+  { type:3, x:689, y:535, width:44, height:44 },
+  { type:3, x:943, y:535, width:44, height:44, mirror:true },
+  { type:0, x:592, y:344, width:135, height:28 },
+  { type:0, x:943, y:344, width:135, height:28 },
+  { type:5, x:103, y:442, width:24, height:28 },
+  { type:5, x:378, y:442, width:24, height:28 },
+]);
+
+export function fitFlowerbed(bed, crop) {
+  const scale = Math.min(bed.width / crop.width, bed.height / crop.height);
+  const width = crop.width * scale, height = crop.height * scale;
+  return { x:bed.x+(bed.width-width)/2, y:bed.y+(bed.height-height)/2, width, height, scale };
+}
+
+function touchesPath(mask,x,y,clearance=18) {
+  for(let sy=y-clearance;sy<=y+clearance;sy+=4) for(let sx=x-clearance;sx<=x+clearance;sx+=4) {
+    const column=Math.floor(sx/mask.cellSize),row=Math.floor(sy/mask.cellSize);
+    if(column>=0&&column<mask.columns&&row>=0&&row<mask.rows&&mask.cells[row*mask.columns+column])return true;
+  }
+  return false;
+}
+
 function svgNode(document, name, attributes = {}) {
   const node = document.createElementNS(SVG, name);
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
@@ -28,13 +59,9 @@ export function createCampusTerrain(document, map) {
   defs.append(grass,paving,stairs);svg.append(defs);
   svg.append(svgNode(document,"rect",{width:map.world.width,height:map.world.height,fill:"url(#campus-grass)"}));
   for (const polygon of map.collision.paths) svg.append(svgNode(document,"polygon",{points:polygon.map(p=>p.join(",")).join(" "),fill:"url(#campus-paving)"}));
-  // The sunken ECC plaza is ground geometry, not a fourth building sprite.
-  for (const [x,y,w,h] of [[1324,190,151,77],[1360,412,91,108],[1336,782,147,69],[803,850,74,57],[208,802,102,54]]) {
+  // Outdoor entry steps are tiles; ECC architecture and its stairs are one building asset.
+  for (const [x,y,w,h] of [[803,850,74,57],[208,802,102,54]]) {
     svg.append(svgNode(document,"rect",{x,y,width:w,height:h,fill:"url(#campus-stairs)"}));
-  }
-  for(const [x,y,w,h] of [[1310,266,12,414],[1484,266,12,414],[1327,190,9,70],[1473,190,9,70]]) {
-    svg.append(svgNode(document,"rect",{x,y,width:w,height:h,fill:"#7f8b89"}));
-    svg.append(svgNode(document,"rect",{x:x+2,y,width:3,height:h,fill:"#d4d9cc"}));
   }
   return svg;
 }
@@ -58,7 +85,7 @@ export function campusProps(map, mask) {
   // Deterministic spacing keeps forest crowns independent and never moves collision paths.
   for(let y=28;y<map.world.height;y+=42) for(let x=22;x<map.world.width;x+=43) {
     const tx=x+((Math.floor(y/42)%2)*19), ty=y+(Math.floor(x/43)%3)*4;
-    if(occupiedBuilding(tx,ty)||mask.allows({x:tx-22,y:ty-18,width:44,height:36})) continue;
+    if(occupiedBuilding(tx,ty)||touchesPath(mask,tx,ty)) continue;
     if(map.collision.paths.some(p=>p.some(([px,py])=>Math.hypot(px-tx,py-ty)<14))) continue;
     // No trees on any part of the paved footprint, including broad plazas.
     const row=Math.floor(ty/mask.cellSize),column=Math.floor(tx/mask.cellSize);
@@ -70,13 +97,9 @@ export function campusProps(map, mask) {
     props.push({kind:(Math.floor(tx/43)+Math.floor(ty/42))%9===0?"autumn":"tree",x:tx,y:ty,width:68,height:82});
   }
   for(const rect of map.collision.obstacles.slice(0,6)) props.push({kind:rect.x>250?"booth-pink":"booth-green",x:rect.x+rect.width/2,y:rect.y+rect.height,width:82,height:82});
-  for(const [x,y] of [[690,566],[979,566],[692,731],[977,731],[707,812],[970,812],[1352,350],[1450,590]]) {
-    props.push({kind:"flowers",x,y,width:90,height:56});
-    props.push({kind:"hedge",x,y:y+8,width:98,height:40});
-  }
   for(const [x,y] of [[679,744],[990,744],[627,601],[1048,600],[613,396],[1050,396]]) props.push({kind:"bench",x,y,width:58,height:40});
   for(const [x,y] of [[565,420],[1100,420],[575,840],[1101,840],[1212,705],[1555,705],[100,775],[410,775]]) props.push({kind:"lamp",x,y,width:35,height:62});
-  for(const [x,y] of [[690,530],[982,530],[700,805],[970,805]]) props.push({kind:"tree",x,y,width:65,height:80});
+  for(const [x,y] of [[704,562],[969,562],[693,808],[985,808]]) props.push({kind:"tree",x,y,width:65,height:80});
   return props;
 }
 
@@ -88,6 +111,11 @@ export async function createCampusLayers({ document, map, mask, signal }) {
   const nodes=[createCampusTerrain(document,map)];
   const atlas=new Image();atlas.src="./assets/maps/props/campus-props.png";
   await atlas.decode();
+  const beds=new Image();beds.src="./assets/maps/props/flowerbeds.png";
+  const cropResponse=await fetch("./data/maps/flowerbeds.json",{signal});
+  if(!cropResponse.ok)throw new Error("화단 에셋 정보를 불러오지 못했습니다.");
+  const crops=await cropResponse.json();
+  await beds.decode();
   for(const building of CAMPUS_BUILDINGS) {
     const node=document.createElement("img");node.className="campus-building";node.src=building.src;node.alt="";
     node.dataset.building=building.id;
@@ -96,5 +124,14 @@ export async function createCampusLayers({ document, map, mask, signal }) {
   }
   if(signal?.aborted)return [];
   nodes.push(...campusProps(map,mask).map(prop=>createCampusProp(document,prop)));
+  for(const bed of CAMPUS_FLOWERBEDS) {
+    const crop=crops.frames[bed.type],fit=fitFlowerbed(bed,crop);
+    const node=document.createElement("div");node.className="campus-flowerbed";node.dataset.bedType=String(bed.type);
+    node.setAttribute("aria-hidden","true");
+    Object.assign(node.style,{left:`${fit.x}px`,top:`${fit.y}px`,width:`${fit.width}px`,height:`${fit.height}px`,
+      backgroundSize:`${crops.width*fit.scale}px ${crops.height*fit.scale}px`,backgroundPosition:`${-crop.x*fit.scale}px ${-crop.y*fit.scale}px`,
+      zIndex:String(depthAtFoot(bed.y+bed.height)),transform:bed.mirror?"scaleX(-1)":"none"});
+    nodes.push(node);
+  }
   return nodes;
 }

@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { CAMPUS_BUILDINGS, campusProps, depthAtFoot } from "../../js/map/campus-layers.js";
+import { CAMPUS_BUILDINGS, CAMPUS_FLOWERBEDS, fitFlowerbed, campusProps, depthAtFoot } from "../../js/map/campus-layers.js";
+
+test("flowerbeds preserve source proportions and fit their own footprints",()=>{
+  for(const bed of CAMPUS_FLOWERBEDS) for(const crop of [{width:300,height:100},{width:100,height:300},{width:200,height:200}]) {
+    const fit=fitFlowerbed(bed,crop);
+    assert.ok(fit.width<=bed.width+1e-8&&fit.height<=bed.height+1e-8);
+    assert.ok(Math.abs(fit.width/fit.height-crop.width/crop.height)<1e-8);
+  }
+  assert.ok(new Set(CAMPUS_FLOWERBEDS.map(bed=>bed.type)).size===6);
+});
 import { CampusMapManager } from "../../js/map/map-manager.js";
 
 test("campus foreground and characters share foot depth, so trees can cover characters behind them", () => {
