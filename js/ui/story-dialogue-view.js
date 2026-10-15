@@ -103,6 +103,7 @@ export function createStoryDialogueView({
   root.dataset.sceneLayout = "story-dialogue";
   root.append(scene);
   render();
+  scene.focus?.({ preventScroll: true });
 
   return Object.freeze({
     scene,

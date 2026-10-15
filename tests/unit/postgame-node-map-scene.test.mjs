@@ -12,8 +12,11 @@ import {
   createBattleScene,
   createSharedBattleSession,
   getBattleResultIllustration,
+  getXEggRewardNotice,
   getBattlePlayerHealth,
   getPartyMemberHealthView,
+  getOtherPartyMembers,
+  getSharedDefeatMessage,
   getResumedPartyHealth,
   isSharedPartyReady,
   releaseSharedBattleSession,
@@ -27,6 +30,30 @@ const battles = JSON.parse(
 
 const requiredMiniGameIds = battles[0].unlockCondition.miniGameIds;
 const expectedBossIds = new Set(["data-sphinx", "stat-boss", "control-boss"]);
+
+test("X egg experience is announced only for a confirmed new award", () => {
+  assert.equal(getXEggRewardNotice({ submitted: true, awarded: true, duplicate: false, experienceAwarded: 170 }), "경험치 +170 획득");
+  for (const submission of [null, { submitted: false }, { submitted: true, awarded: false }, { submitted: true, awarded: true, duplicate: true }, { submitted: false, reason: "guest" }]) {
+    assert.doesNotMatch(getXEggRewardNotice(submission), /\+20/u);
+  }
+});
+
+test("party HUD excludes self regardless of roster order and waits for identity", () => {
+  const self = { id: "self", hp: 200 };
+  const other = { id: "other", hp: 0 };
+  assert.deepEqual(getOtherPartyMembers([self], "self"), []);
+  assert.deepEqual(getOtherPartyMembers([other, self], "self"), [other]);
+  assert.deepEqual(getOtherPartyMembers([self, other], null), []);
+});
+
+test("spectator instructions require a different living connected party member", () => {
+  const self = { id: "self", hp: 200, connected: true, alive: true };
+  const message = (others) => getSharedDefeatMessage({ roster: [self, ...others] }, "self");
+  assert.doesNotMatch(message([]), /관전/u, "our own stale server HP is not a survivor");
+  assert.match(message([{ id: "other", hp: 20, connected: true, alive: true }]), /관전/u);
+  assert.doesNotMatch(message([{ id: "other", hp: 0, connected: true }]), /관전/u);
+  assert.doesNotMatch(message([{ id: "other", hp: 20, connected: false }]), /관전/u);
+});
 
 test("X알 전투 결과는 실패 시 X알, 클리어 시 마음의 알 이미지를 사용한다", () => {
   assert.equal(
@@ -409,7 +436,7 @@ function createContext(documentRef, {
           },
         },
         ...(realtime ? { postgameRealtime: realtime } : {}),
-        save: { getState: () => ({ minigames: completedMinigames }) },
+        save: { getState: () => ({ minigames: completedMinigames, story: { seenStoryIds: ["festival-open"] } }) },
         events,
         input,
       },
@@ -736,8 +763,8 @@ test("guest test mode opens the world and starts a boss only after creating a lo
     assert.equal(mounted.root.querySelector(".battle-login-required"), null);
     assert.ok(mounted.root.querySelector(".aftergame-world"));
     assert.equal(
-      mounted.root.querySelector(".aftergame-world__network-badge").textContent,
-      "게스트 테스트",
+      mounted.root.querySelector(".aftergame-world__network-badge"),
+      null,
     );
 
     const statDoor = mounted.root.querySelectorAll(".aftergame-world__boss-door")
@@ -745,13 +772,13 @@ test("guest test mode opens the world and starts a boss only after creating a lo
     statDoor.dispatchEvent({ type: "click", detail: 1 });
     const lobby = mounted.root.querySelector(".postgame-room-lobby");
     assert.equal(lobby.dataset.open, "true");
-    assert.match(
+    assert.equal(
       lobby.querySelector(".postgame-room-lobby__connection").textContent,
-      /게스트 테스트 방/u,
+      "",
     );
 
     const openCreate = lobby.querySelectorAll("button")
-      .find((button) => button.textContent === "새 방 만들기");
+      .find((button) => button.textContent === "방 만들기");
     openCreate.dispatchEvent({ type: "click", detail: 1 });
     const nameInput = lobby.querySelector(".postgame-room-lobby__name");
     nameInput.value = "스탯 보스 테스트";
@@ -788,6 +815,47 @@ test("guest Story finale bypasses the post-game login gate", async () => {
     assert.ok(mounted.root.querySelector(".battle-notice"));
   } finally {
     mounted.cleanup();
+  }
+});
+
+test("Story finale waits without simulation until explicitly started, including guest entry", async () => {
+  const environment = installEnvironment();
+  const { context } = createContext(environment.document, { authenticated: false });
+  const config = JSON.parse(await readFile(new URL("../../data/battle/word-breaker.json", import.meta.url), "utf8"));
+  context.services.assets = { loadGroup: async () => {}, get: () => config };
+  const scene = createBattleScene(context);
+  const root = environment.document.createElement("main");
+  const controller = new AbortController();
+  try {
+    await scene.mount(root, { battleId: "word-breaker" }, { signal: controller.signal });
+    const guide = root.querySelector(".battle-start-guide");
+    const game = root.querySelector(".word-breaker-stage");
+    assert.ok(guide);
+    assert.equal(game.hidden, true);
+    assert.equal(environment.scheduledFrameCount(), 0, "no clock or attacks run during reading");
+    const start = guide.querySelector("button");
+    assert.equal(start.textContent, "게임 시작");
+    start.dispatchEvent({ type: "click" });
+    assert.equal(root.querySelector(".battle-start-guide"), null);
+    assert.equal(game.hidden, false);
+    assert.equal(game.dataset.state, "READY", "the three opening lines must finish before combat starts");
+    const intro = root.querySelector(".eiai-battle-intro").querySelector(".story-dialogue-scene");
+    assert.ok(intro);
+    for (let line = 0; line < 3; line++) intro.dispatchEvent({ type: "click", detail: 1 });
+    assert.equal(game.dataset.state, "RUNNING");
+    assert.equal(environment.scheduledFrameCount(), 1);
+    start.dispatchEvent({ type: "click" });
+    assert.equal(environment.scheduledFrameCount(), 1, "duplicate clicks cannot restart the game");
+    environment.step(0);
+    environment.step(1000);
+    scene.unmount();
+    assert.equal(environment.scheduledFrameCount(), 0);
+    start.dispatchEvent({ type: "click" });
+    assert.equal(environment.scheduledFrameCount(), 0, "detached buttons cannot resurrect the scene");
+  } finally {
+    scene.unmount();
+    controller.abort();
+    environment.restore();
   }
 });
 
@@ -885,11 +953,8 @@ test("중심 광장 북쪽의 세 문은 직접 전투를 시작하지 않고 �
       assert.equal(mounted.navigations.length, 0, "문 접촉만으로 솔로 전투를 시작하면 안 된다");
       const lobby = mounted.root.querySelector(".postgame-room-lobby");
       assert.equal(lobby.dataset.open, "true");
-      assert.match(lobby.querySelector(".postgame-room-lobby__title").textContent, new RegExp(expectedBattleId === "data-sphinx"
-        ? "데이터"
-        : expectedBattleId === "stat-boss"
-          ? "스탯"
-          : "컨트롤", "u"));
+      assert.equal(lobby.querySelector(".postgame-room-lobby__title"), null);
+      assert.equal(lobby.querySelector(".postgame-room-lobby__subtitle"), null);
     } finally {
       mounted.cleanup();
     }
@@ -937,7 +1002,7 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
     assert.equal(mounted.root.querySelector(".postgame-room-lobby").dataset.open, "true");
 
     const openCreateButton = mounted.root.querySelectorAll("button")
-      .find((button) => button.textContent === "새 방 만들기");
+      .find((button) => button.textContent === "방 만들기");
     openCreateButton.dispatchEvent({ type: "click", detail: 1 });
     const createButton = mounted.root.querySelectorAll("button")
       .find((button) => button.textContent === "방 생성");
@@ -1009,6 +1074,171 @@ test("로그인한 사후 월드는 다른 사용자를 그리고 보스 문에�
   } finally {
     mounted.cleanup();
     assert.equal(realtime.disconnected, 0, "room-to-battle handoff keeps the same socket alive");
+  }
+});
+
+test("X egg completion waits for reward confirmation and its only button returns to the field", async () => {
+  const environment = installEnvironment();
+  const previousHTMLElement = globalThis.HTMLElement;
+  globalThis.HTMLElement = FakeElement;
+  const { context, navigations } = createContext(environment.document);
+  const config = JSON.parse(await readFile(new URL("../../data/battle/xr-egg-trials.json", import.meta.url), "utf8"));
+  Object.assign(config, { selectionMode: "fixed", fixedTrialId: "mash", mash: { targetPresses: 1, timeLimitMs: 10000 } });
+  context.services.assets = { loadGroup: async () => {}, get: () => config };
+  let resolveReward;
+  let submissions = 0;
+  context.services.account.recordPostgameClear = () => {
+    submissions += 1;
+    return new Promise(resolve => { resolveReward = resolve; });
+  };
+  const scene = createBattleScene(context);
+  const root = environment.document.createElement("main");
+  const controller = new AbortController();
+  try {
+    await scene.mount(root, { battleId: "xr-egg-trials" }, { signal: controller.signal });
+    root.querySelector(".xr-trials__mash-button").dispatchEvent({ type: "click" });
+    const card = root.querySelector(".result-card");
+    const notice = card.querySelector(".result-card__notice");
+    assert.equal(notice.textContent, "경험치 지급 확인 중…");
+    assert.equal(submissions, 1);
+    resolveReward({ submitted: true, awarded: true, duplicate: false, experienceAwarded: 130 });
+    await Promise.resolve();
+    assert.equal(notice.textContent, "경험치 +130 획득");
+    assert.equal(card.querySelector(".result-metrics"), null);
+    const buttons = card.querySelectorAll("button");
+    assert.deepEqual(buttons.map(button => button.textContent), ["확인"]);
+    buttons[0].dispatchEvent({ type: "click" });
+    buttons[0].dispatchEvent({ type: "click" });
+    assert.deepEqual(navigations, [{ sceneId: "battle", params: undefined }]);
+    assert.equal(context.state.aftergameWorldState.zoneId, "entry-field");
+  } finally {
+    scene.unmount();
+    controller.abort();
+    environment.restore();
+    if (previousHTMLElement === undefined) delete globalThis.HTMLElement;
+    else globalThis.HTMLElement = previousHTMLElement;
+  }
+});
+
+for (const battleId of ["stat-boss", "control-boss", "data-sphinx"]) {
+  test(`${battleId} renders one local HP meter and a separate teammates-only panel`, async () => {
+    const environment = installEnvironment();
+    const realtime = new FakeRealtime();
+    const self = { id: "self-online", name: "나", hp: 100, maxHp: 100, alive: true, ready: true, connected: true };
+    const snapshot = {
+      roomId: "ROOMHUD001", battleId, status: "running", bossHp: 100, bossMaxHp: 100,
+      revision: 1, allReady: true, roster: [self],
+    };
+    realtime.setState({ battle: snapshot });
+    const { context } = createContext(environment.document, { realtime });
+    const config = JSON.parse(await readFile(new URL(`../../data/battle/${battleId}.json`, import.meta.url), "utf8"));
+    context.services.assets = { loadGroup: async () => {}, get: () => config };
+    const scene = createBattleScene(context);
+    const root = environment.document.createElement("main");
+    const controller = new AbortController();
+    try {
+      await scene.mount(root, { battleId, party: { roomId: snapshot.roomId, roster: [self] } }, { signal: controller.signal });
+      const panel = root.querySelector(".battle-party-hud");
+      const playArea = root.querySelector(".battle-play-area");
+      const stage = root.querySelector(".battle-stage");
+      const localMeter = battleId === "control-boss" ? ".control-boss-player-hp-track" : ".character-health__track";
+      assert.equal(stage.querySelectorAll(localMeter).length, 1);
+      assert.equal(panel.hidden, true);
+      assert.equal(panel.querySelectorAll(".battle-party-hud__member").length, 0);
+      assert.equal(playArea.dataset.hasParty, "false");
+      const teammates = Array.from({ length: 4 }, (_, index) => ({ ...self, id: `other-${index}`, name: `동료${index}`, hp: index === 0 ? 0 : 50, alive: index !== 0 }));
+      realtime.setState({ battle: { ...snapshot, revision: 2, roster: [...teammates.slice(0, 2), self, ...teammates.slice(2)] }, players: [
+        { id: "other-1", name: "Friend", hairColor: "brown", zone: `battle:${battleId}`, x: .25, y: .75, moving: true, direction: "left" },
+        { id: "outsider", name: "Outsider", zone: `battle:${battleId}`, x: .5, y: .5 },
+      ] });
+      const remoteActors = stage.querySelectorAll(".character-actor--remote");
+      assert.equal(remoteActors.length, 4, "all roster teammates are rendered even before their first position packet");
+      const movingRemote = remoteActors.find(actor => actor.dataset.characterId === "other-1");
+      assert.ok(movingRemote);
+      assert.equal(movingRemote.querySelector(".character-actor__name").textContent, "Friend \u00b7 50 / 100");
+      assert.equal(movingRemote.dataset.motion, "walk");
+      assert.equal(remoteActors.find(actor => actor.dataset.characterId === "other-0").dataset.state, "dead");
+      assert.ok(realtime.commands.some(command => command.type === "presence.update" && command.zone === `battle:${battleId}`));
+      assert.equal(panel.hidden, false);
+      assert.equal(playArea.dataset.hasParty, "true");
+      assert.equal(panel.parentNode, playArea);
+      assert.equal(playArea.children[0], panel, "party is a sibling before the stage, never an overlay inside it");
+      assert.equal(stage.querySelector(".battle-party-hud"), null);
+      const rows = panel.querySelectorAll(".battle-party-hud__member");
+      assert.equal(rows.length, 4);
+      assert.deepEqual(rows.map(row => row.querySelector("strong").textContent), teammates.map(member => member.name));
+      assert.equal(rows[0].dataset.dead, "true");
+      assert.equal(rows[1].querySelector(".battle-party-hud__fill").getAttribute("style"), "width:50%");
+      assert.equal(stage.querySelectorAll(localMeter).length, 1);
+      realtime.setState({ battle: { ...snapshot, revision: 3 } });
+      assert.equal(panel.hidden, true);
+      assert.equal(playArea.dataset.hasParty, "false");
+    } finally {
+      scene.unmount();
+      controller.abort();
+      environment.restore();
+    }
+  });
+}
+
+test("solo Control Boss synchronizes damage, rejects stale HUD refill, and shows the server defeat result", async (t) => {
+  const environment = installEnvironment();
+  const previousHTMLElement = globalThis.HTMLElement;
+  globalThis.HTMLElement = FakeElement;
+  environment.window.setTimeout = () => 0;
+  let healthPoll = null;
+  t.mock.method(globalThis, "setInterval", callback => { healthPoll = callback; return 123; });
+  t.mock.method(globalThis, "clearInterval", () => {});
+  const realtime = new FakeRealtime();
+  const snapshot = {
+    roomId: "ROOMSOLO01", battleId: "control-boss", status: "running",
+    bossHp: 1000, bossMaxHp: 1000, revision: 1, allReady: true,
+    roster: [{ id: "self-online", name: "나", hp: 200, maxHp: 200, alive: true, ready: true, connected: true }],
+  };
+  realtime.setState({ battle: snapshot });
+  const { context, input } = createContext(environment.document, { realtime });
+  const config = JSON.parse(await readFile(new URL("../../data/battle/control-boss.json", import.meta.url), "utf8"));
+  config.boss = { ...config.boss, maxShield: 1, phase2CastSec: 0, phase1FirstAttackDelaySec: 0, attackIntervalSec: 100 };
+  config.player.startPosition = { x: 209, y: 121 };
+  context.services.assets = { loadGroup: async () => {}, get: () => config };
+  const scene = createBattleScene(context);
+  const root = environment.document.createElement("main");
+  const controller = new AbortController();
+  try {
+    await scene.mount(root, { battleId: "control-boss", party: { roomId: snapshot.roomId, roster: snapshot.roster } }, { signal: controller.signal });
+    environment.step(0);
+    environment.step(100);
+    await Promise.resolve();
+    const damaged = realtime.commands.filter(command => command.type === "battle.health").at(-1);
+    assert.ok(damaged.hp > 0 && damaged.hp < 200, "actual bullet collision sends reduced HP");
+    const expectedWidth = `${damaged.hp / 200 * 100}%`;
+    assert.equal(root.querySelector(".battle-party-hud").hidden, true);
+    assert.equal(root.querySelectorAll(".battle-party-hud__member").length, 0);
+    assert.equal(root.querySelector(".control-boss-bar__fill--player").style.width, expectedWidth);
+    healthPoll();
+    realtime.setState({ battle: { ...snapshot, revision: 2 } });
+    assert.equal(root.querySelector(".control-boss-bar__fill--player").style.width, expectedWidth, "old full-HP snapshot cannot refill local HP");
+
+    for (const listener of input.listeners) listener({ action: "CONFIRM", phase: "press", source: "keyboard", originalEvent: { code: "Space" } });
+    environment.step(200);
+    await Promise.resolve();
+    healthPoll();
+    assert.equal(realtime.commands.filter(command => command.type === "battle.health").at(-1).hp, 0);
+    assert.equal(root.querySelectorAll(".battle-party-hud__member").length, 0);
+    assert.equal(root.querySelector(".control-boss-bar__fill--player").style.width, "0%");
+    assert.doesNotMatch(context.toastRoot.children.map(child => child.textContent).join(" "), /관전/u);
+    assert.equal(context.state.lastResult, undefined, "only the server may finalize an online result");
+    realtime.setState({ battle: {
+      ...snapshot, revision: 3, status: "finished", result: { outcome: "defeat", reason: "party-defeated" },
+      roster: [{ ...snapshot.roster[0], hp: 0, alive: false, ready: false }],
+    } });
+    assert.equal(context.state.lastResult.status, "FAIL");
+    assert.ok(root.querySelector(".result-card"));
+  } finally {
+    scene.unmount();
+    controller.abort();
+    environment.restore();
+    restoreGlobal("HTMLElement", previousHTMLElement);
   }
 });
 
@@ -1161,7 +1391,7 @@ test("finished battle snapshot stays on the map and releases stale server member
       1,
     );
     assert.equal(realtime.getState().leavingBattleRoomId, "ROOMDONE01");
-    assert.match(mounted.root.querySelector(".aftergame-world__status").textContent, /이미 종료/u);
+    assert.equal(mounted.root.querySelector(".aftergame-world__status").textContent, "전투가 종료되었습니다.");
   } finally {
     mounted.cleanup();
     assert.equal(realtime.disconnected, 1);

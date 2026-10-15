@@ -9,6 +9,9 @@ dist/
 **/.env.*
 !**/.env.example
 npm-debug.log*
+/*.log
+/tmp/pdfs/
+/output/pdf/
 .DS_Store
 Thumbs.db
 .idea/

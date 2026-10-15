@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { DataSphinxView } from "../../js/battle/postgame/bosses/data-sphinx/view.js";
+import { DEFAULT_PLAYER_APPEARANCE } from "../../js/battle/player-config.js";
 import {
   DATA_SPHINX_SELECTIONS,
   DataSphinxEncounter,
@@ -463,6 +465,32 @@ test("battle owns its loop, cleans up on retry/destroy, and never reveals an ans
     battle.destroy();
     frames.restore();
   }
+});
+
+test("OX sprite uses ten percent of arena height without resizing the selection hitbox", () => {
+  const root = createRoot();
+  const view = new DataSphinxView({ arena: { width: 1600, height: 720 }, documentRef: root.ownerDocument });
+  view.mount(root);
+  const character = { id: "player-1", x: 783, y: 338, width: 34, height: 44, currentHealth: 100, maxHealth: 100, appearance: DEFAULT_PLAYER_APPEARANCE };
+  view.render({ bossHealth: 100, bossMaxHealth: 100, timeRemainingMs: 5000, timeLimitMs: 5000 }, character);
+  const actor = view.playerActor;
+  assert.equal(actor.style.width, `${34 / 1600 * 100}%`);
+  assert.equal(actor.style.height, `${44 / 720 * 100}%`);
+  assert.equal(actor.style.left, `${783 / 1600 * 100}%`);
+  assert.equal(actor.style.top, `${338 / 720 * 100}%`);
+  for (const arenaHeight of [180, 360, 720]) {
+    const drawnHeight = arenaHeight * parseFloat(actor.style.height) / 100 * parseFloat(actor.style['--sphinx-sprite-height']) / 100;
+    assert.ok(Math.abs(drawnHeight - arenaHeight * 0.1) < 1e-8);
+  }
+  view.destroy();
+});
+
+test("OX question overrides generic headings at seventy percent with wrapping", async () => {
+  const css = await readFile(new URL("../../css/data-sphinx.css", import.meta.url), "utf8");
+  assert.match(css, /\.data-sphinx-stage \.data-sphinx-question__text\s*\{[^}]*font-size: clamp\(0\.8085rem, 1\.96vw, 1\.47rem\);[^}]*overflow-wrap: anywhere;/su);
+  assert.match(css, /\.data-sphinx-arena \.character-actor__sprite\[data-sprite-sheet="true"\]\s*\{[^}]*height: var\(--sphinx-sprite-height\);/su);
+  assert.match(css, /bottom: calc\(var\(--sphinx-sprite-height\) \+ 4px\);/u);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*\.data-sphinx-stage \.data-sphinx-question__text\s*\{[^}]*grid-row: 2;[^}]*grid-column: 1 \/ -1;/su);
 });
 
 test("Data Sphinx restores player HP only for the initial mount", async () => {

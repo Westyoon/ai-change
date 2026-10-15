@@ -2,7 +2,6 @@ import {
   createButton,
   createElement,
   createScene,
-  findDepartment,
   findMiniGame,
 } from "./scene-utils.js";
 import { getMiniGameInstructions } from "./minigame-instructions.js";
@@ -14,7 +13,6 @@ export function createMiniGameIntroScene(context) {
     async mount(root, { miniGameId }, { signal }) {
       const game = findMiniGame(context, miniGameId);
       if (!game) throw new Error(`미니게임을 찾을 수 없습니다: ${miniGameId}`);
-      const department = findDepartment(context, game.departmentCode);
       assetLease = context.services.assets.acquireGroup
         ? await context.services.assets.acquireGroup(game.assetGroup, { signal })
         : null;
@@ -27,9 +25,8 @@ export function createMiniGameIntroScene(context) {
 
       const scene = createScene({
         className: "scene--panel",
-        eyebrow: `${game.departmentCode} · ${department?.displayName ?? game.department}`,
-        title: game.title,
       });
+      scene.setAttribute("aria-label", `${game.title} 게임 시작 안내`);
 
       const howToTitle = `${miniGameId}-how-to-title`;
       const columns = createElement("section", {

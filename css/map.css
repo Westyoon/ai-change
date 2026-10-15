@@ -29,7 +29,7 @@
 }
 
 .story-world__heading h2 {
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-size: clamp(0.98rem, 2.1vw, 1.54rem);
 }
 
 .story-world__toolbar-right,
@@ -519,7 +519,7 @@
   }
 
   .story-world__heading h2 {
-    font-size: 1.35rem;
+    font-size: 0.945rem;
   }
 
   .story-world__toolbar-right {

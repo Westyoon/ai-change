@@ -1,6 +1,12 @@
 export const MAIN_STORY_ID = "main-story-intro";
 export const FINAL_BATTLE_UNLOCK_STORY_ID = "battle-unlock:word-breaker";
 export const OUTRO_STORY_ID = "main-story-outro";
+export const FESTIVAL_STORY_ID = "festival-open";
+export const POSTGAME_ENTRY_STORY_ID = "postgame-entry-seen";
+
+export function isFestivalOpen(context) {
+  return hasSeenStory(context, FESTIVAL_STORY_ID);
+}
 
 export const DEPARTMENT_AFTERSTORY_IDS = Object.freeze({
   DS: "afterstory:ds",

@@ -654,7 +654,7 @@ function validateWordBreakerConfig(config, battle, errors) {
   requireExactNumber(config.shot?.intervalMs, 260, "shot.intervalMs");
   requireExactNumber(config.shot?.damage, 20, "shot.damage");
   requireExactNumber(config.omenDurationMs, 2400, "omenDurationMs");
-  requireExactNumber(config.overloadGraceMs, 4200, "overloadGraceMs");
+  requireExactNumber(config.overloadGraceMs, 6500, "overloadGraceMs");
   requireExactNumber(config.overloadAttackLeadMs, 600, "overloadAttackLeadMs");
   requireExactNumber(config.collapseImpactMs, 1800, "collapseImpactMs");
   requireExactNumber(config.guardianRevealMs, 3000, "guardianRevealMs");
@@ -750,8 +750,8 @@ function validateWordBreakerConfig(config, battle, errors) {
       if (gimmick.surgeHits !== 3) {
         addError(errors, `${label} rounds[${index}].gimmick.surgeHits must be 3`);
       }
-      if (gimmick.breakableSurgeCount !== 2) {
-        addError(errors, `${label} rounds[${index}].gimmick.breakableSurgeCount must be 2`);
+      if (gimmick.breakableSurgeCount !== 3) {
+        addError(errors, `${label} rounds[${index}].gimmick.breakableSurgeCount must be 3`);
       }
     }
     for (const field of ["omenMessage", "collapseMessage", "guardianMessage", "recoveryMessage"]) {

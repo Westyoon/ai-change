@@ -53,7 +53,7 @@
       "id": "ai-ball-classification",
       "departmentCode": "AI",
       "department": "인공지능학부",
-      "title": "AI Ball Classification Game",
+      "title": "벚꽃 찾기",
       "introScript": "ai-ball-classification-intro",
       "clearOutroScript": "ai-ball-classification-clear",
       "failOutroScript": "ai-ball-classification-fail",

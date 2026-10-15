@@ -10,7 +10,7 @@ import {
   CHARACTER_STATES,
 } from "../../js/battle/character/constants.js";
 import { EventBus } from "../../js/core/event-bus.js";
-import { DEFAULT_PLAYER_APPEARANCE } from "../../js/battle/player-config.js";
+import { DEFAULT_PLAYER_APPEARANCE, HAIR_COLOR_OPTIONS, createPlayerAppearance, createBattlePlayer } from "../../js/battle/player-config.js";
 
 function assertClose(actual, expected, message = "values should be close") {
   assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} !== ${expected}`);
@@ -23,16 +23,43 @@ function stationaryInput() {
   };
 }
 
-test("festival character sheet selects four walk frames and the requested direction row", () => {
-  const presentation = resolveSpriteSheetPresentation(DEFAULT_PLAYER_APPEARANCE, CHARACTER_DIRECTIONS.RIGHT);
-  assert.equal(presentation.src, "./assets/images/character-walk.png");
-  assert.equal(presentation.frameCount, 4);
-  assert.equal(presentation.animationDurationMs, 520);
-  assertClose(presentation.backgroundSizeX, 560.8);
-  assertClose(presentation.backgroundSizeY, (1122 / 280) * 100);
-  assertClose(presentation.frameStartX, (201 / (1402 - 250)) * 100);
-  assertClose(presentation.frameEndX, ((201 + 1000) / (1402 - 250)) * 100);
-  assertClose(presentation.directionY, ((1 + 560) / (1122 - 280)) * 100);
+test("new atlas separates idle poses from four-direction walking", () => {
+  const expected = { down: [0,1,2,3], up: [18,19,20,21], right: [4,5,6,7,8,9], left: [10,11,12,13,14,15,16,17] };
+  for (const [direction, frames] of Object.entries(expected)) {
+    const walk = resolveSpriteSheetPresentation(DEFAULT_PLAYER_APPEARANCE, direction);
+    assert.equal(walk.frameCount, frames.length);
+    assert.equal(walk.animationDurationMs, frames.length * 180);
+    const atlas = DEFAULT_PLAYER_APPEARANCE.spriteSheet;
+    assert.deepEqual(walk.framePositions, frames.map(frame => atlas.frameOffsets[frame] / (2171 - atlas.frameWidths[frame]) * 100));
+    assert.equal(resolveSpriteSheetPresentation(DEFAULT_PLAYER_APPEARANCE, direction, "idle").frameCount, 1);
+  }
+});
+
+test("all four hair colors use their row and story characters stay purple", () => {
+ for (const option of HAIR_COLOR_OPTIONS) {
+  for (const direction of ["down", "up", "left", "right"]) {
+   const result = resolveSpriteSheetPresentation(createPlayerAppearance(option.id), direction);
+   assertClose(result.directionY, option.sourceY / 543 * 100);
+  }
+ }
+ const account = { authenticated: true, user: { hairColor: "blonde", nickname: "student" } };
+ assert.equal(createBattlePlayer(account).appearance.hairColor, "blonde");
+ assert.equal(createBattlePlayer(account).appearance.label, "student");
+ assert.equal(createBattlePlayer(account, undefined, { useAccountStats: false }).appearance.hairColor, "purple");
+ const fixed = createBattlePlayer(account, undefined, { useAccountStats: false, useAccountAppearance: true });
+ assert.equal(fixed.appearance.hairColor, "blonde");
+ assert.equal(fixed.attackStat, 1);
+ assert.equal(createPlayerAppearance("unknown").hairColor, "purple");
+});
+
+test("each new atlas crop contains the measured pose and stays inside the sheet", () => {
+ const bounds = [[26, 114], [120, 207], [216, 301], [312, 399], [414, 501], [514, 598], [612, 691], [699, 784], [798, 884], [897, 981], [1011, 1093], [1112, 1198], [1209, 1290], [1303, 1387], [1399, 1481], [1493, 1575], [1587, 1671], [1682, 1770], [1778, 1867], [1873, 1960], [1967, 2055], [2060, 2147]];
+ const atlas = DEFAULT_PLAYER_APPEARANCE.spriteSheet;
+ for (const [frame, [left, right]] of bounds.entries()) {
+  assert.ok(atlas.frameOffsets[frame] <= left);
+  assert.ok(atlas.frameOffsets[frame] + atlas.frameWidths[frame] > right);
+  assert.ok(atlas.frameOffsets[frame] + atlas.frameWidths[frame] <= atlas.sourceWidth);
+ }
 });
 
 test("character movement normalizes diagonals, selects one of four directions, and returns to idle", () => {

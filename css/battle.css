@@ -3,6 +3,71 @@
   max-width: 1480px;
 }
 
+.boss-damage-number {
+  position: absolute;
+  z-index: 100;
+  top: 8%;
+  left: 50%;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  color: #a40920;
+  font-family: Galmuri11, monospace;
+  font-size: clamp(16.8px, 2.8vw, 28px);
+  font-weight: 900;
+  line-height: 1;
+  -webkit-text-stroke: 3px #fff;
+  paint-order: stroke fill;
+  text-shadow: -2px 0 #fff, 2px 0 #fff, 0 -2px #fff, 0 2px #fff, 2px 3px #491021;
+  animation: boss-damage-rise 800ms steps(12, end) both;
+}
+
+@keyframes boss-damage-rise {
+  0% { opacity: 1; transform: translate(calc(-50% + var(--damage-offset)), 0); }
+  65% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--damage-offset)), -28px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boss-damage-number {
+    animation: none;
+    transform: translate(calc(-50% + var(--damage-offset)), 0);
+  }
+}
+
+.battle-stage > [hidden],
+.battle-frame > [hidden] {
+  display: none !important;
+}
+
+.battle-start-guide {
+  width: min(760px, 100%);
+  margin: auto;
+  padding: clamp(18px, 4vw, 36px);
+  color: var(--ink);
+  background: #fff7ef;
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  max-height: 100%;
+  overflow-y: auto;
+  line-height: 1.7;
+}
+
+.battle-start-guide h2 {
+  font-size: clamp(0.91rem, 2.1vw, 1.26rem);
+  color: inherit;
+}
+
+.battle-start-guide p,
+.battle-start-guide li {
+  margin-block: 12px;
+  color: inherit;
+}
+
+.battle-start-guide .button {
+  margin-top: 12px;
+}
+
 .scene-root[data-scene-layout="aftergame-world"] {
   width: min(1480px, 100%);
 }
@@ -14,7 +79,7 @@
 }
 
 .battle-node-map-scene > h1 {
-  font-size: clamp(2rem, 4.6vw, 3.4rem);
+  font-size: clamp(1.4rem, 3.22vw, 2.38rem);
 }
 
 .battle-node-map {
@@ -39,6 +104,10 @@
   min-width: 0;
 }
 
+.aftergame-world-shell[data-zone-id="entry-field"] > .aftergame-world__header {
+  display: none;
+}
+
 .aftergame-world__heading {
   min-width: 0;
 }
@@ -53,7 +122,7 @@
 
 .aftergame-world__zone-title {
   margin: 4px 0 0;
-  font-size: clamp(1.22rem, 2.6vw, 1.9rem);
+  font-size: clamp(0.854rem, 1.82vw, 1.33rem);
 }
 
 .aftergame-world__zone-badge {
@@ -508,9 +577,10 @@
 
 .postgame-room-lobby__header {
   display: flex;
+  flex-wrap: wrap;
   gap: 14px;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 .postgame-room-lobby__header > div {
@@ -524,7 +594,7 @@
 }
 
 .postgame-room-lobby__title {
-  font-size: clamp(1.08rem, 3vw, 1.55rem);
+  font-size: clamp(0.756rem, 2.1vw, 1.085rem);
   line-height: 1.18;
   overflow-wrap: anywhere;
 }
@@ -982,6 +1052,16 @@
   line-height: 1.3;
 }
 
+.postgame-room-lobby__member-character {
+  display: block;
+  justify-self: center;
+  margin-inline: auto;
+  width: clamp(44px, 8vw, 88px);
+  max-width: 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
 .postgame-room-lobby__member-badge {
   min-height: 20px;
   padding: 2px 6px;
@@ -1024,6 +1104,17 @@
   flex: 0 0 auto;
 }
 
+.postgame-room-lobby__header .button[hidden] {
+  display: none;
+}
+
+.postgame-room-lobby__boss-name {
+  flex: 1;
+  margin: 0 auto 0 0;
+  font-size: clamp(.85rem, 2vw, 1.1rem);
+  align-self: center;
+}
+
 .battle-recovery {
   position: fixed;
   z-index: 12100;
@@ -1054,7 +1145,7 @@
 
 .battle-recovery__title {
   margin: 0;
-  font-size: clamp(1.2rem, 4vw, 1.8rem);
+  font-size: clamp(0.84rem, 2.8vw, 1.26rem);
 }
 
 .battle-recovery__summary {
@@ -1099,6 +1190,10 @@
 
 .battle-frame {
   grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.battle-frame[data-has-controls="false"] {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .battle-toolbar__title-group {
@@ -1165,11 +1260,24 @@
   overflow: hidden;
 }
 
+.battle-stage[data-showing-guide="true"] {
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2vw, 24px);
+}
+
 .battle-play-area {
   position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.battle-play-area[data-has-party="true"] {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
 }
 
 .battle-play-area > .battle-stage {
@@ -1178,11 +1286,9 @@
 }
 
 .battle-party-hud {
-  position: absolute;
-  z-index: 80;
-  top: 12px;
-  left: 12px;
-  width: min(190px, 26%);
+  position: static;
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   padding: 10px;
   border: 2px solid rgb(227 51 187 / 58%);
@@ -1191,6 +1297,10 @@
   background: rgb(43 24 38 / 88%);
   box-shadow: 0 5px 14px rgb(0 0 0 / 24%);
   pointer-events: none;
+}
+
+.battle-party-hud[hidden] {
+  display: none !important;
 }
 
 .battle-party-hud__title {
@@ -1203,6 +1313,7 @@
 
 .battle-party-hud__list {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -1308,7 +1419,7 @@
   }
 
   .battle-node-map-scene > h1 {
-    font-size: clamp(1.72rem, 9vw, 2.45rem);
+    font-size: clamp(1.204rem, 6.3vw, 1.715rem);
   }
 
   .battle-node-map {
@@ -1326,7 +1437,7 @@
   }
 
   .aftergame-world__zone-title {
-    font-size: clamp(1.08rem, 5.8vw, 1.4rem);
+    font-size: clamp(0.756rem, 4.06vw, 0.98rem);
   }
 
   .aftergame-world__zone-badge {
@@ -1414,7 +1525,7 @@
   }
 
   .postgame-room-lobby__title {
-    font-size: clamp(0.92rem, 5.7vw, 1.18rem);
+    font-size: clamp(0.644rem, 3.99vw, 0.826rem);
   }
 
   .postgame-room-lobby__subtitle {
@@ -1583,9 +1694,7 @@
   }
 
   .battle-party-hud {
-    top: 7px;
-    left: 7px;
-    width: min(150px, 42%);
+    width: 100%;
     padding: 7px;
     border-width: 1px;
     border-radius: 9px;
@@ -1597,6 +1706,7 @@
   }
 
   .battle-party-hud__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5px;
   }
 

@@ -125,6 +125,23 @@
   font-weight: 700;
 }
 
+.control-boss-player-hud {
+  flex-wrap: wrap;
+}
+
+.control-boss-player-hp-track {
+  flex: 1 1 70px;
+  min-width: 40px;
+}
+
+.control-boss-bar__fill--player {
+  background: #2b8a3e;
+}
+
+.control-boss-player-hp {
+  white-space: nowrap;
+}
+
 .control-boss-world {
   position: relative;
   isolation: isolate;
@@ -173,14 +190,32 @@
   z-index: 40;
   display: grid;
   place-items: center;
-  border: 3px solid #b71c1c;
-  border-radius: 8px;
   color: #fff;
-  background: #e53935;
-  box-shadow: 0 4px 12px rgb(229 57 53 / 35%);
   font-size: clamp(0.55rem, 2.5vw, 0.9rem);
   font-weight: 900;
 }
+
+/* The five poses retain the source sheet's two-column, three-row order.
+ * Sprite art extends beyond the existing boss collision zone. */
+.control-boss-sprite {
+  position: absolute;
+  top: -40%;
+  bottom: auto;
+  left: -46%;
+  width: 192%;
+  height: 265.6%;
+  background-image: url("../assets/images/bosses/control-boss-poses.png");
+  background-size: 200% 300%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.control-boss-sprite[data-pose="idle"] { background-position: 0% 0%; }
+.control-boss-sprite[data-pose="victory"] { background-position: 0% 50%; }
+.control-boss-sprite[data-pose="death"] { background-position: 100% 50%; }
+.control-boss-sprite[data-pose="hit"] { background-position: 0% 100%; }
+.control-boss-sprite[data-pose="attack"] { background-position: 100% 100%; }
 
 .control-boss-cast {
   position: absolute;
@@ -233,6 +268,37 @@
   border-color: #00838f;
   background: #b2ebf2;
   box-shadow: 0 0 12px rgb(0 172 193 / 60%);
+}
+
+#app .control-boss-cover,
+#app .control-boss-tile[data-kind="hole"] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.control-boss-cover::before,
+.control-boss-tile[data-kind="hole"]::before {
+  content: "";
+  position: absolute;
+  height: 100%;
+  aspect-ratio: 1;
+  max-width: 100%;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  background-image: url("../assets/images/bosses/control-trap-cover.png");
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.control-boss-cover::before { background-position: 100% 50%; }
+.control-boss-tile[data-kind="hole"]::before { background-position: 0% 50%; }
+
+#app .control-boss-cover[data-active="true"]::before {
+  filter: drop-shadow(0 0 3px #8fe8ff);
 }
 
 .control-boss-tiles,

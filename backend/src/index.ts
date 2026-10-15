@@ -1,4 +1,6 @@
 export { PostgameCoordinator } from "./postgame-coordinator";
+import { createPostgameReward, EXPERIENCE_PER_LEVEL } from "./progression";
+import { isWishId, isWishDepartment, normalizeWish, WISH_COOLDOWN_MS, WISH_INSERT_SQL, WISH_PAGE_SIZE } from "./wishes";
 
 export interface Env {
   DB: D1Database;
@@ -26,6 +28,7 @@ interface SessionRow {
   user_id: string;
   name: string | null;
   nickname: string | null;
+  hair_color?: string | null;
   expires_at: number;
 }
 
@@ -79,7 +82,6 @@ const PARTITIONED_OAUTH_STATE_COOKIE = "__Host-ai-change-oauth-state-partitioned
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
 const MAX_SCORE = 1_000_000;
-const EXPERIENCE_PER_POSTGAME_CLEAR = 100;
 const BASE_COMBAT_HP = 100;
 const COMBAT_HP_PER_POINT = 100;
 const BASE_COMBAT_ATTACK = 10;
@@ -111,6 +113,8 @@ const ALLOWED_STORY_IDS = new Set([
   "afterstory:aids",
   "battle-unlock:word-breaker",
   "main-story-outro",
+  "festival-open",
+  "postgame-entry-seen",
 ]);
 const ALLOWED_STATS = new Set(["attack", "hp", "defense"]);
 
@@ -318,14 +322,16 @@ function normalizeNickname(value: unknown): string | null {
   return normalized;
 }
 
-function accountUser(session: Pick<SessionRow, "name" | "nickname">): {
+function accountUser(session: Pick<SessionRow, "name" | "nickname" | "hair_color">): {
   name: string;
   nickname: string | null;
+  hairColor: string | null;
 } {
   const nickname = normalizeNickname(session.nickname);
   return {
     name: nickname ?? normalizeDisplayName(session.name),
     nickname,
+    hairColor: ["magenta", "purple", "brown", "blonde"].includes(session.hair_color ?? "") ? session.hair_color! : null,
   };
 }
 
@@ -345,7 +351,7 @@ function statPayload(row: StatsRow): Record<string, number | null> {
     defense: Number(row.defense),
     level,
     experience,
-    nextLevelExperience: level * EXPERIENCE_PER_POSTGAME_CLEAR,
+    nextLevelExperience: level * EXPERIENCE_PER_LEVEL,
     clears: Number(row.clears),
     score: Number(row.score),
     unspentPoints: Number(row.unspent_points),
@@ -430,7 +436,7 @@ async function getSession(request: Request, env: Env): Promise<SessionRow | null
   const now = Math.floor(Date.now() / 1000);
   for (const token of tokens) {
     const session = await env.DB.prepare(
-      `SELECT s.user_id, s.expires_at, u.name, u.nickname
+      `SELECT s.user_id, s.expires_at, u.name, u.nickname, u.hair_color
          FROM sessions s
          JOIN users u ON u.id = s.user_id
         WHERE s.token_hash = ? AND s.expires_at > ?`,
@@ -631,6 +637,75 @@ async function updateNickname(request: Request, env: Env, origin: string): Promi
   return authenticatedAccountResponse(env, { ...session, nickname });
 }
 
+interface WishRow { id: string; nickname: string; body: string; department: string | null; created_at: number; rate_key?: string }
+
+function publicWish(row: WishRow) {
+  return { id: row.id, nickname: row.nickname, text: row.body, department: row.department ?? null };
+}
+
+async function wishes(request: Request, env: Env, origin: string): Promise<Response> {
+  if (request.method === "GET") {
+    const params = new URL(request.url).searchParams;
+    const after = params.get("after");
+    const department = params.get("department");
+    if (department !== null && !isWishDepartment(department)) throw new HttpError(400, "Invalid department");
+    let timestamp = Number.MAX_SAFE_INTEGER;
+    let id = "~";
+    if (after) {
+      const match = /^(\d{1,13}):(.+)$/u.exec(after);
+      if (!match || !isWishId(match[2])) throw new HttpError(400, "Invalid cursor");
+      timestamp = Number(match[1]); id = match[2];
+    }
+    const result = await env.DB.prepare(`SELECT id, nickname, body, department, created_at FROM wish_posts
+      WHERE (created_at < ? OR (created_at = ? AND id < ?)) AND (? IS NULL OR department = ?)
+      ORDER BY created_at DESC, id DESC LIMIT ?`)
+      .bind(timestamp, timestamp, id, department, department, WISH_PAGE_SIZE + 1).all<WishRow>();
+    const rows = (result.results ?? []).slice(0, WISH_PAGE_SIZE);
+    const last = rows.at(-1);
+    return json({ wishes: rows.map(publicWish), nextCursor: result.results.length > WISH_PAGE_SIZE && last
+      ? `${last.created_at}:${last.id}` : null });
+  }
+  requireMethod(request, "POST");
+  requireMutationRequest(request, origin);
+  const body = await readJsonObject(request);
+  const text = normalizeWish(body.text);
+  if (Object.keys(body).length !== 3 || !text || !isWishId(body.requestId) || !isWishDepartment(body.department)) throw new HttpError(400, "Invalid wish");
+  const session = await getSession(request, env);
+  const rateKey = await sha256(`wish:${session?.user_id ?? request.headers.get("CF-Connecting-IP") ?? "local"}`);
+  const existing = await env.DB.prepare("SELECT id, nickname, body, department, created_at, rate_key FROM wish_posts WHERE id = ?")
+    .bind(body.requestId).first<WishRow>();
+  if (existing) {
+    if (existing.body !== text || existing.department !== body.department || existing.rate_key !== rateKey) throw new HttpError(409, "Wish id conflict");
+    return json({ wish: publicWish(existing) });
+  }
+  const now = Date.now();
+  const nickname = session?.nickname || "꿈꾸는 이화인";
+  const result = await env.DB.prepare(WISH_INSERT_SQL)
+    .bind(body.requestId, nickname, text, body.department, now, rateKey, rateKey, now - WISH_COOLDOWN_MS, session ? 1 : 20).run();
+  if (Number(result.meta.changes ?? 0) !== 1) {
+    const repeated = await env.DB.prepare("SELECT id, nickname, body, department, created_at, rate_key FROM wish_posts WHERE id = ?")
+      .bind(body.requestId).first<WishRow>();
+    if (repeated?.body === text && repeated.department === body.department && repeated.rate_key === rateKey) return json({ wish: publicWish(repeated) });
+    throw new HttpError(429, "Please wait before sharing another wish");
+  }
+  return json({ wish: { id: body.requestId, nickname, text, department: body.department } }, { status: 201 });
+}
+
+async function updateHairColor(request: Request, env: Env, origin: string): Promise<Response> {
+  requireMethod(request, "PATCH");
+  requireMutationRequest(request, origin);
+  const session = await requireSession(request, env);
+  const body = await readJsonObject(request);
+  if (Object.keys(body).length !== 1 || typeof body.hairColor !== "string"
+    || !["magenta", "purple", "brown", "blonde"].includes(body.hairColor)) {
+    throw new HttpError(400, "Invalid hair color");
+  }
+  const result = await env.DB.prepare("UPDATE users SET hair_color = ? WHERE id = ?")
+    .bind(body.hairColor, session.user_id).run();
+  if (Number(result.meta.changes ?? 0) !== 1) throw new HttpError(404, "Account not found");
+  return authenticatedAccountResponse(env, { ...session, hair_color: body.hairColor });
+}
+
 async function logout(request: Request, env: Env, origin: string): Promise<Response> {
   requireMethod(request, "POST");
   requireMutationRequest(request, origin);
@@ -659,8 +734,8 @@ async function ranking(request: Request, env: Env): Promise<Response> {
     ? "clears DESC, created_at ASC, run_id ASC"
     : "clear_time_ms ASC, created_at ASC, run_id ASC";
   const rankedOrder = criterion === "boss-clears"
-    ? "created_at DESC, run_id DESC"
-    : "clear_time_ms ASC, created_at ASC, run_id ASC";
+    ? "r.created_at DESC, r.id DESC"
+    : "r.clear_time_ms ASC, r.created_at ASC, r.id ASC";
   const query = await env.DB.prepare(
     `WITH ranked_runs AS (
        SELECT
@@ -847,6 +922,7 @@ async function recordPostgameResult(
   }
 
   const resultId = crypto.randomUUID();
+  const { EXPERIENCE_PER_POSTGAME_CLEAR, POSTGAME_LEVEL_GAIN_SQL } = createPostgameReward();
   const [insertResult, awardResult] = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO postgame_results
@@ -858,8 +934,8 @@ async function recordPostgameResult(
       `UPDATE stats
           SET clears = COALESCE(clears, 0) + 1,
               experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_POSTGAME_CLEAR},
-              level = COALESCE(level, 1) + 1,
-              unspent_points = COALESCE(unspent_points, 0) + 1,
+              level = COALESCE(level, 1) + (${POSTGAME_LEVEL_GAIN_SQL}),
+              unspent_points = COALESCE(unspent_points, 0) + (${POSTGAME_LEVEL_GAIN_SQL}),
               updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
           AND EXISTS (
@@ -879,7 +955,7 @@ async function recordPostgameResult(
   const awarded = Number(awardResult.meta.changes ?? 0) === 1;
   const stats = await fetchStats(env, session.user_id);
   return json(
-    { credited, duplicate: !credited, awarded, stats: statPayload(stats) },
+    { credited, duplicate: !credited, awarded, experienceAwarded: awarded ? EXPERIENCE_PER_POSTGAME_CLEAR : 0, stats: statPayload(stats) },
     { status: credited ? 201 : 200 },
   );
 }
@@ -926,6 +1002,7 @@ async function connectPostgame(request: Request, env: Env, origin: string): Prom
     "x-ai-player-user-id": session.user_id,
     "x-ai-player-key": await sha256(`postgame:${session.user_id}`),
     "x-ai-player-name": encodeURIComponent(accountUser(session).name),
+    "x-ai-player-hair-color": accountUser(session).hairColor ?? "purple",
     "x-ai-player-combat-max-hp": String(combatMaxHp(stats)),
     "x-ai-player-stat-boss-damage": String(statBossAttackDamage(stats)),
     "x-ai-player-control-boss-damage": String(controlBossAttackDamage(stats)),
@@ -955,11 +1032,13 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (request.method === "PATCH") return updateNickname(request, env, origin);
     return sessionResponse(request, env);
   }
+  if (url.pathname === "/api/wishes") return wishes(request, env, origin);
   if (url.pathname === "/api/me") {
     if (request.method === "PATCH") return updateNickname(request, env, origin);
     return sessionResponse(request, env);
   }
   if (url.pathname === "/api/session") return sessionResponse(request, env);
+  if (url.pathname === "/api/player-appearance") return updateHairColor(request, env, origin);
   if (url.pathname === "/api/ranking") return ranking(request, env);
   if (url.pathname === "/api/story-progress") return importStoryProgress(request, env, origin);
   if (url.pathname === "/api/progress/import") return importCompletedProgress(request, env, origin);

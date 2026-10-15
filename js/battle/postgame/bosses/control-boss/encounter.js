@@ -260,12 +260,14 @@ export class ControlBossEncounter {
 
     if (this.phase === CONTROL_BOSS_PHASES.SHIELD) {
       this.playerAttackCooldownMs = this.config.player.attackCooldownMs;
+      const appliedShieldDamage = Math.min(this.currentShield, this.player.shieldDamage);
       this.currentShield = Math.max(0, this.currentShield - this.player.shieldDamage);
       this.metrics.shieldDamage += this.player.shieldDamage;
+      this.#emit({ type: "shield-damage", amount: appliedShieldDamage });
       if (this.currentShield === 0) {
         this.#enterPhase2();
       } else {
-        this.#status(`보스 실드 타격! (${Math.ceil(this.currentShield)} 남음)`, "info");
+        this.#status("보스 실드 타격!", "info");
       }
       return true;
     }

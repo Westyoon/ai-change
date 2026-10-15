@@ -4,6 +4,7 @@ import { AssetLoader } from "./core/asset-loader.js";
 import { EventBus } from "./core/event-bus.js";
 import { InputManager } from "./core/input-manager.js";
 import { PostgameRealtimeService } from "./core/postgame-realtime-service.js";
+import { WishService } from "./core/wish-service.js";
 import { CONTENT_VERSION } from "./core/version.js";
 import { SceneRouter } from "./router.js";
 import { createBattleScene } from "./scenes/battle-scene.js";
@@ -23,6 +24,7 @@ import { createSettingsScene } from "./scenes/settings-scene.js";
 import { createStoryIntroScene } from "./scenes/story-intro-scene.js";
 import { createStoryMemoriesScene } from "./scenes/story-memories-scene.js";
 import { createStoryMemoryScene } from "./scenes/story-memory-scene.js";
+import { createStoryEndingScene } from "./scenes/story-ending-scene.js";
 import { bindTopNavigation } from "./ui/top-navigation.js";
 
 async function fetchJson(path) {
@@ -99,6 +101,7 @@ async function bootstrap() {
         events: new EventBus(),
         input: new InputManager(),
         postgameRealtime: new PostgameRealtimeService(),
+        wishes: new WishService(),
         save: null,
       },
       router: null,
@@ -112,6 +115,7 @@ async function bootstrap() {
       "story-intro": createStoryIntroScene,
       "story-memories": createStoryMemoriesScene,
       "story-memory": createStoryMemoryScene,
+      "story-ending": createStoryEndingScene,
       map: createMapScene,
       dialogue: createDialogueScene,
       "guardian-reward": createGuardianRewardScene,

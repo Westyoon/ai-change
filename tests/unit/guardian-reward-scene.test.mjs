@@ -159,7 +159,7 @@ test("guardian reward names use the requested 70 percent scale without splitting
     /\.guardian-reward__copy h1,\s*\.guardian-reward__copy p\s*\{(?<body>[^}]*)\}/u,
   );
 
-  assert.match(titleRule?.groups?.body ?? "", /font-size:\s*clamp\(1\.4rem,\s*3\.5vw,\s*2\.94rem\)/u);
+  assert.match(titleRule?.groups?.body ?? "", /font-size:\s*clamp\(0\.98rem,\s*2\.45vw,\s*2\.058rem\)/u);
   assert.match(titleRule?.groups?.body ?? "", /line-height:\s*1\.1/u);
   assert.match(sharedCopyRule?.groups?.body ?? "", /word-break:\s*keep-all/u);
   assert.match(sharedCopyRule?.groups?.body ?? "", /overflow-wrap:\s*normal/u);

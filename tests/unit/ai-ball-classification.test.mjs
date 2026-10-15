@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { flowerSourceRect } from "../../js/minigames/AI/index.js";
 import {
   advanceBall,
   classifyBallResolution,
@@ -99,7 +100,7 @@ test("AI runtime config preserves the prototype counts, timing, asset, and UI co
   assert.equal(config.nonTargetAssetId, config.targetAssetId);
   assert.equal(
     config.uiText.ruleExplanation,
-    "굴러오는 공 중 상단 목표와 같은 [DATA 공]만 뚜껑을 열어 통에 담으세요!",
+    "배꽃은 지나가게 두고, 벚꽃만 뚜껑을 열어 담으세요.",
   );
   assert.equal(config.uiText.startButton, "게임 시작");
   assert.equal(config.uiText.lidOpen, "OPEN (뚜껑 열림)");
@@ -108,4 +109,11 @@ test("AI runtime config preserves the prototype counts, timing, asset, and UI co
   assert.equal(config.uiText.clearButton, "수호알 획득하기");
   assert.equal(config.uiText.failTitle, "GAME OVER");
   assert.equal(config.uiText.failButton, "처음부터 다시하기");
+});
+
+test("flower atlas uses the first pear blossom as a distractor and the second cherry blossom as the target", () => {
+  const image = { naturalWidth: 2048, naturalHeight: 1024 };
+  assert.deepEqual(flowerSourceRect(image, false), { x: 0, y: 0, width: 1024, height: 1024 });
+  assert.deepEqual(flowerSourceRect(image, true), { x: 1024, y: 0, width: 1024, height: 1024 });
+  assert.equal(flowerSourceRect(null, true), null);
 });

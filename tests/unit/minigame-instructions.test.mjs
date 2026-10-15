@@ -171,12 +171,17 @@ test("pre-game entries ship no placeholder thumbnails and use one 70 percent tit
   const landscapeTitleRule = responsiveStyles.match(new RegExp(`${titleSelector}\\s*\\{(?<body>[^}]*)\\}`, "u"));
   assert.match(
     commonTitleRule?.groups?.body ?? "",
-    /font-size:\s*clamp\(1\.61rem,\s*4\.9vw,\s*3\.78rem\)/u,
+    /font-size:\s*clamp\(1\.127rem,\s*3\.43vw,\s*2\.646rem\)/u,
   );
   assert.match(
     landscapeTitleRule?.groups?.body ?? "",
-    /font-size:\s*clamp\(1\.4rem,\s*6\.3vh,\s*2\.24rem\)/u,
+    /font-size:\s*clamp\(0\.98rem,\s*4\.41vh,\s*1\.568rem\)/u,
   );
+});
+
+test("start-screen instruction text uses dark card ink rather than pale muted text", async () => {
+  const css = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
+  assert.match(css, /\.minigame-how-to \.info-card span,\s*\.minigame-how-to \.control-list\s*\{\s*color: var\(--ink\);/u);
 });
 
 test("top bar and active scene consume one responsive width token", async () => {
@@ -208,7 +213,7 @@ test("menu panels omit internal implementation copy while keeping playable help"
   assert.doesNotMatch(account, /기본 전투 스탯을 확인합니다/u);
   assert.doesNotMatch(account, /내 계정과 전투 스탯/u);
   assert.match(account, /className: "visually-hidden",\s*text: "내 계정"/u);
-  assert.match(account, /account-scene__header--actions-only/u);
+  assert.doesNotMatch(account, /createButton\("메뉴로"/u);
   assert.match(howTo, /게임 방법/u);
   assert.match(howTo, /instructionBlock\("PC"/u);
   assert.match(howTo, /instructionBlock\("모바일"/u);

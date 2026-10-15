@@ -2,7 +2,7 @@ import { INPUT_ACTIONS } from "../../core/input-manager.js";
 import { InputLock } from "../shared/input-lock.js";
 import { MiniGameClock } from "../shared/minigame-clock.js";
 import { buildMiniGameCandidate } from "../shared/result-builder.js";
-import { drawPixelToken, PIXEL_COLORS } from "../shared/pixel-drawing.js";
+import { PIXEL_COLORS } from "../shared/pixel-drawing.js";
 import { advanceLidProgress, drawSortingLid } from "./sorting-bin.js";
 import {
   advanceBall,
@@ -78,7 +78,7 @@ function buildUi(uiRoot, config) {
   root.className = "ai-ball-classification";
   root.dataset.miniGameId = MINI_GAME_ID;
   root.setAttribute("role", "region");
-  root.setAttribute("aria-label", "AI 공 분류 게임");
+  root.setAttribute("aria-label", "배꽃 사이에서 벚꽃 찾기");
 
   const topArea = documentRef.createElement("header");
   topArea.className = "top-area";
@@ -88,7 +88,7 @@ function buildUi(uiRoot, config) {
   targetLabel.textContent = "목표:";
   const targetBadge = documentRef.createElement("span");
   targetBadge.className = "target-badge";
-  targetBadge.textContent = "DATA 공 (보라색)";
+  targetBadge.textContent = "벚꽃";
   targetBox.append(targetLabel, targetBadge);
 
   const progressBox = documentRef.createElement("div");
@@ -112,10 +112,10 @@ function buildUi(uiRoot, config) {
   rulesOverlay.setAttribute("aria-labelledby", "ai-ball-rules-title");
   const rulesTitle = documentRef.createElement("h2");
   rulesTitle.id = "ai-ball-rules-title";
-  rulesTitle.textContent = config?.uiText?.title ?? "AI 공 분류 게임";
+  rulesTitle.textContent = config?.uiText?.title ?? "벚꽃 찾기";
   const rulesText = documentRef.createElement("p");
   rulesText.textContent = config?.uiText?.ruleExplanation
-    ?? "굴러오는 공 중 목표 공만 뚜껑을 열어 분류통에 담으세요!";
+    ?? "배꽃은 지나가게 두고, 벚꽃만 뚜껑을 열어 담으세요.";
   const startButton = documentRef.createElement("button");
   startButton.type = "button";
   startButton.className = "btn-primary";
@@ -127,12 +127,13 @@ function buildUi(uiRoot, config) {
   const countdownCard = documentRef.createElement("div");
   countdownCard.className = "countdown-card";
   const countdownHeading = documentRef.createElement("h3");
-  countdownHeading.textContent = "수집할 공 이미지";
+  countdownHeading.textContent = "이 벚꽃을 찾아주세요";
   const targetPreviewBox = documentRef.createElement("div");
   targetPreviewBox.className = "target-preview-box";
-  const countdownImage = documentRef.createElement("img");
+  const countdownImage = documentRef.createElement("span");
   countdownImage.className = "countdown-target-img";
-  countdownImage.alt = "목표 공 이미지";
+  countdownImage.setAttribute("role", "img");
+  countdownImage.setAttribute("aria-label", "수집할 벚꽃");
   targetPreviewBox.append(countdownImage);
   const countdownText = documentRef.createElement("div");
   countdownText.className = "countdown-text";
@@ -204,6 +205,12 @@ function imageSize(image) {
     return null;
   }
   return { width, height };
+}
+
+export function flowerSourceRect(image, isTarget) {
+  const size = imageSize(image);
+  if (!size) return null;
+  return { x: isTarget ? size.width / 2 : 0, y: 0, width: size.width / 2, height: size.height };
 }
 
 function configuredSourceRect(value, image) {
@@ -308,7 +315,7 @@ export function createMiniGame(context = {}) {
   let sortingBinImage = null;
   let sortingLidImage = null;
   let lidProgress = 0;
-  let feedbackText = "굴러오는 공 중 목표 공만 분류통에 담으세요!";
+  let feedbackText = "배꽃 사이에서 벚꽃만 모으세요.";
 
   function addListener(target, type, listener) {
     target?.addEventListener?.(type, listener);
@@ -382,8 +389,9 @@ export function createMiniGame(context = {}) {
 
   function setPreviewImage() {
     if (!ui.countdownImage) return;
-    if (sampleImage?.src) ui.countdownImage.src = sampleImage.src;
-    else ui.countdownImage.removeAttribute?.("src");
+    if (ui.countdownImage.style) {
+      ui.countdownImage.style.backgroundImage = sampleImage?.src ? `url("${sampleImage.src}")` : "none";
+    }
   }
 
   function resetRunState() {
@@ -414,7 +422,7 @@ export function createMiniGame(context = {}) {
     ballsResolved = 0;
     failureReason = null;
     feedbackText = config.uiText?.ruleExplanation
-      ?? "굴러오는 공 중 목표 공만 분류통에 담으세요!";
+      ?? "배꽃 사이에서 벚꽃만 모으세요.";
     lastElapsedMs = 0;
     inputLock.clear();
     setPreviewImage();
@@ -474,7 +482,7 @@ export function createMiniGame(context = {}) {
     frameHandle = null;
     inputLock.lock("TERMINAL");
     clock.stop();
-    feedbackText = status === "CLEAR" ? "목표 공을 모두 수집했습니다!" : feedbackText;
+    feedbackText = status === "CLEAR" ? "벚꽃을 모두 모았습니다!" : feedbackText;
     setState("RESOLVING");
 
     let candidate;
@@ -527,7 +535,7 @@ export function createMiniGame(context = {}) {
     awaitingStart = false;
     clock.resume("START_GATE");
     lastElapsedMs = clock.getElapsedMs();
-    feedbackText = "목표 공을 확인하세요.";
+    feedbackText = "벚꽃 모양을 확인하세요.";
     try {
       context.onGameplayStart?.(currentAttemptId);
     } catch (error) {
@@ -557,19 +565,19 @@ export function createMiniGame(context = {}) {
     ballsResolved += 1;
     if (resolution === "TARGET_COLLECTED") {
       collectedTargets += 1;
-      feedbackText = `목표 공 수집 · ${collectedTargets}/${config.targetCount}`;
+      feedbackText = `벚꽃 수집 · ${collectedTargets}/${config.targetCount}`;
       if (collectedTargets >= config.targetCount) finish("CLEAR");
     } else if (resolution === "WRONG_BALL") {
       wrongCollected += 1;
-      feedbackText = config.uiText?.failReasons?.WRONG_BALL ?? "오답 공이 통에 들어갔습니다!";
+      feedbackText = config.uiText?.failReasons?.WRONG_BALL ?? "배꽃을 담았어요.";
       finish("FAIL", "WRONG_BALL");
     } else if (resolution === "MISSED_TARGET") {
       targetMissed += 1;
-      feedbackText = config.uiText?.failReasons?.MISSED_TARGET ?? "정답 공을 놓쳤습니다!";
+      feedbackText = config.uiText?.failReasons?.MISSED_TARGET ?? "벚꽃을 놓쳤어요.";
       finish("FAIL", "MISSED_TARGET");
     } else {
       nonTargetsPassed += 1;
-      feedbackText = "방해 공을 통과시켰습니다.";
+      feedbackText = "배꽃을 지나가게 했어요.";
     }
   }
 
@@ -661,14 +669,16 @@ export function createMiniGame(context = {}) {
     canvasContext.textBaseline = "alphabetic";
     canvasContext.fillText("TARGET", centerX, startY + 18);
 
-    if (canDrawImage(sampleImage)) {
-      const imageWidth = finiteAtLeast(sampleImage.naturalWidth, 1, maxBoxSize);
-      const imageHeight = finiteAtLeast(sampleImage.naturalHeight, 1, maxBoxSize);
+    if (canDrawImage(sampleImage) && flowerSourceRect(sampleImage, true)) {
+      const sourceRect = flowerSourceRect(sampleImage, true);
+      const imageWidth = sourceRect.width;
+      const imageHeight = sourceRect.height;
       const scale = Math.min(maxBoxSize / imageWidth, maxBoxSize / imageHeight);
       const drawWidth = imageWidth * scale;
       const drawHeight = imageHeight * scale;
       canvasContext.drawImage(
         sampleImage,
+        sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height,
         centerX - drawWidth / 2,
         startY + 25 + (maxBoxSize - drawHeight) / 2,
         drawWidth,
@@ -729,20 +739,12 @@ export function createMiniGame(context = {}) {
 
     for (const ball of activeBalls) {
       canvasContext.save();
-      drawPixelToken(canvasContext, ball.x, ball.y, ball.radius,
-        ball.isTarget ? PIXEL_COLORS.blue : PIXEL_COLORS.yellow);
-      canvasContext.beginPath();
-      canvasContext.arc(ball.x, ball.y, Math.max(1, ball.radius - 4), 0, Math.PI * 2);
-      canvasContext.closePath();
-      canvasContext.clip();
-      if (canDrawImage(ball.image)) {
-        canvasContext.drawImage(
-          ball.image,
-          ball.x - ball.radius,
-          ball.y - ball.radius,
-          ball.radius * 2,
-          ball.radius * 2,
-        );
+      canvasContext.imageSmoothingEnabled = false;
+      if (canDrawImage(ball.image) && flowerSourceRect(ball.image, ball.isTarget)) {
+        drawImageIntoRect(canvasContext, ball.image, flowerSourceRect(ball.image, ball.isTarget), {
+          x: ball.x - ball.radius, y: ball.y - ball.radius,
+          width: ball.radius * 2, height: ball.radius * 2,
+        });
       }
       canvasContext.restore();
     }

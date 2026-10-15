@@ -1,5 +1,6 @@
 import { CharacterView, createCharacterActorElement } from "../../../character/index.js";
 import { DATA_SPHINX_SELECTIONS } from "./config.js";
+import { formatCombatValue, formatBossValue, formatBossHealth } from "../../../combat-display.js";
 
 function createElement(documentRef, tagName, options = {}, children = []) {
   const element = documentRef.createElement(tagName);
@@ -38,6 +39,7 @@ export class DataSphinxView {
       healthTrack: this.playerHealthTrack,
       healthFill: this.playerHealthFill,
       healthText: this.playerHealthText,
+      formatHealth: formatCombatValue,
       stateText: this.playerStateText,
     });
   }
@@ -56,9 +58,9 @@ export class DataSphinxView {
 
     const bossRatio = ratio(snapshot.bossHealth, snapshot.bossMaxHealth);
     this.bossHealthFill.style.width = `${bossRatio * 100}%`;
-    this.bossHealthText.textContent = `${Math.round(snapshot.bossHealth)} / ${Math.round(snapshot.bossMaxHealth)}`;
-    this.bossHealthTrack.setAttribute("aria-valuemax", String(snapshot.bossMaxHealth));
-    this.bossHealthTrack.setAttribute("aria-valuenow", String(snapshot.bossHealth));
+    this.bossHealthText.textContent = formatBossHealth(snapshot.bossHealth, snapshot.bossMaxHealth);
+    this.bossHealthTrack.setAttribute("aria-valuemax", formatBossValue(snapshot.bossMaxHealth));
+    this.bossHealthTrack.setAttribute("aria-valuenow", formatBossValue(snapshot.bossHealth));
 
     const questionNumber = snapshot.currentQuestion
       ? `${snapshot.questionNumber} / ${snapshot.quizCount}`
@@ -75,7 +77,13 @@ export class DataSphinxView {
     this.timerTrack.setAttribute("aria-valuemax", String(snapshot.timeLimitMs));
     this.timerTrack.setAttribute("aria-valuenow", String(snapshot.timeRemainingMs));
 
-    if (playerSnapshot) this.playerView.render(playerSnapshot);
+    if (playerSnapshot) {
+      this.playerView.render(playerSnapshot);
+      // The sprite frame occupies 10% of the visible arena height at any scale.
+      // Keep the logical actor bounds intact so answer selection does not change.
+      const actorHeight = Math.max(1, Number(playerSnapshot.height) || 40);
+      this.playerActor.style.setProperty('--sphinx-sprite-height', `${this.arena.height * 0.1 / actorHeight * 100}%`);
+    }
   }
 
   showFeedback(message, tone = "info") {

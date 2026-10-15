@@ -309,6 +309,7 @@
 }
 
 .character-actor__sprite[data-sprite-sheet="true"] {
+  border: 0;
   right: auto;
   top: auto;
   bottom: 0;
@@ -523,6 +524,26 @@
   }
 }
 
+.character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count="3"] {
+  animation-name: character-sprite-walk-three;
+  animation-timing-function: steps(1, end);
+}
+.character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count="4"] {
+  animation-name: character-sprite-walk-four;
+  animation-timing-function: steps(1, end);
+}
+@keyframes character-sprite-walk-three {
+  0%, 100% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+  33.333% { background-position-x: var(--character-frame-1); background-size: var(--character-frame-size-1); aspect-ratio: var(--character-frame-aspect-1); }
+  66.666% { background-position-x: var(--character-frame-2); background-size: var(--character-frame-size-2); aspect-ratio: var(--character-frame-aspect-2); }
+}
+@keyframes character-sprite-walk-four {
+  0%, 100% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+  25% { background-position-x: var(--character-frame-1); background-size: var(--character-frame-size-1); aspect-ratio: var(--character-frame-aspect-1); }
+  50% { background-position-x: var(--character-frame-2); background-size: var(--character-frame-size-2); aspect-ratio: var(--character-frame-aspect-2); }
+  75% { background-position-x: var(--character-frame-3); background-size: var(--character-frame-size-3); aspect-ratio: var(--character-frame-aspect-3); }
+}
+
 @media (max-width: 880px) {
   .character-lab__layout {
     grid-template-columns: 1fr;
@@ -620,3 +641,41 @@
   }
 
 }
+
+.character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count="5"] {
+ animation-name: character-sprite-walk-five;
+ animation-timing-function: steps(1, end);
+}
+@keyframes character-sprite-walk-five {
+0%, 100% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+20% { background-position-x: var(--character-frame-1); background-size: var(--character-frame-size-1); aspect-ratio: var(--character-frame-aspect-1); }
+40% { background-position-x: var(--character-frame-2); background-size: var(--character-frame-size-2); aspect-ratio: var(--character-frame-aspect-2); }
+60% { background-position-x: var(--character-frame-3); background-size: var(--character-frame-size-3); aspect-ratio: var(--character-frame-aspect-3); }
+80% { background-position-x: var(--character-frame-4); background-size: var(--character-frame-size-4); aspect-ratio: var(--character-frame-aspect-4); }
+}
+@media (prefers-reduced-motion: reduce) { .character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count] { animation: none; } }
+
+.character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count="6"] { animation: character-sheet-walk-6 var(--character-sprite-duration) steps(1, end) infinite; }
+@keyframes character-sheet-walk-6 {
+0.000000% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+16.666667% { background-position-x: var(--character-frame-1); background-size: var(--character-frame-size-1); aspect-ratio: var(--character-frame-aspect-1); }
+33.333333% { background-position-x: var(--character-frame-2); background-size: var(--character-frame-size-2); aspect-ratio: var(--character-frame-aspect-2); }
+50.000000% { background-position-x: var(--character-frame-3); background-size: var(--character-frame-size-3); aspect-ratio: var(--character-frame-aspect-3); }
+66.666667% { background-position-x: var(--character-frame-4); background-size: var(--character-frame-size-4); aspect-ratio: var(--character-frame-aspect-4); }
+83.333333% { background-position-x: var(--character-frame-5); background-size: var(--character-frame-size-5); aspect-ratio: var(--character-frame-aspect-5); }
+100.000000% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+}
+
+.character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count="8"] { animation: character-sheet-walk-8 var(--character-sprite-duration) steps(1, end) infinite; }
+@keyframes character-sheet-walk-8 {
+0.000000% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+12.500000% { background-position-x: var(--character-frame-1); background-size: var(--character-frame-size-1); aspect-ratio: var(--character-frame-aspect-1); }
+25.000000% { background-position-x: var(--character-frame-2); background-size: var(--character-frame-size-2); aspect-ratio: var(--character-frame-aspect-2); }
+37.500000% { background-position-x: var(--character-frame-3); background-size: var(--character-frame-size-3); aspect-ratio: var(--character-frame-aspect-3); }
+50.000000% { background-position-x: var(--character-frame-4); background-size: var(--character-frame-size-4); aspect-ratio: var(--character-frame-aspect-4); }
+62.500000% { background-position-x: var(--character-frame-5); background-size: var(--character-frame-size-5); aspect-ratio: var(--character-frame-aspect-5); }
+75.000000% { background-position-x: var(--character-frame-6); background-size: var(--character-frame-size-6); aspect-ratio: var(--character-frame-aspect-6); }
+87.500000% { background-position-x: var(--character-frame-7); background-size: var(--character-frame-size-7); aspect-ratio: var(--character-frame-aspect-7); }
+100.000000% { background-position-x: var(--character-frame-0); background-size: var(--character-frame-size-0); aspect-ratio: var(--character-frame-aspect-0); }
+}
+@media (prefers-reduced-motion: reduce) { .character-actor[data-motion="walk"] .character-actor__sprite[data-frame-count] { animation: none; } }

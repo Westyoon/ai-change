@@ -45,6 +45,14 @@ function createElement(documentRef, tagName, { className = "", text, type, attri
   return element;
 }
 
+function createHandImage(documentRef, hand) {
+  return createElement(documentRef, "span", {
+    className: "xr-trials__hand-image",
+    dataset: { handImage: hand },
+    attributes: { "aria-hidden": "true" },
+  });
+}
+
 class PausableTimeout {
   constructor() {
     this.id = null;
@@ -196,6 +204,7 @@ export function createBattle({ root, input = null, onComplete = null, random = M
 
   function startRps() {
     mountHeading("rps", "기회는 한 번입니다. 비기거나 지면 실패합니다.");
+    let revealed = null;
     const arena = createElement(documentRef, "div", { className: "xr-trials__rps-arena" });
     const playerOutput = createElement(documentRef, "output", {
       className: "xr-trials__rps-slot",
@@ -207,35 +216,69 @@ export function createBattle({ root, input = null, onComplete = null, random = M
       text: "?",
       attributes: { "aria-label": "상대 선택" },
     });
-    arena.append(playerOutput, createElement(documentRef, "strong", { text: "VS" }), opponentOutput);
+    arena.append(
+      createElement(documentRef, "div", { className: "xr-trials__rps-player" }, [
+        createElement(documentRef, "strong", { text: "나" }), playerOutput,
+      ]),
+      createElement(documentRef, "strong", { text: "VS" }),
+      createElement(documentRef, "div", { className: "xr-trials__rps-player" }, [
+        createElement(documentRef, "strong", { text: "컴퓨터" }), opponentOutput,
+      ]),
+    );
     const choices = createElement(documentRef, "div", { className: "xr-trials__choices" });
+    const confirm = createElement(documentRef, "button", {
+      className: "button xr-trials__rps-confirm",
+      text: "결과 확인",
+      type: "button",
+    });
+    confirm.hidden = true;
+    confirm.disabled = true;
+    const refresh = () => {
+      for (const button of activeButtons) {
+        button.disabled = state !== STATE.RUNNING || (button === confirm ? !revealed : Boolean(revealed));
+      }
+      if (!revealed) return;
+      const verdict = revealed.outcome === "win" ? "승리!" : revealed.outcome === "draw" ? "무승부" : "패배";
+      status.textContent = `나: ${HAND_META[revealed.playerHand].label} · 컴퓨터: ${HAND_META[revealed.opponentHand].label} — ${verdict}`;
+      status.dataset.tone = revealed.outcome === "win" ? "success" : "danger";
+    };
+    confirm.addEventListener("click", () => {
+      if (state !== STATE.RUNNING || !revealed) return;
+      const { outcome } = revealed;
+      complete(outcome === "win" ? "CLEAR" : "FAIL", outcome === "draw" ? "RPS_DRAW" : outcome === "lose" ? "RPS_LOSS" : null, revealed);
+    });
     for (const hand of RPS_HANDS) {
       const meta = HAND_META[hand];
       const button = createElement(documentRef, "button", {
         className: "xr-trials__choice",
-        text: `${meta.emoji} ${meta.label}`,
+        text: meta.label,
         type: "button",
         dataset: { hand },
         attributes: { "aria-label": meta.label },
       });
+      button.append(createHandImage(documentRef, hand));
       button.addEventListener("click", () => {
-        if (state !== STATE.RUNNING) return;
+        if (state !== STATE.RUNNING || revealed) return;
         const opponentHand = selectRandomItem(RPS_HANDS, random);
         const outcome = judgeRps(hand, opponentHand);
-        playerOutput.textContent = HAND_META[hand].emoji;
-        opponentOutput.textContent = HAND_META[opponentHand].emoji;
-        status.textContent = outcome === "win" ? "승리!" : outcome === "draw" ? "무승부" : "패배";
-        status.dataset.tone = outcome === "win" ? "success" : "danger";
-        complete(outcome === "win" ? "CLEAR" : "FAIL", outcome === "draw" ? "RPS_DRAW" : outcome === "lose" ? "RPS_LOSS" : null, {
-          playerHand: hand,
-          opponentHand,
-          outcome,
-        });
+        playerOutput.textContent = "";
+        opponentOutput.textContent = "";
+        playerOutput.append(createHandImage(documentRef, hand));
+        opponentOutput.append(createHandImage(documentRef, opponentHand));
+        playerOutput.setAttribute("aria-label", `내 선택: ${HAND_META[hand].label}`);
+        opponentOutput.setAttribute("aria-label", `컴퓨터 선택: ${HAND_META[opponentHand].label}`);
+        revealed = Object.freeze({ playerHand: hand, opponentHand, outcome });
+        trialSnapshot = revealed;
+        confirm.hidden = false;
+        refresh();
       });
       activeButtons.push(button);
       choices.append(button);
     }
-    content.append(arena, choices);
+    activeButtons.push(confirm);
+    content.append(arena, choices, confirm);
+    trialRuntime = { refresh };
+    refresh();
   }
 
   function startCardMatch() {
@@ -458,7 +501,7 @@ export function createBattle({ root, input = null, onComplete = null, random = M
       });
       shell = createElement(documentRef, "section", {
         className: "xr-trials",
-        attributes: { "aria-label": "X알 무작위 챌린지" },
+        attributes: { "aria-label": "X알의 폭주" },
         dataset: { state: STATE.READY },
       }, [content, status]);
       root.append(shell);
@@ -498,9 +541,9 @@ export function createBattle({ root, input = null, onComplete = null, random = M
       shell.dataset.state = state;
       setButtonsDisabled(false);
       delay.resume();
+      status.textContent = "도전 진행 중";
       trialRuntime?.resume?.();
       trialRuntime?.refresh?.();
-      status.textContent = "도전 진행 중";
       return true;
     },
 

@@ -487,6 +487,8 @@ export class WordBreakerEncounter {
     this.shots = [];
     this.overloadGlyphs = [];
     this.phraseSpawnTimerMs = this.config.phrase.spawnIntervalMs;
+    this.usedPhraseIds = new Set();
+    this.lastPhraseId = null;
     this.shotTimerMs = this.config.shot.intervalMs;
     const round = this.config.rounds[roundIndex];
     this.currentGimmick = round.gimmick;
@@ -587,12 +589,16 @@ export class WordBreakerEncounter {
   #resolveShotHits() {
     const survivingShots = [];
     for (const shot of this.shots) {
+      const padding = this.config.shot.hitPadding;
+      const hitBox = (bounds) => ({ x: bounds.x - padding, y: bounds.y - padding, width: bounds.width + padding * 2, height: bounds.height + padding * 2 });
+      const previousHitBox = hitBox(shot.previousBounds ?? shot);
+      const nextHitBox = hitBox(shot);
       const overloadGlyph = this.overloadGlyphs.find((glyph) => (
         glyph.attackable !== false
         && !glyph.broken
         && !glyph.contacted
         && glyph.delayRemainingMs <= EPSILON
-        && sweptAabbIntersects(shot.previousBounds ?? shot, shot, glyph)
+        && sweptAabbIntersects(previousHitBox, nextHitBox, glyph)
       ));
       if (overloadGlyph) {
         overloadGlyph.hp = Math.max(0, overloadGlyph.hp - 1);
@@ -629,7 +635,7 @@ export class WordBreakerEncounter {
           glyph.collidable !== false
           && glyph.attackable !== false
           && !glyph.broken
-          && sweptAabbIntersects(shot.previousBounds ?? shot, shot, glyph)
+          && sweptAabbIntersects(previousHitBox, nextHitBox, glyph)
         ));
         if (targetGlyph) {
           targetPhrase = phrase;
@@ -739,7 +745,17 @@ export class WordBreakerEncounter {
 
   #spawnPhrase() {
     const round = this.config.rounds[this.roundIndex];
-    const definition = chooseRoundPhrase(round, this.random);
+    const activeIds = new Set(this.phrases.map((phrase) => phrase.definitionId));
+    const usedIds = this.usedPhraseIds ??= new Set();
+    let available = round.phrases.filter((phrase) => !activeIds.has(phrase.id) && !usedIds.has(phrase.id));
+    if (!available.length) {
+      usedIds.clear();
+      available = round.phrases.filter((phrase) => !activeIds.has(phrase.id) && phrase.id !== this.lastPhraseId);
+    }
+    if (!available.length) return;
+    const definition = chooseRoundPhrase({ phrases: available }, this.random);
+    usedIds.add(definition.id);
+    this.lastPhraseId = definition.id;
     const phrase = createWordBreakerPhrase({
       definition,
       arena: this.config.arena,
@@ -895,7 +911,11 @@ export class WordBreakerEncounter {
   }
 
   #currentOverloadSpawnInterval() {
-    if (!this.overloadEscalated) return this.currentGimmick.spawnIntervalMs;
+    if (!this.overloadArmed) return this.currentGimmick.spawnIntervalMs * 4;
+    if (!this.overloadEscalated) {
+      const progress = Math.min(1, Math.max(0, (this.overloadElapsedMs - this.config.overloadGraceMs) / (this.currentGimmick.forceAtMs - this.config.overloadGraceMs)));
+      return this.currentGimmick.spawnIntervalMs * (2.4 - progress * 1.4);
+    }
     const escalationElapsedMs = Math.max(0, this.overloadElapsedMs - this.currentGimmick.forceAtMs);
     const stage = Math.min(2, Math.floor(escalationElapsedMs / 1_200));
     const densityScale = [0.72, 0.54, 0.4][stage];
@@ -911,11 +931,12 @@ export class WordBreakerEncounter {
     }
     const capacity = Math.max(0, this.currentGimmick.maxGlyphs - this.overloadGlyphs.length);
     if (capacity <= 0) return;
+    const difficulty = Math.min(1, Math.max(0, (this.overloadElapsedMs - this.config.overloadGraceMs) / (this.currentGimmick.forceAtMs - this.config.overloadGraceMs)));
     const glyphs = createWordBreakerOverloadWave({
       round,
       arena: this.config.arena,
       playerBounds: this.playerBounds,
-      gimmick: this.currentGimmick,
+      gimmick: { ...this.currentGimmick, glyphSpeed: this.currentGimmick.glyphSpeed * (this.overloadArmed ? .85 + difficulty * .5 : .6) },
       roundIndex: this.roundIndex,
       waveIndex,
       random: this.random,
@@ -948,7 +969,6 @@ export class WordBreakerEncounter {
 
   #resolveOverloadContacts() {
     if (this.phase !== WORD_BREAKER_PHASES.OVERLOAD) return false;
-    if (!this.overloadArmed) return false;
     for (const glyph of this.overloadGlyphs) {
       const previousBounds = glyph.previousBounds ?? glyph;
       delete glyph.previousBounds;
@@ -1326,7 +1346,7 @@ export class WordBreakerEncounter {
     const elapsed = this.config.finaleDurationMs - this.finaleRemainingMs;
     const completedGuardians = Math.min(
       this.config.rounds.length,
-      Math.floor((elapsed / this.config.finaleDurationMs) * this.config.rounds.length + EPSILON),
+      Math.floor((elapsed / (this.config.finaleDurationMs * 0.7)) * this.config.rounds.length + EPSILON),
     );
     const phrase = this.phrases[0];
     while (this.finaleGuardianCount < completedGuardians) {

@@ -306,7 +306,7 @@
 
 .result-card[data-mini-game-id="cyber-click-to-purify"] h2 {
   white-space: nowrap;
-  font-size: clamp(1.05rem, 5.5vw, 1.4rem);
+  font-size: clamp(0.735rem, 3.85vw, 0.98rem);
 }
 
 @media (max-width: 600px) {

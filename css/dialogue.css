@@ -70,7 +70,7 @@
   font-size: clamp(0.8rem, 1.8vw, 1rem);
   font-weight: 900;
   letter-spacing: 0.08em;
-  text-shadow: 0 2px 8px rgb(0 0 0 / 85%);
+  text-shadow: none;
 }
 
 .dialogue-speaker[hidden] {
@@ -88,7 +88,7 @@
   letter-spacing: 0.025em;
   white-space: pre-line;
   text-wrap: pretty;
-  text-shadow: 0 2px 10px rgb(0 0 0 / 95%);
+  text-shadow: none;
 }
 
 .dialogue-advance-cue {
@@ -268,7 +268,7 @@
 
 .scene.guardian-reward-scene .guardian-reward__copy h1 {
   color: #fff8f2;
-  font-size: clamp(1.4rem, 3.5vw, 2.94rem);
+  font-size: clamp(0.98rem, 2.45vw, 2.058rem);
   line-height: 1.1;
   text-wrap: balance;
 }

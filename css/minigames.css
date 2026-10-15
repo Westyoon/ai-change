@@ -166,6 +166,7 @@
 .result-card__illustration {
   display: block;
   width: clamp(124px, 28vw, 176px);
+  height: auto;
   aspect-ratio: 1;
   margin: -12px auto -8px;
   object-fit: contain;
@@ -179,6 +180,57 @@
   filter:
     drop-shadow(0 9px 8px rgb(35 24 21 / 22%))
     drop-shadow(0 0 12px rgb(232 168 40 / 42%));
+}
+
+.result-card[data-compact="true"] {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+}
+
+.result-card[data-compact="true"] .result-card__illustration {
+  width: clamp(80px, 20svh, 144px);
+  height: auto;
+  margin: 0;
+}
+
+.result-card[data-compact="true"] h2 {
+  margin: 0;
+  font-size: clamp(0.91rem, 2.8vw, 1.4rem);
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+.result-card[data-compact="true"] .button-row {
+  margin: 0;
+  gap: 10px;
+}
+
+.result-card__notice {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.result-card[data-compact="true"] .button {
+  padding: 10px 14px;
+  font-size: 0.9rem;
+}
+
+@media (max-height: 500px) and (min-width: 480px) {
+  .result-card[data-compact="true"] {
+    display: grid;
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+
+  .result-card[data-compact="true"] .result-card__illustration {
+    grid-row: 1 / 4;
+    width: 80px;
+  }
 }
 
 .result-metrics {
@@ -212,6 +264,12 @@
 
 .minigame-how-to {
   width: 100%;
+}
+
+/* Light instruction cards use the same dark ink for labels and body copy. */
+.minigame-how-to .info-card span,
+.minigame-how-to .control-list {
+  color: var(--ink);
 }
 
 .minigame-how-to__title {
@@ -1328,7 +1386,7 @@
   border-radius: 16px;
   background: #0b1022;
   color: #fff;
-  font-size: clamp(1.6rem, 6vw, 2.5rem);
+  font-size: clamp(1.12rem, 4.2vw, 1.75rem);
   font-weight: 900;
 }
 
@@ -1476,7 +1534,7 @@
 
   .ds-ui-root .nb-slot {
     min-height: clamp(88px, 12vh, 126px);
-    font-size: clamp(2rem, 3vw, 3.4rem);
+    font-size: clamp(1.4rem, 2.1vw, 2.38rem);
   }
 
   .ds-ui-root .nb-history {
@@ -1641,7 +1699,7 @@
 }
 
 .click-to-purify--mvp h2 {
-  font-size: clamp(0.9rem, 2.2vw, 1.2rem);
+  font-size: clamp(0.63rem, 1.54vw, 0.84rem);
 }
 
 .click-to-purify--mvp .click-to-purify__state,

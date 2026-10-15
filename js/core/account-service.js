@@ -1,4 +1,5 @@
 const STAT_KEYS = Object.freeze(["attack", "hp", "defense"]);
+const HAIR_COLORS = new Set(["magenta", "purple", "brown", "blonde"]);
 const RANKING_CRITERIA = new Set(["boss-clears", "boss-speed"]);
 const RANKED_BOSS_IDS = new Set(["stat-boss", "control-boss"]);
 const CLIENT_REWARDED_POSTGAME_IDS = new Set(["xr-egg-trials"]);
@@ -68,7 +69,7 @@ function freezeStats(candidate = {}) {
   // Keeping the fields independent prevents old/pre-game completion counts
   // from being interpreted as experience when a partial payload is received.
   const experience = integer(candidate.experience ?? candidate.xp, 0);
-  const derivedLevel = 1 + Math.floor(experience / EXPERIENCE_PER_LEVEL);
+  const derivedLevel = 1 + Math.floor((Math.sqrt(1 + 8 * experience / EXPERIENCE_PER_LEVEL) - 1) / 2);
   const level = Math.max(1, integer(candidate.level, derivedLevel));
   const nextLevelExperience = integer(
     candidate.nextLevelExperience ?? candidate.next_level_experience,
@@ -126,6 +127,7 @@ function frozenState({
     ? {
         name: text(user.name ?? user.displayName ?? normalizedNickname, "플레이어"),
         ...(normalizedNickname ? { nickname: normalizedNickname } : {}),
+        ...(HAIR_COLORS.has(user.hairColor) ? { hairColor: user.hairColor } : {}),
       }
     : null;
   return Object.freeze({
@@ -402,6 +404,7 @@ export class AccountService {
         payload?.duplicate === true || payload?.created === false || payload?.credited === false,
       awarded:
         payload?.awarded !== false && payload?.duplicate !== true && payload?.credited !== false,
+      experienceAwarded: Number.isInteger(payload?.experienceAwarded) ? payload.experienceAwarded : 0,
       stats: this.#state.stats,
     });
   }
@@ -488,6 +491,20 @@ export class AccountService {
       seenStoryIds,
     }));
     return Object.freeze({ submitted: true, seenStoryIds });
+  }
+
+  async updateHairColor(hairColor) {
+    if (!this.#state.authenticated) throw new AccountServiceError("로그인이 필요합니다.", { status: 401, code: "AUTH_REQUIRED" });
+    if (!HAIR_COLORS.has(hairColor)) throw new AccountServiceError("머리색을 선택해 주세요.", { status: 400, code: "INVALID_HAIR_COLOR" });
+    const generation = this.#authGeneration;
+    const payload = await this.#request("/player-appearance", { method: "PATCH", body: { hairColor } });
+    if (generation !== this.#authGeneration) return this.#state.user;
+    const next = sessionState(payload);
+    if (!next.authenticated || next.user?.hairColor !== hairColor) {
+      throw new AccountServiceError("머리색을 저장하지 못했습니다. 다시 시도해 주세요.", { code: "INVALID_RESPONSE" });
+    }
+    this.#setState(next);
+    return this.#state.user;
   }
 
   async updateNickname(candidate) {

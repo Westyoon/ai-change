@@ -337,6 +337,9 @@ export function createBattle({
       }
       return Object.freeze({ ...encounter.getSnapshot(), disposed: false });
     },
+    getPresenceRuntime() {
+      return view && system ? { root: view.arenaElement, worldSize: config.arena, snapshot: system.getSnapshot() } : null;
+    },
   };
 }
 

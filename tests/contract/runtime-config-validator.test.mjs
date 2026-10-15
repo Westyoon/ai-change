@@ -87,7 +87,7 @@ test("runtime config validator accepts the checked-in runtime data graph", async
   assert.equal(normalizedWordBreaker.finalPhrase.maxHp, 5);
   assert.equal(wordBreakerConfig.roundDurationMs, 13500);
   assert.equal(wordBreakerConfig.omenDurationMs, 2400);
-  assert.equal(wordBreakerConfig.overloadGraceMs, 4200);
+  assert.equal(wordBreakerConfig.overloadGraceMs, 6500);
   assert.equal(wordBreakerConfig.overloadAttackLeadMs, 600);
   assert.equal(wordBreakerConfig.collapseImpactMs, 1800);
   assert.equal(wordBreakerConfig.guardianRevealMs, 3000);
@@ -97,7 +97,7 @@ test("runtime config validator accepts the checked-in runtime data graph", async
   assert.equal(wordBreakerConfig.finaleDurationMs, 3200);
   assert.equal(wordBreakerConfig.guardian.speed, 300);
   assert.equal(wordBreakerConfig.controls.pc.length, 4);
-  assert.equal(wordBreakerConfig.controls.mobile.length, 2);
+  assert.equal(wordBreakerConfig.controls.mobile.length, 3);
   assert.equal(wordBreakerConfig.resultPresentation.clear.title, "마음의 말 정화 완료");
   assert.deepEqual(wordBreakerConfig.rounds.map(({ phrases }) => phrases.length), [11, 11, 11, 11, 11]);
   assert.equal(roundPhrases.length, 55);
@@ -143,7 +143,7 @@ test("runtime config validator accepts the checked-in runtime data graph", async
     assert.ok(Number.isInteger(gimmick.laneCount) && gimmick.laneCount >= 3 && gimmick.laneCount <= 16);
     assert.equal(gimmick.glyphHits, 2);
     assert.equal(gimmick.surgeHits, 3);
-    assert.equal(gimmick.breakableSurgeCount, 2);
+    assert.equal(gimmick.breakableSurgeCount, 3);
     assert.ok(
       gimmick.forceAtMs
         > wordBreakerConfig.overloadGraceMs + wordBreakerConfig.overloadAttackLeadMs,

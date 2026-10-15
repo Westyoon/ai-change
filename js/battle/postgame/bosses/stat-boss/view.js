@@ -4,11 +4,10 @@
 // 판정 로직(encounter.js)과 렌더링(이 파일)을 분리해뒀기 때문에, 그림을 어떻게
 // 그리든 self-check.mjs로 검증한 판정 로직에는 영향이 없다 (반대도 마찬가지).
 //
-// 화면 레이아웃은 승인된 목업(Main.dc.html/BattleStagger.dc.html)을 그대로 따른다:
-//   - 좌상단: 내 스탯 카드 (경과 시간 / 공격력 / 방어력 / HP)
-//   - 중앙 상단: 보스 이름 + HP바, 그 아래 현재 패턴 이름 태그
+// 화면 레이아웃:
+//   - 오른쪽 상단 고정: 보스 HP, 바로 아래 내 HP (스탯/패턴 설명 생략)
 //   - 보스는 격자 "위" 별도 구역에 떠 있고, 격자 칸과 겹치지 않는다
-//   - 격자(.stat-boss-arena)는 7x5을 정확히 채우고, 이 요소 크기 = encounter.js가
+//   - 격자(.stat-boss-arena)는 GRID 규격을 채우고, 이 요소 크기 = encounter.js가
 //     쓰는 ARENA(battle.js의 DEFAULT_ARENA)와 반드시 같은 좌표계여야 위험 칸 표시와
 //     실제 판정이 어긋나지 않는다.
 //
@@ -17,7 +16,7 @@
 //   - 판정 순간(encounter의 "dodge-result" 이벤트): 그 칸을 잠깐 단색 빨강으로
 //     플래시해서 "지금 여기 맞았다/안 맞았다"가 갈리는 순간을 보여준다
 //   - STAGGER(경직) 중에는 격자를 더 이상 위험색으로 물들이지 않는다 - 그리드
-//     하이라이트는 "위험하다"는 뜻으로만 쓰고, 반격 타이밍은 상단 phase 배지와
+//     하이라이트는 "위험하다"는 뜻으로만 쓰고, 반격 타이밍은 공격 버튼 강조와
 //     화면 중앙의 "반격!" 프롬프트로 알려준다 (그리드에 초록을 섞으면 "이 칸도
 //     위험한가?"로 헷갈린다는 피드백 반영).
 //
@@ -27,11 +26,10 @@
 import { GRID, isCellInSet, positionToCell } from "./grid.js";
 import { CharacterView, RemoteCharacterView, createCharacterActorElement } from "../../../character/index.js";
 import { createElement } from "../../../../scenes/scene-utils.js";
+import { formatCombatValue, formatBossValue, formatBossHealth } from "../../../combat-display.js";
+import { createDamageNumbers } from "../../../damage-numbers.js";
+import { createCombatImpact } from "../../../combat-impact.js";
 
-const PHASE_LABELS = Object.freeze({
-  TELEGRAPH: "예고",
-  STAGGER: "경직 · 반격 찬스",
-});
 
 // 2026-09-06: 같이 플레이하는 다른 플레이어(원격 캐릭터)를 내 캐릭터(기본 --character-color,
 // 파란 계열)와 헷갈리지 않게 연보라색으로 고정 - 팀 공용 캐릭터 시스템의
@@ -39,24 +37,29 @@ const PHASE_LABELS = Object.freeze({
 // (character-view.js applyAppearance), 색만 지정해서 넘기면 된다.
 const REMOTE_PLAYER_COLOR = "#b088ff";
 
+// Source rectangles use the supplied 1024-square sheet's irregular layout.
+export const STAT_BOSS_POSES = Object.freeze({
+  idle: { x: 85, y: 210, width: 380, height: 290 },
+  victory: { x: 120, y: 570, width: 305, height: 320 },
+  attack: { x: 505, y: 15, width: 380, height: 385 },
+  hit: { x: 535, y: 412, width: 365, height: 320 },
+  death: { x: 485, y: 785, width: 480, height: 190 },
+});
+
+export function getStatBossPose(snapshot, { outcome = null, hitUntilMs = 0, attackUntilMs = 0 } = {}) {
+  if (outcome) return outcome;
+  if (snapshot.boss?.hp <= 0) return "death";
+  if ((snapshot.elapsedMs ?? 0) < hitUntilMs) return "hit";
+  if (snapshot.phase === "TELEGRAPH" || (snapshot.elapsedMs ?? 0) < attackUntilMs) return "attack";
+  return "idle";
+}
+
 function clampRatio(current, max) {
   const safeMax = Math.max(1, Number(max) || 1);
   const safeCurrent = Math.max(0, Number(current) || 0);
   return Math.max(0, Math.min(1, safeCurrent / safeMax));
 }
 
-function formatClock(ms) {
-  const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function formatCombatValue(value) {
-  const numeric = Math.max(0, Number(value) || 0);
-  const rounded = Math.round((numeric + Number.EPSILON) * 1_000_000) / 1_000_000;
-  return String(rounded);
-}
 
 export class StatBossView {
   /**
@@ -69,14 +72,20 @@ export class StatBossView {
     this.localPlayerId = localPlayerId;
     this._impactTimer = null;
     this._counterFlashTimer = null;
+    this.bossOutcome = null;
+    this.bossHitUntilMs = 0;
+    this.bossAttackUntilMs = 0;
+    this.lastBossSnapshot = null;
     this.root = this.#buildDom();
+    this.combatImpact = createCombatImpact(this.root);
+    this.damageNumbers = createDamageNumbers(this.bossActor);
     this.playerView = new CharacterView({
       element: this.playerActorEl,
       worldSize: this.arena,
       healthTrack: this.playerHealthTrack,
       healthFill: this.playerHealthFill,
       healthText: this.playerHealthText,
-      stateText: this.playerStateText,
+      formatHealth: formatCombatValue,
     });
     // 다른 플레이어들(로컬 1명을 제외한 나머지) - 아직 실제 멀티플레이 네트워킹은
     // 없지만, config.players에 2명 이상이 들어오는 즉시(추후 계정/파티 시스템 연결
@@ -89,7 +98,33 @@ export class StatBossView {
     parent.append(this.root);
   }
 
+  setBossPose(pose) {
+    if (this.bossSprite.dataset.pose === pose) return;
+    const rect = STAT_BOSS_POSES[pose];
+    this.bossSprite.dataset.pose = pose;
+    this.bossSprite.style.setProperty("--stat-boss-sprite-aspect", `${rect.width} / ${rect.height}`);
+    this.bossSprite.style.backgroundSize = `${1024 / rect.width * 100}% ${1024 / rect.height * 100}%`;
+    this.bossSprite.style.backgroundPosition = `${rect.x / (1024 - rect.width) * 100}% ${rect.y / (1024 - rect.height) * 100}%`;
+  }
+
+  showBossHit() {
+    this.bossHitUntilMs = (this.lastBossSnapshot?.elapsedMs ?? 0) + 280;
+    if (!this.bossOutcome) this.setBossPose("hit");
+  }
+
+  showBossAttack() {
+    this.bossAttackUntilMs = (this.lastBossSnapshot?.elapsedMs ?? 0) + 350;
+    if (!this.bossOutcome) this.setBossPose("attack");
+  }
+
+  setBossOutcome(status) {
+    this.bossOutcome = status === "CLEAR" ? "death" : "victory";
+    this.setBossPose(this.bossOutcome);
+  }
+
   destroy() {
+    this.combatImpact.destroy();
+    this.damageNumbers.destroy();
     if (this._counterFlashTimer) clearTimeout(this._counterFlashTimer);
     if (this._impactTimer) clearTimeout(this._impactTimer);
     this.remoteView.destroy();
@@ -114,13 +149,25 @@ export class StatBossView {
   /** @param {ReturnType<import("./encounter.js").StatBossEncounter["getSnapshot"]>} snapshot */
   render(snapshot) {
     if (!snapshot) return;
+    if (this.lastBossSnapshot?.boss && snapshot.boss?.hp < this.lastBossSnapshot.boss.hp) {
+      this.combatImpact.pulse();
+      this.bossHitUntilMs = (snapshot.elapsedMs ?? 0) + 280;
+    }
+    this.setBossPose(getStatBossPose(snapshot, {
+      outcome: this.bossOutcome,
+      hitUntilMs: this.bossHitUntilMs,
+      attackUntilMs: this.bossAttackUntilMs,
+    }));
+    this.lastBossSnapshot = snapshot;
 
     // 보스 HP바
     if (snapshot.boss) {
       const ratio = clampRatio(snapshot.boss.hp, snapshot.boss.maxHp);
       this.bossHpFill.style.width = `${ratio * 100}%`;
-      this.bossHpText.textContent = `${formatCombatValue(snapshot.boss.hp)} / ${formatCombatValue(snapshot.boss.maxHp)}`;
+      this.bossHpText.textContent = formatBossHealth(snapshot.boss.hp, snapshot.boss.maxHp);
       this.bossHpTrack.dataset.low = String(ratio <= 0.25);
+      this.bossHpTrack.setAttribute("aria-valuemax", formatBossValue(snapshot.boss.maxHp));
+      this.bossHpTrack.setAttribute("aria-valuenow", formatBossValue(snapshot.boss.hp));
     }
 
     // 위험 칸 하이라이트: TELEGRAPH일 때만 빗금으로 "예정"을 보여준다.
@@ -135,15 +182,6 @@ export class StatBossView {
       el.dataset.hazard = String(isCellInSet({ row, col }, hazard));
     }
 
-    // 상단 phase 배지 + 패턴 이름 태그
-    const phaseLabel = PHASE_LABELS[snapshot.phase] ?? snapshot.phase ?? "-";
-    const remainingMs = snapshot.phase === "STAGGER" ? snapshot.staggerRemainingMs : null;
-    this.phaseBadge.textContent =
-      remainingMs != null ? `${phaseLabel} · ${(remainingMs / 1000).toFixed(1)}초` : phaseLabel;
-    this.phaseBadge.dataset.phase = snapshot.phase ?? "";
-    this.patternTag.textContent = snapshot.currentPatternName
-      ? `패턴 · ${snapshot.currentPatternName} · ${phaseLabel} 중`
-      : "-";
 
     // 화면 중앙 "반격!" 프롬프트: STAGGER 중에만 보인다.
     this.counterPrompt.dataset.visible = String(snapshot.phase === "STAGGER");
@@ -151,13 +189,8 @@ export class StatBossView {
     // "어디를 눌러야 하는지" 시각적으로도 바로 보이게 한다 (css의 [data-ready] 참고).
     this.attackButton.dataset.ready = String(snapshot.phase === "STAGGER");
 
-    // 좌상단 내 스탯 카드 (경과 시간 / 공격력 / 방어력 / HP)
-    this.timerText.textContent = formatClock(snapshot.elapsedMs);
     const me = snapshot.players?.[this.localPlayerId];
     if (me) {
-      this.statAtk.textContent = formatCombatValue(me.attackDamage ?? me.attackStat);
-      this.statDef.textContent = `${formatCombatValue((me.defenseReduction ?? 0) * 100)}%`;
-      this.statHp.textContent = `${formatCombatValue(me.hp)}/${formatCombatValue(me.maxHp)}`;
 
       // 2026-09-16 버그 수정: 캐릭터 액터(z-index 20)가 격자 칸(z-index 1)보다
       // 위에 그려져서, 내가 지금 서 있는 칸이 위험/누적위험 칸이어도 그 빗금·색이
@@ -174,6 +207,7 @@ export class StatBossView {
 
   /** 캐릭터 시스템 snapshot(system.getSnapshot())을 그대로 넘기면 플레이어 액터를 그린다. */
   renderPlayer(characterSnapshot) {
+    this.combatImpact.player(characterSnapshot);
     this.playerView.render(characterSnapshot);
   }
 
@@ -189,9 +223,9 @@ export class StatBossView {
   }
 
   /** encounter의 onEvent로 "counter-hit"/"counter-miss"가 오면 화면에 잠깐 표시. */
-  flashCounter({ hit, damage } = {}) {
+  flashCounter({ hit } = {}) {
     if (this._counterFlashTimer) clearTimeout(this._counterFlashTimer);
-    this.counterFlashEl.textContent = hit ? `반격 성공! -${formatCombatValue(damage)}` : "반격 실패";
+    this.counterFlashEl.textContent = hit ? "반격 성공!" : "반격 실패";
     this.counterFlashEl.dataset.tone = hit ? "hit" : "miss";
     this.counterFlashEl.dataset.visible = "true";
     this._counterFlashTimer = setTimeout(() => {
@@ -201,27 +235,9 @@ export class StatBossView {
 
   // ---- DOM 구성 ----
 
-  #buildStatCard() {
-    this.timerText = createElement("output", { className: "stat-boss-stat-timer", text: "00:00" });
-    this.statAtk = createElement("dd", { text: "-" });
-    this.statDef = createElement("dd", { text: "-" });
-    this.statHp = createElement("dd", { text: "-" });
-    // 2026-09-06: 남은시간(타이머)을 카드 왼쪽 -> 오른쪽 끝으로 이동 (피드백 반영).
-    return createElement("div", { className: "stat-boss-stat-card" }, [
-      createElement("dl", { className: "stat-boss-stat-card__list" }, [
-        createElement("dt", { text: "ATK" }),
-        this.statAtk,
-        createElement("dt", { text: "DEF" }),
-        this.statDef,
-        createElement("dt", { text: "HP" }),
-        this.statHp,
-      ]),
-      this.timerText,
-    ]);
-  }
 
   #buildDom() {
-    // ---- 상단 HUD: 내 스탯 카드 + 보스 HP + 패턴 태그 ----
+    // ---- Sticky HUD: boss health above player health; no stat/debug readouts. ----
     this.bossHpFill = createElement("span", { className: "stat-boss-boss-hp-fill" });
     this.bossHpTrack = createElement(
       "span",
@@ -238,36 +254,22 @@ export class StatBossView {
       this.bossHpText,
     ]);
 
-    this.phaseBadge = createElement("output", { className: "stat-boss-phase-badge", text: "대기" });
-    // 2026-09-06: bossInfo(보스 HP)와 phaseBadge를 같은 줄(.stat-boss-boss-row)로 묶고
-    // 그 줄 자체는 절대 줄바꿈 안 되게(nowrap) 한다. "예고"(짧은 텍스트)일 때만 보스HP
-    // 옆에 붙고 "경직 · 반격 찬스 · N초"(긴 텍스트)로 바뀌면 아래줄로 밀려서 화면 높이가
-    // 오락가락하던 버그 수정(모바일 실기기 테스트로 발견: 화면이 계속 내려갔다 올라갔다함).
-    // 이제는 텍스트 길이와 상관없이 항상 같은 줄에 있고, 대신 보스 HP바 쪽이 필요한 만큼
-    // 줄어들어서 자리를 내준다 (css의 .stat-boss-boss-row/.stat-boss-boss-hp-track 참고).
-    const bossRow = createElement("div", { className: "stat-boss-boss-row" }, [bossInfo, this.phaseBadge]);
-    const hud = createElement("header", { className: "stat-boss-hud" }, [this.#buildStatCard(), bossRow]);
+    const hud = createElement("header", { className: "stat-boss-hud" }, [bossInfo]);
 
-    this.patternTag = createElement("p", { className: "stat-boss-pattern-tag", text: "-" });
-
-    // 2026-09-16: 지안 피드백("반격 어떻게 하는지 방법 이해가 힘들었어요") 반영.
-    // 화면 한쪽에 늘 보이는 조작 안내 한 줄 - "경직 = 반격 타이밍"이라는 것과 어느
-    // 버튼/키를 눌러야 하는지를 텍스트로 명시한다. STAGGER 중엔 counterPrompt와
-    // attackButton 하이라이트(아래 render() 참고)가 순간적으로 한 번 더 강조해준다.
-    this.controlHint = createElement("p", {
-      className: "stat-boss-control-hint",
-      text: "이동: 조이스틱 · 보스가 굳었을 때(경직) 공격 버튼(PC는 Space)으로 반격!",
-    });
 
     // ---- 보스 존: 격자와 절대 겹치지 않는 별도 구역 (2026-09-06: "그리드가 보스를
     // 뚫는다" 피드백으로 격자 밖으로 분리함) ----
     const bossSprite = createElement("span", { className: "stat-boss-boss-actor__sprite" });
+    bossSprite.style.backgroundImage = 'url("./assets/images/bosses/stat-boss-poses.png")';
+    this.bossSprite = bossSprite;
+    this.setBossPose("idle");
     const bossActor = createElement(
       "div",
       { className: "stat-boss-boss-actor", attributes: { "aria-hidden": "true" } },
       [bossSprite],
     );
     const bossZone = createElement("div", { className: "stat-boss-boss-zone" }, [bossActor]);
+    this.bossActor = bossActor;
 
     // ---- 격자: GRID.rows x GRID.columns 칸을 만들고 render()에서 data-danger만 바꾼다 ----
     this.cells = [];
@@ -319,15 +321,14 @@ export class StatBossView {
       [this.playerHealthFill],
     );
     this.playerHealthText = createElement("output", { className: "character-health__text", text: "- / -" });
-    this.playerStateText = createElement("output", { className: "character-state-badge", text: "대기" });
-    const playerHud = createElement("div", { className: "character-hud" }, [
+    const playerHud = createElement("div", { className: "stat-boss-player-hud" }, [
       createElement("div", { className: "character-health" }, [
         createElement("strong", { text: "HP" }),
         this.playerHealthTrack,
         this.playerHealthText,
       ]),
-      this.playerStateText,
     ]);
+    hud.append(playerHud);
 
     this.joystickKnob = createElement("span", {
       className: "character-joystick__knob",
@@ -354,9 +355,6 @@ export class StatBossView {
 
     return createElement("section", { className: "stat-boss-stage character-stage" }, [
       hud,
-      this.patternTag,
-      this.controlHint,
-      playerHud,
       battlefield,
       touchControls,
     ]);

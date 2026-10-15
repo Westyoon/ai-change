@@ -75,7 +75,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: auto minmax(130px, 240px);
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 240px);
   gap: 7px 18px;
   align-items: center;
   padding: 12px clamp(14px, 3vw, 28px);
@@ -90,12 +90,16 @@
   letter-spacing: 0.12em;
 }
 
-.data-sphinx-question__text {
+/* Quiz text is reduced to 70% of its previous responsive size. */
+.data-sphinx-stage .data-sphinx-question__text {
   grid-row: 2 / span 2;
   margin: 0;
   color: var(--text);
-  font-size: clamp(0.88rem, 2vw, 1.18rem);
+  font-size: clamp(0.8085rem, 1.96vw, 1.47rem);
   line-height: 1.45;
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .data-sphinx-timer {
@@ -174,7 +178,7 @@
 }
 
 .data-sphinx-zone strong {
-  font-size: clamp(4rem, 16vw, 10rem);
+  font-size: clamp(2.8rem, 11.2vw, 7rem);
   line-height: 0.8;
   text-shadow: 5px 7px 0 rgb(0 0 0 / 32%);
 }
@@ -235,6 +239,15 @@
 
 .data-sphinx-arena .character-actor {
   z-index: 10;
+}
+
+/* Visual size only; actor position, hitbox and O/X selection stay unchanged. */
+.data-sphinx-arena .character-actor__sprite[data-sprite-sheet="true"] {
+  height: var(--sphinx-sprite-height);
+}
+
+.data-sphinx-arena .character-actor[data-sprite-sheet="true"] .character-actor__name {
+  bottom: calc(var(--sphinx-sprite-height) + 4px);
 }
 
 .data-sphinx-selection {
@@ -334,7 +347,7 @@
     padding: 9px 11px;
   }
 
-  .data-sphinx-question__text {
+  .data-sphinx-stage .data-sphinx-question__text {
     grid-row: 2;
     grid-column: 1 / -1;
   }
@@ -350,7 +363,7 @@
   }
 
   .data-sphinx-zone strong {
-    font-size: clamp(3.6rem, 24vw, 7rem);
+    font-size: clamp(2.52rem, 16.8vw, 4.9rem);
   }
 
   .data-sphinx-zone span {

@@ -21,7 +21,7 @@ function save(completedIds = [], seenEggCodes = completedIds) {
       { completed: completedIds.includes(id) },
     ])),
     story: {
-      seenStoryIds: seenEggCodes.map((code) => `afterstory:${code}`),
+      seenStoryIds: [...seenEggCodes.map((code) => `afterstory:${code}`), "festival-open"],
     },
   };
 }
@@ -76,6 +76,15 @@ test("the menu routes Story through the one-time dialogue intro and exposes no r
   assert.match(appSource, /["']story-intro["']:\s*createStoryIntroScene/u);
   assert.equal(config.features.guestBattleTesting, true);
   assert.match(menuSource, /account\?\.authenticated\s*\|\|\s*guestBattleTesting/u);
+});
+
+test("OPEN disappears after the first Battle selection and remains hidden across restored local or account progress", () => {
+  const local = save(REQUIRED_IDS);
+  assert.deepEqual(resolveBattleMenuAccess(BATTLES, local, {}), { unlocked: true, badge: "OPEN" });
+  local.story.seenStoryIds.push("postgame-entry-seen");
+  assert.deepEqual(resolveBattleMenuAccess(BATTLES, structuredClone(local), {}), { unlocked: true, badge: null });
+  assert.deepEqual(resolveBattleMenuAccess(BATTLES, save(REQUIRED_IDS), { seenStoryIds: ["postgame-entry-seen"] }), { unlocked: true, badge: null });
+  assert.equal(resolveBattleMenuAccess(BATTLES, save(REQUIRED_IDS.slice(0, 4)), { seenStoryIds: ["postgame-entry-seen"] }).unlocked, false);
 });
 
 test("rapid repeated Story selections enqueue the intro only once", async () => {

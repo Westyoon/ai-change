@@ -12,6 +12,22 @@ export function spawnIntervalFor(config, elapsedSec) {
     return config.spawnIntervals[config.spawnIntervals.length - 1].intervalMs;
 }
 
+// Convert rendered box mouths back into the field's logical coordinates.
+// Both the field and boxes are scaled together on phones and laptops.
+export function receivingSide(refs, x) {
+    const field = refs.field.getBoundingClientRect();
+    if (!(field.width > 0)) return null;
+    const scale = field.width / refs.field.clientWidth;
+    for (const [side, box] of [['left', refs.boxLeft], ['right', refs.boxRight]]) {
+        const bounds = box.getBoundingClientRect();
+        const inset = 11 * scale; // 8px lip inset + 3px border in styles.js
+        const left = (bounds.left + inset - field.left) / scale;
+        const right = (bounds.left + bounds.width - inset - field.left) / scale;
+        if (bounds.width > inset * 2 && x >= left && x <= right) return side;
+    }
+    return null;
+}
+
 export function stepFrame({ state, config, refs, elapsedMs }) {
     const elapsedSec = elapsedMs / 1000;
     const dt = Math.min(Math.max((elapsedMs - state.lastElapsedMs) / 1000, 0), 0.032);
@@ -36,30 +52,25 @@ export function stepFrame({ state, config, refs, elapsedMs }) {
         if (egg.phase === 'falling') {
             stepFalling(egg, dt, config, fieldW, fieldH, physics);
 
-            const crossedSide = egg.x <= 0 ? 'left' : (egg.x >= fieldW ? 'right' : null);
+            const crossedSide = egg.x - eggR <= 0 ? 'left' : (egg.x + eggR >= fieldW ? 'right' : null);
             if (crossedSide) {
                 egg.finalDir = crossedSide;
                 resolveEgg(refs, state, egg);
                 continue;
             }
 
+            if (egg.y + eggR >= fieldH) {
+                const progress = egg.y > previousY
+                    ? Math.max(0, Math.min(1, (fieldH - eggR - previousY) / (egg.y - previousY)))
+                    : 1;
+                egg.finalDir = receivingSide(refs, previousX + (egg.x - previousX) * progress);
+                if (egg.finalDir) resolveEgg(refs, state, egg);
+                else resolveMiss(refs, state, egg);
+                continue;
+            }
+
             if (egg.target === 'box') {
-                if (egg.y + eggR >= fieldH) {
-                    const centerOffset = egg.x - fieldW / 2;
-                    if (centerOffset < 0) {
-                        egg.finalDir = 'left';
-                        resolveEgg(refs, state, egg);
-                    } else if (centerOffset > 0) {
-                        egg.finalDir = 'right';
-                        resolveEgg(refs, state, egg);
-                    } else if (egg.vx !== 0) {
-                        egg.finalDir = egg.vx < 0 ? 'left' : 'right';
-                        resolveEgg(refs, state, egg);
-                    } else {
-                        resolveMiss(refs, state, egg);
-                    }
-                    continue;
-                }
+                // Keep falling until the egg actually reaches a receiving box.
             } else if (egg.target === 'miss') {
                 const missMargin = physics.missMargin ?? 60;
                 if (

@@ -1,5 +1,7 @@
 import { createButton, createElement } from "../../scenes/scene-utils.js";
 import { normalizeRoomName } from "../../core/postgame-realtime-service.js";
+import { createPlayerAppearance } from "../player-config.js";
+import { resolveSpriteSheetPresentation } from "../character/character-view.js";
 
 const MIN_ROOM_CAPACITY = 1;
 const MAX_ROOM_CAPACITY = 5;
@@ -86,6 +88,8 @@ function lobbyStateSignature(state, battleId, pendingAction, pendingRoomId) {
     state?.status ?? "idle",
     state?.error ?? null,
     state?.selfId ?? null,
+    roomMembers(currentRoom).map(member => [member.id,
+      member.hairColor ?? state.players?.find(player => player.id === member.id)?.hairColor ?? "purple"]),
     battleId ?? null,
     roomFingerprint(currentRoom),
     relevantRooms,
@@ -108,6 +112,8 @@ function statusCopy(status, mode = null) {
  * source of truth; this component only renders its latest immutable snapshot.
  */
 export function createPostgameRoomLobby({
+  onRefresh,
+  getSelfAppearance,
   onCreate,
   onJoin,
   onLeave,
@@ -124,6 +130,8 @@ export function createPostgameRoomLobby({
   let renderedStateSignature = "";
   let renderedView = "";
   let pendingAction = null;
+  let soloRequested = false;
+  let soloCreating = false;
   let pendingRoomId = null;
   let pendingBaseEvent = null;
   let pendingBaseError = null;
@@ -132,12 +140,8 @@ export function createPostgameRoomLobby({
   let waitingHeading = null;
   let waitingLeaveButton = null;
   let waitingStartButton = null;
+  const bossTitle = createElement("h2", { className: "postgame-room-lobby__boss-name" });
 
-  const title = createElement("h2", {
-    className: "postgame-room-lobby__title",
-    attributes: { id: "postgame-room-lobby-title" },
-  });
-  const subtitle = createElement("p", { className: "postgame-room-lobby__subtitle" });
   const connectionStatus = createElement("p", {
     className: "postgame-room-lobby__connection",
     attributes: { role: "status", "aria-live": "polite" },
@@ -153,10 +157,6 @@ export function createPostgameRoomLobby({
   const membership = createElement("section", {
     className: "postgame-room-lobby__membership postgame-room-lobby__view",
     attributes: { "aria-label": "보스방 대기실" },
-  });
-  const directoryHeading = createElement("h3", {
-    text: "열린 보스방",
-    attributes: { tabindex: "-1" },
   });
 
   const roomNameInput = createElement("input", {
@@ -234,10 +234,6 @@ export function createPostgameRoomLobby({
     className: "postgame-room-lobby__directory postgame-room-lobby__view",
     attributes: { "aria-label": "보스방 목록" },
   });
-  const createHeading = createElement("h3", {
-    text: "새 보스방 만들기",
-    attributes: { tabindex: "-1" },
-  });
 
   const showView = (view) => {
     requestedView = Object.values(ROOM_LOBBY_VIEWS).includes(view)
@@ -246,7 +242,13 @@ export function createPostgameRoomLobby({
     renderViews();
   };
 
-  const openCreateButton = createButton("새 방 만들기", () => {
+  const refreshButton = createButton("새로 고침", () => {
+    if (pendingAction) return;
+    onRefresh?.();
+    renderedStateSignature = "";
+    render(latestState);
+  }, "ghost");
+  const openCreateButton = createButton("방 만들기", () => {
     if (pendingAction || latestState.status !== "connected" || currentRoomFromState(latestState)) return;
     roomNameInput.value = "";
     capacitySelect.value = String(MAX_ROOM_CAPACITY);
@@ -255,6 +257,17 @@ export function createPostgameRoomLobby({
     roomNameInput.focus?.({ preventScroll: true });
   }, "primary");
   openCreateButton.className += " postgame-room-lobby__open-create";
+
+  const soloButton = createButton("혼자 도전하기", () => {
+    if (pendingAction || latestState.status !== "connected" || currentRoomFromState(latestState)) return;
+    soloRequested = true;
+    soloCreating = true;
+    const sent = runPendingAction("create", () => onCreate?.(selectedBattle.id, 1, "혼자 도전하기"));
+    soloCreating = false;
+    if (!sent) soloRequested = false;
+    render(latestState);
+  }, "primary");
+  soloButton.className += " postgame-room-lobby__solo";
 
   const createBackButton = createButton("목록으로", () => {
     if (pendingAction) return;
@@ -275,6 +288,7 @@ export function createPostgameRoomLobby({
   }, "ghost");
 
   function finishClose() {
+    soloRequested = false;
     clearPendingAction();
     element.hidden = true;
     element.dataset.open = "false";
@@ -285,24 +299,10 @@ export function createPostgameRoomLobby({
   }
 
   directoryView.append(
-    createElement("div", { className: "postgame-room-lobby__directory-toolbar" }, [
-      createElement("div", {}, [
-        directoryHeading,
-        directorySummary,
-      ]),
-      openCreateButton,
-    ]),
     roomList,
   );
 
   createView.append(
-    createElement("div", { className: "postgame-room-lobby__view-heading" }, [
-      createElement("div", {}, [
-        createElement("p", { className: "postgame-room-lobby__waiting-kicker", text: "CREATE ROOM" }),
-        createHeading,
-      ]),
-      createBackButton,
-    ]),
     createElement("div", { className: "postgame-room-lobby__create-card" }, [
       createElement("div", { className: "postgame-room-lobby__create-row" }, [
         createElement("label", { className: "postgame-room-lobby__field postgame-room-lobby__field--name" }, [
@@ -323,7 +323,11 @@ export function createPostgameRoomLobby({
 
   const panel = createElement("div", { className: "postgame-room-lobby__panel" }, [
     createElement("header", { className: "postgame-room-lobby__header" }, [
-      createElement("div", {}, [title, subtitle]),
+      bossTitle,
+      soloButton,
+      refreshButton,
+      openCreateButton,
+      createBackButton,
       closeButton,
     ]),
     connectionStatus,
@@ -337,7 +341,7 @@ export function createPostgameRoomLobby({
     attributes: {
       role: "dialog",
       "aria-modal": "true",
-      "aria-labelledby": "postgame-room-lobby-title",
+      "aria-label": "보스방",
     },
     dataset: { open: "false" },
   }, [panel]);
@@ -358,14 +362,14 @@ export function createPostgameRoomLobby({
 
   function focusActiveView(view = panel.dataset.view) {
     if (view === ROOM_LOBBY_VIEWS.CREATE) {
-      createHeading.focus?.({ preventScroll: true });
+      roomNameInput.focus?.({ preventScroll: true });
       return;
     }
     if (view === ROOM_LOBBY_VIEWS.WAITING) {
       waitingHeading?.focus?.({ preventScroll: true });
       return;
     }
-    directoryHeading.focus?.({ preventScroll: true });
+    refreshButton.focus?.({ preventScroll: true });
   }
 
   function runPendingAction(action, callback, room = null) {
@@ -383,6 +387,7 @@ export function createPostgameRoomLobby({
       );
       pendingTimer = setTimeoutImpl(() => {
         if (!pendingAction) return;
+        soloRequested = false;
         closeAfterLeave = false;
         clearPendingAction();
         render(latestState);
@@ -426,7 +431,10 @@ export function createPostgameRoomLobby({
     if (failed || completed) {
       const shouldClose = completed && pendingAction === "leave" && closeAfterLeave;
       clearPendingAction();
-      if (failed) closeAfterLeave = false;
+      if (failed) {
+        closeAfterLeave = false;
+        soloRequested = false;
+      }
       if (shouldClose) finishClose();
     }
   }
@@ -445,6 +453,11 @@ export function createPostgameRoomLobby({
     directoryView.hidden = effectiveView !== ROOM_LOBBY_VIEWS.DIRECTORY;
     createView.hidden = effectiveView !== ROOM_LOBBY_VIEWS.CREATE;
     membership.hidden = effectiveView !== ROOM_LOBBY_VIEWS.WAITING;
+    refreshButton.hidden = effectiveView !== ROOM_LOBBY_VIEWS.DIRECTORY;
+    soloButton.hidden = effectiveView !== ROOM_LOBBY_VIEWS.DIRECTORY;
+    openCreateButton.hidden = effectiveView !== ROOM_LOBBY_VIEWS.DIRECTORY;
+    createBackButton.hidden = effectiveView !== ROOM_LOBBY_VIEWS.CREATE;
+    refreshButton.disabled = Boolean(pendingAction);
     closeButton.disabled = Boolean(pendingAction);
     createBackButton.disabled = Boolean(pendingAction);
     if (renderedView !== effectiveView) {
@@ -483,11 +496,32 @@ export function createPostgameRoomLobby({
       const badges = [];
       if (isSelf) badges.push("나");
       if (isRoomHost) badges.push("방장");
+      let portrait = null;
+      if (member) {
+        const appearance = isSelf
+          ? getSelfAppearance?.() ?? createPlayerAppearance(member.hairColor)
+          : createPlayerAppearance(member.hairColor ?? state.players?.find(player => player.id === member.id)?.hairColor);
+        const sheet = resolveSpriteSheetPresentation(appearance, "down", "idle");
+        portrait = createElement("span", {
+          className: "postgame-room-lobby__member-character",
+          attributes: { "aria-hidden": "true" },
+          dataset: { hairColor: appearance.hairColor },
+        });
+        portrait.style.backgroundImage = `url(${JSON.stringify(sheet.src)})`;
+        portrait.style.backgroundPosition = `${sheet.frameStartX}% ${sheet.directionY}%`;
+        portrait.style.backgroundSize = `${sheet.backgroundSizeX}% ${sheet.backgroundSizeY}%`;
+        portrait.style.aspectRatio = sheet.aspectRatio;
+        const center = appearance.portraitCenter;
+        if (center) {
+          const { frameWidth, frameHeight } = appearance.spriteSheet;
+          portrait.style.transform = `translate(${(0.5 - center.x / frameWidth) * 100}%, ${(0.5 - center.y / frameHeight) * 100}%)`;
+        }
+      }
       memberList.append(createElement("li", {
         className: "postgame-room-lobby__member-slot",
         dataset: { occupied: String(Boolean(member)) },
       }, [
-        createElement("span", {
+        portrait ?? createElement("span", {
           className: "postgame-room-lobby__member-index",
           text: `PLAYER ${index + 1}`,
         }),
@@ -537,7 +571,7 @@ export function createPostgameRoomLobby({
         createElement("div", {}, [
           createElement("p", {
             className: "postgame-room-lobby__waiting-kicker",
-            text: `${selectedBattle?.title || "보스"} PARTY`,
+            text: "파티",
           }),
           waitingHeading,
           createElement("p", {
@@ -566,8 +600,8 @@ export function createPostgameRoomLobby({
       .filter((room) => room?.battleId === selectedBattle?.id && room?.status !== "started");
     const currentRoom = currentRoomFromState(state);
     directorySummary.textContent = rooms.length > 0
-      ? `${selectedBattle?.title || "보스"} 대기방 ${rooms.length}개`
-      : `${selectedBattle?.title || "보스"} 대기방이 아직 없습니다.`;
+      ? "열린 방"
+      : "아직 열린 방이 없습니다.";
 
     if (rooms.length === 0) {
       roomList.append(createElement("p", {
@@ -638,10 +672,23 @@ export function createPostgameRoomLobby({
   function render(state = {}) {
     latestState = state;
     syncPendingAction(state);
-    connectionStatus.textContent = state.error || statusCopy(state.status, state.mode);
+    connectionStatus.textContent = state.error || ["error", "disconnected"].includes(state.status)
+      ? "연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요."
+      : state.status === "reconnecting"
+        ? "연결을 복구하고 있습니다. 잠시 기다려 주세요."
+      : "";
+    connectionStatus.hidden = !connectionStatus.textContent;
     connectionStatus.dataset.status = state.status ?? "idle";
     const currentRoom = currentRoomFromState(state);
     openCreateButton.disabled = Boolean(pendingAction) || state.status !== "connected" || Boolean(currentRoom);
+    soloButton.disabled = openCreateButton.disabled;
+    if (soloRequested && !soloCreating && !pendingAction && currentRoom
+      && currentRoom.battleId === selectedBattle?.id
+      && roomCapacity(currentRoom) === 1 && roomHostId(currentRoom) === state.selfId) {
+      soloRequested = false;
+      runPendingAction("start", () => onStart?.(), roomId(currentRoom));
+      return;
+    }
     updateCreateControls();
     const nextSignature = lobbyStateSignature(
       state,
@@ -664,14 +711,13 @@ export function createPostgameRoomLobby({
       const currentRoom = currentRoomFromState(latestState);
       if (currentRoom?.battleId && currentRoom.battleId !== battle.id) return false;
       selectedBattle = battle;
+      bossTitle.textContent = battle.id === "stat-boss" ? "스탯보스" : battle.id === "control-boss" ? "컨트롤 보스" : battle.title;
       returnSpawn = spawn;
       if (!currentRoom) roomNameInput.value = "";
       requestedView = currentRoom ? ROOM_LOBBY_VIEWS.WAITING : ROOM_LOBBY_VIEWS.DIRECTORY;
       renderedStateSignature = "";
       renderedView = "";
       closeAfterLeave = false;
-      title.textContent = `${battle.title} · 보스방`;
-      subtitle.textContent = "같은 보스를 함께 상대할 파티를 만들거나 열린 방에 참가하세요.";
       element.hidden = false;
       element.dataset.open = "true";
       render(latestState);

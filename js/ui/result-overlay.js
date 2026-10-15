@@ -1,4 +1,11 @@
 import { createButton, createElement } from "../scenes/scene-utils.js";
+import { formatCombatValue } from "../battle/combat-display.js";
+
+const POSTGAME_BOSS_IDS = new Set(["stat-boss", "control-boss", "data-sphinx"]);
+const COMBAT_METRICS = new Set([
+  "damageDealt", "damageTaken", "bossHp", "bossMaxHp", "bossHpRemaining",
+  "bossShieldRemaining", "playerHpRemaining",
+]);
 
 const METRIC_LABELS = Object.freeze({
   epochsUsed: "사용 Epoch",
@@ -72,7 +79,10 @@ const METRIC_VALUE_LABELS = Object.freeze({
   outcome: Object.freeze({ win: "승리", draw: "무승부", lose: "패배" }),
 });
 
-export function formatResultMetric(key, value) {
+export function formatResultMetric(key, value, battleId = null) {
+  if (POSTGAME_BOSS_IDS.has(battleId) && (COMBAT_METRICS.has(key) || (key === "score" && battleId === "stat-boss"))) {
+    return formatCombatValue(value);
+  }
   const translated = METRIC_VALUE_LABELS[key]?.[value];
   if (translated) return translated;
   if (key === "phaseReached" && Number.isFinite(value)) return `Phase ${value}`;
@@ -136,9 +146,11 @@ export function createResultOverlay({
   primaryAction = null,
   primaryOnly = false,
   illustration = null,
+  notice = null,
   backgroundElements = [],
 }) {
   const resolvedPresentation = resolveResultPresentation({ result, outroText, presentation });
+  const compactResult = result.battleId === "xr-egg-trials";
   const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const backgroundState = backgroundElements.filter(Boolean).map((element) => ({
     element,
@@ -162,6 +174,7 @@ export function createResultOverlay({
     className: "result-card",
     dataset: {
       status: result.status,
+      ...(compactResult ? { compact: "true" } : {}),
       ...(miniGameId ? { miniGameId } : {}),
     },
   });
@@ -169,6 +182,12 @@ export function createResultOverlay({
     text: resolvedPresentation.title,
     attributes: { id: "result-title" },
   });
+  const noticeElement = notice === null ? null : createElement("p", {
+    className: "result-card__notice",
+    text: notice,
+    attributes: { role: "status", "aria-live": "polite" },
+  });
+  let disposed = false;
   const illustrationElement = typeof illustration?.src === "string" && illustration.src.length > 0
     ? createElement("img", {
         className: "result-card__illustration",
@@ -186,26 +205,6 @@ export function createResultOverlay({
     className: "muted",
     text: resolvedPresentation.description,
   });
-  const meta = createElement("p", {
-    text: `${contextLabel ?? `학과 ${departmentCode ?? "-"}`} · 플레이 ${(result.durationMs / 1000).toFixed(1)}초`,
-  });
-  const metrics = createElement("dl", { className: "result-metrics" });
-  const metricEntries = [
-    ...(result.score === null ? [] : [["score", result.score]]),
-    ...Object.entries(result.metrics ?? {}).filter(
-      ([key, value]) =>
-        key !== "history" &&
-        value !== null &&
-        value !== undefined &&
-        (["number", "string", "boolean"].includes(typeof value) || Array.isArray(value)),
-    ),
-  ];
-  for (const [key, value] of metricEntries) {
-    metrics.append(
-      createElement("dt", { text: key === "score" ? "점수" : METRIC_LABELS[key] ?? key }),
-      createElement("dd", { text: formatResultMetric(key, value) }),
-    );
-  }
   let actionLocked = false;
   let actions;
   const runOnce = (action) => () => {
@@ -227,11 +226,11 @@ export function createResultOverlay({
   const mapButton = primaryOnly
     ? null
     : createButton(
-        resolvedPresentation.mapLabel,
+        compactResult ? "확인" : resolvedPresentation.mapLabel,
         runOnce(onMap),
         primaryButton || retryButton ? "" : "primary",
       );
-  const menuButton = primaryOnly
+  const menuButton = primaryOnly || compactResult
     ? null
     : createButton(resolvedPresentation.menuLabel, runOnce(onMenu), "ghost");
   actions = createElement(
@@ -264,15 +263,21 @@ export function createResultOverlay({
   };
   backdrop.addEventListener("keydown", handleKeyDown);
 
-  card.append(...[illustrationElement, title, copy, meta].filter(Boolean));
-  if (metricEntries.length > 0) card.append(metrics);
+  card.append(...[illustrationElement, title, ...(compactResult ? [] : [copy])].filter(Boolean));
+  if (noticeElement) card.append(noticeElement);
   card.append(actions);
   backdrop.append(card);
   const focusFrame = requestAnimationFrame(() => (primaryButton ?? retryButton ?? mapButton ?? menuButton)?.focus());
 
   return {
     element: backdrop,
+    setNotice(text) {
+      if (disposed || !noticeElement) return false;
+      noticeElement.textContent = String(text);
+      return true;
+    },
     destroy() {
+      disposed = true;
       cancelAnimationFrame(focusFrame);
       backdrop.removeEventListener("keydown", handleKeyDown);
       backdrop.remove();

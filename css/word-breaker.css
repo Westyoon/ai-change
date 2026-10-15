@@ -96,7 +96,7 @@
   overflow: hidden;
   color: #fff8f2;
   font-family: var(--font-display);
-  font-size: clamp(1rem, 3vw, 1.4rem);
+  font-size: clamp(0.7rem, 2.1vw, 0.98rem);
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1070,7 +1070,7 @@
   margin: 0;
   color: #ffbed8;
   font-size: clamp(0.65rem, 2.4vw, 0.92rem);
-  text-decoration: line-through 3px #fac804;
+  text-decoration: none;
 }
 
 .word-breaker-finale > strong {
@@ -1083,8 +1083,8 @@
 
 .word-breaker-finale__guardians {
   position: relative;
-  width: 144px;
-  height: 92px;
+  width: 180px;
+  height: 180px;
 }
 
 .word-breaker-finale__guardians span {
@@ -1106,11 +1106,47 @@
   opacity: 1;
 }
 
-.word-breaker-finale__guardians span:nth-child(1) { transform: translate(-50%, -50%) translate(-55px, 22px); }
-.word-breaker-finale__guardians span:nth-child(2) { transform: translate(-50%, -50%) translate(-34px, -27px); }
-.word-breaker-finale__guardians span:nth-child(3) { transform: translate(-50%, -50%) translate(0, -42px); }
-.word-breaker-finale__guardians span:nth-child(4) { transform: translate(-50%, -50%) translate(34px, -27px); }
-.word-breaker-finale__guardians span:nth-child(5) { transform: translate(-50%, -50%) translate(55px, 22px); }
+.word-breaker-finale__guardians > span:nth-child(1) { transform: translate(-50%, -50%) translate(0, -60px); }
+.word-breaker-finale__guardians > span:nth-child(2) { transform: translate(-50%, -50%) translate(57.063px, -18.541px); }
+.word-breaker-finale__guardians > span:nth-child(3) { transform: translate(-50%, -50%) translate(35.267px, 48.541px); }
+.word-breaker-finale__guardians > span:nth-child(4) { transform: translate(-50%, -50%) translate(-35.267px, 48.541px); }
+.word-breaker-finale__guardians > span:nth-child(5) { transform: translate(-50%, -50%) translate(-57.063px, -18.541px); }
+
+.word-breaker-finale__eiai {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  transform: translate(-50%, -50%);
+  font-size: .6rem;
+}
+.word-breaker-finale__eiai .word-breaker-eiai__face {
+  position: static;
+  width: 36px;
+  height: 36px;
+  filter: none;
+  opacity: 1;
+}
+.word-breaker-finale__target { position: relative; display: inline-block; }
+.word-breaker-finale__target::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 3px;
+  background: #fac804;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 650ms ease-out 200ms;
+}
+.word-breaker-finale[data-all-lit="true"] .word-breaker-finale__target::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) {
+  .word-breaker-finale__target::after { transition: none; }
+}
 
 .word-breaker-finale__reframe {
   opacity: 0;
@@ -1520,4 +1556,99 @@
   .word-breaker-finale__reframe {
     transition: none;
   }
+}
+
+/* Keep the collected eggs beside the field and lives above the full layout. */
+.word-breaker-stage {
+  grid-template-areas: "world hud";
+  grid-template-columns: minmax(0, 1fr) clamp(130px, 25%, 320px);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  padding: 56px 12px 12px;
+}
+.word-breaker-world { grid-area: world; min-width: 0; }
+.word-breaker-hud {
+  grid-area: hud; display: grid; grid-template-columns: minmax(0, 1fr);
+  align-content: center; justify-items: center; gap: 24px; padding: 16px 8px;
+  border: 2px solid #f3a8cda3; border-radius: 16px;
+}
+.word-breaker-lock { width: min(90%, 230px); height: auto; object-fit: contain; image-rendering: pixelated; }
+.word-breaker-hud .word-breaker-guardian-list {
+  width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(2px, .7vw, 8px); padding: 0;
+}
+.word-breaker-hud .word-breaker-guardian-chip { width: 100%; height: auto; aspect-ratio: 1; }
+.word-breaker-stage > .word-breaker-vitality {
+  top: 12px; right: 16px; left: auto; display: flex;
+  padding: 0; border: 0; background: transparent; box-shadow: none;
+}
+.word-breaker-vitality .word-breaker-life-meter {
+  display: flex; gap: 7px; padding: 0; height: auto;
+  border: 0; background: transparent; box-shadow: none; overflow: visible;
+}
+.word-breaker-vitality .word-breaker-life-fill { display: none; }
+.word-breaker-vitality .word-breaker-life-pip {
+  display: block; width: auto; height: auto; flex: none; border: 0; border-radius: 0;
+  background: transparent; box-shadow: none; color: #f46a9e;
+  font-size: clamp(20px, 3vw, 30px); line-height: 1; text-shadow: 0 2px 0 #611b43;
+}
+.word-breaker-vitality .word-breaker-life-pip[data-active="false"] {
+  color: #655369; opacity: .45; background: transparent;
+}
+@media (max-width: 600px) {
+  .word-breaker-stage { grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; padding: 48px 6px 6px; }
+  .word-breaker-hud { padding: 12px 6px; gap: 18px; }
+  .word-breaker-vitality .word-breaker-life-meter { gap: 5px; }
+}
+
+/* The battle stays above a compact row of the lock and five collected eggs. */
+.word-breaker-stage {
+  grid-template-areas: "world" "hud" "touch";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  padding: 44px 12px 8px;
+  gap: 8px;
+  border: 0;
+  box-shadow: none;
+}
+.word-breaker-stage::before { background: none; }
+.word-breaker-hud {
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: clamp(6px, 2vw, 16px);
+  padding: 6px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.word-breaker-lock,
+.word-breaker-hud .word-breaker-guardian-chip {
+  flex: none;
+  width: clamp(34px, 7vw, 56px);
+  height: clamp(34px, 7vw, 56px);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.word-breaker-hud .word-breaker-guardian-list {
+  display: flex;
+  width: auto;
+  gap: clamp(6px, 2vw, 16px);
+}
+.word-breaker-touch-controls { grid-area: touch; }
+.word-breaker-stage > .word-breaker-vitality { z-index: 500; }
+
+/* Keep the inventory out of the opening dialogue, reserving its bottom row. */
+.battle-stage[data-showing-dialogue="true"] .word-breaker-hud {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.word-breaker-guardian-cheer {
+  display: block;
+  max-height: none;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }

@@ -9,8 +9,14 @@ import {
   MAIN_STORY_ID,
   hasSeenStory,
   markStorySeen,
+  FESTIVAL_STORY_ID,
+  isFestivalOpen,
+  OUTRO_STORY_ID,
+  POSTGAME_ENTRY_STORY_ID,
 } from "../core/story-progress.js";
-import { createElement, createScene } from "./scene-utils.js";
+import { createEiaiArt, createFestivalLights } from "../ui/festival-art.js";
+import { StorySoundtrack } from "../core/story-soundtrack.js";
+import { createButton, createElement, createScene } from "./scene-utils.js";
 
 function menuCard(title, onClick, { badge = null, disabled = false } = {}) {
   const card = createElement("button", {
@@ -75,19 +81,24 @@ export function resolveBattleMenuAccess(
     accountState,
     guardianEggCatalog,
   );
-  const unlocked = unlocks.some((status) => status.unlocked)
+  const eggsReady = unlocks.some((status) => status.unlocked)
     && guardianProgress.acquired === guardianProgress.total;
+  const festivalOpen = [...(saveState?.story?.seenStoryIds ?? []), ...(accountState?.seenStoryIds ?? [])].includes(FESTIVAL_STORY_ID);
+  const entrySeen = [...(saveState?.story?.seenStoryIds ?? []), ...(accountState?.seenStoryIds ?? [])].includes(POSTGAME_ENTRY_STORY_ID);
+  const unlocked = eggsReady && festivalOpen;
   return Object.freeze({
     unlocked,
     badge: unlocked
-      ? "OPEN"
-      : `수호알 ${guardianProgress.acquired}/${guardianProgress.total || progress.total || 5}`,
+      ? (entrySeen ? null : "OPEN")
+      : eggsReady ? "이아이 이야기" : `수호알 ${guardianProgress.acquired}/${guardianProgress.total || progress.total || 5}`,
   });
 }
 
 export function createMainMenuScene(context) {
   let mounted = false;
   let unsubscribeAccount = null;
+  let festivalDecorated = false;
+  const soundtrack = new StorySoundtrack(context.services.audio);
 
   return {
     mount(root) {
@@ -114,11 +125,25 @@ export function createMainMenuScene(context) {
       scene.append(createElement("p", { className: "department-code", text: codes }));
       const grid = createElement("div", { className: "menu-grid" });
       scene.append(grid);
+      const wishShortcut = createElement("div", { className: "festival-menu__actions" }, [
+        createButton("소원 게시판", () => context.router.navigate("story-ending"), "ghost"),
+      ]);
+      wishShortcut.hidden = true;
+      scene.append(wishShortcut);
       root.append(scene);
       const openStory = createStoryMenuNavigator(context);
 
       const renderCards = (account) => {
         if (!mounted) return;
+        const festivalOpen = isFestivalOpen(context);
+        wishShortcut.hidden = !festivalOpen;
+        if (festivalOpen && !festivalDecorated) {
+          festivalDecorated = true;
+          scene.classList.add("festival-menu");
+          scene.prepend(createFestivalLights());
+          scene.append(createElement("div", { className: "festival-menu__campus" }, [createEiaiArt({ wandering: true })]));
+          soundtrack.play("festival");
+        }
         const publishedBattles = context.config.features?.battleContent === true
           ? getPublishedBattles(context.content.battles)
           : [];
@@ -131,6 +156,8 @@ export function createMainMenuScene(context) {
           context.content.guardianEggs,
         );
         const openBattle = () => {
+          markStorySeen(context, POSTGAME_ENTRY_STORY_ID);
+          renderCards(context.services.account.getState());
           if (account?.authenticated || guestBattleTesting) {
             markStorySeen(context, FINAL_BATTLE_UNLOCK_STORY_ID);
             return context.router.navigate("battle");
@@ -150,6 +177,10 @@ export function createMainMenuScene(context) {
           }),
           menuCard("랭킹보드", () => context.router.navigate("ranking")),
         ];
+        if (!festivalOpen && hasSeenStory(context, OUTRO_STORY_ID)) cards.push(menuCard(
+          "엠브리오에게 소원 전하기",
+          () => context.router.navigate("story-ending"),
+        ));
         grid.replaceChildren(...cards);
       };
 
@@ -159,6 +190,7 @@ export function createMainMenuScene(context) {
       mounted = false;
       unsubscribeAccount?.();
       unsubscribeAccount = null;
+      soundtrack.destroy();
     },
   };
 }

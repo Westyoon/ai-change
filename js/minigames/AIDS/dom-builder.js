@@ -61,6 +61,16 @@ export function buildGameDom(uiRoot, config) {
     pipeRow.className = 'aids-pipe-row';
     const pipe = doc.createElement('div');
     pipe.className = 'aids-pipe';
+    const pipeArt = doc.createElement('span');
+    pipeArt.className = 'aids-pipe-art';
+    setAttribute(pipeArt, 'aria-hidden', 'true');
+    const pipeImage = doc.createElement('img');
+    pipeImage.className = 'aids-pipe-image';
+    pipeImage.src = './assets/images/인데부 상자.png';
+    pipeImage.alt = '';
+    pipeImage.draggable = false;
+    appendChildren(pipeArt, pipeImage);
+    appendChildren(pipe, pipeArt);
     appendChildren(pipeRow, pipe);
 
     const field = doc.createElement('div');
@@ -73,16 +83,14 @@ export function buildGameDom(uiRoot, config) {
     boxes.className = 'aids-boxes';
     const boxLeft = doc.createElement('div');
     boxLeft.className = 'aids-box aids-box-left';
-    const boxLeftDot = createGuardianImage(doc, 'in', 'aids-box-guardian');
-    const boxLeftLabel = doc.createElement('span');
-    boxLeftLabel.textContent = '인지';
-    appendChildren(boxLeft, boxLeftDot, boxLeftLabel);
+    setAttribute(boxLeft, 'role', 'img');
+    setAttribute(boxLeft, 'aria-label', '인지 수호알 분류 상자 · 파랑');
+    appendChildren(boxLeft, createGuardianImage(doc, 'in', 'aids-box-egg'));
     const boxRight = doc.createElement('div');
     boxRight.className = 'aids-box aids-box-right';
-    const boxRightDot = createGuardianImage(doc, 'de', 'aids-box-guardian');
-    const boxRightLabel = doc.createElement('span');
-    boxRightLabel.textContent = '데사';
-    appendChildren(boxRight, boxRightDot, boxRightLabel);
+    setAttribute(boxRight, 'role', 'img');
+    setAttribute(boxRight, 'aria-label', '데사 수호알 분류 상자 · 분홍');
+    appendChildren(boxRight, createGuardianImage(doc, 'de', 'aids-box-egg'));
     appendChildren(boxes, boxLeft, boxRight);
 
     const controls = doc.createElement('div');

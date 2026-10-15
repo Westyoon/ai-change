@@ -158,13 +158,13 @@ test("config freezes five ordered gimmicks and production targets require seven 
   assert.equal(config.player.speed, 220);
   assert.equal(config.roundDurationMs, 13_500);
   assert.equal(config.omenDurationMs, 2_400);
-  assert.equal(config.overloadGraceMs, 4_200);
+  assert.equal(config.overloadGraceMs, 6_500);
   assert.deepEqual(config.rounds.map(({ gimmick: roundGimmick }) => roundGimmick.forceAtMs), [
-    8_200,
-    8_600,
-    8_400,
-    8_200,
-    8_800,
+    14_500,
+    14_500,
+    14_500,
+    14_500,
+    14_500,
   ]);
   assert.equal(config.overloadAttackLeadMs, 600);
   assert.equal(config.rounds[1].gimmick.spawnIntervalMs, 1_500);
@@ -172,7 +172,7 @@ test("config freezes five ordered gimmicks and production targets require seven 
     config.rounds.map(({ gimmick: roundGimmick }) => (
       roundGimmick.forceAtMs - config.overloadGraceMs - config.overloadAttackLeadMs
     )),
-    [3_400, 3_800, 3_600, 3_400, 4_000],
+    [7_400, 7_400, 7_400, 7_400, 7_400],
     "each escalation starts only after a readable active-hazard interval",
   );
   assert.equal(config.collapseImpactMs, 1_800);
@@ -188,7 +188,7 @@ test("config freezes five ordered gimmicks and production targets require seven 
   assert.equal(config.phrase.maxHp, 140);
   assert.equal(config.phrase.letterSpacing, 2.4);
   assert.equal(config.phrase.wobbleAmplitudeX, 4);
-  assert.equal(config.phrase.wobbleAmplitudeY, 3);
+  assert.equal(config.phrase.wobbleAmplitudeY, 0);
   assert.equal(config.phrase.wobbleWavelength, 96);
   assert.equal(config.rounds.every(({ omenMessage, guardianMessage }) => omenMessage && guardianMessage), true);
   assert.equal(Object.isFrozen(config), true);
@@ -199,7 +199,7 @@ test("config freezes five ordered gimmicks and production targets require seven 
   const targetHits = config.rounds.flatMap((round) => round.phrases.map((phrase) => phrase.targetHits));
   assert.ok(targetHits.length > 0);
   assert.equal(targetHits.every((hits) => hits === 7), true);
-  assert.equal(config.rounds.every(({ gimmick: item }) => item.breakableSurgeCount === 2), true);
+  assert.equal(config.rounds.every(({ gimmick: item }) => item.breakableSurgeCount === 3), true);
 
   assert.throws(
     () => normalizeWordBreakerConfig({ rounds: rounds().slice(0, 4) }),
@@ -359,11 +359,11 @@ test("Korean graphemes own individual geometry and spaces remain transparent", (
     sequence: 2,
     random: () => 0,
   });
-  assert.equal(leftPhrase.targetSide, "left");
+  assert.equal(leftPhrase.targetSide, "right");
   assert.deepEqual(
     leftPhrase.glyphs.filter(({ isTarget }) => isTarget).map(({ text }) => text),
-    ["나", "는"],
-    "every second sentence moves the yellow breakable fragment to its left side",
+    ["못", "해"],
+    "even spawns retain the complete semantic target words",
   );
 });
 
@@ -1502,12 +1502,12 @@ test("partial deltas accumulate and different frame splits produce identical out
     return { snapshot: encounter.getSnapshot(), events };
   };
 
-  const sixteenMsFrames = run(16, 2_000);
-  const fortyMsFrames = run(40, 800);
+  const sixteenMsFrames = run(16, 3_000);
+  const fortyMsFrames = run(40, 1200);
   assert.deepEqual(
     sixteenMsFrames,
     fortyMsFrames,
-    "the same 32 seconds must not change escalation, surge, collisions, score, or events by frame rate",
+    "the same 48 seconds must not change escalation, surge, collisions, score, or events by frame rate",
   );
   assert.ok(sixteenMsFrames.events.some(({ type }) => type === "overload-wave"));
   assert.ok(sixteenMsFrames.events.some(({ type }) => type === "player-staggered"));
@@ -1534,4 +1534,53 @@ test("injected random and the same tick stream remain deterministic", () => {
     },
     /\[0, 1\)/u,
   );
+});
+
+
+test("a shot near the target hits within the extra margin while a farther shot misses", () => {
+  const hit = (padding) => {
+    const encounter = new WordBreakerEncounter({ config: compactConfig({ roundDurationMs: 1000, shot: { hitPadding: padding, speed: 1, intervalMs: 10000 } }), random: () => .5 });
+    encounter.init(); encounter.start({ attemptId: "margin" });
+    const glyph = { id: "target", text: "word", x: 60, y: 60, width: 10, height: 10, collidable: true, attackable: true, isTarget: true, hp: 100, maxHp: 100 };
+    encounter.phrases = [{ id: "phrase", tone: "negative", x: 60, y: 60, width: 10, height: 10, speed: 0, targetBounds: { ...glyph }, hp: 100, maxHp: 100, glyphs: [glyph] }];
+    encounter.shots = [{ id: "shot", x: 50, y: 65, width: 2, height: 4, directionX: 0, directionY: -1 }];
+    encounter.tick(5); return glyph.hp;
+  };
+  assert.equal(hit(0), 100); assert.equal(hit(9), 80);
+});
+
+test("a partial authored target expands to the whole word without highlighting punctuation", () => {
+  const config = productionConfig();
+  const phrase = createWordBreakerPhrase({
+    definition: { id: "word-boundary", negative: "나는 못하겠어.", target: "못", reframe: "다시 해 보자", maxHp: 140, targetHits: 7 },
+    arena: config.arena, phraseConfig: config.phrase, shotDamage: config.shot.damage,
+    roundIndex: 0, sequence: 2, random: () => .5,
+  });
+  assert.equal(phrase.target, "못하겠어");
+  assert.equal(phrase.glyphs.filter(glyph => glyph.isTarget).map(glyph => glyph.text).join(""), "못하겠어");
+  assert.equal(phrase.glyphs.find(glyph => glyph.text === ".").isTarget, false);
+});
+
+test("normal dialogue does not repeat an active sentence even with a constant random source", () => {
+  const config = compactConfig({ roundDurationMs: 1000 });
+  config.rounds[0].phrases = ["first", "second", "third"].map((id) => ({ ...config.rounds[0].phrases[0], id }));
+  const encounter = new WordBreakerEncounter({ config, random: () => 0 });
+  encounter.init(); encounter.start({ attemptId: "no-repeat" }); encounter.tick(40);
+  const ids = encounter.phrases.map(phrase => phrase.definitionId);
+  assert.equal(ids.length, 3); assert.equal(new Set(ids).size, 3);
+});
+
+test("each department mixes visible attacks with dialogue before retiring dialogue and forcing recovery", () => {
+  const encounter = new WordBreakerEncounter({ config: compactConfig(), random: () => .5 });
+  encounter.init(); encounter.start({ attemptId: "mixed-flow" });
+  for (let roundIndex = 0; roundIndex < 5; roundIndex++) {
+    advanceUntil(encounter, snapshot => snapshot.roundIndex === roundIndex && snapshot.phase === WORD_BREAKER_PHASES.OVERLOAD && !snapshot.overload.armed, { stepMs: 1 });
+    const mixed = encounter.getSnapshot();
+    assert.ok(mixed.phrases.length); assert.ok(mixed.overloadGlyphs.length);
+    assert.equal(mixed.overloadGlyphs.every(glyph => glyph.pattern === WORD_BREAKER_GIMMICK_TYPES[roundIndex]), true);
+    advanceUntil(encounter, snapshot => snapshot.roundIndex === roundIndex && snapshot.overload.attacking, { stepMs: 1 });
+    assert.equal(encounter.getSnapshot().phrases.length, 0);
+    advanceUntil(encounter, snapshot => snapshot.metrics.roundsCollapsed > roundIndex, { stepMs: 1 });
+    assert.equal(encounter.getSnapshot().playerHealth, 4 - roundIndex);
+  }
 });

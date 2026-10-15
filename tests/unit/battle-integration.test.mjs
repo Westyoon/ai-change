@@ -76,7 +76,7 @@ test("account stats map from D1 baselines to stat-boss baselines exactly once", 
   assert.equal(baseline.attackStat, 1);
   assert.equal(baseline.healthStat, 1);
   assert.equal(baseline.defenseStat, 1);
-  assert.equal(baseline.appearance.spriteSheet.src, "./assets/images/character-walk.png");
+  assert.equal(baseline.appearance.spriteSheet.src, "./assets/images/character-hair-colors.png");
   assert.equal(calcPlayerDamage(baseline.attackStat), 10);
   assert.equal(calcMaxHp(baseline.healthStat), 100);
   assert.equal(calcIncomingDamage(34, baseline.defenseStat), 34);
@@ -216,7 +216,7 @@ test("Battle host validates candidates and owns identity and duration fields", (
 test("the final battle returns to the pre-game map while after-games return to their node map", () => {
   assert.deepEqual(
     getBattleReturnDestination({ id: "word-breaker" }),
-    { sceneId: "map", label: "사전게임 맵으로" },
+    { sceneId: "map", label: "돌아가기" },
   );
   assert.deepEqual(
     getBattleReturnDestination({ id: "control-boss" }),
@@ -247,7 +247,7 @@ test("Battle result card stays above module-owned HUD and touch controls", async
   );
 });
 
-test("shared Battle keeps all five party rows visible and greys a defeated life bar", async () => {
+test("shared Battle reserves space for teammates without overlaying boss content", async () => {
   const css = await readFile(new URL("../../css/battle.css", import.meta.url), "utf8");
   assert.match(
     css,
@@ -257,6 +257,10 @@ test("shared Battle keeps all five party rows visible and greys a defeated life 
     /@media \(hover: none\), \(pointer: coarse\), \(max-width: 720px\)\s*\{[\s\S]*?\.battle-party-hud\s*\{([^}]*)\}/u,
   )?.[1] ?? "";
   assert.ok(mobilePartyHud, "mobile party HUD rules must exist");
+  assert.match(css, /\.battle-party-hud\s*\{[^}]*position:\s*static;/su);
+  assert.match(css, /\.battle-party-hud\[hidden\]\s*\{[^}]*display:\s*none !important;/su);
+  assert.match(css, /\.battle-play-area\[data-has-party="true"\]\s*\{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\);/su);
+  assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/u);
   assert.doesNotMatch(mobilePartyHud, /overflow:\s*hidden/u);
   assert.doesNotMatch(mobilePartyHud, /max-height:\s*42%/u);
 });

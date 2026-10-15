@@ -48,7 +48,7 @@
       "id": "ai-ball-classification-clear",
       "type": "dialogue",
       "skippable": true,
-      "lines": [{"speaker": "인공지능", "portraitAssetId": null, "text": "공 분류를 완료했습니다."}],
+      "lines": [{"speaker": "인공지능", "portraitAssetId": null, "text": "배꽃 사이에서 벚꽃을 모두 찾았어요."}],
       "nextAction": {"type": "returnToMap"}
     },
     {

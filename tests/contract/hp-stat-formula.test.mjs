@@ -35,6 +35,7 @@ test("account UI, adapter and both account-stat bosses share the HP unit", () =>
   assert.match(accountScene, /key:\s*["']hp["'][^\n]*increment:\s*100/u);
   assert.match(accountScene, /key:\s*["']hp["'][^\n]*label:\s*["']체력["']/u);
   assert.match(accountScene, /최대 체력 100 올리기/u);
+  assert.match(accountScene, /definition.key === "hp" \? formatCombatValue\(value\)/u);
   assert.doesNotMatch(accountScene, /account-stat-card__description|account-formula-note/u);
   assert.match(playerConfig, /Math\.floor\(Math\.max\(0,\s*hp\s*-\s*100\)\s*\/\s*100\)/u);
   assert.equal(JSON.parse(statBossData).balance.hpPerPoint, 100);

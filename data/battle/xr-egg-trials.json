@@ -29,21 +29,21 @@
   },
   "resultPresentation": {
     "clear": {
-      "title": "X알의 시험 통과",
-      "description": "무작위로 선택된 짧은 시험을 완료했습니다.",
-      "mapLabel": "구역 맵으로",
+      "title": "X알 정화 성공",
+      "description": "폭주하던 X알이 마음의 알로 돌아왔습니다.",
+      "mapLabel": "확인",
       "menuLabel": "메뉴로"
     },
     "fail": {
-      "title": "X알의 시험 실패",
+      "title": "X알 정화 실패",
       "description": "필드로 돌아가 다음 X알의 출현을 기다려 주세요.",
       "reasonDescriptions": {
-        "RPS_DRAW": "가위바위보에서 비겼습니다. 이 시험에서는 무승부도 실패입니다.",
+        "RPS_DRAW": "가위바위보에서 비겼습니다. 무승부일 때는 정화에 실패합니다.",
         "RPS_LOSS": "가위바위보에서 졌습니다.",
         "CARD_LIVES_EXHAUSTED": "카드 짝을 찾기 전에 기회를 모두 사용했습니다.",
         "MASH_TIMEOUT": "목표 횟수를 채우기 전에 시간이 끝났습니다."
       },
-      "mapLabel": "구역 맵으로",
+      "mapLabel": "확인",
       "menuLabel": "메뉴로"
     }
   }

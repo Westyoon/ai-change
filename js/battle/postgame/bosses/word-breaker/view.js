@@ -82,6 +82,10 @@ export class WordBreakerView {
     this.shotElements = new Map();
     this.guardianElement = null;
     this.guardianSlots = new Map();
+    this.lastHitCount = null;
+    this.previousGuardianIds = null;
+    this.recoveryCaption = null;
+    this.hitAnimation = null;
     this.element = this.#buildDom();
   }
 
@@ -133,6 +137,23 @@ export class WordBreakerView {
     ));
     const damageLevel = Math.max(0, playerMaxHealth - playerHealth);
     const damageRatio = damageLevel / playerMaxHealth;
+    const hitCount = Math.max(0, finite(snapshot.metrics?.hitCount));
+    if (this.lastHitCount !== null && hitCount > this.lastHitCount) {
+      this.hitAnimation?.cancel?.();
+      const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      if (!reducedMotion) {
+        const target = this.element.closest?.("#app") ?? this.element.closest?.(".battle-frame") ?? this.element;
+        this.hitAnimation = target.animate?.([
+          { transform: "translate(0, 0)" },
+          { transform: "translate(-4px, 2px)" },
+          { transform: "translate(4px, -2px)" },
+          { transform: "translate(-2px, 1px)" },
+          { transform: "translate(0, 0)" },
+        ], { duration: 240, easing: "ease-out" });
+        try { globalThis.navigator?.vibrate?.(45); } catch { /* Unsupported vibration is optional. */ }
+      }
+    }
+    this.lastHitCount = hitCount;
     const finalRevival = collected.size >= guardians.length && (guardianReveal || revived);
 
     this.element.dataset.state = String(snapshot.state ?? "READY");
@@ -252,15 +273,25 @@ export class WordBreakerView {
     }
     this.status.textContent = statusText(snapshot.status);
     this.status.dataset.tone = String(snapshot.status?.tone ?? "info");
-    const cheerVisible = revived && finalRevival;
+    const elapsedMs = finite(snapshot.metrics?.elapsedMs);
+    if (this.previousGuardianIds !== null) {
+      const rescuedRound = this.config.rounds.findLast(({ guardian }) =>
+        collected.has(guardian.id) && !this.previousGuardianIds.has(guardian.id));
+      if (rescuedRound) {
+        this.recoveryCaption = { round: rescuedRound, untilMs: elapsedMs + 4_500 };
+      }
+    }
+    this.previousGuardianIds = collected;
+    if (collected.size === 0 || ["COMPLETED", "DESTROYED"].includes(snapshot.state)) this.recoveryCaption = null;
+    const cheerVisible = Boolean(this.recoveryCaption && elapsedMs < this.recoveryCaption.untilMs && !knockedOut && !guardianReveal);
     this.guardianCheer.textContent = cheerVisible
-      ? `DS · CS · CSE · AI · AIDS · “${statusText(snapshot.status)}”`
+      ? `${this.recoveryCaption.round.guardian.label}: ${this.recoveryCaption.round.recoveryMessage}`
       : "";
     this.guardianCheer.dataset.visible = String(cheerVisible);
     this.guardianCheer.setAttribute("aria-hidden", String(!cheerVisible));
     this.guardianCheer.style.setProperty(
       "--guardian-color",
-      String(guardians.at(-1)?.color ?? "#fdd044"),
+      String(this.recoveryCaption?.round.guardian.color ?? "#fdd044"),
     );
 
     for (const [id, slot] of this.guardianSlots) {
@@ -289,7 +320,9 @@ export class WordBreakerView {
     for (const [index, egg] of this.finaleGuardianElements.entries()) {
       egg.dataset.active = String(index < finaleStep);
     }
-    this.finaleReframe.dataset.visible = String(finaleStep >= Math.max(1, guardians.length - 1));
+    const allLit = finaleStep >= guardians.length;
+    this.finaleOverlay.dataset.allLit = String(allLit);
+    this.finaleReframe.dataset.visible = String(allLit && finite(snapshot.finaleRemainingMs) <= this.config.finaleDurationMs * 0.04);
 
     this.finaleOverlay.dataset.visible = String(phase === "FINALE");
     this.finaleOverlay.setAttribute("aria-hidden", String(phase !== "FINALE"));
@@ -304,6 +337,7 @@ export class WordBreakerView {
   }
 
   destroy() {
+    this.hitAnimation?.cancel?.();
     this.element?.remove();
     this.element = null;
     this.phraseGlyphElements.clear();
@@ -312,6 +346,17 @@ export class WordBreakerView {
     this.shotElements.clear();
     this.guardianSlots.clear();
     this.guardianElement = null;
+  }
+
+  showEiaiCaption(text) {
+    if (!this.eiaiCaption) return;
+    this.eiaiCaption.textContent = text ? `이아이: ${text}` : "";
+    this.eiaiCaption.hidden = !text;
+    if (text) this.eiai?.animate?.([
+      { filter: "drop-shadow(0 0 0px #342038)" },
+      { filter: "drop-shadow(0 0 24px #251129)" },
+      { filter: "drop-shadow(0 0 0px #342038)" },
+    ], { duration: 950, easing: "ease-out" });
   }
 
   #createPhraseGlyphNode(glyph) {
@@ -473,6 +518,7 @@ export class WordBreakerView {
     this.lifeCount = element("output", { className: "word-breaker-life-count", text: `${guardians.length} / ${guardians.length}` });
     this.lifePips = guardians.map(() => element("span", {
       className: "word-breaker-life-pip",
+      text: "♥",
       dataset: { active: "true", lost: "false" },
       attributes: { "aria-hidden": "true" },
     }));
@@ -491,9 +537,7 @@ export class WordBreakerView {
       },
     }, [this.lifeFill, ...this.lifePips]);
     this.vitality = element("div", { className: "word-breaker-vitality" }, [
-      element("strong", { text: "LIFE" }),
       this.lifeMeter,
-      this.lifeCount,
     ]);
     this.roundTime = element("output", { text: "준비" });
     this.timeLabel = element("dt", { text: "다음 붕괴" });
@@ -531,19 +575,11 @@ export class WordBreakerView {
     this.guardianCheer = element("p", {
       className: "word-breaker-guardian-cheer",
       dataset: { visible: "false" },
-      attributes: { "aria-hidden": "true" },
+      attributes: { "aria-hidden": "true", "aria-live": "polite" },
     });
     const header = element("header", { className: "word-breaker-hud" }, [
-      element("p", { className: "word-breaker-eyebrow", text: "STORY FINALE · 다시 이어가는 마음" }),
-      element("h2", { className: "word-breaker-title", text: "마음의 말 깨부수기" }),
-      this.phaseText,
-      stats,
+      element("img", { className: "word-breaker-lock", attributes: { src: "./assets/images/flower-lock.png", alt: "꽃잎 자물쇠", draggable: "false" } }),
       guardianList,
-      this.status,
-      element("p", {
-        className: "word-breaker-help",
-        text: "움직인 방향으로 빛이 나갑니다. 노란 글자와 학과별 오류를 부수거나 피하고, 다섯 번의 충격 뒤에는 수호알과 다시 일어납니다.",
-      }),
     ]);
 
     const grid = element("span", { className: "word-breaker-world__grid", attributes: { "aria-hidden": "true" } });
@@ -585,32 +621,44 @@ export class WordBreakerView {
     const finaleGuardians = element(
       "div",
       { className: "word-breaker-finale__guardians", attributes: { "aria-hidden": "true" } },
-      this.finaleGuardianElements,
+      [...this.finaleGuardianElements, element("div", { className: "word-breaker-finale__eiai" }, [
+        element("span", { className: "word-breaker-eiai__face", text: "AI" }),
+        element("strong", { text: "이아이" }),
+      ])],
     );
     this.finaleReframe = element("strong", {
       className: "word-breaker-finale__reframe",
       text: this.config.finalPhrase.reframe,
       dataset: { visible: "false" },
     });
+    const negativeLine = element("p");
+    const targetStart = this.config.finalPhrase.negative.indexOf(this.config.finalPhrase.target);
+    negativeLine.append(
+      element("span", { text: this.config.finalPhrase.negative.slice(0, targetStart) }),
+      element("span", { className: "word-breaker-finale__target", text: this.config.finalPhrase.target }),
+      element("span", { text: this.config.finalPhrase.negative.slice(targetStart + this.config.finalPhrase.target.length) }),
+    );
     this.finaleOverlay = element("div", {
       className: "word-breaker-finale",
       dataset: { visible: "false" },
       attributes: { "aria-hidden": "true" },
     }, [
-      element("p", { text: this.config.finalPhrase.negative }),
+      negativeLine,
       finaleGuardians,
       this.finaleReframe,
     ]);
     this.playerActor = createCharacterActorElement({ document: this.document, local: true });
+    this.eiaiCaption = element("p", { className: "eiai-battle-caption", attributes: { role: "status", "aria-live": "polite" } });
+    this.eiaiCaption.hidden = true;
     this.playerActor.dataset.characterId = this.localPlayerId;
     this.characterView = new CharacterView({ element: this.playerActor, worldSize: this.arena });
     this.world = element("div", {
       className: "word-breaker-world",
       attributes: { role: "application", "aria-label": "마음의 말 깨부수기 전투 필드" },
     }, [
-      this.vitality,
       grid,
       this.eiai,
+      this.eiaiCaption,
       this.phraseLayer,
       this.overloadLayer,
       this.shotLayer,
@@ -631,6 +679,7 @@ export class WordBreakerView {
     }, [this.joystickBase]);
 
     return element("section", { className: "word-breaker-stage character-stage" }, [
+      this.vitality,
       header,
       this.world,
       touchControls,

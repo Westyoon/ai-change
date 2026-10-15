@@ -92,27 +92,14 @@ function applyPhraseWave(phrase) {
   return phrase;
 }
 
-function resolveTargetSegments(definition, segments, targetPlacement) {
-  const semanticStart = definition.negative.indexOf(definition.target);
-  const semanticEnd = semanticStart + definition.target.length;
-  const semanticTargets = segments.filter(({ text, index }) => (
-    text.trim().length > 0 && index >= semanticStart && index < semanticEnd
-  ));
-  if (targetPlacement !== "left" || semanticTargets.length === 0) {
-    return {
-      indexes: new Set(semanticTargets.map(({ index }) => index)),
-      text: definition.target,
-      side: "right",
-    };
-  }
-
-  const visible = segments.filter(({ text }) => text.trim().length > 0);
-  const leftTargets = visible.slice(0, semanticTargets.length);
-  return {
-    indexes: new Set(leftTargets.map(({ index }) => index)),
-    text: leftTargets.map(({ text }) => text).join(""),
-    side: "left",
-  };
+function resolveTargetSegments(definition, segments) {
+  let start = definition.negative.indexOf(definition.target);
+  let end = start + definition.target.length;
+  const isWordCharacter = (value) => /[\p{L}\p{N}_]/u.test(value ?? "");
+  while (start > 0 && isWordCharacter(definition.negative[start - 1])) start--;
+  while (end < definition.negative.length && isWordCharacter(definition.negative[end])) end++;
+  const targets = segments.filter(({ text, index }) => text.trim() && index >= start && index < end);
+  return { indexes: new Set(targets.map(({ index }) => index)), text: definition.negative.slice(start, end), side: "right" };
 }
 
 function createPhraseGlyphs(phrase, definition, phraseConfig, shotDamage, targetPlacement = "right") {
@@ -232,15 +219,13 @@ export function createWordBreakerPhrase({
     speed: phraseConfig.speed,
     reframeRemainingMs: 0,
   };
-  // The semantic target remains on its authored side for odd spawns. Even
-  // spawns highlight an equally sized phrase fragment on the left, so neither
-  // desktop nor portrait players can clear every sentence from one lane.
+  // Highlight the complete authored word instead of arbitrary leading fragments.
   attachPhraseGlyphs(
     phrase,
     definition,
     phraseConfig,
     shotDamage,
-    sequence % 2 === 0 ? "left" : "right",
+    "right",
   );
   const edgeRoom = Math.max(0, Math.min(
     phrase.x - arena.x,
@@ -480,8 +465,14 @@ function overloadGlyph({
 }
 
 function glyphText(round, waveIndex, glyphIndex) {
-  const source = visibleGraphemes(round.phrases[waveIndex % round.phrases.length].negative);
-  return source[(waveIndex * 3 + glyphIndex) % Math.max(1, source.length)]?.text ?? "말";
+  const tokens = {
+    DS: ["NaN", "σ", "∅"],
+    CS: ["403", "!", "443"],
+    CSE: ["{", "}", "()", "∞"],
+    AI: ["0", "1", "?", "AI"],
+    AIDS: ["σ", "AI", "01", "∅"],
+  }[round.guardian?.code] ?? ["?"];
+  return tokens[(waveIndex + glyphIndex) % tokens.length];
 }
 
 function laneCenter(arena, lane, laneCount, width = GLYPH_WIDTH) {

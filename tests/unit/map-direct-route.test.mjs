@@ -241,6 +241,22 @@ test("the game-method screen starts the selected mini-game without replaying its
       sceneId: "minigame",
       params: { miniGameId: "ai-ball-classification" },
     }]);
+    for (const game of context.content.minigames) {
+      const introRoot = new FakeElement("main");
+      const intro = createMiniGameIntroScene(context);
+      try {
+        await intro.mount(introRoot, { miniGameId: game.id }, { signal: new AbortController().signal });
+        const panel = introRoot.children[0];
+        assert.equal(panel.children.some(node => node.tagName === "H1"), false, `${game.id} has no game title`);
+        assert.equal(panel.querySelectorAll(".eyebrow").length, 0, `${game.id} has no department heading`);
+        assert.equal(panel.attributes.get("aria-label"), `${game.title} 게임 시작 안내`);
+        assert.equal(panel.querySelectorAll(".minigame-how-to__title")[0].textContent, "게임 방법");
+        assert.equal(panel.querySelectorAll(".control-list").length, 2);
+        assert.equal(panel.querySelectorAll(".button--primary").length, 1);
+      } finally {
+        intro.unmount();
+      }
+    }
   } finally {
     scene.unmount();
     if (previousNode === undefined) delete globalThis.Node;

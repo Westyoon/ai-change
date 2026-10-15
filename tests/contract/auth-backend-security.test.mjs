@@ -134,10 +134,10 @@ test("pre-game progress is authenticated, allowlisted, idempotent, and completio
   assert.doesNotMatch(importProgress, /\bbody\s*(?:\.\s*|\[\s*["'])score\b/iu);
 });
 
-test("the X-egg reward toast is shown only after the server confirms an award", () => {
+test("the X-egg reward notice requires a submitted, nonduplicate server award", () => {
   assert.match(
     battleSceneSource,
-    /!submission\.submitted\s*\|\|\s*submission\.duplicate\s*\|\|\s*!submission\.awarded/u,
+    /submission\?\.submitted\s*&&\s*!submission\.duplicate\s*&&\s*submission\.awarded/u,
   );
 });
 
@@ -286,7 +286,9 @@ test("level progression is unbounded and only postgame clears can advance it", a
   assert.match(unboundedMigration, /CREATE\s+INDEX\s+idx_stats_score/iu);
   assert.match(unboundedMigration, /CREATE\s+INDEX\s+idx_stats_clears/iu);
 
-  assert.match(workerSource, /EXPERIENCE_PER_POSTGAME_CLEAR\s*=\s*100/u);
+  const progressionSource = await read("backend/src/progression.ts");
+  assert.match(progressionSource, /EXPERIENCE_PER_POSTGAME_CLEAR\s*=\s*100\s*\+\s*Math\.floor\(random\(\)\s*\*\s*11\)\s*\*\s*10/u);
+  assert.match(progressionSource, /EXPERIENCE_PER_LEVEL\s*=\s*100/u);
   assert.doesNotMatch(workerSource, /MAX_LEVEL/u);
   for (const source of [importProgress, recordResult]) {
     assert.doesNotMatch(source, /UPDATE\s+stats/iu);
@@ -298,12 +300,12 @@ test("level progression is unbounded and only postgame clears can advance it", a
   assert.match(recordPostgameResult, /ON\s+CONFLICT\s*\(\s*user_id\s*,\s*attempt_id\s*\)\s+DO\s+NOTHING/iu);
   assert.match(recordPostgameResult, /awarded\s*=\s*0/iu);
   assert.match(recordPostgameResult, /experience\s*=\s*COALESCE\(experience,\s*0\)\s*\+\s*\$\{EXPERIENCE_PER_POSTGAME_CLEAR\}/u);
-  assert.match(recordPostgameResult, /level\s*=\s*COALESCE\(level,\s*1\)\s*\+\s*1/u);
-  assert.match(recordPostgameResult, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*1/u);
+  assert.match(recordPostgameResult, /level\s*=\s*COALESCE\(level,\s*1\)\s*\+\s*\(\$\{POSTGAME_LEVEL_GAIN_SQL\}\)/u);
+  assert.match(recordPostgameResult, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*\(\$\{POSTGAME_LEVEL_GAIN_SQL\}\)/u);
   assert.match(recordPostgameResult, /WHERE\s+user_id\s*=\s*\?[\s\S]*awarded\s*=\s*0/iu);
   assert.match(recordPostgameResult, /SET\s+awarded\s*=\s*1/iu);
   assert.match(recordPostgameResult, /awarded\s*=\s*Number\(awardResult\.meta\.changes/u);
-  assert.match(workerSource, /nextLevelExperience\s*:\s*level\s*\*\s*EXPERIENCE_PER_POSTGAME_CLEAR/u);
+  assert.match(workerSource, /nextLevelExperience\s*:\s*level\s*\*\s*EXPERIENCE_PER_LEVEL/u);
 
   for (const source of [postgameMigration, await read("backend/schema.sql")]) {
     assert.match(source, /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+postgame_results/iu);

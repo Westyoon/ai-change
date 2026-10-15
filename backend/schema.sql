@@ -3,6 +3,18 @@
 
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS wish_posts (
+  id TEXT PRIMARY KEY,
+  nickname TEXT NOT NULL,
+  body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 300),
+  department TEXT CHECK (department IS NULL OR department IN ('DS', 'CS', 'CSE', 'AI', 'AIDS')),
+  created_at INTEGER NOT NULL,
+  rate_key TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wish_posts_recent ON wish_posts(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_wish_posts_rate ON wish_posts(rate_key, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wish_posts_department ON wish_posts(department, created_at DESC, id DESC);
+
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -11,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
         nickname IS NULL
         OR (length(nickname) BETWEEN 2 AND 16 AND nickname = trim(nickname))
     ),
+    hair_color TEXT CHECK (hair_color IS NULL OR hair_color IN ('magenta', 'purple', 'brown', 'blonde')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

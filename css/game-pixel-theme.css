@@ -203,24 +203,23 @@
 }
 #app .control-boss-world { background-color: var(--game-paper); }
 #app .control-boss-actor {
-  border-color: var(--game-ink);
-  border-radius: 2px;
-  background: var(--game-pink);
-  box-shadow: inset 0 -4px 0 #9c2056, 3px 4px 0 var(--game-shadow);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 #app .control-boss-bar__fill--hp { background: var(--game-pink); }
 #app .control-boss-bar__fill--shield { background: var(--game-blue); }
-#app :is(.control-boss-cover, .control-boss-tile) { border-radius: 2px; box-shadow: 0 2px 0 var(--game-paper-shade); }
-#app .control-boss-cover[data-active="true"] { box-shadow: inset 0 -3px 0 #2ab5e455, 0 3px 0 var(--game-ink); }
+#app .control-boss-tile:not([data-kind="hole"]) { border-radius: 2px; box-shadow: 0 2px 0 var(--game-paper-shade); }
+#app .control-boss-cover[data-active="true"] { box-shadow: none; }
 #app .control-boss-tile[data-kind="plate"] { box-shadow: inset 0 -3px 0 #fdd04488; }
 #app .control-boss-bullet { border-radius: 0; clip-path: var(--game-step-round); box-shadow: none; }
 /* The radial mask defines the damaging ring's shape; keep it aligned to collision. */
 #app .control-boss-shockwave { box-shadow: none; }
 
 #app .stat-boss-boss-actor__sprite {
-  border-radius: 2px;
-  background: var(--game-pink);
-  box-shadow: inset -5px -5px 0 #9c2056, 4px 4px 0 var(--game-shadow);
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
 }
 #app :is(.stat-boss-hud, .data-sphinx-hud) { background: var(--game-purple); }
 #app :is(.stat-boss-battlefield, .data-sphinx-stage, .data-sphinx-question) {
@@ -245,6 +244,22 @@
   box-shadow: inset -4px -4px 0 var(--game-shadow), 0 4px 0 var(--game-shadow);
 }
 #app .code-heart-game button:disabled { transform: none; filter: none; }
+
+/* Life icons stay above finale dimming and do not inherit meter borders. */
+#app .word-breaker-stage > .word-breaker-vitality,
+#app .word-breaker-vitality .word-breaker-life-meter,
+#app .word-breaker-vitality .word-breaker-life-pip {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+}
+#app .word-breaker-vitality .word-breaker-life-pip[data-active="false"] {
+  opacity: 1;
+  color: #86768d;
+  transform: none;
+  animation: none;
+}
 
 /* All six X-egg challenges use the same physical cards and push buttons. */
 #app .xr-trials {

@@ -77,10 +77,28 @@
       "id": "player-walk-sprite",
       "group": "common",
       "type": "image",
-      "src": "./assets/images/character-walk.png",
+      "src": "./assets/images/character-hair-colors.png",
       "required": true,
       "alt": "네 방향으로 걷는 플레이어 캐릭터",
       "sourceRef": "ASSET-COMMON-002"
+    },
+    {
+      "id": "flower-lock",
+      "group": "common",
+      "type": "image",
+      "src": "./assets/images/flower-lock.png",
+      "required": true,
+      "alt": "다섯 꽃잎이 새겨진 금색 자물쇠",
+      "sourceRef": "ASSET-COMMON-003"
+    },
+    {
+      "id": "embryo-pixel",
+      "group": "common",
+      "type": "image",
+      "src": "./assets/images/embryo-pixel.png",
+      "required": true,
+      "alt": "문양 없는 흰색 픽셀아트 엠브리오",
+      "sourceRef": "ASSET-COMMON-004"
     },
     {
       "id": "guardian-egg-ds",
@@ -230,9 +248,9 @@
       "id": "ai-ball-classification-sample",
       "group": "ai-ball-classification",
       "type": "image",
-      "src": "./assets/images/ai-ball-sample.svg",
+      "src": "./assets/minigames/ai-ball-classification/flower-atlas.png",
       "required": true,
-      "alt": "AI Ball Classification 목표 공 샘플 이미지",
+      "alt": "왼쪽 배꽃과 오른쪽 벚꽃 픽셀 이미지",
       "sourceRef": "ASSET-AI-002"
     },
     {
@@ -263,6 +281,15 @@
       "sourceRef": "ASSET-GUARDIAN-DS-001"
     },
     {
+      "id": "ai-data-egg-sort-dispenser",
+      "group": "ai-data-egg-sort",
+      "type": "image",
+      "src": "./assets/images/인데부 상자.png",
+      "required": true,
+      "alt": "수호알 배출용 분홍 체크 상자",
+      "sourceRef": "ASSET-AIDS-002"
+    },
+    {
       "id": "ai-data-egg-sort-background",
       "group": "ai-data-egg-sort",
       "type": "image",
@@ -270,6 +297,15 @@
       "required": true,
       "alt": "인지알·데사알 분류 게임의 분홍색 픽셀 아트 배경",
       "sourceRef": "ASSET-AIDS-001"
+    },
+    {
+      "id": "stat-boss-poses",
+      "group": "stat-boss",
+      "type": "image",
+      "src": "./assets/images/bosses/stat-boss-poses.png",
+      "required": true,
+      "alt": "스탯 보스의 기본·승리·공격·피격·사망 모습",
+      "sourceRef": "CONTENT-BATTLE-001"
     },
     {
       "id": "stat-boss-config",
@@ -288,6 +324,15 @@
       "required": true,
       "alt": null,
       "sourceRef": "CONTENT-BATTLE-002"
+    },
+    {
+      "id": "control-boss-poses",
+      "group": "control-boss",
+      "type": "image",
+      "src": "./assets/images/bosses/control-boss-poses.png",
+      "required": true,
+      "alt": "컨트롤 보스의 기본·승리·사망·피격·공격 모습",
+      "sourceRef": "CONTENT-BATTLE-003"
     },
     {
       "id": "control-boss-config",

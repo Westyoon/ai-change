@@ -68,6 +68,8 @@ function timerHarness() {
       }
     },
     count: () => tasks.size,
+    elapseWithoutCallbacks(milliseconds) { now += milliseconds; },
+    firstTask: () => [...tasks.values()][0],
   };
 }
 
@@ -255,6 +257,70 @@ test("presence is normalized, sent at most about 11Hz, and coalesces trailing mo
   );
 });
 
+test("late presence timers cannot double-send after an immediate movement update", () => {
+  const { service, timers } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  const move = x => service.updatePresence({ zone: "plaza", x, y: 0.5, moving: true });
+  move(0.1);
+  timers.advance(20);
+  move(0.2);
+  const staleTimer = timers.firstTask();
+  timers.elapseWithoutCallbacks(90);
+  move(0.3); // late event-loop turn sends now, canceling the old timer
+  assert.equal(socket.sent.length, 2);
+  assert.equal(timers.count(), 0);
+  timers.elapseWithoutCallbacks(1);
+  move(0.4);
+  staleTimer.callback(); // even an already queued callback must be harmless
+  assert.equal(socket.sent.length, 2, "no 1ms duplicate send");
+  assert.equal(timers.count(), 1, "keep exactly one latest-position timer");
+  timers.advance(99);
+  assert.equal(socket.sent.length, 3);
+  assert.equal(socket.sent[2].x, 0.4);
+  service.disconnect();
+  assert.equal(timers.count(), 0);
+});
+
+test("an early timer re-checks the interval and reconnect discards its old generation", () => {
+  const { service, timers } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  service.updatePresence({ zone: "plaza", x: 0.1, y: 0 });
+  timers.advance(10);
+  service.updatePresence({ zone: "plaza", x: 0.2, y: 0 });
+  timers.firstTask().callback();
+  assert.equal(socket.sent.length, 1);
+  const stale = timers.firstTask();
+  service.disconnect();
+  service.connect();
+  const nextSocket = FakeWebSocket.instances[1];
+  nextSocket.open();
+  assert.equal(nextSocket.sent.length, 1);
+  stale.callback();
+  timers.advance(100);
+  assert.equal(nextSocket.sent.length, 1);
+  assert.equal(nextSocket.sent[0].x, 0.2);
+  service.disconnect();
+});
+
+test("legacy position throttling is silent and cannot erase important room errors", () => {
+  const { service } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  socket.receive({ type: "error", code: "presence_rate_limited", message: "위치 갱신이 너무 빠릅니다." });
+  assert.equal(service.getState().lastError, null);
+  assert.equal(service.getState().status, "connected");
+  socket.receive({ type: "error", code: "room_full", message: "방이 가득 찼습니다." });
+  socket.receive({ type: "error", code: "presence_rate_limited", message: "위치 갱신이 너무 빠릅니다." });
+  socket.receive({ type: "presence.snapshot", players: [] });
+  assert.equal(service.getState().lastError.code, "room_full");
+  service.disconnect();
+});
+
 test("presence messages expose public fields only and snapshots exclude the current player", () => {
   const { service } = makeService();
   service.connect();
@@ -308,6 +374,29 @@ test("presence messages expose public fields only and snapshots exclude the curr
   assert.equal(service.getState().players[0].name, "새 이름");
   socket.receive({ type: "presence.leave", playerId: "other" });
   assert.deepEqual(service.getState().players, []);
+});
+
+test("presence preserves supported hair colors with nicknames without exposing account identifiers", () => {
+  const { service } = makeService();
+  service.connect();
+  const socket = FakeWebSocket.instances[0];
+  socket.open();
+  for (const hairColor of ["magenta", "purple", "brown", "blonde"]) {
+    socket.receive({ type: "presence.update", player: {
+      id: "other", name: "이화", hairColor, zone: "plaza", x: .5, y: .5,
+      email: "hidden@example.test", userId: "private-account",
+    } });
+    const player = service.getState().players[0];
+    assert.equal(player.hairColor, hairColor);
+    assert.equal(player.name, "이화");
+    assert.equal(Object.hasOwn(player, "email"), false);
+    assert.equal(Object.hasOwn(player, "userId"), false);
+  }
+  socket.receive({ type: "presence.update", player: {
+    id: "other", name: "이화", hairColor: "unknown", zone: "plaza", x: .5, y: .5,
+  } });
+  assert.equal(Object.hasOwn(service.getState().players[0], "hairColor"), false);
+  service.disconnect();
 });
 
 test("room snapshots, membership, updates, starts, and removals form a small immutable API", () => {
@@ -407,8 +496,8 @@ test("shared battle snapshots are normalized, immutable, and recover after recon
     bossMaxHp: 1_000,
     revision: 4,
     roster: [
-      { id: "host", name: "방장", ready: true, connected: true, hp: 82, maxHp: 100, alive: true },
-      { id: "guest", name: "참가자", ready: false, connected: false, hp: 0, maxHp: 130, alive: false },
+      { id: "host", name: "방장", ready: true, connected: true, hp: 82, maxHp: 100, alive: true, hairColor: "purple", presence: null },
+      { id: "guest", name: "참가자", ready: false, connected: false, hp: 0, maxHp: 130, alive: false, hairColor: "purple", presence: null },
     ],
     seed: "seed:room:shared-1",
     allReady: false,
@@ -760,4 +849,24 @@ test("a successful room acknowledgement clears an earlier room error", () => {
     },
   });
   assert.equal(service.getState().error, null);
+});
+
+
+test("boss presence preserves its arena zone, appearance and final stop through the socket", () => {
+ const { service, timers } = makeService();
+ service.connect();
+ const socket = FakeWebSocket.instances.at(-1); socket.open();
+ for (const battleId of ["data-sphinx", "stat-boss", "control-boss"]) {
+  const zone = `battle:${battleId}`;
+  service.updatePresence({ zone, x: .75, y: .25, direction: "left", moving: true });
+  timers.advance(100);
+  assert.equal(socket.sent.at(-1).zone, zone);
+  socket.receive({ type: "presence.snapshot", zone, players: [{ id: "friend", name: "Friend", hairColor: "brown", zone, x: .75, y: .25, direction: "left", moving: true }] });
+  assert.equal(service.getState().players[0].zone, zone);
+  assert.equal(service.getState().players[0].hairColor, "brown");
+  socket.receive({ type: "presence.update", player: { id: "friend", name: "Friend", hairColor: "brown", zone, x: .8, y: .25, direction: "left", moving: false } });
+  assert.equal(service.getState().players[0].moving, false);
+  assert.equal(service.getState().players[0].x, .8);
+ }
+ service.disconnect();
 });

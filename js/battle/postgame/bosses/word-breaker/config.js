@@ -140,7 +140,7 @@ const DEFAULT_ROUNDS = Object.freeze([
     omenMessage: "정렬돼 있던 기록 사이에 결측값과 이상치가 섞이기 시작합니다.",
     collapseMessage: "기준을 잃은 데이터가 열마다 뒤엉켰지만 여기서 끝난 것은 아닙니다.",
     guardianMessage: "데이터 수호알은 결측치와 이상치를 구분하고 판단의 근거를 다시 잇는 마음을 지켜 줍니다.",
-    recoveryMessage: "완벽한 답 말고, 확인한 근거부터 챙기자. 같이 가.",
+    recoveryMessage: "아니야, 빠진 값 하나가 네 전부를 말해 주진 않아.",
     guardian: Object.freeze({ id: "guardian-ds", code: "DS", label: "데이터 수호알", color: "#fcb5dd", inkColor: "#501060", imageSrc: "./assets/images/guardian-eggs/guardian-ds.png" }),
     phrases: Object.freeze([
       Object.freeze({
@@ -165,7 +165,7 @@ const DEFAULT_ROUNDS = Object.freeze([
     omenMessage: "정상 연결 사이로 위장한 악성 패킷이 열린 포트를 탐색합니다.",
     collapseMessage: "방화벽 규칙이 무너져도 위험한 연결은 다시 구분할 수 있습니다.",
     guardianMessage: "보안 수호알은 패킷을 확인하고 안전한 연결 규칙을 다시 세울 용기를 지켜 줍니다.",
-    recoveryMessage: "혼자 다 막지 않아도 돼. 필요한 순간엔 같이 확인하자.",
+    recoveryMessage: "아니야, 혼자 다 막지 않아도 돼. 우리가 함께 지켜 줄게.",
     guardian: Object.freeze({ id: "guardian-cs", code: "CS", label: "보안 수호알", color: "#a2c05e", inkColor: "#304010", imageSrc: "./assets/images/guardian-eggs/guardian-cs.png" }),
     phrases: Object.freeze([
       Object.freeze({
@@ -190,7 +190,7 @@ const DEFAULT_ROUNDS = Object.freeze([
     omenMessage: "하나의 작은 오류가 재귀 호출을 따라 1개, 2개, 4개, 8개로 복제됩니다.",
     collapseMessage: "호출이 끝나지 않아 스택이 넘쳤지만 코드는 고쳐 다시 실행할 수 있습니다.",
     guardianMessage: "컴퓨터공학 수호알은 무한 재귀를 멈추고 큰 문제를 작은 호출 단위로 나누는 마음을 지켜 줍니다.",
-    recoveryMessage: "오늘 안 풀려도 괜찮아. 막힌 한 줄부터 다시 보자.",
+    recoveryMessage: "아니야, 오류가 나도 끝은 아니야. 한 줄씩 다시 풀어 보자.",
     guardian: Object.freeze({ id: "guardian-cse", code: "CSE", label: "컴퓨터공학 수호알", color: "#ac51fa", inkColor: "#301040", imageSrc: "./assets/images/guardian-eggs/guardian-cse.png" }),
     phrases: Object.freeze([
       Object.freeze({
@@ -215,7 +215,7 @@ const DEFAULT_ROUNDS = Object.freeze([
     omenMessage: "여러 예측 후보가 하나의 오분류로 좁혀지며 틀린 확신이 굳어집니다.",
     collapseMessage: "신뢰도가 높아도 예측은 틀릴 수 있고 배움의 과정은 계속됩니다.",
     guardianMessage: "인공지능 수호알은 오분류와 과신을 다음 학습을 위한 피드백으로 바꾸는 마음을 지켜 줍니다.",
-    recoveryMessage: "결과가 별로여도 네가 별로인 건 아니야. 하나만 바꿔 보자.",
+    recoveryMessage: "아니야, 한 번 틀린 예측으로 널 정할 순 없어. 다시 배워 가면 돼.",
     guardian: Object.freeze({ id: "guardian-ai", code: "AI", label: "인공지능 수호알", color: "#0e7ffd", inkColor: "#0010a0", imageSrc: "./assets/images/guardian-eggs/guardian-ai.png" }),
     phrases: Object.freeze([
       Object.freeze({
@@ -240,7 +240,7 @@ const DEFAULT_ROUNDS = Object.freeze([
     omenMessage: "데이터 입력과 AI 예측이 피드백 고리 안에서 서로를 증폭하기 시작합니다.",
     collapseMessage: "뒤엉킨 파이프라인 앞에서 잠시 멈춰도 흐름은 다시 연결할 수 있습니다.",
     guardianMessage: "AI·데이터 수호알은 입력, 모델, 예측, 피드백을 차례로 연결해 나만의 흐름을 찾는 마음을 지켜 줍니다.",
-    recoveryMessage: "아직 방향을 못 정해도 괜찮아. 해 본 것부터 이어 가자.",
+    recoveryMessage: "아니야, 흩어진 경험도 이어 보면 네 길이 될 거야.",
     guardian: Object.freeze({ id: "guardian-aids", code: "AIDS", label: "AI·데이터 수호알", color: "#fdd044", inkColor: "#703000", imageSrc: "./assets/images/guardian-eggs/guardian-aids.png" }),
     phrases: Object.freeze([
       Object.freeze({
@@ -263,8 +263,8 @@ const DEFAULT_ROUNDS = Object.freeze([
 
 const DEFAULT_FINAL_PHRASE = Object.freeze({
   id: "final-heart",
-  negative: "이렇게 해도 달라지는 건 없을 것 같아.",
-  target: "없을 것 같아",
+  negative: "나는 할 수 없을 것 같아.",
+  target: "할 수 없을 것 같아",
   reframe: "당장 다르지 않아도 오늘 해낸 건 남아 있어.",
   maxHp: REQUIRED_ROUND_COUNT,
 });
@@ -466,6 +466,7 @@ export function normalizeWordBreakerConfig(source = {}) {
   };
   const shotSource = source.shot ?? {};
   const shot = {
+    hitPadding: finite(shotSource.hitPadding, 9, "shot.hitPadding", { min: 0, max: 30 }),
     width: finite(shotSource.width, DEFAULT_SHOT.width, "shot.width", { min: 1 }),
     height: finite(shotSource.height, DEFAULT_SHOT.height, "shot.height", { min: 1 }),
     speed: finite(shotSource.speed, DEFAULT_SHOT.speed, "shot.speed", { min: 1 }),

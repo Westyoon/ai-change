@@ -85,6 +85,7 @@ class FakeElement extends FakeNode {
     this.tagName = String(tagName).toUpperCase();
     this.className = "";
     this.dataset = {};
+    this.style = {};
     this.attributes = new Map();
     this.listeners = new Map();
     this.disabled = false;
@@ -175,6 +176,36 @@ function room({
   return { id, roomName, battleId, capacity, hostId, members, status };
 }
 
+test("solo button creates a one-player room and waits for confirmation before starting once", () => {
+  const restore = installFakeDom();
+  let lobby;
+  try {
+    const created = [];
+    let starts = 0;
+    lobby = createPostgameRoomLobby({
+      onCreate: (...args) => { created.push(args); return true; },
+      onStart: () => { starts++; return true; },
+    });
+    lobby.open({ battle: { id: "stat-boss", title: "Stat" } });
+    const connected = { status: "connected", selfId: "self", rooms: [] };
+    lobby.render(connected);
+    const solo = button(lobby.element, "혼자 도전하기");
+    assert.equal(solo.hidden, false);
+    solo.click();
+    assert.deepEqual(created, [["stat-boss", 1, "혼자 도전하기"]]);
+    assert.equal(starts, 0);
+    const joined = { ...connected, rooms: [room({ id: "solo", capacity: 1, hostId: "self", members: [{ id: "self", name: "Self" }] })] };
+    lobby.render(joined);
+    assert.equal(starts, 1);
+    assert.equal(solo.hidden, true);
+    lobby.render(joined);
+    assert.equal(starts, 1);
+  } finally {
+    lobby?.close();
+    restore();
+  }
+});
+
 test("room capacity accepts 1-5 and defaults missing or invalid values to 5", () => {
   assert.equal(MIN_ROOM_CAPACITY, 1);
   assert.equal(MAX_ROOM_CAPACITY, 5);
@@ -198,7 +229,12 @@ test("room creation requires a title, defaults to five players, and clamps UI su
     lobby.render({ status: "connected", selfId: "self", rooms: [] });
     assert.equal(lobby.getView(), ROOM_LOBBY_VIEWS.DIRECTORY);
     assert.equal(byClass(lobby.element, "postgame-room-lobby__directory")[0].hidden, false);
-    button(lobby.element, "새 방 만들기").click();
+    assert.equal(button(lobby.element, "새로 고침").hidden, false);
+    assert.equal(button(lobby.element, "목록으로").hidden, true);
+    button(lobby.element, "방 만들기").click();
+    assert.equal(button(lobby.element, "새로 고침").hidden, true);
+    assert.equal(button(lobby.element, "방 만들기").hidden, true);
+    assert.equal(button(lobby.element, "목록으로").hidden, false);
     assert.equal(lobby.getView(), ROOM_LOBBY_VIEWS.CREATE);
     assert.equal(byClass(lobby.element, "postgame-room-lobby__directory")[0].hidden, true);
     assert.equal(byClass(lobby.element, "postgame-room-lobby__create-view")[0].hidden, false);
@@ -331,7 +367,7 @@ test("directory filters by battle and marks full, joined, and current-room state
     const joined = {
       ...available,
       hostId: "self",
-      members: [{ id: "self", name: "나" }],
+      members: [{ id: "self", name: "나", hairColor: "brown" }],
     };
     lobby.render({ ...baseState, currentRoom: joined, rooms: [joined, full, another] });
     cards = byClass(lobby.element, "postgame-room-card");
@@ -350,6 +386,10 @@ test("directory filters by battle and marks full, joined, and current-room state
     const slots = byClass(lobby.element, "postgame-room-lobby__member-slot");
     assert.equal(slots.length, 5);
     assert.equal(slots[0].dataset.occupied, "true");
+    const portrait = byClass(slots[0], "postgame-room-lobby__member-character")[0];
+    assert.equal(portrait.dataset.hairColor, "brown");
+    assert.ok(portrait.style.backgroundImage.includes("character-hair-colors.png"));
+    assert.equal(byClass(slots[0], "postgame-room-lobby__member-name")[0].textContent, "나");
     assert.equal(slots[4].dataset.occupied, "false");
     assert.equal(byClass(lobby.element, "postgame-room-lobby__capacity")[0].disabled, true);
     assert.equal(button(lobby.element, "방 생성").disabled, true);
@@ -512,7 +552,7 @@ test("pending room requests unlock after transport interruption or timeout", () 
     });
     lobby.open({ battle: { id: "stat-boss", title: "스탯 보스" } });
     lobby.render({ status: "connected", selfId: "self", rooms: [] });
-    button(lobby.element, "새 방 만들기").click();
+    button(lobby.element, "방 만들기").click();
     const name = byClass(lobby.element, "postgame-room-lobby__name")[0];
     name.value = "연결 복구 테스트";
     name.dispatchEvent({ type: "input" });
@@ -605,7 +645,7 @@ test("a disconnected player cannot bypass the room flow with a solo fallback", (
     const solo = button(lobby.element, "서버 없이 혼자 입장");
     assert.equal(solo, null);
     assert.equal(lobby.isOpen(), true);
-    assert.match(byClass(lobby.element, "postgame-room-lobby__connection")[0].textContent, /서버 연결/u);
+    assert.match(byClass(lobby.element, "postgame-room-lobby__connection")[0].textContent, /연결을 복구/u);
   } finally {
     restore();
   }

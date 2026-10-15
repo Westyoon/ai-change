@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   createResultOverlay,
   formatResultMetric,
@@ -214,6 +215,57 @@ test("result overlay renders optional egg artwork without changing the common re
     assert.equal(artwork.getAttribute("height"), "1254");
     overlay.destroy();
   });
+});
+
+test("X egg success and failure show only artwork, outcome and navigation, without deleting result data", async () => {
+  const config = JSON.parse(await readFile(new URL("../../data/battle/xr-egg-trials.json", import.meta.url), "utf8"));
+  const battles = JSON.parse(await readFile(new URL("../../data/battles.json", import.meta.url), "utf8"));
+  assert.equal(battles.find(battle => battle.id === "xr-egg-trials").title, "X알의 폭주");
+  for (const status of ["CLEAR", "FAIL"]) {
+    withFakeDocument(() => {
+      const result = { battleId: "xr-egg-trials", status, score: 400, durationMs: 7700, metrics: { trial: "mash", presses: 40, remainingMs: 2300 } };
+      const original = structuredClone(result);
+      const overlay = createResultOverlay({
+        result,
+        presentation: config.resultPresentation,
+        contextLabel: "BATTLE · X알의 폭주",
+        illustration: { src: `./assets/images/story-eggs/${status === "CLEAR" ? "heart" : "xr"}-egg.png` },
+        onMap() {}, onMenu() {},
+      });
+      const card = overlay.element.children[0];
+      assert.equal(card.dataset.compact, "true");
+      assert.deepEqual(card.children.map(child => child.tagName), ["IMG", "H2", "DIV"]);
+      assert.equal(card.children[1].textContent, status === "CLEAR" ? "X알 정화 성공" : "X알 정화 실패");
+      assert.deepEqual(overlay.element.querySelectorAll("button").map(button => button.textContent), ["확인"]);
+      assert.deepEqual(result, original, "scores and metrics remain available for saving and rewards");
+      overlay.destroy();
+    });
+  }
+});
+
+test("reward notice updates accessibly without reintroducing metrics, and ignores updates after destroy", () => {
+  withFakeDocument(() => {
+    const overlay = createResultOverlay({
+      result: { battleId: "xr-egg-trials", status: "CLEAR", score: 400, durationMs: 1000, metrics: { presses: 40 } },
+      notice: "경험치 지급 확인 중…", onMap() {}, onMenu() {},
+    });
+    const card = overlay.element.children[0];
+    const notice = card.children.find(child => child.className === "result-card__notice");
+    assert.equal(notice.getAttribute("role"), "status");
+    assert.equal(overlay.setNotice("경험치 +100 획득"), true);
+    assert.equal(notice.textContent, "경험치 +100 획득");
+    assert.equal(card.children.some(child => child.tagName === "DL"), false);
+    overlay.destroy();
+    assert.equal(overlay.setNotice("late response"), false);
+    assert.equal(notice.textContent, "경험치 +100 획득");
+  });
+});
+
+test("result egg CSS overrides intrinsic HTML height and keeps a compact short-screen layout", async () => {
+  const css = await readFile(new URL("../../css/minigames.css", import.meta.url), "utf8");
+  assert.match(css, /\.result-card__illustration\s*\{[^}]*height:\s*auto;/su);
+  assert.match(css, /\.result-card\[data-compact="true"\] \.result-card__illustration\s*\{[^}]*width:\s*clamp\(80px, 20svh, 144px\);[^}]*height:\s*auto;/su);
+  assert.match(css, /@media \(max-height: 500px\) and \(min-width: 480px\)/u);
 });
 
 test("a first guardian CLEAR keeps only the after-story action until the egg is acquired", () => {

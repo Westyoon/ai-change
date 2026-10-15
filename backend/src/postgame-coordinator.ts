@@ -6,11 +6,11 @@ const MIN_PRESENCE_INTERVAL_MS = 40;
 const MAX_ROOM_NAME_LENGTH = 32;
 const DEFAULT_ROOM_NAME = "보스 대기실";
 
-const ZONES = ["entry-field", "plaza"] as const;
+const ZONES = ["entry-field", "plaza", "battle:data-sphinx", "battle:stat-boss", "battle:control-boss"] as const;
 const DIRECTIONS = ["up", "down", "left", "right"] as const;
 const BATTLE_IDS = ["data-sphinx", "stat-boss", "control-boss"] as const;
 const RANKED_BATTLE_IDS = ["stat-boss", "control-boss"] as const;
-const EXPERIENCE_PER_POSTGAME_CLEAR = 100;
+import { createPostgameReward } from "./progression";
 
 type Zone = (typeof ZONES)[number];
 type Direction = (typeof DIRECTIONS)[number];
@@ -56,6 +56,7 @@ interface SocketAttachment {
   playerId: string;
   name: string;
   zone: Zone;
+  hairColor?: string;
   x: number;
   y: number;
   direction: Direction;
@@ -135,6 +136,7 @@ interface AwardedPostgameResultRow {
 interface PublicPlayer {
   id: string;
   name: string;
+  hairColor: string;
   zone: Zone;
   x: number;
   y: number;
@@ -166,6 +168,8 @@ interface PublicBattlePlayer {
   hp: number | null;
   maxHp: number | null;
   alive: boolean;
+  hairColor: string;
+  presence: { x: number; y: number; direction: Direction; moving: boolean } | null;
 }
 
 interface PublicBattle {
@@ -715,6 +719,8 @@ export class PostgameCoordinator {
       playerKey,
       playerId: crypto.randomUUID(),
       name: normalizeName(rawName),
+      hairColor: ["magenta", "purple", "brown", "blonde"].includes(request.headers.get("x-ai-player-hair-color") ?? "")
+        ? request.headers.get("x-ai-player-hair-color")! : "purple",
       zone: "entry-field",
       x: 0.5,
       y: 0.5,
@@ -888,18 +894,30 @@ export class PostgameCoordinator {
     update: Extract<ClientMessage, { type: "presence.update" }>,
   ): void {
     const now = Date.now();
-    if (attachment.lastPresenceAt && now - attachment.lastPresenceAt < MIN_PRESENCE_INTERVAL_MS) {
-      throw new ProtocolError("presence_rate_limited", "위치 갱신이 너무 빠릅니다.");
-    }
-
     const previousZone = attachment.zone;
+    if (update.zone.startsWith("battle:")) {
+      const battle = attachment.roomId ? this.battles.get(attachment.roomId) : null;
+      if (!battle || update.zone !== `battle:${battle.battleId}`) {
+        throw new ProtocolError("invalid_presence", "참가 중인 전투의 위치만 보낼 수 있습니다.");
+      }
+    }
+    const movementChanged = attachment.moving !== update.moving;
+    const shouldBroadcast = previousZone !== update.zone
+      || movementChanged
+      || !attachment.lastPresenceAt
+      || now - attachment.lastPresenceAt >= MIN_PRESENCE_INTERVAL_MS;
+    // Network jitter can bunch otherwise well-spaced packets. Keep the newest
+    // position for snapshots, but throttle redundant broadcasts without errors.
+    // Always publish zone/movement transitions so the last stop cannot be lost.
+    // The connection-wide message budget still rejects sustained flooding.
     attachment.zone = update.zone;
     attachment.x = update.x;
     attachment.y = update.y;
     attachment.direction = update.direction;
     attachment.moving = update.moving;
-    attachment.lastPresenceAt = now;
+    if (shouldBroadcast) attachment.lastPresenceAt = now;
     socket.serializeAttachment(attachment);
+    if (!shouldBroadcast) return;
 
     if (previousZone !== attachment.zone) {
       this.broadcastToZone(
@@ -1464,6 +1482,7 @@ export class PostgameCoordinator {
       id: attachment.playerId,
       name: attachment.name,
       zone: attachment.zone,
+      hairColor: attachment.hairColor ?? "purple",
       x: attachment.x,
       y: attachment.y,
       direction: attachment.direction,
@@ -1509,7 +1528,9 @@ export class PostgameCoordinator {
       allReady: this.battleAllReady(battle),
       roster: battle.members
         .filter((member) => !member.left)
-        .map((member) => ({
+        .map((member) => {
+          const participant = this.socketByPlayerId(member.publicId)?.attachment;
+          return {
           id: member.publicId,
           name: member.name,
           ready: member.ready,
@@ -1517,7 +1538,11 @@ export class PostgameCoordinator {
           hp: member.hp,
           maxHp: member.maxHp,
           alive: member.hp !== 0,
-        })),
+          hairColor: participant?.hairColor ?? "purple",
+          presence: participant?.zone === `battle:${battle.battleId}` ? {
+            x: participant.x, y: participant.y, direction: participant.direction, moving: participant.moving,
+          } : null,
+        }; }),
       startedAt: battle.startedAt,
     };
     if (battle.status === "finished" && battle.finishedAt !== null) {
@@ -1578,13 +1603,21 @@ export class PostgameCoordinator {
         (player) =>
           player.playerId !== recipient.playerId &&
           player.playerKey !== recipient.playerKey &&
-          player.zone === recipient.zone,
+          player.zone === recipient.zone &&
+          (!recipient.zone.startsWith("battle:") || player.roomId === recipient.roomId),
       )
       .map((player) => this.publicPlayer(player));
     this.send(socket, { type: "presence.snapshot", zone: recipient.zone, players });
   }
 
   private broadcastPresence(sender: SocketAttachment, payload: unknown): void {
+    if (sender.zone.startsWith("battle:")) {
+      for (const { socket, attachment } of this.activeSockets()) {
+        if (attachment.zone === sender.zone && attachment.roomId === sender.roomId
+          && attachment.playerKey !== sender.playerKey) this.send(socket, payload);
+      }
+      return;
+    }
     this.broadcastToZone(sender.zone, payload, sender.playerKey);
   }
 
@@ -1737,6 +1770,7 @@ export class PostgameCoordinator {
     if (needsReward) {
       for (const member of members) {
         const rewardId = crypto.randomUUID();
+        const { EXPERIENCE_PER_POSTGAME_CLEAR, POSTGAME_LEVEL_GAIN_SQL } = createPostgameReward();
         statements.push(
           this.env.DB.prepare(
             `INSERT INTO postgame_results
@@ -1748,8 +1782,8 @@ export class PostgameCoordinator {
             `UPDATE stats
                 SET clears = COALESCE(clears, 0) + 1,
                     experience = COALESCE(experience, 0) + ${EXPERIENCE_PER_POSTGAME_CLEAR},
-                    level = COALESCE(level, 1) + 1,
-                    unspent_points = COALESCE(unspent_points, 0) + 1,
+                    level = COALESCE(level, 1) + (${POSTGAME_LEVEL_GAIN_SQL}),
+                    unspent_points = COALESCE(unspent_points, 0) + (${POSTGAME_LEVEL_GAIN_SQL}),
                     updated_at = CURRENT_TIMESTAMP
               WHERE user_id = ?
                 AND EXISTS (

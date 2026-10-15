@@ -59,6 +59,24 @@ function deferredResponse() {
   return { promise, resolve };
 }
 
+test("hair color saves to the authenticated account and rejects invalid choices", async () => {
+  const mock = queuedFetch([
+    jsonResponse({ authenticated: true, user: { nickname: "이화", name: "이화" }, stats: { hp: 100 } }),
+    jsonResponse({ authenticated: true, user: { nickname: "이화", name: "이화", hairColor: "brown" }, stats: { hp: 100 } }),
+  ]);
+  const service = new AccountService({ fetchImpl: mock.fetchImpl });
+  await assert.rejects(service.updateHairColor("purple"), /로그인/u);
+  await service.refreshSession();
+  await assert.rejects(service.updateHairColor("unknown"), /머리색/u);
+  await service.updateHairColor("brown");
+  assert.equal(mock.calls.length, 2);
+  assert.equal(mock.calls[1][0], "/api/player-appearance");
+  assert.equal(mock.calls[1][1].method, "PATCH");
+  assert.deepEqual(JSON.parse(mock.calls[1][1].body), { hairColor: "brown" });
+  assert.equal(service.getState().user.hairColor, "brown");
+  assert.equal(service.getState().user.nickname, "이화");
+});
+
 test("AccountService restores a same-origin session and exposes only display account fields", async () => {
   const mock = queuedFetch([jsonResponse({
     authenticated: true,

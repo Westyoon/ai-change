@@ -137,6 +137,13 @@ test("X알 Battle은 lifecycle과 attempt당 한 번의 결과 계약을 지킨�
   assert.ok(paper);
   paper.dispatch("click");
   paper.dispatch("click");
+  assert.equal(battle.getState().state, "RUNNING");
+  assert.equal(completions.length, 0, "the result screen must not cover the revealed hands");
+  const confirm = visit(root, (element) => element.className.includes("xr-trials__rps-confirm"));
+  assert.equal(confirm.hidden, false);
+  assert.equal(paper.disabled, true);
+  confirm.dispatch("click");
+  confirm.dispatch("click");
   assert.equal(battle.getState().state, "COMPLETED");
   assert.deepEqual(completions, [{
     attemptId: "xr:1",
@@ -152,6 +159,8 @@ test("X알 Battle은 lifecycle과 attempt당 한 번의 결과 계약을 지킨�
   battle.restart({ attemptId: "xr:2" });
   const rock = visit(root, (element) => element.dataset.hand === "rock");
   rock.dispatch("click");
+  assert.equal(completions.length, 1);
+  visit(root, (element) => element.className.includes("xr-trials__rps-confirm")).dispatch("click");
   assert.equal(completions.length, 2);
   assert.equal(completions[1].candidate.status, "FAIL");
   assert.equal(completions[1].candidate.failureReason, "RPS_DRAW");
@@ -161,6 +170,56 @@ test("X알 Battle은 lifecycle과 attempt당 한 번의 결과 계약을 지킨�
   assert.equal(input.listenerCount(), 0);
   assert.equal(root.children.length, 0);
   assert.equal(battle.getState().state, "DESTROYED");
+});
+
+test("RPS reveals both hands for win/draw/loss and preserves the choice across pause", async () => {
+  for (const [hand, outcome, result] of [["paper", "win", "CLEAR"], ["rock", "draw", "FAIL"], ["scissors", "lose", "FAIL"]]) {
+    const root = createRoot();
+    const completions = [];
+    let rolls = 0;
+    const battle = createBattle({ root, random: () => { rolls++; return 0; }, onComplete: (_, value) => completions.push(value) });
+    await battle.init({ selectionMode: "fixed", fixedTrialId: "rps" });
+    battle.start({ attemptId: `reveal:${outcome}` });
+    const confirm = visit(root, node => node.className.includes("xr-trials__rps-confirm"));
+    assert.equal(confirm.hidden, true);
+    confirm.dispatch("click");
+    assert.equal(completions.length, 0);
+    const choice = visit(root, node => node.dataset.hand === hand);
+    choice.dispatch("click");
+    const opponent = visit(root, node => node.attributes.get("aria-label") === "컴퓨터 선택: 바위");
+    assert.equal(visit(opponent, node => node.dataset.handImage === "rock").className, "xr-trials__hand-image");
+    assert.deepEqual(battle.getState().metrics, { playerHand: hand, opponentHand: "rock", outcome });
+    assert.equal(completions.length, 0);
+    battle.pause();
+    confirm.dispatch("click");
+    assert.equal(completions.length, 0);
+    battle.resume();
+    assert.equal(choice.disabled, true);
+    assert.equal(confirm.disabled, false);
+    choice.dispatch("click");
+    assert.equal(rolls, 1, "revealing a hand must lock the round, including after resume");
+    assert.match(visit(root, node => node.className === "xr-trials__status").textContent, /컴퓨터: 바위/u);
+    confirm.dispatch("click");
+    assert.equal(completions[0].status, result);
+    battle.destroy();
+  }
+});
+
+test("leaving or restarting an unconfirmed RPS round never submits its stale result", async () => {
+  const root = createRoot();
+  const completions = [];
+  const battle = createBattle({ root, random: () => 0, onComplete: (...args) => completions.push(args) });
+  await battle.init({ selectionMode: "fixed", fixedTrialId: "rps" });
+  battle.start({ attemptId: "old" });
+  visit(root, node => node.dataset.hand === "paper").dispatch("click");
+  battle.restart({ attemptId: "new" });
+  assert.deepEqual(battle.getState().metrics, {});
+  const confirm = visit(root, node => node.className.includes("xr-trials__rps-confirm"));
+  assert.equal(confirm.hidden, true);
+  visit(root, node => node.dataset.hand === "rock").dispatch("click");
+  battle.destroy();
+  confirm.dispatch("click");
+  assert.equal(completions.length, 0);
 });
 
 test("연타 시험은 공용 CONFIRM 입력과 모바일 버튼을 같은 판정으로 처리한다", async () => {

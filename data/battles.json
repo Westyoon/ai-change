@@ -61,8 +61,8 @@
   },
   {
     "id": "xr-egg-trials",
-    "title": "X알 무작위 챌린지",
-    "description": "가위바위보, 카드 짝맞추기, 연타 중 무작위로 선택된 한 가지 시험에 도전합니다.",
+    "title": "X알의 폭주",
+    "description": "가위바위보, 카드 짝맞추기, 연타 중 한 가지 게임으로 폭주한 X알을 정화합니다.",
     "module": "xr-egg-trials",
     "status": "published",
     "usesAccountStats": false,

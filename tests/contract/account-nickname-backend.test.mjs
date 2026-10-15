@@ -40,6 +40,19 @@ test("authenticated users can update only their own normalized nickname", () => 
   assert.match(normalize, /\\p\{C[cfst]\}/u);
 });
 
+test("hair changes require the same authenticated mutation protections and are injected by the server", () => {
+  const update = functionBody(worker, "updateHairColor");
+  assert.match(update, /requireMethod\(request, "PATCH"\)/u);
+  assert.match(update, /requireMutationRequest\(request, origin\)/u);
+  assert.match(update, /requireSession\(request, env\)/u);
+  assert.match(update, /Object\.keys\(body\)\.length !== 1/u);
+  assert.match(update, /UPDATE users SET hair_color = \? WHERE id = \?/u);
+  assert.match(update, /\.bind\(body\.hairColor, session\.user_id\)/u);
+  assert.doesNotMatch(update, /body\.(?:userId|email|id)\b/u);
+  assert.match(functionBody(worker, "getSession"), /u\.hair_color/u);
+  assert.match(functionBody(worker, "connectPostgame"), /"x-ai-player-hair-color": accountUser\(session\)\.hairColor/u);
+});
+
 test("nickname persists separately from the Google name and is returned as the display identity", () => {
   const callback = functionBody(worker, "finishGoogleLogin");
   const session = functionBody(worker, "getSession");

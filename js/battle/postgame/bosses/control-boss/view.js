@@ -6,6 +6,9 @@ import {
   CONTROL_BOSS_BULLET_RADIUS,
   CONTROL_BOSS_PHASES,
 } from "./encounter.js";
+import { formatCombatValue, formatCombatHealth, formatBossValue, formatBossHealth } from "../../../combat-display.js";
+import { createDamageNumbers } from "../../../damage-numbers.js";
+import { createCombatImpact } from "../../../combat-impact.js";
 
 const PHASE_LABELS = Object.freeze({
   [CONTROL_BOSS_PHASES.SHIELD]: "Phase 1 · 실드 파괴",
@@ -65,7 +68,13 @@ export class ControlBossView {
     this.bulletElements = new Map();
     this.shockwaveElements = new Map();
     this.tileElements = new Map();
+    this.bossOutcome = null;
+    this.bossHitUntilMs = 0;
+    this.bossAttackUntilMs = 0;
+    this.lastBossSnapshot = null;
     this.element = this.#buildDom();
+    this.combatImpact = createCombatImpact(this.element);
+    this.damageNumbers = createDamageNumbers(this.bossActor, this.document);
   }
 
   mount(parent) {
@@ -73,12 +82,48 @@ export class ControlBossView {
     parent.append(this.element);
   }
 
+  showBossHit() {
+    this.bossHitUntilMs = (this.lastBossSnapshot?.elapsedMs ?? 0) + 280;
+    if (!this.bossOutcome) this.bossSprite.dataset.pose = "hit";
+  }
+
+  setBossOutcome(status) {
+    this.bossOutcome = status === "CLEAR" ? "death" : "victory";
+    this.bossSprite.dataset.pose = this.bossOutcome;
+  }
+
   render(snapshot, characterSnapshot = null) {
     if (!snapshot || !this.element) return;
+    const now = snapshot.elapsedMs ?? 0;
+    const previous = this.lastBossSnapshot;
+    if (previous && (snapshot.currentHp < previous.currentHp || snapshot.currentShield < previous.currentShield)) {
+      this.combatImpact.pulse();
+      this.bossHitUntilMs = now + 280;
+    }
+    const oldBullets = new Set((previous?.bullets ?? []).map((bullet) => bullet.id));
+    const oldWaves = new Set((previous?.shockwaves ?? []).map((wave) => wave.id));
+    if ((snapshot.bullets ?? []).some((bullet) => !oldBullets.has(bullet.id))
+      || (snapshot.shockwaves ?? []).some((wave) => !oldWaves.has(wave.id))) {
+      this.bossAttackUntilMs = now + 450;
+    }
+    const pose = this.bossOutcome
+      ?? (snapshot.currentHp <= 0 ? "death"
+        : now < this.bossHitUntilMs ? "hit"
+          : snapshot.phase === CONTROL_BOSS_PHASES.INSTANT_KILL || now < this.bossAttackUntilMs ? "attack"
+            : "idle");
+    this.bossSprite.dataset.pose = pose;
+    this.lastBossSnapshot = snapshot;
     setProgress(this.bossHpTrack, this.bossHpFill, snapshot.currentHp, snapshot.maxHp);
     setProgress(this.shieldTrack, this.shieldFill, snapshot.currentShield, snapshot.maxShield);
-    this.bossHpText.textContent = `${Math.ceil(snapshot.currentHp)} / ${snapshot.maxHp}`;
-    this.shieldText.textContent = `${Math.ceil(snapshot.currentShield)} / ${snapshot.maxShield}`;
+    this.bossHpText.textContent = formatBossHealth(snapshot.currentHp, snapshot.maxHp);
+    this.shieldText.textContent = formatBossHealth(snapshot.currentShield, snapshot.maxShield);
+    for (const [track, value, max] of [
+      [this.bossHpTrack, snapshot.currentHp, snapshot.maxHp],
+      [this.shieldTrack, snapshot.currentShield, snapshot.maxShield],
+    ]) {
+      track.setAttribute("aria-valuemax", formatBossValue(max));
+      track.setAttribute("aria-valuenow", formatBossValue(value));
+    }
     this.phaseBadge.textContent = PHASE_LABELS[snapshot.phase] ?? `Phase ${snapshot.phase}`;
     this.phaseBadge.dataset.phase = String(snapshot.phase);
 
@@ -124,9 +169,15 @@ export class ControlBossView {
       maxHealth: snapshot.playerMaxHp,
       appearance: { id: "player", label: "YOU", color: "#2e7d32", accentColor: "#69db7c" },
     };
+    this.combatImpact.player(renderedCharacter);
     this.characterView.render(renderedCharacter);
-    this.playerHpText.textContent = `${Math.ceil(snapshot.playerHp)} / ${snapshot.playerMaxHp}`;
-    this.playerState.textContent = snapshot.isStunned
+    setProgress(this.playerHpTrack, this.playerHpFill, snapshot.playerHp, snapshot.playerMaxHp);
+    this.playerHpTrack.setAttribute("aria-valuemax", formatCombatValue(snapshot.playerMaxHp));
+    this.playerHpTrack.setAttribute("aria-valuenow", formatCombatValue(snapshot.playerHp));
+    this.playerHpText.textContent = formatCombatHealth(snapshot.playerHp, snapshot.playerMaxHp);
+    this.playerState.textContent = snapshot.playerHp <= 0
+      ? "전투 불능"
+      : snapshot.isStunned
       ? `경직 · ${formatSeconds(snapshot.stunRemainingMs)}`
       : snapshot.isCovered
         ? "엄폐 중"
@@ -134,6 +185,8 @@ export class ControlBossView {
   }
 
   destroy() {
+    this.combatImpact.destroy();
+    this.damageNumbers.destroy();
     this.element?.remove();
     this.element = null;
     this.bulletElements.clear();
@@ -158,7 +211,7 @@ export class ControlBossView {
       positionRect(node, tile.bounds, this.arena);
       node.dataset.kind = tile.kind;
       node.dataset.cleared = String(tile.cleared);
-      node.textContent = tile.kind === "hole" ? "🕳️" : tile.kind === "plate" ? String(tile.order) : "·";
+      node.textContent = tile.kind === "hole" ? "" : tile.kind === "plate" ? String(tile.order) : "·";
     }
     for (const [id, node] of this.tileElements) {
       if (active.has(id)) continue;
@@ -263,15 +316,20 @@ export class ControlBossView {
       dataset: { visible: "false" },
       attributes: { role: "progressbar", "aria-label": "보스 시전 시간", "aria-valuemin": "0" },
     }, [this.castFill, this.castLabel]);
+    this.bossSprite = element("span", {
+      className: "control-boss-sprite",
+      dataset: { pose: "idle" },
+      attributes: { "aria-hidden": "true" },
+    });
     this.bossActor = element("div", { className: "control-boss-actor", attributes: { "aria-hidden": "true" } }, [
-      element("span", { className: "control-boss-actor__label", text: "BOSS" }),
+      this.bossSprite,
       this.castWrap,
     ]);
+    this.bossSprite.style.backgroundImage = 'url("./assets/images/bosses/control-boss-poses.png")';
     positionRect(this.bossActor, this.config.world.bossZone, this.arena);
 
     this.cover = element("div", {
       className: "control-boss-cover",
-      text: "🛡️ 엄폐벽",
       dataset: { active: "false" },
       attributes: { "aria-hidden": "true" },
     });
@@ -293,9 +351,15 @@ export class ControlBossView {
     }, [this.tilesLayer, this.cover, this.bossActor, this.shockwaveLayer, this.bulletLayer, this.attackRange, this.playerActor]);
 
     this.playerHpText = element("output", { className: "control-boss-player-hp", text: "100 / 100" });
+    this.playerHpFill = element("span", { className: "control-boss-bar__fill control-boss-bar__fill--player" });
+    this.playerHpTrack = element("span", {
+      className: "control-boss-bar__track control-boss-player-hp-track",
+      attributes: { role: "progressbar", "aria-label": "내 체력", "aria-valuemin": "0" },
+    }, [this.playerHpFill]);
     this.playerState = element("output", { className: "control-boss-player-state", text: "전투 준비" });
     const playerHud = element("div", { className: "control-boss-player-hud" }, [
       element("strong", { text: "PLAYER" }),
+      this.playerHpTrack,
       this.playerHpText,
       this.playerState,
     ]);

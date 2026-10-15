@@ -22,13 +22,18 @@ import {
   currentRoomFromState,
 } from "../battle/postgame/room-lobby.js";
 import { createBattleRecoveryPrompt } from "../battle/postgame/battle-recovery-prompt.js";
+import { bindBattlePresence } from "../battle/postgame/battle-presence.js";
 import { createGuestTestRoomSession } from "../battle/postgame/guest-test-room-session.js";
-import { DEFAULT_PLAYER_APPEARANCE, createBattlePlayer } from "../battle/player-config.js";
+import { DEFAULT_PLAYER_APPEARANCE, createBattlePlayer, createPlayerAppearance } from "../battle/player-config.js";
+import { promptForHairColor } from "../ui/hair-color-picker.js";
+import { formatCombatValue } from "../battle/combat-display.js";
 import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { validateMiniGameCandidate } from "../core/config-validator.js";
 import { GameLoop } from "../core/game-loop.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
-import { OUTRO_STORY_ID, markStorySeen } from "../core/story-progress.js";
+import { OUTRO_STORY_ID, isFestivalOpen, markStorySeen } from "../core/story-progress.js";
+import { EIAI_BATTLE_INTRO } from "../core/finale-story.js";
+import { createStoryDialogueView } from "../ui/story-dialogue-view.js";
 import { rectsOverlap } from "../map/collision.js";
 import { createResultOverlay } from "../ui/result-overlay.js";
 import { createBattleComingSoonScene } from "./battle-coming-soon-scene.js";
@@ -44,6 +49,17 @@ const RANDOM_FIELD_MINIGAME_ID = "xr-egg-trials";
 const XR_EGG_IMAGE_SRC = "./assets/images/story-eggs/xr-egg.png";
 const HEART_EGG_IMAGE_SRC = "./assets/images/story-eggs/heart-egg.png";
 const COMBAT_VALUE_SCALE = 1_000_000;
+
+export function getXEggRewardNotice(submission) {
+  if (submission?.submitted && !submission.duplicate && submission.awarded) {
+    return Number.isInteger(submission.experienceAwarded) && submission.experienceAwarded > 0
+      ? `경험치 +${submission.experienceAwarded} 획득`
+      : "경험치 획득";
+  }
+  if (submission?.reason === "guest") return "획득 경험치 0 · 로그인 후 획득할 수 있어요";
+  if (submission?.duplicate) return "이미 지급된 경험치입니다";
+  return "획득 경험치 0";
+}
 
 export function getBattleResultIllustration(battleId, status) {
   if (battleId !== RANDOM_FIELD_MINIGAME_ID) return null;
@@ -61,11 +77,6 @@ export function getBattleResultIllustration(battleId, status) {
 function roundCombatValue(value) {
   if (Math.abs(value) >= Number.MAX_SAFE_INTEGER / COMBAT_VALUE_SCALE) return value;
   return Math.round((value + Number.EPSILON) * COMBAT_VALUE_SCALE) / COMBAT_VALUE_SCALE;
-}
-
-function formatCombatValue(value) {
-  const rounded = roundCombatValue(Number(value) || 0);
-  return String(rounded);
 }
 
 export function sharedBattleSeed(value) {
@@ -170,7 +181,7 @@ export function getBattleReturnDestination(battle) {
   const returnsToPreGameMap = battle?.id === FINAL_BATTLE_ID;
   return Object.freeze({
     sceneId: returnsToPreGameMap ? "map" : "battle",
-    label: returnsToPreGameMap ? "사전게임 맵으로" : "구역 맵으로",
+    label: returnsToPreGameMap ? "돌아가기" : "구역 맵으로",
   });
 }
 
@@ -358,6 +369,13 @@ export function getBattlePlayerHealth(battleId, snapshot, playerId = "player-1")
   return Object.freeze({ hp: normalizedHp, maxHp: normalizedMaxHp });
 }
 
+export function getOtherPartyMembers(roster, selfId) {
+  // Each boss already owns the local player's health meter. Until our public
+  // identity is known, do not accidentally render it again as a teammate.
+  if (!selfId || !Array.isArray(roster)) return [];
+  return roster.filter(member => member?.id && member.id !== selfId).slice(0, 4);
+}
+
 export function getPartyMemberHealthView(member) {
   const maxHp = Number.isFinite(Number(member?.maxHp)) && Number(member.maxHp) > 0
     ? Math.max(1, Math.trunc(Number(member.maxHp)))
@@ -379,6 +397,15 @@ export function getPartyMemberHealthView(member) {
           ? "준비 중"
           : `${formatCombatValue(hp)}/${formatCombatValue(maxHp)}`,
   });
+}
+
+export function getSharedDefeatMessage(snapshot, selfId) {
+  const hasSurvivor = Boolean(selfId) && (snapshot?.roster ?? []).some((member) => (
+    member.id !== selfId && member.connected !== false && member.alive !== false && member.hp > 0
+  ));
+  return hasSurvivor
+    ? "전투 불능 상태입니다. 남은 파티원의 전투를 관전합니다."
+    : "전투가 끝났습니다. 전투 결과를 확인하고 있습니다.";
 }
 
 export function getResumedPartyHealth(snapshot, selfId) {
@@ -429,8 +456,19 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       if (signal.aborted) return;
 
       const definitions = publishedBattles(context);
+      if (!isFestivalOpen(context)) {
+        root.append(createElement("section", { className: "scene scene--centered" }, [
+          createElement("h1", { text: "이아이와 함께 축제를 열어 주세요" }),
+          createButton("이야기로 돌아가기", () => context.router.navigate("map"), "primary"),
+        ]));
+        return;
+      }
       const saveState = context.services.save?.getState?.() ?? {};
       let accountState = service.getState();
+      if (accountState.authenticated && !accountState.user?.hairColor && typeof service.updateHairColor === "function") {
+        if (!await promptForHairColor(root, service, { signal })) return;
+        accountState = service.getState();
+      }
       const guestTestMode = guestBattleTesting && !accountState.authenticated;
       const guestTestRoomSession = guestTestMode
         ? createGuestTestRoomSession()
@@ -481,21 +519,6 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       const zoneBadge = createElement("span", {
         className: "aftergame-world__zone-badge",
       });
-      const networkBadge = createElement("span", {
-        className: "aftergame-world__network-badge",
-        text: accountState.authenticated
-          ? "온라인 연결 중…"
-          : guestTestMode
-            ? "게스트 테스트"
-            : "로그인 필요",
-        dataset: {
-          status: accountState.authenticated
-            ? "connecting"
-            : guestTestMode
-              ? "local-test"
-              : "offline",
-        },
-      });
       const worldStatus = createElement("p", {
         className: "battle-field-status aftergame-world__status",
         attributes: { role: "status", "aria-live": "polite" },
@@ -532,7 +555,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         dataset: { zoneId: AFTERGAME_ZONE_IDS.FIELD },
         attributes: { "aria-hidden": "true" },
       }, [
-        createElement("span", { className: "aftergame-world__field-sign", text: "랜덤 미니게임 필드" }),
+        createElement("span", { className: "aftergame-world__field-sign", text: "X알의 폭주 필드" }),
         createElement("span", { className: "aftergame-world__field-path", attributes: { "aria-hidden": "true" } }),
         createElement("span", { className: "aftergame-world__field-spark aftergame-world__field-spark--one", attributes: { "aria-hidden": "true" } }),
         createElement("span", { className: "aftergame-world__field-spark aftergame-world__field-spark--two", attributes: { "aria-hidden": "true" } }),
@@ -579,7 +602,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         className: "aftergame-world__edge-gate aftergame-world__edge-gate--east",
         type: "button",
         disabled: !fieldUnlock.unlocked,
-        attributes: { "aria-label": "오른쪽 출구로 랜덤 미니게임 필드 이동" },
+        attributes: { "aria-label": "오른쪽 출구로 X알의 폭주 필드 이동" },
         dataset: {
           triggerId: plazaExit.id,
           targetZoneId: plazaExit.targetZoneId,
@@ -655,14 +678,9 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       }, [
         createElement("header", { className: "aftergame-world__header" }, [
           createElement("div", { className: "aftergame-world__heading" }, [zoneKicker, zoneTitle]),
-          createElement("div", { className: "aftergame-world__badges" }, [zoneBadge, networkBadge]),
         ]),
         worldStage,
         worldStatus,
-        createElement("div", { className: "aftergame-world__actions" }, [
-          createButton("Story 맵", () => enterRoute({ sceneId: "map", params: {} }), "ghost"),
-          createButton("메뉴", () => enterRoute({ sceneId: "main-menu", params: {} }), "ghost"),
-        ]),
       ]);
 
       const nodeBattles = [
@@ -821,12 +839,12 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         worldElement.dataset.zoneId = activeZoneId;
         worldShell.dataset.zoneId = activeZoneId;
         zoneKicker.textContent = inField ? "RANDOM · FIELD" : "CENTRAL · PLAZA";
-        zoneTitle.textContent = inField ? "랜덤 미니게임 필드" : "중심 광장";
+        zoneTitle.textContent = inField ? "X알의 폭주 필드" : "중심 광장";
         zoneBadge.textContent = inField ? "ROAMING" : "3 BOSS GATES";
         worldElement.setAttribute(
           "aria-label",
           inField
-            ? "캐릭터로 이동하며 X알을 만나는 랜덤 미니게임 필드"
+            ? "캐릭터로 이동하며 X알을 만나는 X알의 폭주 필드"
             : "캐릭터로 이동하며 세 보스맵을 선택하는 중심 광장",
         );
         setBaseStatus();
@@ -853,7 +871,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           encounter ? "field-random-encounter" : "aftergame-navigation",
         );
         if (encounter) {
-          worldStatus.textContent = "랜덤 미니게임에 입장합니다.";
+          worldStatus.textContent = "X알의 폭주에 입장합니다.";
           worldStatus.dataset.active = "true";
         }
         loop?.pause();
@@ -891,12 +909,17 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           if (sent === false) showToast(context, fallbackMessage);
           return sent !== false;
         } catch (error) {
-          showToast(context, error instanceof Error ? error.message : fallbackMessage);
+          showToast(context, fallbackMessage);
           return false;
         }
       };
 
       roomLobby = createPostgameRoomLobby({
+        getSelfAppearance: () => createPlayerAppearance(service.getState().user?.hairColor),
+        onRefresh: () => {
+          if (!guestTestRoomSession) realtimeService?.connect();
+          roomLobby?.render(guestTestRoomSession?.getState() ?? realtimeService?.getState());
+        },
         onCreate: (battleId, capacity, roomName) => runRealtimeCommand(
           () => {
             const created = guestTestRoomSession
@@ -1074,7 +1097,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           );
           if (!sent) return false;
           handledFinishedBattleRooms.add(battleSnapshot.roomId);
-          worldStatus.textContent = "이전 공동 전투는 이미 종료되었습니다. 참가 상태를 정리하고 맵으로 돌아왔습니다.";
+          worldStatus.textContent = "전투가 종료되었습니다.";
           worldStatus.dataset.active = "true";
           return true;
         }
@@ -1208,7 +1231,9 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           direction: initialSpawn.direction,
           maxHealth: 1,
           currentHealth: 1,
-          appearance: DEFAULT_PLAYER_APPEARANCE,
+          appearance: accountState.authenticated
+            ? createPlayerAppearance(accountState.user?.hairColor, accountState.user?.nickname ?? accountState.user?.name ?? "플레이어")
+            : DEFAULT_PLAYER_APPEARANCE,
         },
         world: createZoneWorld(),
       }).start();
@@ -1241,26 +1266,9 @@ function createBattleEntryScene(context, { notice = null } = {}) {
       const renderRealtimeState = (realtimeState) => {
         roomLobby?.render(realtimeState);
         if (realtimeState?.mode === "local-test") {
-          networkBadge.textContent = "게스트 테스트";
-          networkBadge.dataset.status = "local-test";
           remoteView?.update([]);
           return;
         }
-        const onlineCount = (realtimeState?.players?.length ?? 0) + 1;
-        if (realtimeState?.connected) {
-          networkBadge.textContent = `온라인 · ${onlineCount}명`;
-          networkBadge.dataset.status = "connected";
-        } else if (realtimeState?.status === "reconnecting") {
-          networkBadge.textContent = "재연결 중…";
-          networkBadge.dataset.status = "reconnecting";
-        } else if (realtimeState?.status === "error") {
-          networkBadge.textContent = "온라인 연결 끊김";
-          networkBadge.dataset.status = "error";
-        } else {
-          networkBadge.textContent = accountState.authenticated ? "온라인 연결 중…" : "로그인 필요";
-          networkBadge.dataset.status = accountState.authenticated ? "connecting" : "offline";
-        }
-
         const width = Math.min(FIELD_CHARACTER_SIZE.width, worldSize.width);
         const height = Math.min(FIELD_CHARACTER_SIZE.height, worldSize.height);
         const remoteCharacters = (realtimeState?.players ?? [])
@@ -1276,7 +1284,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
             currentHealth: 1,
             maxHealth: 1,
             appearance: {
-              ...DEFAULT_PLAYER_APPEARANCE,
+              ...createPlayerAppearance(player.hairColor, player.name),
               id: `remote-${player.id}`,
               label: player.name,
               color: "#2ab5e4",
@@ -1348,7 +1356,7 @@ function createBattleEntryScene(context, { notice = null } = {}) {
             spawnPoint: spawn.id,
             battleId: nodeMap.field.battle.id,
           },
-          attributes: { "aria-label": "랜덤 미니게임 발견 · 입장" },
+          attributes: { "aria-label": "X알의 폭주 발견 · 입장" },
           on: { click: enterFieldEncounter },
         }, [
           createElement("img", {
@@ -1365,13 +1373,13 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           }),
           createElement("strong", {
             className: "battle-field-encounter__label",
-            text: "랜덤 미니게임",
+            text: "X알의 폭주",
           }),
         ]);
         placeFieldElement(markerElement, activeEncounter, worldSize);
         worldElement.append(markerElement);
         worldShell.dataset.encounterActive = "true";
-        worldStatus.textContent = "X알 미니게임이 출현했습니다. 가까이 가거나 X알을 눌러 입장하세요.";
+        worldStatus.textContent = "폭주한 X알이 출현했습니다. 가까이 가거나 X알을 눌러 입장하세요.";
         worldStatus.dataset.active = "true";
         system.setWorld(createZoneWorld());
         return true;
@@ -1555,6 +1563,8 @@ function createBattleEntryScene(context, { notice = null } = {}) {
 
 function createBattlePlayScene(context, battle) {
   let instance = null;
+  let battlePresence = null;
+  let introDialogue = null;
   let assetLease = null;
   let overlay = null;
   let currentAttemptId = null;
@@ -1566,6 +1576,7 @@ function createBattlePlayScene(context, battle) {
   let unsubscribeInput = null;
   let unsubscribeVisibility = null;
   let unsubscribeSharedBattleUi = null;
+  let unsubscribeHealthChange = null;
   let realtimeService = null;
   let sharedBattle = null;
   let preserveRealtimeOnUnmount = false;
@@ -1619,6 +1630,13 @@ function createBattlePlayScene(context, battle) {
         accountService.getState(),
       );
       if (!unlock.unlocked) throw new Error("아직 배틀 해금 조건을 충족하지 않았습니다.");
+      if (battle.id !== FINAL_BATTLE_ID && !isFestivalOpen(context)) {
+        root.append(createElement("section", { className: "scene scene--centered" }, [
+          createElement("h1", { text: "이아이와 함께 축제를 열어 주세요" }),
+          createButton("이야기로 돌아가기", () => context.router.navigate("map"), "primary"),
+        ]));
+        return;
+      }
 
       assetLease = context.services.assets.acquireGroup
         ? await context.services.assets.acquireGroup(battle.assetGroup, { signal })
@@ -1630,7 +1648,7 @@ function createBattlePlayScene(context, battle) {
       const arena = config?.arena ?? DEFAULT_ARENA;
 
       const frame = createElement("section", { className: "scene minigame-frame battle-frame" });
-      const title = createElement("strong", { text: contextLabel });
+      const title = createElement("strong", { text: battle.id === "stat-boss" ? "스탯보스" : battle.id === "control-boss" ? "컨트롤 보스" : "" });
       const partyRoster = Array.isArray(party?.roster)
         ? party.roster.slice(0, 5)
         : [];
@@ -1645,7 +1663,6 @@ function createBattlePlayScene(context, battle) {
             title: partyRoster.map((member) => member?.name ?? "플레이어").join(" · "),
           },
         });
-        titleGroup.append(partyBadge);
       }
       let pauseButton;
       const activeDurationMs = () => {
@@ -1659,7 +1676,7 @@ function createBattlePlayScene(context, battle) {
         pauseButton.textContent = pauseReasons.has("MANUAL") ? "재개" : "일시정지";
       };
       const requestPause = (reason) => {
-        if (!instance || terminal || pauseReasons.has(reason)) return false;
+        if (!instance || startedAt === null || terminal || pauseReasons.has(reason)) return false;
         const wasRunning = pauseReasons.size === 0;
         pauseReasons.add(reason);
         if (wasRunning) {
@@ -1720,33 +1737,35 @@ function createBattlePlayScene(context, battle) {
           ])
         : null;
       const playArea = createElement("div", { className: "battle-play-area" }, [
-        stage,
         partyHud,
+        stage,
       ]);
-      const controls = createBattleControls(config?.controls);
+      const controls = ["stat-boss", "word-breaker"].includes(battle.id) ? null : createBattleControls(config?.controls);
+      frame.dataset.hasControls = String(Boolean(controls));
       frame.append(toolbar);
       if (controls) frame.append(controls);
       frame.append(playArea);
       root.append(frame);
 
-      const renderPartyHud = (roster = partyRoster) => {
+      const renderPartyHud = (roster = latestSharedSnapshot?.roster ?? partyRoster) => {
         const list = partyHud?.querySelector?.(".battle-party-hud__list");
         if (!list) return;
         const publicSelfId = realtimeService?.getState?.()?.selfId ?? party?.selfId;
-        const rows = (Array.isArray(roster) ? roster : []).slice(0, 5).map((member) => {
+        const teammates = getOtherPartyMembers(roster, publicSelfId);
+        partyHud.hidden = teammates.length === 0;
+        playArea.dataset.hasParty = String(teammates.length > 0);
+        const rows = teammates.map((member) => {
           const health = getPartyMemberHealthView(member);
-          const isSelf = member?.id === publicSelfId;
           return createElement("li", {
             className: "battle-party-hud__member",
             dataset: {
               dead: String(health.dead),
               connected: String(member?.connected !== false),
-              self: String(isSelf),
             },
           }, [
             createElement("div", { className: "battle-party-hud__label" }, [
               createElement("strong", {
-                text: `${member?.name || "플레이어"}${isSelf ? " (나)" : ""}`,
+                text: member?.name || "플레이어",
               }),
               createElement("span", { text: health.label }),
             ]),
@@ -1770,8 +1789,7 @@ function createBattlePlayScene(context, battle) {
         latestSharedSnapshot = snapshot ?? latestSharedSnapshot;
         if (!partyBadge) {
           partyBadge = createElement("span", { className: "battle-party-badge" });
-          titleGroup.append(partyBadge);
-        }
+          }
         const roster = Array.isArray(snapshot?.roster) ? snapshot.roster : partyRoster;
         const publicSelfId = realtimeService?.getState?.()?.selfId ?? party?.selfId;
         const selfMember = roster.find((member) => member?.id === publicSelfId);
@@ -1819,7 +1837,9 @@ function createBattlePlayScene(context, battle) {
             const maxHp = health?.maxHp ?? 100;
             forcedDefeatedHealth = Object.freeze({ hp: 0, maxHp });
             syncLocalHealth();
-            showToast(context, "전투 불능 상태입니다. 남은 파티원의 전투를 관전합니다.");
+            showToast(context, getSharedDefeatMessage(
+              sharedBattle.getSnapshot(), realtimeService?.getState?.()?.selfId ?? party?.selfId,
+            ));
           }
           return;
         }
@@ -1831,31 +1851,25 @@ function createBattlePlayScene(context, battle) {
           candidate,
         });
         context.state.lastResult = result;
-        if (battle.id === RANDOM_FIELD_MINIGAME_ID && result.status === "CLEAR") {
-          void accountService.recordPostgameClear({
-            attemptId: result.sessionId,
-            battleId: battle.id,
-            status: result.status,
-            score: result.score,
-          }).then((submission) => {
-            if (!submission.submitted || submission.duplicate || !submission.awarded) return;
-            showToast(context, "X알 클리어 보상: 경험치 +100 · 스탯 포인트 +1");
-          }).catch(() => {
-            if (!accountService.getState().authenticated) return;
-            showToast(context, "X알 클리어는 완료됐지만 성장 보상을 저장하지 못했습니다.");
-          });
-        } else if (sharedBattle && result.status === "CLEAR") {
+        if (sharedBattle && result.status === "CLEAR") {
           // The Durable Object has already committed the server-authoritative
           // boss reward before broadcasting battle.finished.
           void accountService.refreshSession();
         }
         const completedFinalStory = battle.id === FINAL_BATTLE_ID && result.status === "CLEAR";
-        if (completedFinalStory) markStorySeen(context, OUTRO_STORY_ID);
+        if (completedFinalStory) {
+          markStorySeen(context, OUTRO_STORY_ID);
+          void context.router.navigate("story-ending");
+          return;
+        }
         const resultIllustration = getBattleResultIllustration(battle.id, result.status);
         overlay = createResultOverlay({
           result,
           contextLabel,
           illustration: resultIllustration,
+          notice: battle.id === RANDOM_FIELD_MINIGAME_ID
+            ? (result.status === "CLEAR" ? "경험치 지급 확인 중…" : "획득 경험치 0")
+            : null,
           presentation: sharedBattle
             ? {
                 ...config?.resultPresentation,
@@ -1869,15 +1883,6 @@ function createBattlePlayScene(context, battle) {
                 },
               }
             : config?.resultPresentation,
-          primaryAction: completedFinalStory
-            ? {
-                label: "Outro 보기",
-                onClick: () => {
-                  if (sharedBattle) preserveRealtimeOnUnmount = true;
-                  return context.router.navigate("story-memory", { memoryId: OUTRO_STORY_ID });
-                },
-              }
-            : null,
           onRetry: shouldOfferBattleRetry(battle.id)
             ? () => {
                 if (destroyed) return;
@@ -1905,12 +1910,33 @@ function createBattlePlayScene(context, battle) {
             : undefined,
           onMap: () => {
             if (sharedBattle) preserveRealtimeOnUnmount = true;
+            if (battle.id === RANDOM_FIELD_MINIGAME_ID) {
+              context.state.aftergameWorldState = {
+                ...context.state.aftergameWorldState,
+                zoneId: AFTERGAME_ZONE_IDS.FIELD,
+              };
+            }
             return context.router.navigate(returnDestination.sceneId);
           },
           onMenu: () => context.router.navigate("main-menu"),
           backgroundElements: [toolbar, stage.firstElementChild],
         });
         stage.append(overlay.element);
+        if (battle.id === RANDOM_FIELD_MINIGAME_ID && result.status === "CLEAR") {
+          const resultOverlay = overlay;
+          void accountService.recordPostgameClear({
+            attemptId: result.sessionId,
+            battleId: battle.id,
+            status: result.status,
+            score: result.score,
+          }).then((submission) => {
+            if (destroyed || overlay !== resultOverlay) return;
+            resultOverlay.setNotice(getXEggRewardNotice(submission));
+          }).catch(() => {
+            if (destroyed || overlay !== resultOverlay) return;
+            resultOverlay.setNotice("경험치 저장을 확인하지 못했습니다");
+          });
+        }
       };
 
       instance = module.createBattle({
@@ -1918,9 +1944,11 @@ function createBattlePlayScene(context, battle) {
         input: context.services.input,
         events: context.services.events,
         onComplete,
+        audio: context.services.audio,
       });
       const player = createBattlePlayer(accountService.getState(), arena, {
         useAccountStats: battle.usesAccountStats !== false,
+        useAccountAppearance: battle.id !== FINAL_BATTLE_ID,
       });
       localPlayerId = player.id;
       const publicSelfId = realtimeService?.getState?.()?.selfId ?? party?.selfId;
@@ -1940,12 +1968,66 @@ function createBattlePlayScene(context, battle) {
       }, { signal });
       if (signal.aborted) return;
       currentAttemptId = attemptId(battle.id);
-      startedAt = performance.now();
-      instance.start({ attemptId: currentAttemptId });
+      if (sharedBattle && realtimeService && instance.getPresenceRuntime) {
+        battlePresence = bindBattlePresence({
+          realtime: realtimeService, roomId: party.roomId, battleId: battle.id,
+          getRuntime: () => instance?.getPresenceRuntime(),
+          getRoster: () => sharedBattle?.getSnapshot()?.roster,
+        });
+      }
+      const startBattle = () => {
+        if (destroyed || signal.aborted || startedAt !== null) return;
+        context.services.input.clear?.();
+        startedAt = performance.now();
+        instance.start({ attemptId: currentAttemptId });
+        pauseButton.disabled = false;
+        if (globalThis.document?.hidden) requestPause("VISIBILITY");
+      };
+      if (battle.id === FINAL_BATTLE_ID) {
+        stage.dataset.showingGuide = "true";
+        pauseButton.disabled = true;
+        const gameView = stage.firstElementChild;
+        gameView.hidden = true;
+        if (controls) controls.hidden = true;
+        frame.dataset.hasControls = "false";
+        const instructions = createElement("section", {
+          className: "battle-start-guide",
+          attributes: { "aria-label": "마음의 말 부수기 게임 방법" },
+        }, [
+          createElement("h2", { text: "게임 방법" }),
+          createElement("p", { text: "이아이의 말 사이를 움직이며, 노란색으로 표시된 말을 부숴 주세요." }),
+          createElement("ol", {}, [
+            createElement("li", { text: "PC는 WASD·방향키, 휴대폰은 왼쪽 아래 조이스틱으로 이동합니다." }),
+            createElement("li", { text: "빛은 위쪽으로 자동 발사됩니다. 노란색 글자 아래로 이동해 여러 번 맞히세요." }),
+            createElement("li", { text: "다가오는 글자는 피하거나 부술 수 있습니다. 글자에 맞으면 생명이 줄어듭니다." }),
+          ]),
+        ]);
+        const startButton = createButton("게임 시작", () => {
+          if (destroyed || signal.aborted || startedAt !== null) return;
+          instructions.remove();
+          delete stage.dataset.showingGuide;
+          stage.dataset.showingDialogue = "true";
+          gameView.hidden = false;
+          const introRoot = createElement("div", { className: "eiai-battle-intro" });
+          stage.append(introRoot);
+          introDialogue = createStoryDialogueView({ root: introRoot, lines: EIAI_BATTLE_INTRO, onComplete: () => {
+            introDialogue?.destroy(); introDialogue = null; introRoot.remove();
+            if (destroyed || signal.aborted) return;
+            delete stage.dataset.showingDialogue;
+            if (controls) controls.hidden = false;
+            frame.dataset.hasControls = String(Boolean(controls));
+            startBattle();
+          } });
+        }, "primary");
+        instructions.append(startButton);
+        stage.append(instructions);
+      } else {
+        startBattle();
+      }
       if (initialPlayerHealth?.hp === 0) {
         sharedDefeatAttemptId = currentAttemptId;
         requestPause("PLAYER_DEFEATED");
-        showToast(context, "전투 불능 상태로 복귀했습니다. 남은 파티원의 전투를 관전합니다.");
+        showToast(context, getSharedDefeatMessage(latestSharedSnapshot, publicSelfId));
       }
       if (sharedBattle) {
         syncLocalHealth = () => {
@@ -1970,6 +2052,11 @@ function createBattlePlayScene(context, battle) {
         };
         renderSharedBattleState(latestSharedSnapshot);
         syncLocalHealth();
+        unsubscribeHealthChange = context.services.events.on(CHARACTER_EVENTS.HEALTH_CHANGE, (detail) => {
+          if (detail?.characterId !== localPlayerId) return;
+          // Allow the encounter to finish applying damage before reading it.
+          queueMicrotask(() => syncLocalHealth());
+        });
         if (typeof globalThis.setInterval === "function") {
           healthSyncTimer = globalThis.setInterval(syncLocalHealth, 250);
           healthSyncTimer?.unref?.();
@@ -1993,6 +2080,8 @@ function createBattlePlayScene(context, battle) {
 
     unmount() {
       destroyed = true;
+      introDialogue?.destroy(); introDialogue = null;
+      battlePresence?.destroy(); battlePresence = null;
       overlay?.destroy();
       overlay = null;
       instance?.destroy?.();
@@ -2003,6 +2092,8 @@ function createBattlePlayScene(context, battle) {
       unsubscribeVisibility = null;
       unsubscribeSharedBattleUi?.();
       unsubscribeSharedBattleUi = null;
+      unsubscribeHealthChange?.();
+      unsubscribeHealthChange = null;
       if (healthSyncTimer !== null) globalThis.clearInterval?.(healthSyncTimer);
       healthSyncTimer = null;
       releaseSharedBattleSession({

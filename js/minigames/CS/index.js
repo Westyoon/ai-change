@@ -907,8 +907,11 @@ export function createMiniGame(context = {}) {
 
     canvasContext.beginPath();
     canvasContext.arc(CENTER, CENTER, RING_RADIUS, 0, Math.PI * 2);
-    canvasContext.strokeStyle = "#374151";
-    canvasContext.lineWidth = 2;
+    canvasContext.strokeStyle = "#241C33";
+    canvasContext.lineWidth = 8;
+    canvasContext.stroke();
+    canvasContext.strokeStyle = "#E5F59A";
+    canvasContext.lineWidth = 4;
     canvasContext.stroke();
 
     for (const threat of activeThreats) {
@@ -926,10 +929,13 @@ export function createMiniGame(context = {}) {
       canvasContext.globalAlpha = 1;
 
       if (Math.abs(elapsedMs - threat.targetAt) <= finiteAtLeast(config?.goodWindowMs, 0, 500)) {
-        canvasContext.strokeStyle = "#ff3b3b";
-        canvasContext.lineWidth = 2;
         canvasContext.beginPath();
         canvasContext.arc(x, y, 22, 0, Math.PI * 2);
+        canvasContext.strokeStyle = "#241C33";
+        canvasContext.lineWidth = 7;
+        canvasContext.stroke();
+        canvasContext.strokeStyle = "#FFF5D9";
+        canvasContext.lineWidth = 3;
         canvasContext.stroke();
         canvasContext.beginPath();
         canvasContext.moveTo(x - 30, y);

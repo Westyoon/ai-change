@@ -49,18 +49,27 @@ function positiveNumber(value) {
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
-export function resolveSpriteSheetPresentation(appearance = {}, direction = CHARACTER_DIRECTIONS.DOWN) {
+export function resolveSpriteSheetPresentation(appearance = {}, direction = CHARACTER_DIRECTIONS.DOWN, motion = "walk") {
   const sheet = appearance?.spriteSheet;
   if (!sheet || typeof sheet.src !== "string" || sheet.src.length === 0) return null;
 
   const sourceWidth = positiveNumber(sheet.sourceWidth);
   const sourceHeight = positiveNumber(sheet.sourceHeight);
-  const frameWidth = positiveNumber(sheet.frameWidth);
+  const directionFrames = (motion === "idle" ? sheet.idleFrames : null)?.[safeDirection(direction)]
+    ?? sheet.directionFrames?.[safeDirection(direction)];
+  const frameWidth = positiveNumber(sheet.frameWidths?.[directionFrames?.[0]] ?? sheet.frameWidth);
   const frameHeight = positiveNumber(sheet.frameHeight);
-  const frameCount = Math.max(1, Math.trunc(positiveNumber(sheet.frameCount) ?? 1));
+  const frameCount = Array.isArray(directionFrames)
+    ? Math.max(1, directionFrames.length)
+    : Math.max(1, Math.trunc(positiveNumber(sheet.frameCount) ?? 1));
   if (!sourceWidth || !sourceHeight || !frameWidth || !frameHeight) return null;
 
-  const sourceX = Math.max(0, finite(Number(sheet.sourceX)));
+  const firstFrame = Array.isArray(directionFrames) ? Math.max(0, finite(directionFrames[0])) : 0;
+  const firstOffset = finite(sheet.frameOffsets?.[firstFrame], firstFrame * frameWidth);
+  const secondOffset = Array.isArray(directionFrames) && directionFrames.length > 1
+    ? finite(sheet.frameOffsets?.[directionFrames[1]], directionFrames[1] * frameWidth)
+    : firstOffset + frameWidth;
+  const sourceX = Math.max(0, finite(Number(sheet.sourceX))) + firstOffset;
   const sourceY = Math.max(0, finite(Number(sheet.sourceY)));
   const row = Math.max(0, Math.trunc(finite(Number(sheet.directionRows?.[safeDirection(direction)]))));
   const frameDurationMs = Math.max(60, positiveNumber(sheet.frameDurationMs) ?? 130);
@@ -69,10 +78,14 @@ export function resolveSpriteSheetPresentation(appearance = {}, direction = CHAR
     backgroundSizeX: (sourceWidth / frameWidth) * 100,
     backgroundSizeY: (sourceHeight / frameHeight) * 100,
     frameStartX: (sourceX / Math.max(1, sourceWidth - frameWidth)) * 100,
-    frameEndX: ((sourceX + frameWidth * frameCount) / Math.max(1, sourceWidth - frameWidth)) * 100,
+    frameEndX: ((sourceX + (secondOffset - firstOffset) * frameCount) / Math.max(1, sourceWidth - frameWidth)) * 100,
     directionY: ((sourceY + frameHeight * row) / Math.max(1, sourceHeight - frameHeight)) * 100,
     aspectRatio: `${frameWidth} / ${frameHeight}`,
     frameCount,
+    framePositions: Array.isArray(directionFrames) ? directionFrames.map(frame =>
+      (Math.max(0, finite(Number(sheet.sourceX))) + finite(sheet.frameOffsets?.[frame], frame * frameWidth)) / (sourceWidth - (sheet.frameWidths?.[frame] ?? frameWidth)) * 100) : [],
+    frameSizes: Array.isArray(directionFrames) ? directionFrames.map(frame => `${sourceWidth / (sheet.frameWidths?.[frame] ?? frameWidth) * 100}% ${sourceHeight / frameHeight * 100}%`) : [],
+    frameAspects: Array.isArray(directionFrames) ? directionFrames.map(frame => `${sheet.frameWidths?.[frame] ?? frameWidth} / ${frameHeight}`) : [],
     animationDurationMs: frameDurationMs * frameCount,
   });
 }
@@ -91,19 +104,26 @@ const SPRITE_SHEET_PROPERTIES = Object.freeze([
 function clearSpriteSheet(element, sprite) {
   delete element.dataset.spriteSheet;
   delete sprite.dataset.spriteSheet;
+  delete sprite.dataset.frameCount;
+  for (let frame = 0; frame < 8; frame++) {
+    for (const prefix of ["frame", "frame-size", "frame-aspect"]) sprite.style.removeProperty(`--character-${prefix}-${frame}`);
+  }
   for (const property of SPRITE_SHEET_PROPERTIES) sprite.style.removeProperty(property);
 }
 
 function applyAppearance(element, sprite, appearance = {}, state, direction) {
   const label = element.querySelector(".character-actor__name");
-  if (label) label.textContent = String(appearance.label ?? appearance.id ?? "PLAYER");
+  if (label) {
+    label.textContent = String(appearance.label ?? appearance.id ?? "PLAYER");
+    label.hidden = !label.textContent;
+  }
   if (typeof appearance.color === "string") {
     element.style.setProperty("--character-color", appearance.color);
   }
   if (typeof appearance.accentColor === "string") {
     element.style.setProperty("--character-accent", appearance.accentColor);
   }
-  const sheet = resolveSpriteSheetPresentation(appearance, direction);
+  const sheet = resolveSpriteSheetPresentation(appearance, direction, state === CHARACTER_STATES.MOVING ? "walk" : "idle");
   if (sheet) {
     sprite.style.backgroundImage = `url(${JSON.stringify(String(sheet.src))})`;
     sprite.style.setProperty("--character-sprite-size-x", `${sheet.backgroundSizeX}%`);
@@ -116,6 +136,10 @@ function applyAppearance(element, sprite, appearance = {}, state, direction) {
     sprite.style.setProperty("--character-sprite-duration", `${sheet.animationDurationMs}ms`);
     sprite.dataset.hasSprite = "true";
     sprite.dataset.spriteSheet = "true";
+    sprite.dataset.frameCount = String(sheet.frameCount);
+    sheet.framePositions.forEach((position, index) => sprite.style.setProperty(`--character-frame-${index}`, `${position}%`));
+    sheet.frameSizes.forEach((size, index) => sprite.style.setProperty(`--character-frame-size-${index}`, size));
+    sheet.frameAspects.forEach((aspect, index) => sprite.style.setProperty(`--character-frame-aspect-${index}`, aspect));
     element.dataset.spriteSheet = "true";
     return;
   }
@@ -180,7 +204,7 @@ export function createCharacterActorElement({ document: documentRef = globalThis
 export class CharacterView {
   #lastAriaLabel = null;
 
-  constructor({ element, worldSize, healthTrack = null, healthFill = null, healthText = null, stateText = null } = {}) {
+  constructor({ element, worldSize, healthTrack = null, healthFill = null, healthText = null, stateText = null, formatHealth = String } = {}) {
     if (!element) throw new Error("CharacterView requires an actor element.");
     this.element = element;
     this.worldSize = {
@@ -191,6 +215,7 @@ export class CharacterView {
     this.healthFill = healthFill;
     this.healthText = healthText;
     this.stateText = stateText;
+    this.formatHealth = formatHealth;
   }
 
   render(snapshot) {
@@ -199,12 +224,12 @@ export class CharacterView {
     const maxHealth = Math.max(1, finite(snapshot.maxHealth, 1));
     const ratio = Math.max(0, Math.min(1, health / maxHealth));
     if (this.healthTrack) {
-      this.healthTrack.setAttribute("aria-valuemax", String(maxHealth));
-      this.healthTrack.setAttribute("aria-valuenow", String(health));
+      this.healthTrack.setAttribute("aria-valuemax", this.formatHealth(maxHealth));
+      this.healthTrack.setAttribute("aria-valuenow", this.formatHealth(health));
       this.healthTrack.dataset.low = String(ratio <= 0.25);
     }
     if (this.healthFill) this.healthFill.style.width = `${ratio * 100}%`;
-    if (this.healthText) this.healthText.textContent = `${health} / ${maxHealth}`;
+    if (this.healthText) this.healthText.textContent = `${this.formatHealth(health)} / ${this.formatHealth(maxHealth)}`;
     if (this.stateText) {
       this.stateText.textContent = `${STATE_LABELS[state] ?? state} · ${DIRECTION_LABELS[direction]}`;
     }

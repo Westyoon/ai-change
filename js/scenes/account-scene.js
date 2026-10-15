@@ -1,4 +1,6 @@
 import { validateAccountNickname } from "../core/account-service.js";
+import { formatCombatValue } from "../battle/combat-display.js";
+import { createHairColorChoices } from "../ui/hair-color-picker.js";
 import { createButton, createElement, showToast } from "./scene-utils.js";
 
 export const ACCOUNT_ORIGIN = "https://ai-change.ai-change-backend.workers.dev";
@@ -95,10 +97,11 @@ const STAT_DEFINITIONS = Object.freeze([
 function statCard(definition, value, { canAllocate, disabled, onAllocate }) {
   const card = createElement("article", { className: "account-stat-card" }, [
     createElement("span", { className: "account-stat-card__label", text: definition.label }),
-    createElement("strong", { className: "account-stat-card__value", text: value }),
+    createElement("strong", { className: "account-stat-card__value", text: definition.key === "hp" ? formatCombatValue(value) : value }),
   ]);
   if (canAllocate) {
-    const button = createButton(`${definition.label} +${definition.increment}`, onAllocate, "ghost");
+    const increment = definition.key === "hp" ? formatCombatValue(definition.increment) : definition.increment;
+    const button = createButton(`${definition.label} +${increment}`, onAllocate, "ghost");
     button.classList.add("account-stat-card__allocate");
     button.disabled = disabled;
     button.setAttribute(
@@ -144,16 +147,11 @@ export function createAccountScene(context) {
         className: "scene scene--panel account-scene",
         attributes: { "aria-labelledby": "account-title" },
       });
-      const heading = createElement("header", {
-        className: "account-scene__header account-scene__header--actions-only",
-      }, [
-        createElement("h2", {
-          className: "visually-hidden",
-          text: "내 계정",
-          attributes: { id: "account-title" },
-        }),
-        createButton("메뉴로", () => context.router.navigate("main-menu"), "ghost"),
-      ]);
+      const heading = createElement("h2", {
+        className: "visually-hidden",
+        text: "내 계정",
+        attributes: { id: "account-title" },
+      });
       const content = createElement("div", {
         className: "account-scene__content",
         attributes: { "aria-live": "polite" },
@@ -426,7 +424,7 @@ export function createAccountScene(context) {
             createElement("dd", {
               text: stats.nextLevelExperience === null
                 ? `${stats.experience}`
-                : `${stats.experience} / ${stats.nextLevelExperience}`,
+                : `${Math.max(0, stats.experience - (stats.level - 1) * stats.level * 50)} / ${stats.nextLevelExperience}`,
             }),
           ]),
           createElement("div", {}, [
@@ -506,9 +504,22 @@ export function createAccountScene(context) {
           createElement("div", { className: "account-profile" }, [
             createElement("span", { className: "status-badge", text: "SIGNED IN" }),
             createElement("h3", { text: `${state.user?.name ?? "플레이어"} 님` }),
-            createElement("p", { className: "muted", text: "이 화면에는 이메일이나 외부 계정 ID를 표시하지 않습니다." }),
           ]),
           nicknameForm,
+          createElement("section", { className: "account-hair-color" }, [
+            createElement("h3", { text: "머리색" }),
+            createHairColorChoices({ selected: state.user?.hairColor ?? "purple", disabled: Boolean(busyAction) || progressSyncing,
+              onSelect: async (hairColor) => {
+                if (busyAction) return;
+                busyAction = "hair-color";
+                actionError = null;
+                render(service.getState());
+                try { await service.updateHairColor(hairColor); }
+                catch { actionError = "머리색을 저장하지 못했습니다. 다시 시도해 주세요."; }
+                finally { busyAction = null; if (mounted) render(service.getState()); }
+              },
+            }),
+          ]),
           recordGrid,
           createElement("div", { className: "account-section-heading" }, [
             createElement("h3", { text: "기본 전투 스탯" }),

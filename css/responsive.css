@@ -93,11 +93,11 @@
   }
 
   .scene h1 {
-    font-size: clamp(2rem, 9vh, 3.2rem);
+    font-size: clamp(1.4rem, 6.3vh, 2.24rem);
   }
 
   .scene-root[data-scene="minigame-intro"] > .scene > h1 {
-    font-size: clamp(1.4rem, 6.3vh, 2.24rem);
+    font-size: clamp(0.98rem, 4.41vh, 1.568rem);
   }
 
   .scene-brand-logo,
@@ -143,5 +143,187 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
     border: 0;
+  }
+}
+/* Keep room actions outside the scrolling roster, even for five mobile slots. */
+#app .postgame-room-lobby__membership {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app .postgame-room-lobby__waiting-hero,
+#app .postgame-room-lobby__membership-actions {
+  flex: 0 0 auto;
+}
+
+#app .postgame-room-lobby__members {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 680px) {
+  #app .postgame-room-lobby__members {
+    align-content: start;
+    grid-auto-rows: 148px;
+  }
+
+  #app .postgame-room-lobby__members li {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    min-height: 0;
+    text-align: center;
+  }
+
+  #app .postgame-room-lobby__member-character {
+    flex: 0 0 auto;
+    width: 40px;
+  }
+
+  #app .postgame-room-lobby__membership-actions {
+    padding-top: 6px;
+    background: #351d31;
+  }
+}
+
+/* Game frames use the space left by the header, including mobile browser bars. */
+.app-shell:has(> .scene-root > .minigame-frame) {
+  --app-active-frame-width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(6px, 1.2vmin, 14px);
+}
+
+.scene-root:has(> .minigame-frame) {
+  min-height: 0;
+  height: 100%;
+}
+
+#app .scene.minigame-frame {
+  height: 100%;
+  min-height: 0;
+  padding: clamp(8px, 1.8vmin, 24px);
+  gap: clamp(6px, 1.2vmin, 14px);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+#app .scene.battle-frame[data-has-controls="true"] {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+#app .minigame-stage,
+#app .minigame-ui-root {
+  min-height: 0;
+}
+
+#app .minigame-ui-root {
+  height: 100%;
+  padding: clamp(6px, 1.5vmin, 20px);
+}
+
+#app .xr-trials {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(min-content, 1fr) auto;
+  align-content: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: clamp(12px, 2vmin, 28px);
+  gap: clamp(8px, 1.5vmin, 20px);
+  container-type: size;
+}
+
+#app .xr-trials__content {
+  width: min(720px, 100%);
+  justify-self: center;
+  align-self: center;
+  gap: clamp(8px, 2cqh, 20px);
+}
+
+/* The generic scene paragraph limit must not leave the status bar on the left. */
+#app .xr-trials__status {
+  width: min(720px, 100%);
+  max-width: none;
+  justify-self: center;
+}
+
+#app .xr-trials__mash-count {
+  font-size: clamp(2.5rem, 10cqh, 4.75rem);
+}
+
+#app .xr-trials__rps-slot {
+  width: clamp(56px, min(20cqw, 20cqh), 150px);
+  font-size: clamp(2rem, 9cqh, 4rem);
+}
+
+#app .xr-trials__choices {
+  flex-wrap: nowrap;
+  gap: clamp(6px, 2cqw, 22px);
+}
+
+#app .xr-trials__choice {
+  min-width: 0;
+  min-height: 44px;
+  padding: clamp(8px, 2cqh, 16px) clamp(8px, 3cqw, 24px);
+}
+
+#app .xr-trials__card-grid {
+  width: min(100%, 600px, 110cqh);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#app .xr-trials__mash-button {
+  width: clamp(80px, min(35cqw, 30cqh), 190px);
+}
+
+@media (max-width: 680px) {
+  #app .minigame-toolbar > strong,
+  #app .minigame-toolbar > .button-row {
+    flex: 0 1 auto;
+    width: auto;
+  }
+
+  #app .minigame-toolbar .button {
+    min-width: 0;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-height: 540px) {
+  #app .battle-controls {
+    padding: 4px 8px;
+  }
+
+  #app .xr-trials {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  #app .xr-trials__eyebrow {
+    display: none;
+  }
+
+  #app .xr-trials__title {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  #app .xr-trials__instruction,
+  #app .xr-trials__status {
+    font-size: 0.8rem;
+  }
+
+  #app .xr-trials__status {
+    padding: 4px 8px;
   }
 }

@@ -83,17 +83,17 @@ const CSS = `
 .aids-pipe-row{ flex:0 0 auto; display:flex; justify-content:center; margin-top:2px; }
 .aids-pipe{
   position:relative; width:64px; height:26px;
-  background:var(--aids-cream); border:2px solid var(--aids-ink); border-top:0;
-  border-radius:0 0 4px 4px; box-shadow:0 3px 0 var(--aids-cream-shadow);
 }
-.aids-pipe::before{
-  content:""; position:absolute; top:-8px; left:-6px; right:-6px; height:12px;
-  background:var(--aids-peach); border:2px solid var(--aids-ink); border-radius:3px;
-  box-shadow:0 2px 0 var(--aids-peach-shadow);
+.aids-pipe-art{
+  position:absolute; left:50%; bottom:0; width:76px; aspect-ratio:1114 / 494;
+  transform:translateX(-50%); overflow:hidden; pointer-events:none;
 }
-.aids-pipe::after{
-  content:""; position:absolute; top:4px; left:11px; right:11px; height:7px;
-  background:var(--aids-ink-deep); border:2px solid var(--aids-ink); border-radius:1px;
+/* Original 2172x724 PNG: visible artwork is x=529..1642, y=127..620.
+   Crop transparent padding in CSS without changing the image or field geometry. */
+.aids-pipe-image{
+  position:absolute; left:calc(-529 / 1114 * 100%); top:calc(-127 / 494 * 100%);
+  width:calc(2172 / 1114 * 100%); height:auto; max-width:none;
+  display:block; image-rendering:pixelated;
 }
 
 .aids-field{ position:relative; flex:1 1 auto; margin:0 14px; overflow:hidden; min-height:200px; }
@@ -151,8 +151,8 @@ const CSS = `
   border:3px solid var(--aids-ink); border-bottom:0; border-radius:3px 3px 0 0;
 }
 .aids-box-left, .aids-box-left::before{ background:#DCEDFF; }
+.aids-box-egg{ width:44px; height:44px; object-fit:contain; image-rendering:pixelated; pointer-events:none; }
 .aids-box-right, .aids-box-right::before{ background:#FCE3F2; }
-.aids-box-guardian{ width:28px; height:28px; display:block; object-fit:contain; image-rendering:pixelated; }
 .aids-box.aids-flash-good, .aids-box.aids-flash-good::before{ background:#75DF91 !important; }
 .aids-box.aids-flash-bad, .aids-box.aids-flash-bad::before{ background:#FF7D88 !important; }
 .aids-box.aids-flash-good{ transform:translateY(-2px); }

@@ -82,6 +82,10 @@ export function createBattle({
   }
 
   function handleEncounterEvent(event) {
+    if (event.type === "boss-damage" || event.type === "shield-damage") {
+      view?.damageNumbers.show(event.amount);
+      if (event.amount > 0) view?.showBossHit();
+    }
     if (event.type === "player-damage" && event.amount > 0) {
       system?.applyResolvedDamage(event.amount, {
         sourceId: "control-boss",
@@ -97,6 +101,7 @@ export function createBattle({
       });
     }
     if (event.type === "complete") {
+      view?.setBossOutcome(event.candidate.status);
       loop?.pause();
       system?.setControlLocked(true, "control-boss-terminal");
     }
@@ -324,6 +329,9 @@ export function createBattle({
 
     getState() {
       return encounter?.getSnapshot() ?? lastState;
+    },
+    getPresenceRuntime() {
+      return view && system ? { root: view.world, worldSize: config.world.bounds, snapshot: system.getSnapshot() } : null;
     },
   };
 }

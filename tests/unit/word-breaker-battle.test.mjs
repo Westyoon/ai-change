@@ -412,7 +412,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       overloadNodes.map((node) => node.dataset.pattern),
       ["lane-rain", "firewall-gates", "recursive-fork", "prediction-lock", "convergence-ring"],
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /ROUND 1\/5/u);
+    assert.match(treeText(view.phaseText), /ROUND 1\/5/u);
     assert.equal(
       root.querySelector(".word-breaker-world").dataset.phase,
       "PLAY",
@@ -430,7 +430,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       characterSnapshot,
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /ROUND 1\/5/u);
+    assert.match(treeText(view.phaseText), /ROUND 1\/5/u);
     assert.equal(
       root.querySelector(".word-breaker-world").dataset.phase,
       "PLAY",
@@ -451,7 +451,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       characterSnapshot,
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /OVERLOAD/u);
+    assert.match(treeText(view.phaseText), /OVERLOAD/u);
     assert.equal(root.querySelector(".word-breaker-world").dataset.phase, "OVERLOAD");
     assert.equal(root.querySelector(".word-breaker-world").dataset.overloadStage, "impact");
     assert.equal(root.querySelector(".word-breaker-world").dataset.collapseBurst, "false");
@@ -470,7 +470,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       characterSnapshot,
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /ROUND 1\/5/u);
+    assert.match(treeText(view.phaseText), /ROUND 1\/5/u);
     assert.equal(
       root.querySelector(".word-breaker-world").dataset.phase,
       "PLAY",
@@ -496,11 +496,11 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       { ...characterSnapshot, controlLocked: true },
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /IMPACT/u);
+    assert.match(treeText(view.phaseText), /IMPACT/u);
     assert.equal(player.dataset.staggered, "true");
     assert.equal(player.dataset.knockedOut, "false");
     assert.equal(root.querySelectorAll(".word-breaker-life-pip").filter(({ dataset }) => dataset.active === "true").length, 4);
-    assert.equal(root.querySelector(".word-breaker-vitality").parentNode, root.querySelector(".word-breaker-world"));
+    assert.equal(root.querySelector(".word-breaker-vitality").parentNode, root.querySelector(".word-breaker-stage"));
     assert.equal(root.querySelector(".word-breaker-stage").dataset.damageLevel, "1");
     assert.equal(root.querySelector(".word-breaker-life-fill").style.width, "80%");
 
@@ -517,7 +517,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       { ...characterSnapshot, controlLocked: true },
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /DOWN/u);
+    assert.match(treeText(view.phaseText), /DOWN/u);
     assert.equal(player.dataset.knockedOut, "true");
     assert.equal(player.dataset.controlLocked, "true");
     assert.equal(root.querySelector(".word-breaker-stage").dataset.damageLevel, "5");
@@ -540,7 +540,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       { ...characterSnapshot, controlLocked: true },
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /GUARDIAN/u);
+    assert.match(treeText(view.phaseText), /GUARDIAN/u);
     assert.equal(player.dataset.knockedOut, "true");
     assert.equal(root.querySelector(".word-breaker-guardian"), null);
     const revivalRing = root.querySelector(".word-breaker-revival-guardians");
@@ -570,13 +570,13 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
       },
       { ...characterSnapshot, controlLocked: true },
     );
-    assert.match(treeText(root.querySelector(".word-breaker-phase")), /REVIVED/u);
+    assert.match(treeText(view.phaseText), /REVIVED/u);
     assert.equal(root.querySelector(".word-breaker-world").dataset.phase, "REVIVED");
     assert.equal(root.querySelector(".word-breaker-world").dataset.finalRevival, "true");
     assert.equal(player.dataset.recovering, "false");
     assert.equal(player.dataset.revived, "true");
     assert.equal(guardianCheer.dataset.visible, "true");
-    assert.match(guardianCheer.textContent, /DS · CS · CSE · AI · AIDS/u);
+    assert.equal(guardianCheer.textContent, `${config.rounds[4].guardian.label}: ${config.rounds[4].recoveryMessage}`);
     assert.equal(guardianCheer.style["--guardian-color"], "#fdd044");
     assert.equal(root.querySelector(".word-breaker-recovery"), null);
 
@@ -592,7 +592,20 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
     assert.equal(guardianCheer.dataset.visible, "false", "the encouragement leaves with the recovery hold");
     assert.equal(guardianCheer.textContent, "");
 
+    assert.ok(root.querySelector(".word-breaker-lock"));
+    assert.equal(root.querySelector(".word-breaker-title"), null);
+    assert.equal(root.querySelectorAll(".word-breaker-life-pip").every((heart) => heart.textContent === "♥"), true);
+    let impacts = 0, cancelledImpacts = 0;
+    view.element.animate = () => { impacts++; return { cancel() { cancelledImpacts++; } }; };
+    const firstHit = { ...snapshot, metrics: { hitCount: 1 }, playerHealth: 4 };
+    view.render(firstHit, characterSnapshot);
+    view.render(firstHit, characterSnapshot);
+    assert.equal(impacts, 1, "re-rendering a hit does not trigger another shake");
+    view.render({ ...firstHit, metrics: { hitCount: 2 }, playerHealth: 3 }, characterSnapshot);
+    assert.equal(impacts, 2, "every new hit triggers an impact");
+    assert.equal(cancelledImpacts, 1, "a new impact replaces the previous animation");
     view.destroy();
+    assert.equal(cancelledImpacts, 2, "leaving cancels the impact animation");
     assert.equal(root.children.length, 0);
   } finally {
     frames.restore();
@@ -863,4 +876,49 @@ test("Word Breaker runtime delegates shared loop/input and contains no private m
   assert.match(battleSource, /word-breaker-finale/u);
   assert.match(battleSource, /word-breaker-terminal/u);
   assert.match(battleSource, /word-breaker-pause/u);
+});
+
+
+test("each rescued egg gives one timed caption without restarting on repeated snapshots", () => {
+ const frames = installFrameHarness();
+ try {
+  const view = new WordBreakerView({ config, document: frames.document });
+  view.render({ collectedGuardians: [], metrics: { elapsedMs: 0 } });
+  const collected = [];
+  for (const [index, round] of config.rounds.entries()) {
+   collected.push(round.guardian);
+   const time = (index + 1) * 10000;
+   const snapshot = { phase: "RECOVERING", collectedGuardians: [...collected], metrics: { elapsedMs: time } };
+   view.render(snapshot);
+   assert.equal(view.guardianCheer.dataset.visible, "true");
+   assert.equal(view.guardianCheer.textContent, `${round.guardian.label}: ${round.recoveryMessage}`);
+   assert.equal(view.guardianCheer.style["--guardian-color"], round.guardian.color);
+   view.render({ ...snapshot, phase: "PLAY", metrics: { elapsedMs: time + 4400 } });
+   assert.equal(view.guardianCheer.dataset.visible, "true");
+   view.render({ ...snapshot, phase: "PLAY", metrics: { elapsedMs: time + 4500 } });
+   assert.equal(view.guardianCheer.dataset.visible, "false");
+  }
+  view.destroy();
+ } finally { frames.restore(); }
+});
+
+
+test("finale waits for every egg before underlining and shows the reframe last", () => {
+ const frames = installFrameHarness();
+ try {
+  const view = new WordBreakerView({ config, document: frames.document });
+  for (let lit = 0; lit <= 5; lit++) {
+   view.render({ phase: "FINALE", phrases: [{ maxHp: 5, hp: 5 - lit }], finaleRemainingMs: 900 });
+   assert.equal(view.finaleGuardianElements.filter(egg => egg.dataset.active === "true").length, lit);
+   assert.equal(view.finaleOverlay.dataset.allLit, String(lit === 5));
+   assert.equal(view.finaleReframe.dataset.visible, "false");
+  }
+  view.render({ phase: "FINALE", phrases: [{ maxHp: 5, hp: 0 }], finaleRemainingMs: 100 });
+  assert.equal(view.finaleReframe.dataset.visible, "true");
+  assert.ok(view.finaleOverlay.querySelector(".word-breaker-finale__eiai"));
+  assert.equal(view.finaleOverlay.querySelector(".word-breaker-finale__target").textContent, config.finalPhrase.target);
+  view.render({ phase: "PLAY", phrases: [] });
+  assert.equal(view.finaleOverlay.dataset.allLit, "false");
+  view.destroy();
+ } finally { frames.restore(); }
 });

@@ -3,7 +3,7 @@ const DEFAULT_PRESENCE_INTERVAL_MS = 90;
 const DEFAULT_RECONNECT_BASE_MS = 500;
 const DEFAULT_RECONNECT_MAX_MS = 10_000;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
-const PUBLIC_ZONES = new Set(["entry-field", "plaza"]);
+const PUBLIC_ZONES = new Set(["entry-field", "plaza", "battle:data-sphinx", "battle:stat-boss", "battle:control-boss"]);
 const DIRECTIONS = new Set(["up", "down", "left", "right"]);
 const ROOM_STATUSES = new Set(["waiting", "started"]);
 const BATTLE_STATUSES = new Set(["running", "finished"]);
@@ -58,6 +58,8 @@ function publicPlayer(candidate) {
     y: Math.min(1, Math.max(0, finiteNumber(candidate.y, 0.5))),
     direction,
     moving: candidate.moving === true,
+    ...(["magenta", "purple", "brown", "blonde"].includes(candidate.hairColor)
+      ? { hairColor: candidate.hairColor } : {}),
   });
 }
 
@@ -97,6 +99,11 @@ function publicBattleMember(candidate) {
     hp,
     maxHp,
     alive: candidate.alive !== false && hp !== 0,
+    hairColor: ["magenta", "purple", "brown", "blonde"].includes(candidate.hairColor) ? candidate.hairColor : "purple",
+    presence: candidate.presence && Number.isFinite(candidate.presence.x) && Number.isFinite(candidate.presence.y)
+      ? Object.freeze({ x: normalizedCoordinate(candidate.presence.x), y: normalizedCoordinate(candidate.presence.y),
+          direction: DIRECTIONS.has(candidate.presence.direction) ? candidate.presence.direction : "down",
+          moving: candidate.presence.moving === true }) : null,
   });
 }
 
@@ -644,18 +651,26 @@ export class PostgameRealtimeService {
     if (!this.#latestPresence || !this.#isOpen()) return;
     const elapsed = this.#now() - this.#lastPresenceSentAt;
     if (elapsed >= this.#presenceIntervalMs) {
+      this.#cancelPresenceTimer();
       this.#flushPresence();
       return;
     }
     if (this.#presenceTimer !== null) return;
-    this.#presenceTimer = this.#setTimeout(() => {
+    const timer = this.#setTimeout(() => {
+      if (this.#presenceTimer !== timer) return;
       this.#presenceTimer = null;
-      this.#flushPresence();
+      // A delayed/early timer must re-check the last actual send, not force one.
+      this.#queuePresence();
     }, Math.max(0, this.#presenceIntervalMs - elapsed));
+    this.#presenceTimer = timer;
   }
 
   #flushPresence() {
     if (!this.#latestPresence || !this.#isOpen()) return;
+    if (this.#now() - this.#lastPresenceSentAt < this.#presenceIntervalMs) {
+      this.#queuePresence();
+      return;
+    }
     const payload = JSON.stringify(this.#latestPresence);
     if (payload === this.#lastPresencePayload) return;
     if (this.#sendSerialized(payload)) {
@@ -857,6 +872,14 @@ export class PostgameRealtimeService {
         break;
       }
       case "error": {
+        // Older servers may reject a bunched position packet. It is not a
+        // session/room failure and must not replace an actionable error.
+        if (message.code === "presence_rate_limited") {
+          if (this.#state.lastError?.code === "presence_rate_limited") {
+            this.#setState({ ...this.#state, lastError: null });
+          }
+          break;
+        }
         const requestType = cleanText(message.requestType, { maxLength: 80 });
         const roomId = cleanText(message.roomId, { maxLength: 128 });
         const error = Object.freeze({

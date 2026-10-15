@@ -1,3 +1,5 @@
+import { PostgameRealtimeService } from "../../js/core/postgame-realtime-service.js";
+import { bindBattlePresence } from "../../js/battle/postgame/battle-presence.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -9,12 +11,14 @@ const coordinatorSource = await readFile(
 let PostgameCoordinator = null;
 try {
   const { default: ts } = await import("../../backend/node_modules/typescript/lib/typescript.js");
+  const progressionSource = await readFile(new URL("../../backend/src/progression.ts", import.meta.url), "utf8");
+  const progressionUrl = `data:text/javascript;base64,${Buffer.from(progressionSource).toString("base64")}`;
   const coordinatorJavaScript = ts.transpileModule(coordinatorSource, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2022,
     },
-  }).outputText;
+  }).outputText.replace('"./progression"', JSON.stringify(progressionUrl));
   ({ PostgameCoordinator } = await import(
     `data:text/javascript;base64,${Buffer.from(coordinatorJavaScript).toString("base64")}`
   ));
@@ -134,6 +138,61 @@ async function createCoordinator(initial = {}) {
   await coordinator.ready;
   return { coordinator, storage };
 }
+
+test("bunched positions retain the latest state without errors and publish stop/zone changes", requiresBackendInstall, async (t) => {
+  const { coordinator } = await createCoordinator();
+  let timestamp = 1000;
+  t.mock.method(Date, "now", () => timestamp);
+  const attachment = { version: 1, playerId: "p1", playerKey: "key1", name: "Player", zone: "plaza", x: 0, y: 0, moving: true, direction: "right", lastPresenceAt: 0 };
+  let stored;
+  const socket = { serializeAttachment(value) { stored = structuredClone(value); } };
+  const broadcasts = [];
+  const transitions = [];
+  coordinator.broadcastPresence = (_, message) => broadcasts.push(structuredClone(message));
+  coordinator.broadcastToZone = zone => transitions.push(zone);
+  coordinator.sendPresenceSnapshot = () => transitions.push("snapshot");
+  const move = (x, extra = {}) => coordinator.updatePresence(socket, attachment, {
+    type: "presence.update", zone: "plaza", x, y: 0.5, direction: "right", moving: true, ...extra,
+  });
+  move(0.1);
+  timestamp += 1;
+  move(0.2);
+  timestamp += 1;
+  move(0.3);
+  assert.equal(broadcasts.length, 1);
+  assert.equal(stored.x, 0.3, "new snapshots retain the latest suppressed position");
+  assert.equal(stored.lastPresenceAt, 1000, "suppressed movement cannot extend the broadcast deadline");
+  timestamp = 1040;
+  move(0.4);
+  assert.equal(broadcasts.length, 2);
+  timestamp++;
+  move(0.5, { moving: false });
+  assert.equal(broadcasts.length, 3, "the final stop must reach observers even inside 40ms");
+  assert.equal(broadcasts.at(-1).player.moving, false);
+  timestamp++;
+  move(0.6, { moving: false, zone: "entry-field" });
+  assert.equal(broadcasts.length, 4);
+  assert.deepEqual(transitions, ["plaza", "snapshot"]);
+});
+
+test("presence coalescing keeps the connection-wide anti-flood budget enforced", requiresBackendInstall, async (t) => {
+  const { coordinator } = await createCoordinator();
+  t.mock.method(Date, "now", () => 1000);
+  const attachment = { playerId: "p1", playerKey: "key1", name: "Player", zone: "plaza", direction: "right", moving: true, lastPresenceAt: 0, rateWindowAt: 1000, rateCount: 0 };
+  const errors = [];
+  const closes = [];
+  const socket = { serializeAttachment() {}, close(...args) { closes.push(args); } };
+  coordinator.attachment = () => attachment;
+  coordinator.broadcastPresence = () => {};
+  coordinator.sendError = (_, code) => errors.push(code);
+  const message = JSON.stringify({ type: "presence.update", zone: "plaza", x: 0.5, y: 0.5, direction: "right", moving: true });
+  for (let i = 0; i < 30; i++) await coordinator.webSocketMessage(socket, message);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(closes, []);
+  await coordinator.webSocketMessage(socket, message);
+  assert.deepEqual(errors, ["rate_limited"]);
+  assert.equal(closes[0][0], 1008);
+});
 
 test("a restored legacy battle receives a full reconnect grace window", requiresBackendInstall, async () => {
   const roomId = "ROOMAAAA01";
@@ -274,6 +333,23 @@ test("shared hits wait for every connected party member and expose one persisted
   assert.equal(sharedBattle.seed, `seed:${roomId}`);
 });
 
+test("solo Control Boss death finishes the server battle and broadcasts zero HP", requiresBackendInstall, async () => {
+  const { coordinator, storage } = await createCoordinator();
+  const roomId = "ROOMSOLO01";
+  const sharedBattle = battle(roomId, { battleId: "control-boss" });
+  Object.assign(sharedBattle.members[0], { ready: true, connected: true, hp: 200, maxHp: 200 });
+  coordinator.rooms.set(roomId, room(roomId, "control-boss"));
+  coordinator.battles.set(roomId, sharedBattle);
+  const messages = [];
+  coordinator.broadcastBattleEvent = (_, type) => messages.push(type);
+  await coordinator.updateBattleHealth({ send() {}, readyState: 1 }, { roomId, playerKey: "private-a" }, roomId, 0, 200);
+  assert.equal(sharedBattle.status, "finished");
+  assert.equal(coordinator.publicBattle(sharedBattle).roster[0].hp, 0);
+  assert.equal(coordinator.publicBattle(sharedBattle).result.outcome, "defeat");
+  assert.equal((await storage.get(BATTLE_STORAGE_KEY))[0].status, "finished");
+  assert.ok(messages.includes("battle.finished"));
+});
+
 test("party health is persisted, exposed, and defeated members cannot attack or revive", requiresBackendInstall, async () => {
   const { coordinator } = await createCoordinator();
   const roomId = "ROOMHHHH08";
@@ -312,6 +388,7 @@ test("party health is persisted, exposed, and defeated members cannot attack or 
     hp: 37,
     maxHp: 120,
     alive: true,
+    hairColor: "purple", presence: null,
   });
 
   await coordinator.updateBattleHealth(socket, attachment, roomId, 90, 120);
@@ -460,9 +537,9 @@ test("server-authoritative boss victory stores one team run using ready-to-finis
   ]);
   assert.equal(statAwards.length, 2);
   for (const statement of statAwards) {
-    assert.match(statement.sql, /experience\s*=\s*COALESCE\(experience,\s*0\)\s*\+\s*100/u);
-    assert.match(statement.sql, /level\s*=\s*COALESCE\(level,\s*1\)\s*\+\s*1/u);
-    assert.match(statement.sql, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*1/u);
+    assert.match(statement.sql, /experience\s*=\s*COALESCE\(experience,\s*0\)\s*\+\s*(?:1[0-9]0|200)/u);
+    assert.match(statement.sql, /level\s*=\s*COALESCE\(level,\s*1\)\s*\+\s*\(CASE/u);
+    assert.match(statement.sql, /unspent_points\s*=\s*COALESCE\(unspent_points,\s*0\)\s*\+\s*\(CASE/u);
     assert.match(statement.sql, /awarded\s*=\s*0/u);
   }
   assert.equal(rewardFinalizers.length, 2);
@@ -655,4 +732,74 @@ test("a failed boss reward write survives alarms, retries, then expires after re
     Date.now = originalNow;
     console.error = originalConsoleError;
   }
+});
+
+
+test("battle positions are room-scoped and outsiders cannot publish to an encounter", requiresBackendInstall, async () => {
+ const { coordinator } = await createCoordinator();
+ const sockets = [];
+ function participant(id, roomId, zone = "battle:data-sphinx") {
+  const attachment = { version: 1, playerId: id, playerKey: `key-${id}`, name: id, zone, roomId, x: .5, y: .5, direction: "down", moving: false, lastPresenceAt: 0 };
+  const socket = { readyState: 1, messages: [], send(text) { this.messages.push(JSON.parse(text)); }, serializeAttachment(value) { this.attachment = value; } };
+  sockets.push({ socket, attachment }); return { socket, attachment };
+ }
+ const first = participant("first", "ROOM000001");
+ const friend = participant("friend", "ROOM000001");
+ const otherRoom = participant("other", "ROOM000002");
+ const field = participant("field", null, "plaza");
+ coordinator.activeSockets = () => sockets;
+ coordinator.battles.set("ROOM000001", { battleId: "data-sphinx" });
+ coordinator.updatePresence(first.socket, first.attachment, { type: "presence.update", zone: "battle:data-sphinx", x: .75, y: .25, direction: "left", moving: true });
+ assert.equal(friend.socket.messages.at(-1).player.x, .75);
+ assert.equal(otherRoom.socket.messages.length, 0);
+ assert.equal(field.socket.messages.length, 0);
+ coordinator.sendPresenceSnapshot(friend.socket, friend.attachment);
+ assert.deepEqual(friend.socket.messages.at(-1).players.map(player => player.id), ["first"]);
+ assert.throws(() => coordinator.updatePresence(field.socket, field.attachment, { type: "presence.update", zone: "battle:data-sphinx", x: .5, y: .5, direction: "down", moving: false }), /position|\uC704\uCE58/);
+});
+
+
+test("two real realtime clients see each other and receive teammate HP through the coordinator", requiresBackendInstall, async () => {
+ const { state } = createContext();
+ const serverSockets = [], pending = [];
+ state.getWebSockets = () => serverSockets;
+ const coordinator = new PostgameCoordinator(state); await coordinator.ready;
+ const roomId = "ROOMSYNC01";
+ const shared = battle(roomId, { startedAt: Date.now(), lastActivityAt: Date.now(), members: ["first", "second"].map((id, index) => ({ playerKey: `key-${id}`, publicId: id, name: id, ready: true, connected: true, left: false, hp: 100, maxHp: 100, statBossAttackDamage: 10, lastHitAt: 0, recentActionIds: [] })) });
+ coordinator.rooms.set(roomId, { ...room(roomId), memberPlayerIds: ["first", "second"] });
+ coordinator.battles.set(roomId, shared);
+ const bindings = [], services = [], rendered = [], ticks = [];
+ async function settle() { while (pending.length) await Promise.all(pending.splice(0)); }
+ try {
+  for (const [index, id] of ["first", "second"].entries()) {
+   let client;
+   const attachment = { version: 1, playerId: id, playerKey: `key-${id}`, name: id, zone: "plaza", roomId, hairColor: index ? "brown" : "magenta", x: .5, y: .5, direction: "down", moving: false, rateWindowStartedAt: Date.now(), rateCount: 0, lastPresenceAt: 0, combatMaxHp: 100 };
+   const server = { readyState: 1, saved: attachment, serializeAttachment(value) { this.saved = structuredClone(value); }, deserializeAttachment() { return this.saved; }, send(text) { client.onmessage?.({ data: text }); }, close() { throw new Error("unexpected server close"); } };
+   serverSockets.push(server);
+   class Socket {
+    constructor() { client = this; this.readyState = 0; }
+    send(text) { pending.push(coordinator.webSocketMessage(server, text)); }
+    close() { this.readyState = 3; }
+   }
+   const service = new PostgameRealtimeService({ WebSocketImpl: Socket, location: { href: "https://test.local" }, now: () => Date.now() + 1000, presenceIntervalMs: 10 });
+   services.push(service); service.connect(); client.readyState = 1; client.onopen({});
+   server.send(JSON.stringify({ type: "ready", self: { id, name: id } }));
+   coordinator.sendBattleEvent(server, "battle.snapshot", shared);
+   bindings.push(bindBattlePresence({ realtime: service, roomId, battleId: "stat-boss",
+    getRuntime: () => ({ root: {}, worldSize: { width: 1000, height: 600 }, snapshot: { x: index ? 700 : 200, y: 400, width: 40, height: 40, direction: "right", moving: true } }),
+    getRoster: () => service.getState().battle?.roster,
+    createView: () => ({ update(value) { rendered[index] = value; }, destroy() {} }),
+    setInterval(fn) { ticks[index] = fn; return index; }, clearInterval() {},
+   }));
+   await settle();
+  }
+  ticks.forEach(tick => tick()); await settle();
+  assert.equal(rendered[0][0].id, "second"); assert.equal(rendered[1][0].id, "first");
+  assert.equal(rendered[0][0].x, 700); assert.equal(rendered[1][0].x, 200);
+  assert.equal(rendered[0][0].appearance.hairColor, "brown");
+  assert.equal(rendered[1][0].appearance.hairColor, "magenta");
+  services[1].sendBattleHealth({ roomId, hp: 55, maxHp: 100 }); await settle();
+  assert.equal(services[0].getState().battle.roster.find(member => member.id === "second").hp, 55);
+  assert.equal(rendered[0][0].currentHealth, 55);
+ } finally { bindings.forEach(binding => binding.destroy()); services.forEach(service => service.disconnect()); }
 });

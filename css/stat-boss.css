@@ -27,13 +27,13 @@
 }
 
 .stat-boss-hud {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 3000;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  justify-items: end;
   min-height: 54px;
   padding: 9px 12px;
   border-bottom: 2px solid var(--line);
@@ -101,6 +101,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
   flex: 1 1 100%; /* 항상 이 줄 전체를 차지 -> phase-badge는 무조건 다음 줄로 밀림(줄 수 고정) */
 }
 
@@ -111,12 +112,42 @@
 }
 
 .stat-boss-boss-hp-track {
-  width: min(220px, 32vw);
-  height: 13px;
+  width: min(264px, 38.4vw);
+  height: 15.6px;
+  min-width: 0;
+  flex-shrink: 1;
   overflow: hidden;
   border: 2px solid var(--line);
   border-radius: 999px;
   background: #050812;
+}
+
+/* Keep the player meter's original size below the boss at the right edge. */
+.stat-boss-player-hud {
+  justify-self: end;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stat-boss-player-hud .character-health {
+  grid-template-columns: auto minmax(0, 220px) auto;
+}
+
+.stat-boss-player-hud .character-health__track {
+  width: min(220px, 28vw);
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .stat-boss-boss-info,
+  .stat-boss-player-hud .character-health {
+    column-gap: 5px;
+  }
+
+  .stat-boss-boss-hp-text,
+  .stat-boss-player-hud .character-health__text {
+    font-size: 0.65rem;
+  }
 }
 
 .stat-boss-boss-hp-fill {
@@ -235,23 +266,26 @@
   position: relative;
   display: grid;
   place-items: center;
-  min-height: clamp(64px, 16vw, 108px);
+  min-height: clamp(144px, 25vw, 208px);
   background: linear-gradient(180deg, rgb(255 111 145 / 10%), transparent);
 }
 
 .stat-boss-boss-actor {
   position: relative;
-  width: clamp(56px, 13vw, 92px);
+  width: clamp(120px, 23vw, 184px);
   aspect-ratio: 1;
 }
 
 .stat-boss-boss-actor__sprite {
   position: absolute;
-  inset: 0;
-  border: clamp(2px, 0.4vw, 3px) solid var(--text);
-  border-radius: 26%;
-  background: linear-gradient(160deg, #ff8fa6, var(--danger));
-  box-shadow: 4px 4px 0 rgb(255 111 145 / 55%);
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: var(--stat-boss-sprite-aspect);
+  background-image: url("../assets/images/bosses/stat-boss-poses.png");
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
 }
 
 .stat-boss-arena {
@@ -288,7 +322,7 @@
   }
 
   .stat-boss-boss-zone {
-    min-height: clamp(48px, 13vw, 96px);
+    min-height: clamp(132px, 24vw, 184px);
   }
 
   /* .character-hud는 공용 캐릭터 시스템 컴포넌트(battle-character.css)라 그 파일

@@ -101,8 +101,13 @@ export function createBattle({
   let serverFinished = false;
 
   function handleEncounterEvent(event) {
-    if (event.type === "dodge-result") view?.flashImpact(event.dangerCells);
+    if (event.type === "dodge-result") {
+      view?.showBossAttack();
+      view?.flashImpact(event.dangerCells);
+    }
     else if (event.type === "counter-hit") {
+      if (event.damage > 0) view?.showBossHit();
+      if (event.playerId === localPlayerId) view?.damageNumbers.show(event.damage);
       view?.flashCounter({ hit: true, damage: event.damage });
       if (sharedBinding && activeAttemptId) {
         sharedActionSequence += 1;
@@ -113,7 +118,10 @@ export function createBattle({
       }
     }
     else if (event.type === "counter-miss") view?.flashCounter({ hit: false });
-    else if (event.type === "complete") loop?.pause(); // 승패가 갈리면 화면을 그 자리에서 멈춘다
+    else if (event.type === "complete") {
+      view?.setBossOutcome(event.candidate.status);
+      loop?.pause();
+    }
   }
 
   /** 로컬 플레이어를 제외한 나머지(encounter가 알고 있는) 플레이어들을 view에 넘긴다.
@@ -345,6 +353,9 @@ export function createBattle({
 
     getState() {
       return encounter?.getSnapshot() ?? null;
+    },
+    getPresenceRuntime() {
+      return view && system ? { root: view.arenaEl, worldSize: arena, snapshot: system.getSnapshot() } : null;
     },
   };
 }

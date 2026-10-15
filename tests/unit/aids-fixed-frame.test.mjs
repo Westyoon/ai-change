@@ -9,7 +9,8 @@ import {
 } from "../../js/minigames/AIDS/dom-builder.js";
 import { createMiniGame } from "../../js/minigames/AIDS/index.js";
 import { finalizeRelease } from "../../js/minigames/AIDS/eggs.js";
-import { stepFrame } from "../../js/minigames/AIDS/game-loop.js";
+import { receivingSide, stepFrame } from "../../js/minigames/AIDS/game-loop.js";
+import { SORTING_GUARDIANS } from "../../js/minigames/AIDS/guardian-art.js";
 import {
   AIDS_BASE_FIELD_HEIGHT,
   AIDS_BASE_FIELD_WIDTH,
@@ -185,6 +186,19 @@ test("AIDS mounts a 390x740 logical frame, keeps short-host controls usable, and
   assert.equal(root.className, "aids-root");
   assert.deepEqual(requestedAssetIds, ["ai-data-egg-sort-background"]);
   assert.equal(root.style.backgroundImage, 'url("blob:aids-game-background")');
+  const pipe = root.children.find(child => child.className === "aids-pipe-row").children[0];
+  const pipeImage = pipe.children[0].children[0];
+  assert.equal(pipeImage.tagName, "IMG");
+  assert.equal(pipeImage.src, "./assets/images/인데부 상자.png");
+  assert.equal(pipeImage.draggable, false);
+  const boxes = root.children.find(child => child.className === "aids-boxes");
+  for (const [index, box] of boxes.children.entries()) {
+    assert.equal(box.children.length, 1);
+    assert.equal(box.children[0].tagName, "IMG");
+    assert.equal(box.children[0].className, "aids-box-egg");
+    assert.equal(box.children[0].src, SORTING_GUARDIANS[index === 0 ? "in" : "de"].imageSrc);
+    assert.match(box.attributes.get("aria-label"), index === 0 ? /인지.*파랑/u : /데사.*분홍/u);
+  }
   assert.match(
     ownerDocument.head.children[0].textContent,
     /\.aids-ui-root\s*\{[^}]*overflow-y:auto[^}]*align-items:safe center/su,
@@ -287,6 +301,18 @@ test("AIDS background manifest and PNG preserve the full logical-frame contract"
   );
 });
 
+test("AIDS dispenser asset is required and its source dimensions match the CSS crop", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../../data/asset-manifest.json", import.meta.url), "utf8"));
+  const dispenser = manifest.assets.find(asset => asset.id === "ai-data-egg-sort-dispenser");
+  assert.equal(dispenser.group, "ai-data-egg-sort");
+  assert.equal(dispenser.required, true);
+  assert.equal(dispenser.type, "image");
+  assert.equal(dispenser.src, "./assets/images/인데부 상자.png");
+  const png = await readFile(new URL(`../../${dispenser.src}`, import.meta.url));
+  assert.equal(png.readUInt32BE(16), 2172);
+  assert.equal(png.readUInt32BE(20), 724);
+});
+
 test("AIDS pixel chrome stays solid while preserving gameplay geometry", async () => {
   const source = await readFile(
     new URL("../../js/minigames/AIDS/styles.js", import.meta.url),
@@ -294,6 +320,10 @@ test("AIDS pixel chrome stays solid while preserving gameplay geometry", async (
   );
 
   assert.doesNotMatch(source, /(?:linear|radial)-gradient|drop-shadow\(|blur\(/u);
+  assert.doesNotMatch(source, /\.aids-pipe::(?:before|after)/u);
+  assert.match(source, /\.aids-pipe\s*\{[^}]*width:64px; height:26px;/su);
+  assert.match(source, /\.aids-pipe-art\s*\{[^}]*aspect-ratio:1114 \/ 494;[^}]*overflow:hidden/su);
+  assert.match(source, /\.aids-pipe-image\s*\{[^}]*height:auto; max-width:none;[^}]*image-rendering:pixelated/su);
   assert.match(
     source,
     /\.aids-logical-frame\s*\{[^}]*width:390px; height:740px;/su,
@@ -591,7 +621,7 @@ test("AIDS third-row outward releases route to their directional result", () => 
   }
 });
 
-test("AIDS crossing either field edge classifies by side without requiring box overlap", () => {
+test("AIDS touching either wall enters that side's box and judges the egg type", () => {
   const ownerDocument = {
     createElement(tagName) {
       return new FakeElement(tagName, ownerDocument);
@@ -630,8 +660,8 @@ test("AIDS crossing either field edge classifies by side without requiring box o
   const state = {
     life: DEFAULT_CONFIG.initialLives,
     eggs: [
-      edgeEgg("in", 0),
-      edgeEgg("de", field.clientWidth),
+      edgeEgg("in", DEFAULT_CONFIG.physics.eggRadius),
+      edgeEgg("de", field.clientWidth - DEFAULT_CONFIG.physics.eggRadius),
       edgeEgg("de", 0),
       edgeEgg("in", field.clientWidth),
     ],
@@ -653,7 +683,7 @@ test("AIDS crossing either field edge classifies by side without requiring box o
   assert.deepEqual(state.eggs, []);
 });
 
-test("AIDS side exits classify every falling route, not only eggs already targeting a box", () => {
+test("AIDS wall contact chooses the actual side regardless of the planned route", () => {
   const ownerDocument = {
     createElement(tagName) {
       return new FakeElement(tagName, ownerDocument);
@@ -722,7 +752,7 @@ test("AIDS side exits classify every falling route, not only eggs already target
   assert.deepEqual(state.eggs, []);
 });
 
-test("AIDS desktop floor classification follows the egg's visible field half", () => {
+test("AIDS floor classification requires a real box mouth and ignores the planned direction", () => {
   const ownerDocument = {
     createElement(tagName) {
       return new FakeElement(tagName, ownerDocument);
@@ -736,6 +766,9 @@ test("AIDS desktop floor classification follows the egg's visible field half", (
   const heartsEl = new FakeElement("div", ownerDocument);
   const timerEl = new FakeElement("div", ownerDocument);
   const refs = { field, boxLeft, boxRight, heartsEl, timerEl };
+  field.getBoundingClientRect = () => ({ left: 100, width: 1200 });
+  boxLeft.getBoundingClientRect = () => ({ left: 112, width: 300 });
+  boxRight.getBoundingClientRect = () => ({ left: 988, width: 300 });
   const makeEgg = ({ type, x, finalDir }) => {
     const el = new FakeElement("div", ownerDocument);
     field.appendChild(el);
@@ -761,14 +794,17 @@ test("AIDS desktop floor classification follows the egg's visible field half", (
     eggs: [
       makeEgg({
         type: "in",
-        x: field.clientWidth * 0.43,
+        x: field.clientWidth * 0.1,
         finalDir: "right",
       }),
       makeEgg({
         type: "de",
-        x: field.clientWidth * 0.57,
+        x: field.clientWidth * 0.9,
         finalDir: "left",
       }),
+      makeEgg({ type: "in", x: field.clientWidth * 0.43, finalDir: "left" }),
+      makeEgg({ type: "de", x: field.clientWidth * 0.57, finalDir: "right" }),
+      makeEgg({ type: "in", x: field.clientWidth * 0.9, finalDir: "left" }),
     ],
     fieldLayout: createFieldLayout(DEFAULT_CONFIG, field.clientWidth, field.clientHeight),
     platforms: [],
@@ -782,10 +818,25 @@ test("AIDS desktop floor classification follows the egg's visible field half", (
   stepFrame({ state, config: DEFAULT_CONFIG, refs, elapsedMs: 0 });
 
   assert.equal(state.correctCount, 2);
-  assert.equal(state.wrongCount, 0);
-  assert.equal(state.lostCount, 0);
-  assert.equal(state.life, DEFAULT_CONFIG.initialLives);
+  assert.equal(state.wrongCount, 1);
+  assert.equal(state.lostCount, 2);
+  assert.equal(state.life, DEFAULT_CONFIG.initialLives - 3);
   assert.deepEqual(state.eggs, []);
+});
+
+test("AIDS box mouths track rendered positions through viewport scaling", () => {
+  for (const scale of [0.5, 1, 2]) {
+    const refs = {
+      field: { clientWidth: 362, getBoundingClientRect: () => ({ left: 100, width: 362 * scale }) },
+      boxLeft: { getBoundingClientRect: () => ({ left: 100 + 12 * scale, width: 120 * scale }) },
+      boxRight: { getBoundingClientRect: () => ({ left: 100 + 230 * scale, width: 120 * scale }) },
+    };
+    assert.equal(receivingSide(refs, 70), "left");
+    assert.equal(receivingSide(refs, 290), "right");
+    for (const gap of [0, 12, 130, 181, 230, 350, 362]) {
+      assert.equal(receivingSide(refs, gap), null);
+    }
+  }
 });
 
 test("AIDS wide desktop layout preserves the normalized platform slope", () => {

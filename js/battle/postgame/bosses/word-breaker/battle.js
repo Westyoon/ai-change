@@ -4,6 +4,8 @@ import { DEFAULT_PLAYER_APPEARANCE } from "../../../player-config.js";
 import { normalizeWordBreakerConfig } from "./config.js";
 import { WordBreakerEncounter, WORD_BREAKER_STATES } from "./encounter.js";
 import { WordBreakerView } from "./view.js";
+import { BattleCaptionDeck } from "../../../../core/finale-story.js";
+import { StorySoundtrack } from "../../../../core/story-soundtrack.js";
 
 const EPSILON = 1e-7;
 
@@ -43,7 +45,7 @@ function startPosition(config) {
   };
 }
 
-export function createBattle({ root, input = null, events = null, onComplete = null } = {}) {
+export function createBattle({ root, input = null, events = null, onComplete = null, audio = null } = {}) {
   if (!root?.append) throw new Error("Word Breaker createBattle requires a root element.");
   if (!events?.on) throw new Error("Word Breaker createBattle requires the shared EventBus.");
 
@@ -61,6 +63,8 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   let destroyed = false;
   let lastState = Object.freeze({ state: WORD_BREAKER_STATES.CREATED, disposed: false });
   let simulationRemainderMs = 0;
+  let captions = null;
+  const soundtrack = new StorySoundtrack(audio);
 
   function render() {
     if (!encounter || !view || !system) return;
@@ -82,9 +86,11 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     } else if (event.type === "guardian-collected") {
       system?.setControlLocked(true, "word-breaker-transition");
     } else if (event.type === "finale") {
+      captions?.stop();
       system?.setControlLocked(false, "word-breaker-transition");
       system?.setControlLocked(true, "word-breaker-finale");
     } else if (event.type === "complete") {
+      captions?.stop(); soundtrack.stop();
       loop?.pause();
       system?.setControlLocked(true, "word-breaker-terminal");
     }
@@ -107,6 +113,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
         break;
       }
     }
+    captions?.update(incomingMs);
     render();
   }
 
@@ -125,6 +132,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       document: root.ownerDocument ?? globalThis.document,
     });
     view.mount(root);
+    captions = new BattleCaptionDeck({ random: source?.captionRandom ?? Math.random, onCaption: (text) => view?.showEiaiCaption(text) });
     encounter = new WordBreakerEncounter({
       config,
       random: source?.random,
@@ -167,6 +175,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   }
 
   function teardownRuntime() {
+    captions?.stop(); captions = null; soundtrack.stop();
     loop?.destroy();
     joystick?.destroy();
     system?.destroy();
@@ -190,6 +199,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     removeAbortListener?.();
     removeAbortListener = null;
     teardownRuntime();
+    soundtrack.destroy();
     lastState = Object.freeze({ ...lastState, state: WORD_BREAKER_STATES.DESTROYED, disposed: true });
     return true;
   }
@@ -224,6 +234,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
     start({ attemptId } = {}) {
       if (!encounter) throw new Error("Word Breaker must be initialized before start().");
       encounter.start({ attemptId });
+      captions?.reset(); soundtrack.play("battle");
       loop.start();
       render();
     },
@@ -232,6 +243,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       if (!encounter?.pause()) return false;
       system?.setControlLocked(true, "word-breaker-pause");
       loop?.pause();
+      soundtrack.stop();
       render();
       return true;
     },
@@ -240,6 +252,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       if (!encounter?.resume()) return false;
       system?.setControlLocked(false, "word-breaker-pause");
       loop?.resume();
+      soundtrack.play("battle");
       render();
       return true;
     },
@@ -249,6 +262,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       teardownRuntime();
       setup(lastConfigSource);
       encounter.start({ attemptId });
+      captions?.reset(); soundtrack.play("battle");
       loop.start();
       render();
       return true;

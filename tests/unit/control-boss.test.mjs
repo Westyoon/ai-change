@@ -19,6 +19,7 @@ import {
   resolveControlBossConfig,
 } from "../../js/battle/postgame/bosses/control-boss/index.js";
 import { createBattle as createStatBossBattle } from "../../js/battle/postgame/bosses/stat-boss/index.js";
+import { StatBossView } from "../../js/battle/postgame/bosses/stat-boss/view.js";
 
 const projectRoot = new URL("../../", import.meta.url);
 const configSource = JSON.parse(await readFile(new URL("data/battle/control-boss.json", projectRoot), "utf8"));
@@ -431,6 +432,69 @@ function installFrameHarness() {
   };
 }
 
+test("Control Boss artwork follows idle, hit, attack and terminal outcomes without changing collision bounds", () => {
+  const frames = installFrameHarness();
+  let view;
+  try {
+    const encounter = new ControlBossEncounter({ config });
+    encounter.init();
+    encounter.start({ attemptId: "control-boss:artwork" });
+    const snapshot = { ...encounter.getSnapshot(), bullets: [], shockwaves: [], elapsedMs: 0 };
+    view = new ControlBossView({ config, document: frames.document });
+    view.render(snapshot);
+    assert.equal(view.bossSprite.dataset.pose, "idle");
+    assert.equal(view.bossActor.style.width, `${config.world.bossZone.width / config.world.bounds.width * 100}%`);
+    view.render({ ...snapshot, elapsedMs: 100, currentShield: snapshot.currentShield - 10 });
+    assert.equal(view.bossSprite.dataset.pose, "hit");
+    const recovered = { ...snapshot, elapsedMs: 400, currentShield: snapshot.currentShield - 10 };
+    view.render(recovered);
+    assert.equal(view.bossSprite.dataset.pose, "idle");
+    view.render({ ...recovered, elapsedMs: 500, phase: CONTROL_BOSS_PHASES.INSTANT_KILL });
+    assert.equal(view.bossSprite.dataset.pose, "attack");
+    view.setBossOutcome("FAIL");
+    view.render({ ...recovered, elapsedMs: 600 });
+    assert.equal(view.bossSprite.dataset.pose, "victory");
+    view.setBossOutcome("CLEAR");
+    view.render({ ...recovered, elapsedMs: 700, currentHp: 0 });
+    assert.equal(view.bossSprite.dataset.pose, "death");
+  } finally {
+    view?.destroy();
+    frames.restore();
+  }
+});
+
+test("Stat Boss uses each supplied pose and preserves the flat death silhouette", () => {
+  const frames = installFrameHarness();
+  const previousNode = globalThis.Node;
+  globalThis.document = frames.document;
+  globalThis.Node = FakeElement;
+  let view;
+  try {
+    view = new StatBossView({ arena: { width: 960, height: 600 }, localPlayerId: "player-1" });
+    const snapshot = { elapsedMs: 0, phase: "STAGGER", boss: { hp: 1000, maxHp: 1000 }, players: {}, dangerCells: [] };
+    view.render(snapshot);
+    assert.equal(view.bossSprite.dataset.pose, "idle");
+    view.render({ ...snapshot, elapsedMs: 100, phase: "TELEGRAPH" });
+    assert.equal(view.bossSprite.dataset.pose, "attack");
+    view.render({ ...snapshot, elapsedMs: 200, boss: { hp: 900, maxHp: 1000 } });
+    assert.equal(view.bossSprite.dataset.pose, "hit");
+    const recovered = { ...snapshot, elapsedMs: 500, boss: { hp: 900, maxHp: 1000 } };
+    view.render(recovered);
+    assert.equal(view.bossSprite.dataset.pose, "idle");
+    view.setBossOutcome("FAIL");
+    view.render(recovered);
+    assert.equal(view.bossSprite.dataset.pose, "victory");
+    view.setBossOutcome("CLEAR");
+    view.render({ ...recovered, boss: { hp: 0, maxHp: 1000 } });
+    assert.equal(view.bossSprite.dataset.pose, "death");
+    assert.equal(view.bossSprite.style["--stat-boss-sprite-aspect"], "480 / 190");
+  } finally {
+    view?.destroy();
+    globalThis.Node = previousNode;
+    frames.restore();
+  }
+});
+
 function createSharedBattleHarness(battleId, bossMaxHp = 1_000) {
   let snapshot = Object.freeze({
     roomId: `ROOM-${battleId.toUpperCase()}`,
@@ -660,6 +724,8 @@ test("Control Boss restores player HP only for the initial mount", async () => {
     assert.equal(battle.getState().playerHp, 37);
     assert.equal(battle.getState().playerMaxHp, 120);
     assert.equal(root.querySelector(".control-boss-player-hp").textContent, "37 / 120");
+    assert.equal(root.querySelector(".control-boss-bar__fill--player").style.width, `${37 / 120 * 100}%`);
+    assert.equal(root.querySelector(".control-boss-player-hp-track").getAttribute("aria-valuenow"), "37");
 
     battle.start({ attemptId: "control-boss:restored-health" });
     assert.equal(battle.restart({ attemptId: "control-boss:fresh-retry" }), true);
@@ -700,6 +766,13 @@ test("Stat Boss restores player HP only for the initial mount", async () => {
     assert.equal(battle.getState().players["stat-resume-player"].hp, 37);
     assert.equal(battle.getState().players["stat-resume-player"].maxHp, 120);
     assert.equal(root.querySelector(".character-health__text").textContent, "37 / 120");
+    const hud = root.querySelector(".stat-boss-hud");
+    assert.ok(hud.querySelector(".stat-boss-boss-hp-track"));
+    assert.ok(hud.querySelector(".stat-boss-player-hud"));
+    assert.equal(hud.querySelector(".stat-boss-boss-hp-text").textContent, "1000 / 1000");
+    for (const selector of [".stat-boss-stat-card", ".stat-boss-phase-badge", ".stat-boss-pattern-tag", ".stat-boss-control-hint", ".character-state-badge"]) {
+      assert.equal(root.querySelector(selector), null, `${selector} must not clutter the stat boss HUD`);
+    }
 
     battle.start({ attemptId: "stat-boss:restored-health" });
     battle.restart({ attemptId: "stat-boss:fresh-retry" });
@@ -751,6 +824,9 @@ test("online Control Boss forwards local FAIL and later accepts the server CLEAR
     frames.step(100);
     assert.equal(completions.length, 1);
     assert.equal(completions[0].candidate.status, "FAIL");
+    assert.equal(root.querySelector(".control-boss-bar__fill--player").style.width, "0%");
+    assert.equal(root.querySelector(".control-boss-player-hp-track").getAttribute("aria-valuenow"), "0");
+    assert.equal(root.querySelector(".control-boss-player-state").textContent, "전투 불능");
 
     shared.finish();
     assert.deepEqual(

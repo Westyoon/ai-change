@@ -109,7 +109,7 @@ function createRecordingContext() {
     beginPath(...args) { calls.push(["beginPath", ...args]); },
     arc(...args) { calls.push(["arc", ...args]); },
     fill(...args) { calls.push(["fill", ...args]); },
-    stroke(...args) { calls.push(["stroke", ...args]); },
+    stroke(...args) { calls.push(["stroke", ...args]); calls.push(["strokeAppearance", this.strokeStyle, this.lineWidth]); },
     fillText(...args) { calls.push(["fillText", ...args]); },
     moveTo(...args) { calls.push(["moveTo", ...args]); },
     lineTo(...args) { calls.push(["lineTo", ...args]); },
@@ -175,6 +175,8 @@ test("CS consumes the stage and square arena backgrounds without changing its pl
   assert.equal(canvas.height, 480);
 
   instance.start({ attemptId: "cs:backgrounds" });
+  assert.ok(context.calls.some(call => call[0] === "strokeAppearance" && call[1] === "#241C33" && call[2] === 8));
+  assert.ok(context.calls.some(call => call[0] === "strokeAppearance" && call[1] === "#E5F59A" && call[2] === 4));
   assert.ok(context.calls.some((call) => (
     call[0] === "drawImage"
     && call[1] === arenaImage

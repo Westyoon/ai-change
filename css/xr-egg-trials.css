@@ -43,7 +43,7 @@
 
 .xr-trials__title {
   margin: -0.55rem 0 0;
-  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  font-size: clamp(1.155rem, 2.8vw, 1.645rem);
   text-align: center;
 }
 
@@ -84,6 +84,45 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: clamp(0.65rem, 3vw, 1.4rem);
+}
+
+.xr-trials__rps-player {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+}
+
+.xr-trials__rps-confirm[hidden] {
+  display: none;
+}
+
+.xr-trials__hand-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  background-image: url("../assets/images/rps-golden-hands.png");
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+.xr-trials__hand-image[data-hand-image="rock"] { background-position: 0% 50%; }
+.xr-trials__hand-image[data-hand-image="scissors"] { background-position: 50% 50%; }
+.xr-trials__hand-image[data-hand-image="paper"] { background-position: 100% 50%; }
+
+.xr-trials__rps-slot .xr-trials__hand-image {
+  width: 92%;
+}
+
+#app .xr-trials__choice {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 4px;
+}
+
+.xr-trials__choice .xr-trials__hand-image {
+  width: clamp(32px, min(12cqw, 12cqh), 64px);
 }
 
 .xr-trials__rps-slot {
