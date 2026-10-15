@@ -27,6 +27,11 @@ test("assembled campus reuses separate sprites and does not plant tree trunks in
   const props=campusProps(map,mask);
   assert.ok(props.filter(p=>p.kind==="tree").length>100);
   assert.equal(props.filter(p=>p.kind.startsWith("booth")).length,6);
+  for(const bench of props.filter(p=>p.kind==="bench")) {
+    for(let y=bench.y-14;y<=bench.y+6;y+=4) for(let x=bench.x-33;x<=bench.x+33;x+=4) {
+      assert.equal(mask.cells[Math.floor(y/mask.cellSize)*mask.columns+Math.floor(x/mask.cellSize)],0,"benches leave the full walking path clear");
+    }
+  }
   for(const p of props.filter(p=>["tree","autumn"].includes(p.kind))) {
     assert.equal(mask.allows({x:p.x-6,y:p.y-8,width:12,height:8}),false,`tree trunk ${p.x},${p.y}`);
   }

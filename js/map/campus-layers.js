@@ -8,6 +8,12 @@ export const CAMPUS_BUILDINGS = Object.freeze([
 
 export function depthAtFoot(y) { return 1000 + Math.round(y); }
 
+// These sprites do not fill the atlas cells. Use their real bounds and aspect ratios.
+const PROP_CROPS = {
+  bench: { x:940, y:655, width:336, height:173 },
+  lamp: { x:1500, y:464, width:99, height:388 },
+};
+
 export const CAMPUS_FLOWERBEDS = Object.freeze([
   { type:0, x:684, y:516, width:112, height:38 },
   { type:0, x:879, y:516, width:112, height:38 },
@@ -50,10 +56,12 @@ export function createCampusTerrain(document, map) {
   const svg = svgNode(document, "svg", { viewBox: `0 0 ${map.world.width} ${map.world.height}`, width: map.world.width, height: map.world.height, "aria-hidden": "true", "shape-rendering": "crispEdges" });
   svg.classList.add("campus-terrain");
   const defs = svgNode(document, "defs");
-  const grass = svgNode(document, "pattern", { id: "campus-grass", width: 32, height: 32, patternUnits: "userSpaceOnUse" });
-  grass.append(svgNode(document,"image",{href:"./assets/maps/tiles/grass.svg",width:32,height:32}));
-  const paving = svgNode(document,"pattern",{id:"campus-paving",width:32,height:32,patternUnits:"userSpaceOnUse"});
-  paving.append(svgNode(document,"image",{href:"./assets/maps/tiles/paving.svg",width:32,height:32}));
+  const grassTexture = map.terrain?.grass ?? { src:"./assets/maps/tiles/grass.svg", size:32 };
+  const pavingTexture = map.terrain?.paving ?? { src:"./assets/maps/tiles/paving.svg", size:32 };
+  const grass = svgNode(document, "pattern", { id: "campus-grass", width: grassTexture.size, height: grassTexture.size, patternUnits: "userSpaceOnUse" });
+  grass.append(svgNode(document,"image",{href:grassTexture.src,width:grassTexture.size,height:grassTexture.size}));
+  const paving = svgNode(document,"pattern",{id:"campus-paving",width:pavingTexture.size,height:pavingTexture.size,patternUnits:"userSpaceOnUse"});
+  paving.append(svgNode(document,"image",{href:pavingTexture.src,width:pavingTexture.size,height:pavingTexture.size}));
   const stairs=svgNode(document,"pattern",{id:"campus-stairs",width:32,height:28,patternUnits:"userSpaceOnUse"});
   stairs.append(svgNode(document,"image",{href:"./assets/maps/tiles/stairs.svg",width:32,height:28}));
   defs.append(grass,paving,stairs);svg.append(defs);
@@ -68,6 +76,12 @@ export function createCampusTerrain(document, map) {
 
 /** Separate sprites share the same foot-depth rule as local and remote characters. */
 export function createCampusProp(document, { kind, x, y, width, height }) {
+  const crop = PROP_CROPS[kind];
+  if (crop) {
+    const scale = Math.min(width / crop.width, height / crop.height);
+    width = crop.width * scale;
+    height = crop.height * scale;
+  }
   const index = { tree:0, autumn:1, hedge:2, flowers:3, "booth-green":4, "booth-pink":5, bench:6, lamp:7 }[kind];
   const node = document.createElement("div");
   node.className = "campus-prop";
@@ -76,7 +90,32 @@ export function createCampusProp(document, { kind, x, y, width, height }) {
   node.setAttribute("aria-hidden","true");
   Object.assign(node.style, { left:`${x-width/2}px`,top:`${y-height*.92}px`,width:`${width}px`,height:`${height}px`,zIndex:String(depthAtFoot(y)),
     backgroundPosition:`${(index%4)/3*100}% ${Math.floor(index/4)*100}%` });
+  if (crop) {
+    const scale = width / crop.width;
+    Object.assign(node.style, {
+      top:`${y-height}px`,
+      backgroundSize:`${1774*scale}px ${887*scale}px`,
+      backgroundPosition:`${-crop.x*scale}px ${-crop.y*scale}px`,
+    });
+  }
   return node;
+}
+
+function placeBenchBesidePath(x, y, mask) {
+  const candidates = [];
+  for (let dy=-80;dy<=80;dy+=4) for (let dx=-80;dx<=80;dx+=4) {
+    const px=x+dx,py=y+dy;
+    // The full bench footprint and a small walking clearance must stay off the path.
+    let clear=true;
+    for(let sy=py-14;sy<=py+6&&clear;sy+=4) for(let sx=px-33;sx<=px+33;sx+=4) {
+      const col=Math.floor(sx/mask.cellSize),row=Math.floor(sy/mask.cellSize);
+      if(col<0||row<0||col>=mask.columns||row>=mask.rows||mask.cells[row*mask.columns+col]) {clear=false;break;}
+    }
+    if (!clear || CAMPUS_FLOWERBEDS.some(b=>px+29>b.x&&px-29<b.x+b.width&&py>b.y&&py-30<b.y+b.height)) continue;
+    if (CAMPUS_BUILDINGS.some(b=>px+29>b.x&&px-29<b.x+b.width&&py>b.y&&py-30<b.y+b.height)) continue;
+    candidates.push({x:px,y:py,distance:dx*dx+dy*dy});
+  }
+  return candidates.sort((a,b)=>a.distance-b.distance)[0];
 }
 
 export function campusProps(map, mask) {
@@ -97,10 +136,15 @@ export function campusProps(map, mask) {
     props.push({kind:(Math.floor(tx/43)+Math.floor(ty/42))%9===0?"autumn":"tree",x:tx,y:ty,width:68,height:82});
   }
   for(const rect of map.collision.obstacles.slice(0,6)) props.push({kind:rect.x>250?"booth-pink":"booth-green",x:rect.x+rect.width/2,y:rect.y+rect.height,width:82,height:82});
-  for(const [x,y] of [[679,744],[990,744],[627,601],[1048,600],[613,396],[1050,396]]) props.push({kind:"bench",x,y,width:58,height:40});
+  for(const [x,y] of [[679,744],[990,744],[627,601],[1048,600],[613,396],[1050,396]]) {
+    const position=placeBenchBesidePath(x,y,mask);
+    if(position) props.push({kind:"bench",x:position.x,y:position.y,width:58,height:30});
+  }
   for(const [x,y] of [[565,420],[1100,420],[575,840],[1101,840],[1212,705],[1555,705],[100,775],[410,775]]) props.push({kind:"lamp",x,y,width:35,height:62});
   for(const [x,y] of [[704,562],[969,562],[693,808],[985,808]]) props.push({kind:"tree",x,y,width:65,height:80});
-  return props;
+  const benches=props.filter(prop=>prop.kind==="bench");
+  return props.filter(prop=>!["tree","autumn"].includes(prop.kind)
+    || !benches.some(bench=>Math.abs(prop.x-bench.x)<60&&Math.abs(prop.y-bench.y)<55));
 }
 
 export async function createCampusLayers({ document, map, mask, signal }) {
