@@ -17,6 +17,6 @@
     "localSave": true,
     "battleContent": true,
     "guestBattleTesting": true,
-    "campusMap": false
+    "campusMap": true
   }
 }

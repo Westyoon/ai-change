@@ -15,7 +15,8 @@
 }
 .campus-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .campus-toolbar > strong { color: var(--ink); }
-.campus-toolbar .button-row { margin: 0; gap: 10px; }
+.campus-toolbar .button-row { margin: 0; gap: 10px; flex-wrap: nowrap; }
+.campus-toolbar .button-row .button { flex: 0 0 auto; }
 .campus-toolbar .button { min-width: 0; min-height: 44px; padding: 8px 14px; font-size: .8rem; }
 .campus-viewport {
   position: relative;
@@ -27,6 +28,7 @@
   background: #345b30;
   touch-action: none;
 }
+.campus-viewport:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
 .campus-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 .campus-background { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; user-select: none; }
 .campus-world .character-actor { pointer-events: none; }
