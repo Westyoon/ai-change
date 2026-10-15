@@ -6,7 +6,7 @@ const MIN_PRESENCE_INTERVAL_MS = 40;
 const MAX_ROOM_NAME_LENGTH = 32;
 const DEFAULT_ROOM_NAME = "보스 대기실";
 
-const ZONES = ["entry-field", "plaza", "battle:data-sphinx", "battle:stat-boss", "battle:control-boss"] as const;
+const ZONES = ["entry-field", "plaza", "campus-outdoor-v1", "battle:data-sphinx", "battle:stat-boss", "battle:control-boss"] as const;
 const DIRECTIONS = ["up", "down", "left", "right"] as const;
 const BATTLE_IDS = ["data-sphinx", "stat-boss", "control-boss"] as const;
 const RANKED_BATTLE_IDS = ["stat-boss", "control-boss"] as const;

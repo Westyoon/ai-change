@@ -1,4 +1,5 @@
 import { FINAL_BATTLE_ID, getPublishedBattles } from "../battle/registry.js";
+import { createCampusScene } from "./campus-scene.js";
 import {
   CharacterSystem,
   CharacterView,
@@ -201,6 +202,7 @@ export function getStoryNpcProgressPresentation({
 }
 
 export function createMapScene(context) {
+  if (context.config.features?.campusMap === true) return createCampusScene(context, { mode: "before" });
   let mounted = false;
   let loop = null;
   let system = null;

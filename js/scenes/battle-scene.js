@@ -1,4 +1,5 @@
 import { FINAL_BATTLE_ID, getPublishedBattles, loadBattleModule } from "../battle/registry.js";
+import { createCampusScene } from "./campus-scene.js";
 import {
   AFTERGAME_WORLD_LAYOUT,
   AFTERGAME_ZONE_IDS,
@@ -979,6 +980,10 @@ function createBattleEntryScene(context, { notice = null } = {}) {
           "전투를 시작하지 못했습니다.",
         ),
         onClose: () => {
+          if (_params?.openBossId && context.config.features?.campusMap) {
+            void context.router.navigate("battle");
+            return;
+          }
           system?.setControlLocked(false, "boss-room-lobby");
           worldElement.focus?.({ preventScroll: true });
         },
@@ -1456,6 +1461,8 @@ function createBattleEntryScene(context, { notice = null } = {}) {
         },
       });
       loop.start();
+
+      if (_params?.openBossId) enterBossRoom(_params.openBossId);
 
       const resizeWorld = () => {
         if (!mounted || !system || !view) return;
@@ -2156,7 +2163,9 @@ export function createBattleScene(context) {
       if (definitions.length === 0) {
         activeScene = createBattleComingSoonScene(context);
       } else if (!params.battleId) {
-        activeScene = createBattleEntryScene(context);
+        activeScene = context.config.features?.campusMap === true && !params.legacyWorld
+          ? createCampusScene(context, { mode: "after" })
+          : createBattleEntryScene(context);
       } else {
         const battle = findBattle(context, params.battleId);
         if (!battle) throw new Error(`배틀을 찾을 수 없습니다: ${params.battleId}`);

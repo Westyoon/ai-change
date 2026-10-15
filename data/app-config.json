@@ -16,6 +16,7 @@
     "story": true,
     "localSave": true,
     "battleContent": true,
-    "guestBattleTesting": true
+    "guestBattleTesting": true,
+    "campusMap": false
   }
 }

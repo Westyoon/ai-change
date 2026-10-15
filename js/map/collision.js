@@ -52,13 +52,13 @@ function clampToBounds(position, size, bounds) {
   };
 }
 
-function collides(position, size, colliders) {
+function collides(position, size, colliders, walkMask = null) {
   const rect = { ...position, ...size };
-  return colliders.some((collider) => rectsOverlap(rect, collider));
+  return (walkMask && !walkMask.allows(rect)) || colliders.some((collider) => rectsOverlap(rect, collider));
 }
 
 /** Resolves X and Y independently so a moving body can slide along obstacles. */
-export function resolveMovement({ position, size, delta, colliders = [], bounds = null }) {
+export function resolveMovement({ position, size, delta, colliders = [], bounds = null, walkMask = null }) {
   const safePosition = { x: finite(position?.x), y: finite(position?.y) };
   const safeSize = {
     width: Math.max(0, finite(size?.width)),
@@ -71,7 +71,7 @@ export function resolveMovement({ position, size, delta, colliders = [], bounds 
     safeSize,
     bounds,
   );
-  if (collides(next, safeSize, colliders)) {
+  if (collides(next, safeSize, colliders, walkMask)) {
     next.x = safePosition.x;
   }
 
@@ -80,7 +80,7 @@ export function resolveMovement({ position, size, delta, colliders = [], bounds 
     safeSize,
     bounds,
   );
-  if (collides(next, safeSize, colliders)) {
+  if (collides(next, safeSize, colliders, walkMask)) {
     next.y = safePosition.y;
   }
   return next;
@@ -98,6 +98,7 @@ export function resolveContinuousMovement({
   colliders = [],
   bounds = null,
   maxStep = null,
+  walkMask = null,
 }) {
   const safePosition = { x: finite(position?.x), y: finite(position?.y) };
   const safeSize = {
@@ -119,6 +120,7 @@ export function resolveContinuousMovement({
       delta: stepDelta,
       colliders,
       bounds,
+      walkMask,
     });
   }
   return next;
