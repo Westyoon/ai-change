@@ -12,6 +12,7 @@ test("flowerbeds preserve source proportions and fit their own footprints",()=>{
   assert.ok(new Set(CAMPUS_FLOWERBEDS.map(bed=>bed.type)).size===6);
 });
 import { CampusMapManager } from "../../js/map/map-manager.js";
+import { WalkMask } from "../../js/map/walk-mask.js";
 
 test("campus foreground and characters share foot depth, so trees can cover characters behind them", () => {
   assert.ok(depthAtFoot(620) > depthAtFoot(590));
@@ -25,11 +26,12 @@ test("assembled campus reuses separate sprites and does not plant tree trunks in
   const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
   const manager=new CampusMapManager(config), map=manager.get("campus"),mask=manager.mask("campus");
   const props=campusProps(map,mask);
+  const paving=new WalkMask({...map.world,...map.collision});
   assert.ok(props.filter(p=>p.kind==="tree").length>100);
   assert.equal(props.filter(p=>p.kind.startsWith("booth")).length,6);
   for(const bench of props.filter(p=>p.kind==="bench")) {
     for(let y=bench.y-14;y<=bench.y+6;y+=4) for(let x=bench.x-33;x<=bench.x+33;x+=4) {
-      assert.equal(mask.cells[Math.floor(y/mask.cellSize)*mask.columns+Math.floor(x/mask.cellSize)],0,"benches leave the full walking path clear");
+      assert.equal(paving.cells[Math.floor(y/paving.cellSize)*paving.columns+Math.floor(x/paving.cellSize)],0,"benches leave the full paved path clear");
     }
   }
   for(const p of props.filter(p=>["tree","autumn"].includes(p.kind))) {

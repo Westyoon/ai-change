@@ -1,4 +1,5 @@
 const SVG = "http://www.w3.org/2000/svg";
+import { WalkMask } from "./walk-mask.js";
 export const CAMPUS_BUILDINGS = Object.freeze([
   { id: "hall", src: "./assets/maps/buildings/hall.png", x: 568, y: 48, width: 535, height: 326, footY: 340 },
   { id: "student-center", src: "./assets/maps/buildings/student-center.png", x: 22, y: 136, width: 448, height: 342, footY: 416 },
@@ -119,6 +120,7 @@ function placeBenchBesidePath(x, y, mask) {
 }
 
 export function campusProps(map, mask) {
+  if(map.collision.walkGrass) mask=new WalkMask({...map.world,...map.collision});
   const props = [];
   const occupiedBuilding = (x,y) => CAMPUS_BUILDINGS.some(b=>x>b.x-35&&x<b.x+b.width+35&&y>b.y-15&&y<b.y+b.height+20);
   // Deterministic spacing keeps forest crowns independent and never moves collision paths.

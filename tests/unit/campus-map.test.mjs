@@ -5,6 +5,7 @@ import { followCamera, screenToWorld } from "../../js/map/camera.js";
 import { WalkMask } from "../../js/map/walk-mask.js";
 import { CampusMapManager } from "../../js/map/map-manager.js";
 import { resolveContinuousMovement } from "../../js/map/collision.js";
+import { CAMPUS_FLOWERBEDS } from "../../js/map/campus-layers.js";
 
 test("camera follows only a portion of the world, clamps at all edges, and preserves world coordinates", () => {
   const world = { width: 1672, height: 941 };
@@ -53,7 +54,9 @@ test("original campus map keeps every gameplay destination reachable with the fu
     if(allows(x,y))walkableCount++;
   }
   assert.equal(seen.size,walkableCount,"every walkable path belongs to the spawn network, including northern paths");
-  for (const [x,y] of [[835,620],[150,300],[950,470],[700,570]]) assert.equal(allows(x,y),false,"buildings and gardens are blocked");
+  for (const [x,y] of [[835,620],[150,300],[700,570]]) assert.equal(allows(x,y),false,"buildings and gardens are blocked");
+  assert.equal(allows(950,470),true,"open grass is walkable");
+  for(const bed of CAMPUS_FLOWERBEDS) assert.equal(allows(bed.x+bed.width/2,bed.y+bed.height/2),false,"every flowerbed blocks walking");
   assert.deepEqual(manager.restore({ mapId:"campus",version:"old",x:835,y:620 }), { mapId:"campus",version:config.version,...map.spawn });
   assert.throws(()=>manager.get("ecc_interior"),/not available/);
 });
