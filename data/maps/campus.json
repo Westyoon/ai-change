@@ -730,7 +730,13 @@
           "x": 250,
           "y": 460
         }
-      ]
+      ],
+      "terrain": {
+        "paving": {
+          "src": "./assets/maps/tiles/paving.png",
+          "size": 192
+        }
+      }
     },
     {
       "id": "ecc_interior",
