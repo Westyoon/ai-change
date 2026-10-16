@@ -30,6 +30,7 @@ export const CAMPUS_FLOWERBEDS = Object.freeze([
   { type:0, x:945, y:344, width:135, height:28 },
   { type:5, x:103, y:442, width:24, height:28 },
   { type:5, x:361, y:442, width:24, height:28 },
+  { type:1, x:1184, y:132, width:32, height:156 },
 ]);
 
 export function fitFlowerbed(bed, crop) {
@@ -126,6 +127,9 @@ export function campusProps(map, mask, {mode="after"}={}) {
   if(mode==="after") for(const rect of map.collision.obstacles.slice(0,6)) props.push({kind:rect.x>250?"booth-pink":"booth-green",x:rect.x+rect.width/2,y:rect.y+rect.height,width:82,height:82});
   for(const [x,y] of [[580,600],[1092,600],[580,730],[1092,730],[613,440],[1059,440]]) props.push({kind:"bench",x,y,width:58,height:30});
   for(const [x,y] of [[565,420],[1107,420],[575,840],[1097,840],[1212,705],[1555,705],[100,775],[410,775]]) props.push({kind:"lamp",x,y,width:35,height:62});
+  for(const y of [160,320,560,720]) for(const x of [486,1186]) props.push({kind:"lamp",x,y,width:35,height:62});
+  for(const x of [72,240,400]) props.push({kind:"lamp",x,y:126,width:35,height:62});
+  for(const x of [1260,1436,1612]) props.push({kind:"lamp",x,y:914,width:35,height:62});
   for(const [x,y] of [[704,562],[968,562],[693,808],[979,808]]) props.push({kind:"autumn",x,y,width:65,height:80});
   for(const y of [540,660,800]) for(const x of [580,1092]) props.push({kind:y===660?"autumn":"tree",x,y,width:65,height:80});
   for(const x of [704,968]) props.push({kind:"autumn",x,y:456,width:65,height:80});
