@@ -375,7 +375,7 @@ function combatMaxHp(stats: StatsRow): number {
   const maxBonusPoints = Math.floor((Number.MAX_SAFE_INTEGER - BASE_COMBAT_HP) / COMBAT_HP_PER_POINT);
   const bonusPoints = Math.min(
     maxBonusPoints,
-    Math.floor(Math.max(0, storedHp - BASE_COMBAT_HP) / COMBAT_HP_PER_POINT),
+    Math.max(0, storedHp - BASE_COMBAT_HP) / COMBAT_HP_PER_POINT,
   );
   return BASE_COMBAT_HP + bonusPoints * COMBAT_HP_PER_POINT;
 }
@@ -960,6 +960,21 @@ async function recordPostgameResult(
   );
 }
 
+async function claimEngineeringWalk(request: Request, env: Env, origin: string): Promise<Response> {
+  requireMethod(request,"POST");
+  requireMutationRequest(request,origin);
+  const session=await requireSession(request,env);
+  // D1 batches are transactional. Both retries and concurrent clicks award once.
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE stats SET hp = hp + 10, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = ? AND NOT EXISTS (SELECT 1 FROM campus_walk_claims WHERE user_id = ?)`)
+      .bind(session.user_id,session.user_id),
+    env.DB.prepare(`INSERT OR IGNORE INTO campus_walk_claims (user_id) SELECT user_id FROM stats WHERE user_id = ?`)
+      .bind(session.user_id),
+  ]);
+  return json({awarded:Number(results[0]?.meta?.changes)>0,stats:statPayload(await fetchStats(env,session.user_id))});
+}
+
 async function allocateStat(request: Request, env: Env, origin: string): Promise<Response> {
   requireMethod(request, "POST");
   requireMutationRequest(request, origin);
@@ -1045,6 +1060,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/results") return recordResult(request, env, origin);
   if (url.pathname === "/api/postgame/results") return recordPostgameResult(request, env, origin);
   if (url.pathname === "/api/stats/allocate") return allocateStat(request, env, origin);
+  if (url.pathname === "/api/campus/engineering-walk") return claimEngineeringWalk(request, env, origin);
   if (url.pathname === "/api/postgame/socket") return connectPostgame(request, env, origin);
 
   // Legacy endpoints intentionally stay unavailable: /api/users, /api/stats/:id,

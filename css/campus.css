@@ -56,3 +56,6 @@
   .campus-prompt { left: auto; right: 10px; bottom: 20px; transform: none; max-width: calc(100% - 134px); font-size: .7rem; padding: 10px; }
   .campus-controls { font-size: .6rem; }
 }
+
+.campus-confirm { max-width: min(440px, calc(100vw - 32px)); padding: 24px; color: #392235; background: #fff7e6; border: 2px solid #694232; border-radius: 12px; }
+.campus-confirm::backdrop { background: #231b3b99; }

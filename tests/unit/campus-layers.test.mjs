@@ -27,7 +27,11 @@ test("assembled campus reuses separate sprites and does not plant tree trunks in
   const manager=new CampusMapManager(config), map=manager.get("campus"),mask=manager.mask("campus");
   const props=campusProps(map,mask);
   const paving=new WalkMask({...map.world,...map.collision});
-  assert.ok(props.filter(p=>p.kind==="tree").length>100);
+  assert.ok(props.filter(p=>["tree","autumn"].includes(p.kind)).length>100);
+  assert.ok(props.filter(p=>p.kind==="autumn").length>30);
+  assert.equal(campusProps(map,mask,{mode:"before"}).filter(p=>p.kind.startsWith("booth")).length,0);
+  assert.equal(manager.mask("campus",{mode:"before"}).allows({x:165,y:550,width:12,height:8}),true);
+  assert.equal(mask.allows({x:165,y:550,width:12,height:8}),false);
   assert.equal(props.filter(p=>p.kind.startsWith("booth")).length,6);
   for(const bench of props.filter(p=>p.kind==="bench")) {
     for(let y=bench.y-14;y<=bench.y+6;y+=4) for(let x=bench.x-33;x<=bench.x+33;x+=4) {

@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS stats (
     user_id TEXT PRIMARY KEY,
     attack INTEGER NOT NULL DEFAULT 0 CHECK (attack >= 0),
-    hp INTEGER NOT NULL DEFAULT 100 CHECK (hp >= 100 AND hp % 100 = 0),
+    hp INTEGER NOT NULL DEFAULT 100 CHECK (hp >= 100 AND hp % 10 = 0),
     defense INTEGER NOT NULL DEFAULT 0 CHECK (defense >= 0),
     level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
     experience INTEGER NOT NULL DEFAULT 0 CHECK (experience >= 0),
@@ -124,3 +124,8 @@ CREATE INDEX IF NOT EXISTS idx_story_progress_user_id ON story_progress(user_id)
 CREATE INDEX IF NOT EXISTS idx_boss_runs_clears ON boss_runs (boss_id, party_key, created_at);
 CREATE INDEX IF NOT EXISTS idx_boss_runs_speed ON boss_runs (boss_id, clear_time_ms, created_at);
 CREATE INDEX IF NOT EXISTS idx_boss_run_members_run ON boss_run_members (run_id, member_order);
+CREATE TABLE IF NOT EXISTS campus_walk_claims (
+  user_id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

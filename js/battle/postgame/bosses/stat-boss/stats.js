@@ -63,7 +63,8 @@ export function calcIncomingDamage(bossAttack, defenseStat, balance = DEFAULT_BA
  * 최대HP = 기본체력 + (체력-1) × 포인트당증가량  ※ 체력 1일 때 보너스 0 -> 최대HP = 기본체력
  */
 export function calcMaxHp(healthStat, balance = DEFAULT_BALANCE) {
-  return balance.baseHp + bonusPoints(healthStat) * balance.hpPerPoint;
+  const normalized=Number.isFinite(Number(healthStat))?Number(healthStat):1;
+  return roundCombatValue(balance.baseHp + Math.max(0,normalized-1) * balance.hpPerPoint);
 }
 
 export { DEFAULT_BALANCE };

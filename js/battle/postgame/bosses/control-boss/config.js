@@ -306,7 +306,7 @@ export function calcControlBossAttackDamage(attackStat, playerConfig = DEFAULT_P
 
 /** 최대 HP = 기본 100 + (체력-1) × 100. */
 export function calcControlBossMaxHp(healthStat, playerConfig = DEFAULT_PLAYER) {
-  return playerConfig.baseHp + bonusPoints(healthStat) * playerConfig.hpPerPoint;
+  return roundCombatValue(playerConfig.baseHp + bonusPoints(healthStat) * playerConfig.hpPerPoint);
 }
 
 /** 최종 피격 = 원본 피해 × (1 - min((방어력-1) × 0.02, 0.5)). */

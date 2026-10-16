@@ -54,7 +54,7 @@ export function createStatBossPlayer(accountState, arena = { width: 960, height:
     id: "player-1",
     attackStat: attack + 1,
     defenseStat: defense + 1,
-    healthStat: 1 + Math.floor(Math.max(0, hp - 100) / 100),
+    healthStat: 1 + Math.max(0, hp - 100) / 100,
     accountStats: Object.freeze({ attack, hp, defense }),
     position: Object.freeze({ x: arena.width / 2, y: arena.height * 0.8 }),
     appearance: accountState?.authenticated

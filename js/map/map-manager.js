@@ -16,13 +16,14 @@ export class CampusMapManager {
     if (!map || !map.background) throw new Error(`Map is not available: ${id}`);
     return map;
   }
-  mask(id) {
-    if (!this.masks.has(id)) {
+  mask(id, {mode="after"}={}) {
+    const key=`${id}:${mode}`;
+    if (!this.masks.has(key)) {
       const map = this.get(id);
       let collision=map.collision;
       if(collision.walkGrass) {
-        const props=campusProps(map);
-        const obstacles=[...collision.obstacles,...(collision.buildings??[]),
+        const props=campusProps(map,undefined,{mode});
+        const obstacles=[...collision.obstacles.slice(mode==="before"?6:0),...(collision.buildings??[]),
           ...CAMPUS_FLOWERBEDS.map(b=>({x:b.x,y:b.y,width:b.width,height:b.height})),
           ...props.filter(p=>["tree","autumn","bench","lamp"].includes(p.kind)).map(p=>({
             x:p.x-(p.kind==="bench"?29:6),y:p.y-(p.kind==="bench"?12:8),
@@ -30,14 +31,14 @@ export class CampusMapManager {
           }))];
         collision={...collision,paths:[[[0,0],[map.world.width,0],[map.world.width,map.world.height],[0,map.world.height]]],obstacles};
       }
-      this.masks.set(id, new WalkMask({ ...map.world, ...collision }));
+      this.masks.set(key, new WalkMask({ ...map.world, ...collision }));
     }
-    return this.masks.get(id);
+    return this.masks.get(key);
   }
-  restore(saved, mapId = CAMPUS_MAP_IDS.CAMPUS) {
+  restore(saved, mapId = CAMPUS_MAP_IDS.CAMPUS, options = {}) {
     const map = this.get(mapId);
     const valid = saved?.version === this.version && saved.mapId === mapId
-      && this.mask(mapId).allows({ x: saved.x - 6, y: saved.y - 8, width: 12, height: 8 });
+      && this.mask(mapId,options).allows({ x: saved.x - 6, y: saved.y - 8, width: 12, height: 8 });
     return { mapId, ...(valid ? { x: saved.x, y: saved.y } : map.spawn), version: this.version };
   }
 }

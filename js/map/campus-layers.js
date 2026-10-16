@@ -17,19 +17,19 @@ const PROP_CROPS = {
 
 export const CAMPUS_FLOWERBEDS = Object.freeze([
   { type:0, x:684, y:516, width:112, height:38 },
-  { type:0, x:879, y:516, width:112, height:38 },
+  { type:0, x:876, y:516, width:112, height:38 },
   { type:1, x:674, y:564, width:32, height:132 },
-  { type:1, x:968, y:564, width:32, height:132 },
+  { type:1, x:966, y:564, width:32, height:132 },
   { type:4, x:682, y:712, width:118, height:42 },
-  { type:4, x:871, y:712, width:118, height:42 },
+  { type:4, x:872, y:712, width:118, height:42 },
   { type:2, x:710, y:797, width:48, height:48 },
-  { type:2, x:918, y:797, width:48, height:48 },
+  { type:2, x:914, y:797, width:48, height:48 },
   { type:3, x:689, y:535, width:44, height:44 },
-  { type:3, x:943, y:535, width:44, height:44, mirror:true },
+  { type:3, x:939, y:535, width:44, height:44, mirror:true },
   { type:0, x:592, y:344, width:135, height:28 },
-  { type:0, x:943, y:344, width:135, height:28 },
+  { type:0, x:945, y:344, width:135, height:28 },
   { type:5, x:103, y:442, width:24, height:28 },
-  { type:5, x:378, y:442, width:24, height:28 },
+  { type:5, x:361, y:442, width:24, height:28 },
 ]);
 
 export function fitFlowerbed(bed, crop) {
@@ -105,24 +105,7 @@ export function createCampusProp(document, { kind, x, y, width, height }) {
   return node;
 }
 
-function placeBenchBesidePath(x, y, mask) {
-  const candidates = [];
-  for (let dy=-80;dy<=80;dy+=4) for (let dx=-80;dx<=80;dx+=4) {
-    const px=x+dx,py=y+dy;
-    // The full bench footprint and a small walking clearance must stay off the path.
-    let clear=true;
-    for(let sy=py-14;sy<=py+6&&clear;sy+=4) for(let sx=px-33;sx<=px+33;sx+=4) {
-      const col=Math.floor(sx/mask.cellSize),row=Math.floor(sy/mask.cellSize);
-      if(col<0||row<0||col>=mask.columns||row>=mask.rows||mask.cells[row*mask.columns+col]) {clear=false;break;}
-    }
-    if (!clear || CAMPUS_FLOWERBEDS.some(b=>px+29>b.x&&px-29<b.x+b.width&&py>b.y&&py-30<b.y+b.height)) continue;
-    if (CAMPUS_BUILDINGS.some(b=>px+29>b.x&&px-29<b.x+b.width&&py>b.y&&py-30<b.y+b.height)) continue;
-    candidates.push({x:px,y:py,distance:dx*dx+dy*dy});
-  }
-  return candidates.sort((a,b)=>a.distance-b.distance)[0];
-}
-
-export function campusProps(map, mask) {
+export function campusProps(map, mask, {mode="after"}={}) {
   if(map.collision.walkGrass) mask=new WalkMask({...map.world,...map.collision});
   const props = [];
   const occupiedBuilding = (x,y) => CAMPUS_BUILDINGS.some(b=>x>b.x-35&&x<b.x+b.width+35&&y>b.y-15&&y<b.y+b.height+20);
@@ -134,25 +117,24 @@ export function campusProps(map, mask) {
     // No trees on any part of the paved footprint, including broad plazas.
     const row=Math.floor(ty/mask.cellSize),column=Math.floor(tx/mask.cellSize);
     if(mask.cells[row*mask.columns+column]) continue;
-    const centralGarden=tx>600&&tx<1080&&ty>480&&ty<850;
+    const centralGarden=tx>544&&tx<1128&&ty>416&&ty<850;
     const rightPlaza=tx>1225&&tx<1575&&ty>190&&ty<855;
     const booths=tx>100&&tx<420&&ty>480&&ty<790;
     if(centralGarden||rightPlaza||booths)continue;
-    props.push({kind:(Math.floor(tx/43)+Math.floor(ty/42))%9===0?"autumn":"tree",x:tx,y:ty,width:68,height:82});
+    props.push({kind:(Math.floor(tx/43)+Math.floor(ty/42))%3===0?"autumn":"tree",x:tx,y:ty,width:68,height:82});
   }
-  for(const rect of map.collision.obstacles.slice(0,6)) props.push({kind:rect.x>250?"booth-pink":"booth-green",x:rect.x+rect.width/2,y:rect.y+rect.height,width:82,height:82});
-  for(const [x,y] of [[679,744],[990,744],[627,601],[1048,600],[613,396],[1050,396]]) {
-    const position=placeBenchBesidePath(x,y,mask);
-    if(position) props.push({kind:"bench",x:position.x,y:position.y,width:58,height:30});
-  }
-  for(const [x,y] of [[565,420],[1100,420],[575,840],[1101,840],[1212,705],[1555,705],[100,775],[410,775]]) props.push({kind:"lamp",x,y,width:35,height:62});
-  for(const [x,y] of [[704,562],[969,562],[693,808],[985,808]]) props.push({kind:"tree",x,y,width:65,height:80});
+  if(mode==="after") for(const rect of map.collision.obstacles.slice(0,6)) props.push({kind:rect.x>250?"booth-pink":"booth-green",x:rect.x+rect.width/2,y:rect.y+rect.height,width:82,height:82});
+  for(const [x,y] of [[580,600],[1092,600],[580,730],[1092,730],[613,440],[1059,440]]) props.push({kind:"bench",x,y,width:58,height:30});
+  for(const [x,y] of [[565,420],[1107,420],[575,840],[1097,840],[1212,705],[1555,705],[100,775],[410,775]]) props.push({kind:"lamp",x,y,width:35,height:62});
+  for(const [x,y] of [[704,562],[968,562],[693,808],[979,808]]) props.push({kind:"autumn",x,y,width:65,height:80});
+  for(const y of [540,660,800]) for(const x of [580,1092]) props.push({kind:y===660?"autumn":"tree",x,y,width:65,height:80});
+  for(const x of [704,968]) props.push({kind:"autumn",x,y:456,width:65,height:80});
   const benches=props.filter(prop=>prop.kind==="bench");
   return props.filter(prop=>!["tree","autumn"].includes(prop.kind)
     || !benches.some(bench=>Math.abs(prop.x-bench.x)<60&&Math.abs(prop.y-bench.y)<55));
 }
 
-export async function createCampusLayers({ document, map, mask, signal }) {
+export async function createCampusLayers({ document, map, mask, signal, mode="after" }) {
   const sourceOnly = new URLSearchParams(globalThis.location?.search??"").has("campusOriginal");
   if(sourceOnly) {
     const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";await image.decode();return [image];
@@ -172,7 +154,7 @@ export async function createCampusLayers({ document, map, mask, signal }) {
     await node.decode();nodes.push(node);
   }
   if(signal?.aborted)return [];
-  nodes.push(...campusProps(map,mask).map(prop=>createCampusProp(document,prop)));
+  nodes.push(...campusProps(map,mask,{mode}).map(prop=>createCampusProp(document,prop)));
   for(const bed of CAMPUS_FLOWERBEDS) {
     const crop=crops.frames[bed.type],fit=fitFlowerbed(bed,crop);
     const node=document.createElement("div");node.className="campus-flowerbed";node.dataset.bedType=String(bed.type);

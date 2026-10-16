@@ -409,6 +409,14 @@ export class AccountService {
     });
   }
 
+  async claimCampusWalkBonus() {
+    if(!this.#state.authenticated) throw new AccountServiceError("공대 산책 보너스를 받으려면 로그인해 주세요.",{status:401,code:"AUTH_REQUIRED"});
+    const authGeneration=this.#authGeneration;
+    const payload=await this.#request("/campus/engineering-walk",{method:"POST",body:{}});
+    await this.#applyStatsOrRefresh(payload,{authGeneration});
+    return {awarded:payload.awarded===true,stats:this.#state.stats};
+  }
+
   async allocateStat(stat) {
     if (!STAT_KEYS.includes(stat)) {
       throw new RangeError(`지원하지 않는 스탯입니다: ${stat}`);

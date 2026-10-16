@@ -24,13 +24,13 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       if (!response.ok) throw new Error("캠퍼스 지도를 불러오지 못했습니다.");
       const manager = new CampusMapManager(await response.json());
       const map = manager.get("campus");
-      const mask = manager.mask(map.id);
+      const mask = manager.mask(map.id,{mode});
       const account = context.services.account?.getState?.() ?? {};
       const key = STORAGE_PREFIX + mode;
       let saved = null;
       try { saved = JSON.parse(sessionStorage.getItem(key)); } catch { /* Storage is optional. */ }
-      let position = manager.restore(saved);
-      let direction = "down", moving = false, leaving = false, target = null;
+      let position = manager.restore(saved,map.id,{mode});
+      let direction = "down", moving = false, leaving = false, target = null, engineeringEntered=false, dialogOpen=false;
       let virtual = { x: 0, y: 0 };
       savePosition = () => {
         try { sessionStorage.setItem(key, JSON.stringify(position)); } catch { /* Movement remains usable. */ }
@@ -50,7 +50,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const world = createElement("div", { className: "campus-world" });
       world.style.width = `${map.world.width}px`;
       world.style.height = `${map.world.height}px`;
-      const layers = await createCampusLayers({ document, map, mask, signal });
+      const layers = await createCampusLayers({ document, map, mask, signal, mode });
       if (signal?.aborted) return;
       world.append(...layers);
       const actor = createCharacterActorElement({ local: true });
@@ -58,7 +58,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const characterView = new CharacterView({ element: actor, worldSize: map.world });
       const appearance = createPlayerAppearance(mode === "before" ? "purple" : account.user?.hairColor, mode === "before" ? "" : account.user?.nickname ?? account.user?.name ?? "플레이어");
       const points = map.interactions.filter(point => mode === "before"
-        ? ["npc", "final"].includes(point.kind) : ["boss", "field"].includes(point.kind));
+        ? ["npc", "final"].includes(point.kind) : ["boss", "field", "engineering"].includes(point.kind));
       const markers = new Map();
       for (const point of points) {
         const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } }, [
@@ -102,7 +102,29 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         if (accepted === false && !signal?.aborted) { leaving = false; loop?.resume(); }
       }
       async function interact() {
-        if (!target || leaving) return;
+        if (!target || leaving || dialogOpen) return;
+        if(target.kind==="engineering") {
+          dialogOpen=true;
+          loop?.pause();
+          const dialog=document.createElement("dialog");
+          dialog.className="campus-confirm";
+          dialog.append(createElement("p",{text:"공대로 올라가시겠습니까? 체력이 조금 좋아집니다."}));
+          let submitting=false;
+          const cancel=createButton("취소",()=>dialog.close());
+          const accept=createButton("올라가기",async()=>{
+            if(submitting)return;
+            submitting=true;accept.disabled=true;
+            try {
+              const result=await context.services.account.claimCampusWalkBonus();
+              showToast(context,result.awarded?"체력 스탯이 0.1 올랐어요!":"이미 공대 산책 보너스를 받았어요.");
+              dialog.close();
+            } catch(error) {showToast(context,error.message);submitting=false;accept.disabled=false;}
+          },"primary");
+          dialog.append(createElement("div",{className:"button-row"},[cancel,accept]));
+          dialog.addEventListener("close",()=>{dialogOpen=false;dialog.remove();if(!signal?.aborted&&!leaving)loop?.resume();},{once:true});
+          signal?.addEventListener("abort",()=>dialog.remove(),{once:true});
+          page.append(dialog);dialog.showModal();return;
+        }
         if (target.kind === "npc") {
           const npc = context.content.maps.find(item => item.id === context.config.mainMapId)?.npcs.find(item => item.id === target.id);
           if (npc) {
@@ -172,6 +194,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         target = points.filter(point => Math.hypot(point.x - position.x, point.y - position.y) <= 42)
           .sort((a, b) => Math.hypot(a.x - position.x, a.y - position.y) - Math.hypot(b.x - position.x, b.y - position.y))[0] ?? null;
         for (const [id, marker] of markers) marker.dataset.near = String(id === target?.id);
+        if(target?.kind==="engineering"&&!engineeringEntered) {engineeringEntered=true;void interact();}
+        if(target?.kind!=="engineering")engineeringEntered=false;
         prompt.hidden = !target;
         prompt.textContent = target ? `${target.label} · ${target.kind === "npc" ? "말 걸기" : "입장하기"}` : "";
         publishMs += deltaMs;

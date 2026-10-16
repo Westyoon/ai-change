@@ -858,6 +858,21 @@ test("a late import response cannot restore authentication after logout", async 
   assert.deepEqual(service.getState().completedGameIds, []);
 });
 
+test("campus walk bonus refreshes server stats and rejects guests", async () => {
+  const mock=queuedFetch([
+    jsonResponse({authenticated:true,user:{name:"산책자"},stats:{hp:100}}),
+    jsonResponse({awarded:true,stats:{hp:110}}),
+    jsonResponse({awarded:false,stats:{hp:110}}),
+  ]);
+  const service=new AccountService({fetchImpl:mock.fetchImpl});
+  await assert.rejects(()=>service.claimCampusWalkBonus(),/로그인/u);
+  await service.refreshSession();
+  assert.equal((await service.claimCampusWalkBonus()).awarded,true);
+  assert.equal(service.getState().stats.hp,110);
+  assert.equal((await service.claimCampusWalkBonus()).awarded,false);
+  assert.equal(mock.calls[1][0],"/api/campus/engineering-walk");
+});
+
 test("allocateStat uses the authenticated account and never accepts arbitrary columns", async () => {
   const mock = queuedFetch([
     jsonResponse({
