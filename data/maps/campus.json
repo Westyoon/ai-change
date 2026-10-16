@@ -735,6 +735,10 @@
         "paving": {
           "src": "./assets/maps/tiles/paving.png",
           "size": 192
+        },
+        "grass": {
+          "src": "./assets/maps/tiles/grass.png",
+          "size": 192
         }
       }
     },
