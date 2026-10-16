@@ -69,8 +69,11 @@ export function createCampusTerrain(document, map) {
   svg.append(svgNode(document,"rect",{width:map.world.width,height:map.world.height,fill:"url(#campus-grass)"}));
   for (const polygon of map.collision.paths) svg.append(svgNode(document,"polygon",{points:polygon.map(p=>p.join(",")).join(" "),fill:"url(#campus-paving)"}));
   // Outdoor entry steps are tiles; ECC architecture and its stairs are one building asset.
-  for (const [x,y,w,h] of [[803,850,74,57],[208,802,102,54]]) {
-    svg.append(svgNode(document,"rect",{x,y,width:w,height:h,fill:"url(#campus-stairs)"}));
+  for (const [index,[x,y,w,h]] of [[800,848,72,56],[208,800,104,56]].entries()) {
+    const id=`campus-entry-stairs-${index}`;
+    const pattern=svgNode(document,"pattern",{id,href:"#campus-stairs",x,y});
+    defs.append(pattern);
+    svg.append(svgNode(document,"rect",{x,y,width:w,height:h,fill:`url(#${id})`}));
   }
   return svg;
 }
