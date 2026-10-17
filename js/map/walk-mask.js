@@ -10,7 +10,7 @@ export function insidePolygon(x, y, polygon) {
 
 /** Author polygons, rasterize once, then test every cell covered by the feet. */
 export class WalkMask {
-  constructor({ width, height, cellSize = 4, paths = [], obstacles = [] }) {
+  constructor({ width, height, cellSize = 4, paths = [], obstacles = [], blockedPolygons = [] }) {
     this.width = width;
     this.height = height;
     this.cellSize = cellSize;
@@ -23,7 +23,8 @@ export class WalkMask {
         const y = (row + 0.5) * cellSize;
         this.cells[row * this.columns + column] = Number(
           paths.some(polygon => insidePolygon(x, y, polygon))
-          && !obstacles.some(rect => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height),
+          && !obstacles.some(rect => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height)
+          && !blockedPolygons.some(polygon=>insidePolygon(x,y,polygon)),
         );
       }
     }

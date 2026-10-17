@@ -58,5 +58,34 @@ test("original campus map keeps every gameplay destination reachable with the fu
   assert.equal(allows(950,470),true,"open grass is walkable");
   for(const bed of CAMPUS_FLOWERBEDS) assert.equal(allows(bed.x+bed.width/2,bed.y+bed.height/2),false,"every flowerbed blocks walking");
   assert.deepEqual(manager.restore({ mapId:"campus",version:"old",x:835,y:620 }), { mapId:"campus",version:config.version,...map.spawn });
-  assert.throws(()=>manager.get("ecc_interior"),/not available/);
+  assert.throws(()=>manager.get("missing_interior"),/not available/);
+});
+
+test("indoor entrances, rooms and exits are reachable without crossing furniture or walls",async()=>{
+  const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
+  const manager=new CampusMapManager(config);
+  for(const map of config.maps.filter(m=>m.id!=="campus")) {
+    const mask=manager.mask(map.id),step=4,cols=Math.ceil(map.world.width/step);
+    const allows=(x,y)=>mask.allows({x:x-6,y:y-8,width:12,height:8});
+    assert.ok(allows(map.spawn.x,map.spawn.y),`${map.id} spawn`);
+    const start=[Math.round(map.spawn.x/step),Math.round(map.spawn.y/step)];
+    const queue=[start],seen=new Set([start[1]*cols+start[0]]);
+    for(let i=0;i<queue.length;i++) {
+      const [x,y]=queue[i];
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nx=x+dx,ny=y+dy,id=ny*cols+nx;
+        if(!seen.has(id)&&allows(nx*step,ny*step)){seen.add(id);queue.push([nx,ny]);}
+      }
+    }
+    for(const point of [...map.interactions,...map.checkpoints]) {
+      assert.ok(allows(point.x,point.y),`${map.id} point ${point.x},${point.y} is walkable`);
+      assert.ok(queue.some(([x,y])=>Math.hypot(x*step-point.x,y*step-point.y)<10),`${map.id} point ${point.x},${point.y} connected`);
+    }
+    for(const obstacle of map.collision.obstacles) assert.equal(allows(obstacle.x+obstacle.width/2,obstacle.y+obstacle.height/2),false);
+    for(const exit of map.interactions) {
+      const outside=manager.mask(exit.targetMap);
+      assert.ok(outside.allows({x:exit.spawn.x-6,y:exit.spawn.y-8,width:12,height:8}),"return position is safe");
+    }
+  }
+  assert.equal(manager.mask("greenhouse_interior").allows({x:762,y:572,width:12,height:8}),false,"fountain blocks movement");
 });

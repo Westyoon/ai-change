@@ -23,13 +23,14 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const response = await fetch("./data/maps/campus.json", { signal });
       if (!response.ok) throw new Error("캠퍼스 지도를 불러오지 못했습니다.");
       const manager = new CampusMapManager(await response.json());
-      const map = manager.get("campus");
+      const map = manager.get(_params?.campusMapId ?? "campus");
       const mask = manager.mask(map.id,{mode});
       const account = context.services.account?.getState?.() ?? {};
-      const key = STORAGE_PREFIX + mode;
+      const key = STORAGE_PREFIX + mode + (map.id==="campus"?"":`:${map.id}`);
       let saved = null;
       try { saved = JSON.parse(sessionStorage.getItem(key)); } catch { /* Storage is optional. */ }
       let position = manager.restore(saved,map.id,{mode});
+      if(_params?.campusSpawn && mask.allows({x:_params.campusSpawn.x-6,y:_params.campusSpawn.y-8,width:12,height:8})) position={...position,..._params.campusSpawn};
       let direction = "down", moving = false, leaving = false, target = null, engineeringEntered=false, dialogOpen=false;
       let virtual = { x: 0, y: 0 };
       savePosition = () => {
@@ -37,9 +38,9 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       };
       const page = createElement("section", { className: "campus-scene", dataset: { mode, mapId: map.id } });
       const header = createElement("header", { className: "campus-toolbar" }, [
-        createElement("strong", { text: mode === "before" ? "수호알을 찾아서" : "캠퍼스 축제" }),
+        createElement("strong", { text: map.label ?? (mode === "before" ? "수호알을 찾아서" : "캠퍼스 축제") }),
         createElement("div", { className: "button-row" }, [
-          createButton(mode === "before" ? "사후게임" : "사전게임", () => go(mode === "before" ? "battle" : "map")),
+          createButton(map.id==="campus"?(mode === "before" ? "사후게임" : "사전게임"):"캠퍼스로", () => map.id==="campus"?go(mode === "before" ? "battle" : "map"):go(mode==="before"?"map":"battle",{campusMapId:"campus",campusSpawn:map.outdoorReturn})),
           createButton("돌아가기", () => go("main-menu")),
         ]),
       ]);
@@ -57,8 +58,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       world.append(actor);
       const characterView = new CharacterView({ element: actor, worldSize: map.world });
       const appearance = createPlayerAppearance(mode === "before" ? "purple" : account.user?.hairColor, mode === "before" ? "" : account.user?.nickname ?? account.user?.name ?? "플레이어");
-      const points = map.interactions.filter(point => mode === "before"
-        ? ["npc", "final"].includes(point.kind) : ["boss", "field", "engineering"].includes(point.kind));
+      const points = map.interactions.filter(point => point.kind==="portal" || (mode === "before"
+        ? ["npc", "final"].includes(point.kind) : ["boss", "field", "engineering"].includes(point.kind)));
       const markers = new Map();
       for (const point of points) {
         const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } }, [
@@ -103,6 +104,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       }
       async function interact() {
         if (!target || leaving || dialogOpen) return;
+        if(target.kind==="portal")return go(mode==="before"?"map":"battle",{campusMapId:target.targetMap,campusSpawn:target.spawn});
         if(target.kind==="engineering") {
           dialogOpen=true;
           loop?.pause();

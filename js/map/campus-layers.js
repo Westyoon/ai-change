@@ -139,6 +139,11 @@ export function campusProps(map, mask, {mode="after"}={}) {
 }
 
 export async function createCampusLayers({ document, map, mask, signal, mode="after" }) {
+  if(map.id!=="campus") {
+    const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";
+    image.style.width=`${map.world.width}px`;image.style.height=`${map.world.height}px`;
+    await image.decode();return signal?.aborted?[]:[image];
+  }
   const sourceOnly = new URLSearchParams(globalThis.location?.search??"").has("campusOriginal");
   if(sourceOnly) {
     const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";await image.decode();return [image];

@@ -2,7 +2,7 @@ import { WalkMask } from "./walk-mask.js";
 import { CAMPUS_FLOWERBEDS, campusProps } from "./campus-layers.js";
 
 export const CAMPUS_MAP_IDS = Object.freeze({
-  CAMPUS: "campus", ECC: "ecc_interior", STUDENT_CENTER: "student_center_interior",
+  CAMPUS: "campus", ECC: "ecc_interior", STUDENT_CENTER: "student_center_interior", GREENHOUSE:"greenhouse_interior",
 });
 
 export class CampusMapManager {

@@ -244,7 +244,11 @@ export function createLoadingScene(context) {
       bar.style.width = "100%";
       track.setAttribute("aria-valuenow", "100");
       status.textContent = "100% · 게임 준비 완료";
-      await context.router.navigate(authCallback ? "account" : "main-menu", authCallback ?? {});
+      const localPreview=["localhost","127.0.0.1","[::1]"].includes(globalThis.location?.hostname)
+        ? new URLSearchParams(globalThis.location.search).get("campusMap") : null;
+      if(!authCallback&&["campus","ecc_interior","student_center_interior","greenhouse_interior"].includes(localPreview)) {
+        await context.router.navigate("map",{campusMapId:localPreview});
+      } else await context.router.navigate(authCallback ? "account" : "main-menu", authCallback ?? {});
     },
     unmount() {
       mounted = false;
