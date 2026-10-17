@@ -31,6 +31,7 @@
 .campus-viewport:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
 .campus-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 .campus-background { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; user-select: none; }
+.campus-scene:not([data-map-id="campus"]) .campus-background { image-rendering: auto; }
 .campus-terrain { position: absolute; inset: 0; pointer-events: none; }
 .campus-building { position: absolute; object-fit: contain; image-rendering: pixelated; pointer-events: none; user-select: none; }
 .campus-prop { position: absolute; background-image: url("../assets/maps/props/campus-props.png"); background-size: 400% 200%; background-repeat: no-repeat; image-rendering: pixelated; pointer-events: none; }
