@@ -1,0 +1,442 @@
+{
+  "styleReference": "assets/maps/campus.png and assets/maps/props/campus-props.png",
+  "frames": {
+    "wall": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 48,
+        "y": 194,
+        "width": 309,
+        "height": 146
+      },
+      "tileWidth": 68,
+      "tileHeight": 32
+    },
+    "wall-v": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 503,
+        "y": 101,
+        "width": 105,
+        "height": 239
+      },
+      "tileWidth": 32,
+      "tileHeight": 73
+    },
+    "glass": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 788,
+        "y": 58,
+        "width": 239,
+        "height": 283
+      },
+      "tileWidth": 32,
+      "tileHeight": 38
+    },
+    "glass-h": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1104,
+        "y": 237,
+        "width": 301,
+        "height": 104
+      },
+      "tileWidth": 93,
+      "tileHeight": 32
+    },
+    "door-front": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 63,
+        "y": 429,
+        "width": 266,
+        "height": 245
+      }
+    },
+    "door-front-open": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 432,
+        "y": 429,
+        "width": 260,
+        "height": 257
+      }
+    },
+    "door": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 843,
+        "y": 429,
+        "width": 130,
+        "height": 245
+      }
+    },
+    "door-open": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1186,
+        "y": 429,
+        "width": 133,
+        "height": 262
+      }
+    },
+    "stairs": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 118,
+        "y": 821,
+        "width": 161,
+        "height": 195
+      },
+      "tileWidth": 128,
+      "tileHeight": 80
+    },
+    "step-edge": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 484,
+        "y": 913,
+        "width": 149,
+        "height": 101
+      },
+      "tileWidth": 64,
+      "tileHeight": 16
+    },
+    "flower-planter": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 759,
+        "y": 829,
+        "width": 303,
+        "height": 186
+      }
+    },
+    "plant": {
+      "src": "./assets/maps/interior/campus-architecture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1165,
+        "y": 755,
+        "width": 203,
+        "height": 266
+      }
+    },
+    "desk": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 51,
+        "y": 175,
+        "width": 282,
+        "height": 159
+      }
+    },
+    "chair": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 485,
+        "y": 133,
+        "width": 127,
+        "height": 208
+      }
+    },
+    "podium": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 762,
+        "y": 97,
+        "width": 256,
+        "height": 239
+      }
+    },
+    "board": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1082,
+        "y": 99,
+        "width": 337,
+        "height": 194
+      }
+    },
+    "sofa-h": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 22,
+        "y": 495,
+        "width": 382,
+        "height": 179
+      }
+    },
+    "sofa-v": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 490,
+        "y": 425,
+        "width": 156,
+        "height": 262
+      }
+    },
+    "round-table": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 773,
+        "y": 506,
+        "width": 241,
+        "height": 166
+      }
+    },
+    "study-table": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1113,
+        "y": 433,
+        "width": 285,
+        "height": 255
+      }
+    },
+    "bookshelf": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 22,
+        "y": 777,
+        "width": 349,
+        "height": 206
+      }
+    },
+    "counter": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 387,
+        "y": 796,
+        "width": 319,
+        "height": 184
+      }
+    },
+    "cushion": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 759,
+        "y": 848,
+        "width": 264,
+        "height": 137
+      }
+    },
+    "rug": {
+      "src": "./assets/maps/interior/campus-furniture.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1069,
+        "y": 780,
+        "width": 358,
+        "height": 209
+      },
+      "single": true
+    },
+    "fountain": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 54,
+        "y": 148,
+        "width": 340,
+        "height": 272
+      }
+    },
+    "pavilion-roof": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 463,
+        "y": 80,
+        "width": 368,
+        "height": 304
+      }
+    },
+    "pavilion-column": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 937,
+        "y": 76,
+        "width": 95,
+        "height": 335
+      }
+    },
+    "palm": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1144,
+        "y": 46,
+        "width": 249,
+        "height": 378
+      }
+    },
+    "leaf-patch": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 34,
+        "y": 553,
+        "width": 407,
+        "height": 164
+      }
+    },
+    "flower-border": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 478,
+        "y": 535,
+        "width": 468,
+        "height": 174
+      }
+    },
+    "plant-tropical": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 994,
+        "y": 473,
+        "width": 198,
+        "height": 257
+      }
+    },
+    "flowers": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1256,
+        "y": 565,
+        "width": 155,
+        "height": 155
+      }
+    },
+    "garden-bed": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 173,
+        "y": 595,
+        "width": 128,
+        "height": 80
+      },
+      "tileWidth": 64,
+      "tileHeight": 40
+    },
+    "planter-edge": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 405,
+        "y": 908,
+        "width": 330,
+        "height": 85
+      }
+    },
+    "floor-wood": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 809,
+        "y": 774,
+        "width": 253,
+        "height": 236
+      },
+      "tileWidth": 128,
+      "tileHeight": 128
+    },
+    "floor-stone-ref": {
+      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1163,
+        "y": 774,
+        "width": 221,
+        "height": 236
+      }
+    },
+    "floor-stone": {
+      "src": "./assets/maps/tiles/paving.png",
+      "width": 1254,
+      "height": 1254,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 1254,
+        "height": 1254
+      },
+      "tileWidth": 192,
+      "tileHeight": 192
+    },
+    "bench": {
+      "src": "./assets/maps/props/campus-props.png",
+      "width": 1774,
+      "height": 887,
+      "crop": {
+        "x": 940,
+        "y": 655,
+        "width": 336,
+        "height": 173
+      }
+    }
+  }
+}

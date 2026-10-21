@@ -88,5 +88,5 @@ test("indoor entrances, rooms and exits are reachable without crossing furniture
       assert.ok(outside.allows({x:exit.spawn.x-6,y:exit.spawn.y-8,width:12,height:8}),"return position is safe");
     }
   }
-  assert.equal(manager.mask("greenhouse_interior").allows({x:762,y:572,width:12,height:8}),false,"fountain blocks movement");
+  assert.equal(manager.mask("greenhouse_interior").allows({x:1530,y:1248,width:12,height:8}),false,"fountain blocks movement");
 });
