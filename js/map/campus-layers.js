@@ -142,6 +142,7 @@ export async function createCampusLayers({ document, map, mask, signal, mode="af
   if(map.id!=="campus") {
     const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";
     image.style.width=`${map.world.width}px`;image.style.height=`${map.world.height}px`;
+    if(map.rendering) image.style.imageRendering=map.rendering;
     await image.decode();return signal?.aborted?[]:[image];
   }
   const sourceOnly = new URLSearchParams(globalThis.location?.search??"").has("campusOriginal");

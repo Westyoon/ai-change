@@ -723,7 +723,7 @@
     {
       "id": "ecc_interior",
       "label": "ECC",
-      "background": "./assets/maps/ecc_interior.png",
+      "background": "./assets/maps/ecc_interior-pixel.png",
       "world": {
         "width": 1536,
         "height": 1024
@@ -1900,7 +1900,14 @@
           "x": 550,
           "y": 370
         }
-      ]
+      ],
+      "rendering": "pixelated",
+      "camera": {
+        "minZoom": 2,
+        "integerScale": true,
+        "viewWidth": 800,
+        "viewHeight": 540
+      }
     },
     {
       "id": "student_center_interior",

@@ -174,9 +174,11 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       };
       function render() {
         const indoor=map.id!=="campus";
+        const requestedZoom=indoor
+          ? Math.max(map.camera?.minZoom??1.25,viewportSize.width/(map.camera?.viewWidth??1040),viewportSize.height/(map.camera?.viewHeight??640))
+          : Math.max(1.6,viewportSize.width/780,viewportSize.height/480);
         const camera = followCamera({ target: position, world: map.world, viewport: viewportSize,
-          zoom: indoor ? Math.max(1.25, viewportSize.width / 1040, viewportSize.height / 640)
-            : Math.max(1.6, viewportSize.width / 780, viewportSize.height / 480) });
+          zoom: map.camera?.integerScale?Math.ceil(requestedZoom):requestedZoom });
         world.style.transform = `translate(${-Math.round(camera.x * camera.zoom)}px, ${-Math.round(camera.y * camera.zoom)}px) scale(${camera.zoom})`;
         characterView.render({ id: "campus-player", name: appearance.label, appearance, x: position.x - ACTOR_SIZE.width / 2, y: position.y - ACTOR_SIZE.height, footY: position.y,
           ...ACTOR_SIZE, direction, moving, state: moving ? "moving" : "idle", currentHealth: 1, maxHealth: 1 });
