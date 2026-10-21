@@ -1,5 +1,6 @@
 import { WalkMask } from "./walk-mask.js";
 import { CAMPUS_FLOWERBEDS, campusProps } from "./campus-layers.js";
+import { createEccTileMap } from "./ecc-layout.js";
 
 export const CAMPUS_MAP_IDS = Object.freeze({
   CAMPUS: "campus", ECC: "ecc_interior", STUDENT_CENTER: "student_center_interior", GREENHOUSE:"greenhouse_interior",
@@ -8,12 +9,12 @@ export const CAMPUS_MAP_IDS = Object.freeze({
 export class CampusMapManager {
   constructor(config) {
     this.version = config.version;
-    this.maps = new Map(config.maps.map(map => [map.id, map]));
+    this.maps = new Map(config.maps.map(map => [map.id, map.renderer==="tile-ecc"?createEccTileMap(map):map]));
     this.masks = new Map();
   }
   get(id) {
     const map = this.maps.get(id);
-    if (!map || !map.background) throw new Error(`Map is not available: ${id}`);
+    if (!map || (!map.background&&!map.layout)) throw new Error(`Map is not available: ${id}`);
     return map;
   }
   mask(id, {mode="after"}={}) {

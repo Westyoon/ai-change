@@ -139,6 +139,7 @@ export function campusProps(map, mask, {mode="after"}={}) {
 }
 
 export async function createCampusLayers({ document, map, mask, signal, mode="after" }) {
+  if(map.layout)return (await import("./tile-map-renderer.js")).createTileMapLayers({document,map,signal});
   if(map.id!=="campus") {
     const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";
     image.style.width=`${map.world.width}px`;image.style.height=`${map.world.height}px`;

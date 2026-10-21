@@ -64,7 +64,8 @@ test("original campus map keeps every gameplay destination reachable with the fu
 test("indoor entrances, rooms and exits are reachable without crossing furniture or walls",async()=>{
   const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
   const manager=new CampusMapManager(config);
-  for(const map of config.maps.filter(m=>m.id!=="campus")) {
+  for(const definition of config.maps.filter(m=>m.id!=="campus")) {
+    const map=manager.get(definition.id);
     const mask=manager.mask(map.id),step=4,cols=Math.ceil(map.world.width/step);
     const allows=(x,y)=>mask.allows({x:x-6,y:y-8,width:12,height:8});
     assert.ok(allows(map.spawn.x,map.spawn.y),`${map.id} spawn`);

@@ -30,6 +30,9 @@
 }
 .campus-viewport:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
 .campus-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.campus-viewport:has(.campus-tile-floor) { background:#192936; }
+.campus-tile-floor { position:absolute; z-index:0; background-repeat:repeat; image-rendering:pixelated; pointer-events:none; }
+.campus-tile-item { position:absolute; display:block; background-repeat:repeat; image-rendering:pixelated; pointer-events:none; user-select:none; }
 .campus-background { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; user-select: none; }
 .campus-scene:not([data-map-id="campus"]) .campus-background { image-rendering: auto; }
 .campus-terrain { position: absolute; inset: 0; pointer-events: none; }
