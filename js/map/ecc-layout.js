@@ -60,6 +60,17 @@ export function createEccTileMap(definition) {
   room("center-left-classroom",960,96,544,512);
   room("center-right-classroom",1568,96,544,512);
 
+  // Three small conversation tables in the gaps between the side classrooms.
+  for(const [x,y]of [[288,800],[544,1008],[2688,832]]) {
+    item("round-table",x,y,64,64,box(x+8,y+22,48,34),{footY:y+56});
+    for(const [dx,dy]of [[20,-32],[20,68],[-28,18],[68,18]])
+      item("chair",x+dx,y+dy,24,28,box(x+dx+3,y+dy+16,18,12));
+    checkpoints.push({id:`conversation-${x}`,x:x+32,y:y+112});
+  }
+  // Banks sit against classroom walls, with the central doorways left clear.
+  for(const x of [128,416,2528,2816])
+    item("lockers",x,680,128,64,box(x+3,724,122,20));
+
   floor("floor-wood",1024,736,1024,320);
   floor("lounge-stairs",896,704,128,352,128,80);floor("lounge-stairs",2048,704,128,352,128,80);
   for(const y of [800,896,992])floor("lounge-riser",1024,y,1024,16,128,16);

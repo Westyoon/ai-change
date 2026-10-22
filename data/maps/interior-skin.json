@@ -1,6 +1,7 @@
 {
   "styleReference": "assets/maps/campus.png and assets/maps/props/campus-props.png",
   "frames": {
+    "lockers": {"src":"./assets/maps/ecc/lockers.svg","width":128,"height":64,"crop":{"x":0,"y":0,"width":128,"height":64}},
     "lounge-riser": {"src":"./assets/maps/ecc/lounge-riser.svg","width":128,"height":16,"crop":{"x":0,"y":0,"width":128,"height":16},"tileWidth":128,"tileHeight":16},
     "lounge-stairs": {"src":"./assets/maps/ecc/lounge-stairs.svg","width":128,"height":80,"crop":{"x":0,"y":0,"width":128,"height":80},"tileWidth":128,"tileHeight":80},
     "cushion-green": {"src":"./assets/maps/ecc/cushion-green.svg","width":96,"height":40,"crop":{"x":0,"y":0,"width":96,"height":40},"tileWidth":96,"tileHeight":40},
