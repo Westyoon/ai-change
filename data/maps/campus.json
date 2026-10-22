@@ -1,5 +1,5 @@
 {
-  "version": "campus-all-tiles-1",
+  "version": "campus-ecc-compact-1",
   "maps": [
     {
       "id": "campus",
@@ -679,8 +679,8 @@
           "y": 820,
           "targetMap": "ecc_interior",
           "spawn": {
-            "x": 720,
-            "y": 1800
+            "x": 612,
+            "y": 1530
           }
         },
         {
@@ -731,12 +731,12 @@
       "renderer": "tile-ecc",
       "background": null,
       "world": {
-        "width": 3072,
-        "height": 2048
+        "width": 2611,
+        "height": 1741
       },
       "spawn": {
-        "x": 720,
-        "y": 1800
+        "x": 612,
+        "y": 1530
       },
       "camera": {
         "minZoom": 1.6,

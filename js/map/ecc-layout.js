@@ -81,13 +81,24 @@ export function createEccTileMap(definition) {
   checkpoints.push({id:"left-corridor",x:704,y:960},{id:"right-corridor",x:2368,y:960},
     {id:"wooden-seating",x:1040,y:912},{id:"bridge",x:1536,y:672});
 
-  const world={width:3072,height:2048};
+  // Compact the physical layout rather than zooming the camera out.
+  const scale=0.85;
+  const scaleBox=value=>{
+    for(const key of ["x","y","width","height","footY","tileWidth","tileHeight"])
+      if(typeof value[key]==="number")value[key]*=scale;
+  };
+  for(const value of [...floors,...items,...checkpoints]) {
+    scaleBox(value);
+    if(value.collision)scaleBox(value.collision);
+    if(value.center)scaleBox(value.center);
+  }
+  const world={width:Math.round(3072*scale),height:Math.round(2048*scale)};
   return {...definition,world,background:null,assetRoot:ROOT,layout:{floors,items},
     collision:{cellSize:4,paths:floors.filter(f=>["floor-wood-dark","lounge-stairs"].includes(f.asset)).map(polygon),obstacles:items.filter(i=>i.collision).map(i=>i.collision)},
     checkpoints,
     interactions:[
-      {id:"exit-ecc-left",kind:"portal",label:"캠퍼스로",x:720,y:1936,targetMap:"campus",spawn:definition.outdoorReturn},
-      {id:"exit-ecc-right",kind:"portal",label:"캠퍼스로",x:2352,y:1936,targetMap:"campus",spawn:definition.outdoorReturn},
+      {id:"exit-ecc-left",kind:"portal",label:"캠퍼스로",x:720*scale,y:1936*scale,targetMap:"campus",spawn:definition.outdoorReturn},
+      {id:"exit-ecc-right",kind:"portal",label:"캠퍼스로",x:2352*scale,y:1936*scale,targetMap:"campus",spawn:definition.outdoorReturn},
     ],
   };
 }

@@ -7,7 +7,8 @@ test("ECC uses independent assets and placement-derived collision in a larger wo
   const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
   const manager=new CampusMapManager(config),map=manager.get("ecc_interior"),mask=manager.mask(map.id);
   assert.equal(map.background,null,"full-scene background cannot silently return");
-  assert.ok(map.world.width*map.world.height>=1536*1024*4);
+  assert.equal(map.world.width,Math.round(3072*0.85));
+  assert.equal(map.world.height,Math.round(2048*0.85));
   assert.ok(map.layout.items.length>200);
   const assets=new Set([...map.layout.floors,...map.layout.items].map(i=>i.asset));
   for(const name of ["floor-wood-dark","wall","glass","door","desk","chair","plant","cushion-green","cushion-blue","ottoman-blue"])assert.ok(assets.has(name));
