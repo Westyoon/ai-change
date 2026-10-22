@@ -61,10 +61,17 @@ export function createEccTileMap(definition) {
   room("center-right-classroom",1568,96,544,512);
 
   floor("floor-wood",1024,736,1024,320);
-  floor("stairs",896,704,128,352);floor("stairs",2048,704,128,352);
-  for(const y of [800,896,992])floor("step-edge",1024,y,1024,16,32,16);
-  for(const y of [752,848,944])for(let center=1088;center<=1984;center+=128) {
-    item("cushion",center-24,y,48,24,box(center-22,y+14,44,10));
+  floor("lounge-stairs",896,704,128,352,128,80);floor("lounge-stairs",2048,704,128,352,128,80);
+  for(const y of [800,896,992])floor("lounge-riser",1024,y,1024,16,128,16);
+  // Broad timber terraces with scattered upholstered seats, as in ECC's lounge.
+  const seatRows=[
+    {y:752,seats:[[1104,"cushion-blue"],[1392,"cushion-green"],[1808,"cushion-blue"]],cubes:[1280,1696]},
+    {y:848,seats:[[1168,"cushion-green"],[1552,"cushion-blue"],[1888,"cushion-green"]],cubes:[1424,1776]},
+    {y:944,seats:[[1088,"cushion-blue"],[1456,"cushion-green"],[1744,"cushion-blue"]],cubes:[1312,1936]},
+  ];
+  for(const row of seatRows) {
+    for(const [x,asset]of row.seats)item(asset,x,row.y,96,40,box(x+4,row.y+22,88,16));
+    for(const x of row.cubes)item("ottoman-blue",x,row.y+4,32,36,box(x+3,row.y+24,26,12));
   }
   for(const x of [1024,2016])plant(x,1008,true);
   for(const x of [176,2816])item("bench",x,960,80,40,box(x+4,984,72,16));
@@ -76,7 +83,7 @@ export function createEccTileMap(definition) {
 
   const world={width:3072,height:2048};
   return {...definition,world,background:null,assetRoot:ROOT,layout:{floors,items},
-    collision:{cellSize:4,paths:floors.filter(f=>["floor-wood-dark","stairs"].includes(f.asset)).map(polygon),obstacles:items.filter(i=>i.collision).map(i=>i.collision)},
+    collision:{cellSize:4,paths:floors.filter(f=>["floor-wood-dark","lounge-stairs"].includes(f.asset)).map(polygon),obstacles:items.filter(i=>i.collision).map(i=>i.collision)},
     checkpoints,
     interactions:[
       {id:"exit-ecc-left",kind:"portal",label:"캠퍼스로",x:720,y:1936,targetMap:"campus",spawn:definition.outdoorReturn},

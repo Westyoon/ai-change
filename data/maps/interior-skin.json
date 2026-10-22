@@ -1,6 +1,11 @@
 {
   "styleReference": "assets/maps/campus.png and assets/maps/props/campus-props.png",
   "frames": {
+    "lounge-riser": {"src":"./assets/maps/ecc/lounge-riser.svg","width":128,"height":16,"crop":{"x":0,"y":0,"width":128,"height":16},"tileWidth":128,"tileHeight":16},
+    "lounge-stairs": {"src":"./assets/maps/ecc/lounge-stairs.svg","width":128,"height":80,"crop":{"x":0,"y":0,"width":128,"height":80},"tileWidth":128,"tileHeight":80},
+    "cushion-green": {"src":"./assets/maps/ecc/cushion-green.svg","width":96,"height":40,"crop":{"x":0,"y":0,"width":96,"height":40},"tileWidth":96,"tileHeight":40},
+    "cushion-blue": {"src":"./assets/maps/ecc/cushion-blue.svg","width":96,"height":40,"crop":{"x":0,"y":0,"width":96,"height":40},"tileWidth":96,"tileHeight":40},
+    "ottoman-blue": {"src":"./assets/maps/ecc/ottoman-blue.svg","width":32,"height":36,"crop":{"x":0,"y":0,"width":32,"height":36},"tileWidth":32,"tileHeight":36},
     "wall": {
       "src": "./assets/maps/interior/campus-architecture.png",
       "width": 1448,

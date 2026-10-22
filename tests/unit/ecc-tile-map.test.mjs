@@ -10,7 +10,7 @@ test("ECC uses independent assets and placement-derived collision in a larger wo
   assert.ok(map.world.width*map.world.height>=1536*1024*4);
   assert.ok(map.layout.items.length>200);
   const assets=new Set([...map.layout.floors,...map.layout.items].map(i=>i.asset));
-  for(const name of ["floor-wood-dark","wall","glass","door","desk","chair","plant","cushion"])assert.ok(assets.has(name));
+  for(const name of ["floor-wood-dark","wall","glass","door","desk","chair","plant","cushion-green","cushion-blue","ottoman-blue"])assert.ok(assets.has(name));
   for(const asset of assets) {
     const source=await readFile(new URL(`../../assets/maps/ecc/${asset}.svg`,import.meta.url),"utf8");
     assert.match(source,/shape-rendering="crispEdges"/);
