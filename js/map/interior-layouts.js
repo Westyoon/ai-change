@@ -73,9 +73,9 @@ export function createGreenhouseTileMap(definition) {
     item("garden-bed",x,y,width,height,box(x,y,width,height),{repeat:true,tileWidth:32,tileHeight:32,footY:y+8});
     item("planter-edge",x,y+height,width,16,null,{repeat:true,tileWidth:32,tileHeight:16});
     for(let py=y+24;py<y+height-40;py+=96)for(let px=x+24;px<x+width-40;px+=96)
-      item("leaf-patch",px,py,64,64);
+      item("leaf-patch",px+16,py+16,32,32);
     for(let px=x+48;px<x+width-32;px+=160)plant(px,y+height-48,true);
-    item("palm",x+width/2-32,y+height/2-80,64,112);
+    item("palm",x+width/2-24,y+height/2-56,48,80);
   };
   for(const x of [256,2176]){garden(x,256,640,384);garden(x,896,640,384);}
   garden(256,1472,768,320);garden(2048,1472,768,320);
@@ -84,13 +84,13 @@ export function createGreenhouseTileMap(definition) {
 
   // Fountain is a separate sprite with an ellipse-shaped ground collision.
   const cx=1536,cy=1256;
-  const shape=Array.from({length:40},(_,i)=>[cx+176*Math.cos(i*Math.PI/20),cy+112*Math.sin(i*Math.PI/20)]);
-  item("fountain",1344,1056,384,320,null,{collisionPolygon:shape,footY:1368});
+  const shape=Array.from({length:40},(_,i)=>[cx+58*Math.cos(i*Math.PI/20),cy+32*Math.sin(i*Math.PI/20)]);
+  item("fountain",1472,1192,128,112,null,{collisionPolygon:shape,footY:1288});
   // Independent platform, stairs, roof and pillars form the pavilion.
-  floor("floor-wood",1312,320,448,320);
-  floor("stairs",1376,640,320,160);
-  for(const x of [1344,1696])for(const y of [400,528])item("pavilion-column",x,y,32,112,box(x+6,y+100,20,12));
-  item("pavilion-roof",1344,128,384,320,null,{footY:480});
+  floor("floor-wood",1376,400,320,240);
+  floor("stairs",1424,640,224,112);
+  for(const x of [1392,1656])for(const y of [448,544])item("pavilion-column",x,y,24,80,box(x+4,y+70,16,10));
+  item("pavilion-roof",1408,264,256,212,null,{footY:480});
   for(const x of [1280,1760])plant(x,592,true);
   for(const [id,x,y] of [["below-fountain",1536,1632],["left-aisle",1184,1216],["right-aisle",1888,1216],["stairs",1536,768],["pavilion",1536,480]])b.checkpoints.push({id,x,y});
   return b.finish();

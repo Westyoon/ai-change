@@ -2,6 +2,7 @@ import { WalkMask } from "./walk-mask.js";
 import { CAMPUS_FLOWERBEDS, campusProps } from "./campus-layers.js";
 import { createEccTileMap } from "./ecc-layout.js";
 import { createStudentCenterTileMap, createGreenhouseTileMap } from "./interior-layouts.js";
+import { compactInterior, INTERIOR_COMPACT_SCALE } from "./compact-interior.js";
 
 export const CAMPUS_MAP_IDS = Object.freeze({
   CAMPUS: "campus", ECC: "ecc_interior", STUDENT_CENTER: "student_center_interior", GREENHOUSE:"greenhouse_interior",
@@ -11,7 +12,15 @@ export class CampusMapManager {
   constructor(config) {
     this.version = config.version;
     const renderers={"tile-ecc":createEccTileMap,"tile-student":createStudentCenterTileMap,"tile-greenhouse":createGreenhouseTileMap};
-    this.maps = new Map(config.maps.map(map => [map.id, renderers[map.renderer]?.(map)??map]));
+    this.maps = new Map(structuredClone(config.maps).map(definition => {
+      const map=renderers[definition.renderer]?.({...definition,spawn:{...definition.spawn}})??definition;
+      return [map.id,map.layout?compactInterior(map):map];
+    }));
+    for(const map of this.maps.values())for(const entry of [...(map.interactions??[]),...(map.portals??[])]) {
+      if(entry.spawn&&this.maps.get(entry.targetMap)?.layout) {
+        entry.spawn={x:entry.spawn.x*INTERIOR_COMPACT_SCALE,y:entry.spawn.y*INTERIOR_COMPACT_SCALE};
+      }
+    }
     this.masks = new Map();
   }
   get(id) {

@@ -7,8 +7,8 @@ test("ECC uses independent assets and placement-derived collision in a larger wo
   const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
   const manager=new CampusMapManager(config),map=manager.get("ecc_interior"),mask=manager.mask(map.id);
   assert.equal(map.background,null,"full-scene background cannot silently return");
-  assert.equal(map.world.width,Math.round(3072*0.85));
-  assert.equal(map.world.height,Math.round(2048*0.85));
+  assert.equal(map.world.width,Math.round(2611*Math.sqrt(.75)));
+  assert.equal(map.world.height,Math.round(1741*Math.sqrt(.75)));
   assert.ok(map.layout.items.length>200);
   const assets=new Set([...map.layout.floors,...map.layout.items].map(i=>i.asset));
   for(const name of ["floor-wood-dark","wall","glass","door","desk","chair","plant","cushion-green","cushion-blue","ottoman-blue"])assert.ok(assets.has(name));
@@ -21,16 +21,21 @@ test("ECC uses independent assets and placement-derived collision in a larger wo
     if(item.collision)assert.ok(map.collision.obstacles.includes(item.collision),"moving a solid asset also moves its collider");
     if(item.door)assert.ok(mask.allows({x:item.center.x-6,y:item.center.y-8,width:12,height:8}),"door openings can be traversed");
   }
-  assert.equal(map.layout.items.filter(i=>i.kind==="bench"&&i.x>832&&i.x<2240).length,0,"the central lounge uses cushions rather than park benches");
+  const layoutScale=.85*Math.sqrt(.75);
+  assert.equal(map.layout.items.filter(i=>i.kind==="bench"&&i.x>832*layoutScale&&i.x<2240*layoutScale).length,0,"the central lounge uses cushions rather than park benches");
 });
 
 test("all indoor maps use the campus art set while preserving independent placement and collision",async()=>{
   const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
   const skin=JSON.parse(await readFile(new URL("../../data/maps/interior-skin.json",import.meta.url),"utf8"));
   const manager=new CampusMapManager(config);
+  const secondManager=new CampusMapManager(config);
+  assert.deepEqual(manager.get("campus").interactions,secondManager.get("campus").interactions,"reloading a manager cannot repeatedly shrink portal destinations");
   for(const definition of config.maps.filter(m=>m.id!=="campus")) {
     const map=manager.get(definition.id);
     assert.equal(map.background,null);assert.equal(map.skin,"campus");
+    const prior=map.id==="ecc_interior"?{width:2611,height:1741}:{width:3072,height:2048};
+    assert.ok(Math.abs(map.world.width*map.world.height/(prior.width*prior.height)-.75)<.001,"physical indoor area is 75 percent of the prior map");
     assert.deepEqual(map.camera,{minZoom:1.6,integerScale:false,viewWidth:780,viewHeight:480},"indoor cameras preserve the outdoor reference scale without rounding zoom upward");
     assert.ok(map.layout.items.length>50);
     for(const item of [...map.layout.items,...map.layout.floors])assert.ok(skin.frames[item.asset],`${map.id}: shared art for ${item.asset}`);
