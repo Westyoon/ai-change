@@ -391,16 +391,24 @@
       }
     },
     "floor-wood": {
-      "src": "./assets/maps/interior/campus-greenhouse.png",
-      "width": 1448,
-      "height": 1086,
+      "src": "./assets/maps/ecc/floor-wood-soft.svg",
+      "width": 128,
+      "height": 96,
       "crop": {
-        "x": 809,
-        "y": 774,
-        "width": 253,
-        "height": 236
+        "x": 0,
+        "y": 0,
+        "width": 128,
+        "height": 96
       },
-      "tileWidth": 96,
+      "tileWidth": 128,
+      "tileHeight": 96
+    },
+    "floor-wood-dark": {
+      "src": "./assets/maps/ecc/floor-wood-dark.svg",
+      "width": 128,
+      "height": 96,
+      "crop": { "x": 0, "y": 0, "width": 128, "height": 96 },
+      "tileWidth": 128,
       "tileHeight": 96
     },
     "floor-stone-ref": {

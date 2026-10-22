@@ -6,7 +6,7 @@ const polygon=r=>[[r.x,r.y],[r.x+r.width,r.y],[r.x+r.width,r.y+r.height],[r.x,r.
 
 export function createEccTileMap(definition) {
   const floors=[],items=[],checkpoints=[];
-  const floor=(asset,x,y,width,height,tileWidth=32,tileHeight=32)=>floors.push({...box(x,y,width,height),asset,tileWidth,tileHeight});
+  const floor=(asset,x,y,width,height,tileWidth=32,tileHeight=32)=>floors.push({...box(x,y,width,height),asset:["floor-stone","floor-wood"].includes(asset)?"floor-wood-dark":asset,tileWidth,tileHeight});
   const item=(kind,x,y,width,height,collision=null,extra={})=>{
     const value={kind,asset:kind,...box(x,y,width,height),footY:y+height,collision,...extra};
     items.push(value);return value;
@@ -76,7 +76,7 @@ export function createEccTileMap(definition) {
 
   const world={width:3072,height:2048};
   return {...definition,world,background:null,assetRoot:ROOT,layout:{floors,items},
-    collision:{cellSize:4,paths:floors.filter(f=>["floor-stone","floor-wood","stairs"].includes(f.asset)).map(polygon),obstacles:items.filter(i=>i.collision).map(i=>i.collision)},
+    collision:{cellSize:4,paths:floors.filter(f=>["floor-wood-dark","stairs"].includes(f.asset)).map(polygon),obstacles:items.filter(i=>i.collision).map(i=>i.collision)},
     checkpoints,
     interactions:[
       {id:"exit-ecc-left",kind:"portal",label:"캠퍼스로",x:720,y:1936,targetMap:"campus",spawn:definition.outdoorReturn},
