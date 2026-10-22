@@ -25,6 +25,9 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       if (!response.ok) throw new Error("캠퍼스 지도를 불러오지 못했습니다.");
       const manager = new CampusMapManager(await response.json());
       const map = manager.get(_params?.campusMapId ?? "campus");
+      // Indoor furniture uses a larger world scale than the outdoor campus.
+      // Keep local and remote characters at the same size, anchored at their feet.
+      const actorSize = map.layout ? { width: 48, height: 72 } : ACTOR_SIZE;
       const mask = manager.mask(map.id,{mode});
       const account = context.services.account?.getState?.() ?? {};
       const key = STORAGE_PREFIX + mode + (map.id==="campus"?"":`:${map.id}`);
@@ -158,8 +161,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       if (realtime) {
         unsubscribeRealtime = realtime.subscribe(state => {
           remotes.update((state.players ?? []).filter(player => player.id !== state.selfId && player.zone === map.presenceZone && player.connected !== false).map(player => ({
-            id: player.id, name: player.name, x: player.x * map.world.width - ACTOR_SIZE.width / 2, y: player.y * map.world.height - ACTOR_SIZE.height,
-            ...ACTOR_SIZE, direction: player.direction, moving: player.moving,
+            id: player.id, name: player.name, x: player.x * map.world.width - actorSize.width / 2, y: player.y * map.world.height - actorSize.height,
+            ...actorSize, direction: player.direction, moving: player.moving,
             appearance: createPlayerAppearance(player.hairColor, player.name),
           })));
         });
@@ -182,8 +185,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         const camera = followCamera({ target: position, world: map.world, viewport: viewportSize,
           zoom: map.camera?.integerScale?Math.ceil(requestedZoom):requestedZoom });
         world.style.transform = `translate(${-Math.round(camera.x * camera.zoom)}px, ${-Math.round(camera.y * camera.zoom)}px) scale(${camera.zoom})`;
-        characterView.render({ id: "campus-player", name: appearance.label, appearance, x: position.x - ACTOR_SIZE.width / 2, y: position.y - ACTOR_SIZE.height, footY: position.y,
-          ...ACTOR_SIZE, direction, moving, state: moving ? "moving" : "idle", currentHealth: 1, maxHealth: 1 });
+        characterView.render({ id: "campus-player", name: appearance.label, appearance, x: position.x - actorSize.width / 2, y: position.y - actorSize.height, footY: position.y,
+          ...actorSize, direction, moving, state: moving ? "moving" : "idle", currentHealth: 1, maxHealth: 1 });
       }
       resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(viewport);

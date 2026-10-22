@@ -10,6 +10,14 @@ export function createAtlasSprite(document,frame,{repeat=false,width,height,tile
   const crop=frame.crop;
   const root=svg(document,"svg",{width:"100%",height:"100%","aria-hidden":"true",preserveAspectRatio:repeat?"none":"xMidYMax meet"});
   const bitmap=svg(document,"image",{href:frame.src,width:frame.width,height:frame.height});
+  if(frame.src.includes("/interior/")) {
+    // Gently neutralize warm pigments at render time; preserve source sprites,
+    // transparency and neutral whites. Outdoor paving/benches keep their colors.
+    const defs=svg(document,"defs");
+    const filter=svg(document,"filter",{id:`${id}-tone`,x:"0%",y:"0%",width:"100%",height:"100%","color-interpolation-filters":"sRGB"});
+    filter.append(svg(document,"feColorMatrix",{type:"matrix",values:"0.98 0 0.02 0 0  -0.015 1 0.015 0 0  0.12 0 0.88 0 0  0 0 0 1 0"}));
+    defs.append(filter);root.append(defs);bitmap.setAttribute("filter",`url(#${id}-tone)`);
+  }
   if(!repeat) {
     root.setAttribute("viewBox",`${crop.x} ${crop.y} ${crop.width} ${crop.height}`);
     // Letterboxing must never reveal a neighboring atlas cell.
