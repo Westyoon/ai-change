@@ -30,6 +30,7 @@ test("all indoor maps use the campus art set while preserving independent placem
   for(const definition of config.maps.filter(m=>m.id!=="campus")) {
     const map=manager.get(definition.id);
     assert.equal(map.background,null);assert.equal(map.skin,"campus");
+    assert.deepEqual(map.camera,{minZoom:1.6,integerScale:false,viewWidth:780,viewHeight:480},"indoor cameras preserve the outdoor reference scale without rounding zoom upward");
     assert.ok(map.layout.items.length>50);
     for(const item of [...map.layout.items,...map.layout.floors])assert.ok(skin.frames[item.asset],`${map.id}: shared art for ${item.asset}`);
     for(const item of map.layout.items.filter(i=>i.collision))assert.ok(map.collision.obstacles.includes(item.collision));

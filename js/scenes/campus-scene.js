@@ -25,9 +25,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       if (!response.ok) throw new Error("캠퍼스 지도를 불러오지 못했습니다.");
       const manager = new CampusMapManager(await response.json());
       const map = manager.get(_params?.campusMapId ?? "campus");
-      // Indoor furniture uses a larger world scale than the outdoor campus.
-      // Keep local and remote characters at the same size, anchored at their feet.
-      const actorSize = map.layout ? { width: 48, height: 72 } : ACTOR_SIZE;
+      // Use the outdoor reference scale indoors too; retain the same foot anchor.
+      const actorSize = ACTOR_SIZE;
       const mask = manager.mask(map.id,{mode});
       const account = context.services.account?.getState?.() ?? {};
       const key = STORAGE_PREFIX + mode + (map.id==="campus"?"":`:${map.id}`);

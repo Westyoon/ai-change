@@ -739,10 +739,10 @@
         "y": 1800
       },
       "camera": {
-        "minZoom": 2,
-        "integerScale": true,
-        "viewWidth": 800,
-        "viewHeight": 540
+        "minZoom": 1.6,
+        "integerScale": false,
+        "viewWidth": 780,
+        "viewHeight": 480
       },
       "skin": "campus"
     },
@@ -765,10 +765,10 @@
         "y": 1800
       },
       "camera": {
-        "minZoom": 2,
-        "integerScale": true,
-        "viewWidth": 800,
-        "viewHeight": 540
+        "minZoom": 1.6,
+        "integerScale": false,
+        "viewWidth": 780,
+        "viewHeight": 480
       },
       "skin": "campus"
     },
@@ -791,10 +791,10 @@
         "y": 1800
       },
       "camera": {
-        "minZoom": 2,
-        "integerScale": true,
-        "viewWidth": 800,
-        "viewHeight": 540
+        "minZoom": 1.6,
+        "integerScale": false,
+        "viewWidth": 780,
+        "viewHeight": 480
       },
       "skin": "campus"
     }
