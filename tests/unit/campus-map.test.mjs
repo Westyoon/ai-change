@@ -89,5 +89,5 @@ test("indoor entrances, rooms and exits are reachable without crossing furniture
     }
   }
   const fountain=manager.get("greenhouse_interior").layout.items.find(i=>i.kind==="fountain");
-  assert.equal(manager.mask("greenhouse_interior").allows({x:fountain.x+fountain.width/2-6,y:(1256*Math.sqrt(.75))-8,width:12,height:8}),false,"fountain blocks movement");
+  assert.equal(manager.mask("greenhouse_interior").allows({x:fountain.x+fountain.width/2-6,y:(768*Math.sqrt(.75))-8,width:12,height:8}),false,"fountain blocks movement");
 });

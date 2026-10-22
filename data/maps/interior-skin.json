@@ -1,12 +1,76 @@
 {
   "styleReference": "assets/maps/campus.png and assets/maps/props/campus-props.png",
   "frames": {
-    "lockers": {"src":"./assets/maps/ecc/lockers.svg","width":128,"height":64,"crop":{"x":0,"y":0,"width":128,"height":64}},
-    "lounge-riser": {"src":"./assets/maps/ecc/lounge-riser.svg","width":128,"height":16,"crop":{"x":0,"y":0,"width":128,"height":16},"tileWidth":128,"tileHeight":16},
-    "lounge-stairs": {"src":"./assets/maps/ecc/lounge-stairs.svg","width":128,"height":80,"crop":{"x":0,"y":0,"width":128,"height":80},"tileWidth":128,"tileHeight":80},
-    "cushion-green": {"src":"./assets/maps/ecc/cushion-green.svg","width":96,"height":40,"crop":{"x":0,"y":0,"width":96,"height":40},"tileWidth":96,"tileHeight":40},
-    "cushion-blue": {"src":"./assets/maps/ecc/cushion-blue.svg","width":96,"height":40,"crop":{"x":0,"y":0,"width":96,"height":40},"tileWidth":96,"tileHeight":40},
-    "ottoman-blue": {"src":"./assets/maps/ecc/ottoman-blue.svg","width":32,"height":36,"crop":{"x":0,"y":0,"width":32,"height":36},"tileWidth":32,"tileHeight":36},
+    "lockers": {
+      "src": "./assets/maps/ecc/lockers.svg",
+      "width": 128,
+      "height": 64,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 128,
+        "height": 64
+      }
+    },
+    "lounge-riser": {
+      "src": "./assets/maps/ecc/lounge-riser.svg",
+      "width": 128,
+      "height": 16,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 128,
+        "height": 16
+      },
+      "tileWidth": 128,
+      "tileHeight": 16
+    },
+    "lounge-stairs": {
+      "src": "./assets/maps/ecc/lounge-stairs.svg",
+      "width": 128,
+      "height": 80,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 128,
+        "height": 80
+      },
+      "tileWidth": 128,
+      "tileHeight": 80
+    },
+    "cushion-green": {
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 24,
+        "y": 160,
+        "width": 376,
+        "height": 176
+      }
+    },
+    "cushion-blue": {
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 430,
+        "y": 160,
+        "width": 344,
+        "height": 176
+      }
+    },
+    "ottoman-blue": {
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 812,
+        "y": 160,
+        "width": 188,
+        "height": 176
+      }
+    },
     "wall": {
       "src": "./assets/maps/interior/campus-architecture.png",
       "width": 1448,
@@ -163,14 +227,14 @@
       }
     },
     "chair": {
-      "src": "./assets/maps/interior/campus-furniture.png",
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
       "width": 1448,
       "height": 1086,
       "crop": {
-        "x": 485,
-        "y": 133,
-        "width": 127,
-        "height": 208
+        "x": 1194,
+        "y": 424,
+        "width": 170,
+        "height": 252
       }
     },
     "podium": {
@@ -196,48 +260,49 @@
       }
     },
     "sofa-h": {
-      "src": "./assets/maps/interior/campus-furniture.png",
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
       "width": 1448,
       "height": 1086,
       "crop": {
-        "x": 22,
-        "y": 495,
-        "width": 382,
-        "height": 179
+        "x": 1030,
+        "y": 120,
+        "width": 410,
+        "height": 216
       }
     },
     "sofa-v": {
-      "src": "./assets/maps/interior/campus-furniture.png",
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
       "width": 1448,
       "height": 1086,
       "crop": {
-        "x": 490,
-        "y": 425,
-        "width": 156,
-        "height": 262
+        "x": 108,
+        "y": 384,
+        "width": 196,
+        "height": 300
       }
     },
     "round-table": {
-      "src": "./assets/maps/interior/campus-furniture.png",
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
       "width": 1448,
       "height": 1086,
       "crop": {
-        "x": 773,
-        "y": 506,
-        "width": 241,
-        "height": 166
+        "x": 414,
+        "y": 448,
+        "width": 280,
+        "height": 222
       }
     },
     "study-table": {
-      "src": "./assets/maps/interior/campus-furniture.png",
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
       "width": 1448,
       "height": 1086,
       "crop": {
-        "x": 1113,
-        "y": 433,
-        "width": 285,
-        "height": 255
-      }
+        "x": 746,
+        "y": 448,
+        "width": 360,
+        "height": 220
+      },
+      "clipPolygon": "746,448 1106,448 1106,668 1040,668 1040,636 800,636 800,668 746,668"
     },
     "bookshelf": {
       "src": "./assets/maps/interior/campus-furniture.png",
@@ -318,15 +383,16 @@
       }
     },
     "palm": {
-      "src": "./assets/maps/interior/campus-greenhouse.png",
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
       "width": 1448,
       "height": 1086,
       "crop": {
-        "x": 1144,
-        "y": 46,
-        "width": 249,
-        "height": 378
-      }
+        "x": 750,
+        "y": 648,
+        "width": 302,
+        "height": 400
+      },
+      "clipPolygon": "800,648 1052,648 1052,1048 750,1048 750,700 800,672"
     },
     "leaf-patch": {
       "src": "./assets/maps/interior/campus-greenhouse.png",
@@ -413,7 +479,12 @@
       "src": "./assets/maps/ecc/floor-wood-dark.svg",
       "width": 128,
       "height": 96,
-      "crop": { "x": 0, "y": 0, "width": 128, "height": 96 },
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 128,
+        "height": 96
+      },
       "tileWidth": 128,
       "tileHeight": 96
     },
@@ -450,6 +521,105 @@
         "y": 655,
         "width": 336,
         "height": 173
+      }
+    },
+    "chair-back": {
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 110,
+        "y": 764,
+        "width": 174,
+        "height": 248
+      }
+    },
+    "chair-side": {
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 470,
+        "y": 752,
+        "width": 202,
+        "height": 264
+      }
+    },
+    "broadleaf": {
+      "src": "./assets/maps/interior/campus-furniture-v2.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1094,
+        "y": 696,
+        "width": 334,
+        "height": 352
+      }
+    },
+    "planter-tropical": {
+      "src": "./assets/maps/interior/campus-botanical-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 8,
+        "y": 68,
+        "width": 552,
+        "height": 388
+      }
+    },
+    "planter-flowers": {
+      "src": "./assets/maps/interior/campus-botanical-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 570,
+        "y": 118,
+        "width": 520,
+        "height": 340
+      }
+    },
+    "planter-fern": {
+      "src": "./assets/maps/interior/campus-botanical-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 1088,
+        "y": 64,
+        "width": 442,
+        "height": 400
+      }
+    },
+    "trellis": {
+      "src": "./assets/maps/interior/campus-botanical-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 104,
+        "y": 488,
+        "width": 360,
+        "height": 484
+      }
+    },
+    "potting-bench": {
+      "src": "./assets/maps/interior/campus-botanical-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 572,
+        "y": 564,
+        "width": 460,
+        "height": 404
+      }
+    },
+    "hanging-basket": {
+      "src": "./assets/maps/interior/campus-botanical-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 1132,
+        "y": 492,
+        "width": 348,
+        "height": 492
       }
     }
   }

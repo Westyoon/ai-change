@@ -1,5 +1,5 @@
 {
-  "version": "campus-interiors-area75-1",
+  "version": "campus-interiors-refined-2",
   "maps": [
     {
       "id": "campus",
@@ -691,8 +691,8 @@
           "y": 488,
           "targetMap": "student_center_interior",
           "spawn": {
-            "x": 1536,
-            "y": 1800
+            "x": 800,
+            "y": 880
           }
         },
         {
@@ -703,8 +703,8 @@
           "y": 724,
           "targetMap": "greenhouse_interior",
           "spawn": {
-            "x": 1536,
-            "y": 1800
+            "x": 768,
+            "y": 1136
           }
         }
       ],
@@ -757,12 +757,12 @@
       "renderer": "tile-student",
       "background": null,
       "world": {
-        "width": 3072,
-        "height": 2048
+        "width": 1600,
+        "height": 1024
       },
       "spawn": {
-        "x": 1536,
-        "y": 1800
+        "x": 800,
+        "y": 880
       },
       "camera": {
         "minZoom": 1.6,
@@ -783,12 +783,12 @@
       "renderer": "tile-greenhouse",
       "background": null,
       "world": {
-        "width": 3072,
-        "height": 2048
+        "width": 1536,
+        "height": 1280
       },
       "spawn": {
-        "x": 1536,
-        "y": 1800
+        "x": 768,
+        "y": 1136
       },
       "camera": {
         "minZoom": 1.6,

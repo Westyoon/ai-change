@@ -34,7 +34,7 @@ test("all indoor maps use the campus art set while preserving independent placem
   for(const definition of config.maps.filter(m=>m.id!=="campus")) {
     const map=manager.get(definition.id);
     assert.equal(map.background,null);assert.equal(map.skin,"campus");
-    const prior=map.id==="ecc_interior"?{width:2611,height:1741}:{width:3072,height:2048};
+    const prior=map.id==="ecc_interior"?{width:2611,height:1741}:definition.world;
     assert.ok(Math.abs(map.world.width*map.world.height/(prior.width*prior.height)-.75)<.001,"physical indoor area is 75 percent of the prior map");
     assert.deepEqual(map.camera,{minZoom:1.6,integerScale:false,viewWidth:780,viewHeight:480},"indoor cameras preserve the outdoor reference scale without rounding zoom upward");
     assert.ok(map.layout.items.length>50);
@@ -43,6 +43,16 @@ test("all indoor maps use the campus art set while preserving independent placem
   }
   assert.equal(skin.frames.bench.src,"./assets/maps/props/campus-props.png");
   assert.equal(skin.frames["floor-stone"].src,"./assets/maps/tiles/paving.png");
+  const student=manager.get("student_center_interior"),greenhouse=manager.get("greenhouse_interior");
+  assert.ok(student.world.width<=1400&&student.world.height<=900,"student center is rebuilt as a compact room, not the old empty hall");
+  assert.equal(student.layout.items.filter(i=>i.kind==="study-table").length,4);
+  assert.ok(student.layout.items.some(i=>i.kind==="chair-back")&&student.layout.items.some(i=>i.kind==="chair-side"),"chairs face their tables");
+  assert.ok(greenhouse.world.width<=1340&&greenhouse.world.height<=1120);
+  assert.ok(greenhouse.layout.items.filter(i=>i.kind.startsWith("planter-")).length>=20,"greenhouse is furnished with individually placed planted beds");
+  assert.equal(greenhouse.layout.items.filter(i=>i.kind==="potting-bench").length,2);
+  assert.equal(greenhouse.layout.items.filter(i=>i.kind==="hanging-basket").length,4);
+  for(const name of ["cushion-green","cushion-blue","ottoman-blue","sofa-h","sofa-v","chair","chair-back","chair-side"])
+    assert.equal(skin.frames[name].src,"./assets/maps/interior/campus-furniture-v2.png","shared furniture has a consistent detailed art source");
   for(const frame of Object.values(skin.frames)) {
     const {x,y,width,height}=frame.crop;
     assert.ok(x>=0&&y>=0&&width>0&&height>0&&x+width<=frame.width&&y+height<=frame.height);

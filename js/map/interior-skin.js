@@ -22,7 +22,7 @@ export function createAtlasSprite(document,frame,{repeat=false,width,height,tile
     root.setAttribute("viewBox",`${crop.x} ${crop.y} ${crop.width} ${crop.height}`);
     // Letterboxing must never reveal a neighboring atlas cell.
     const defs=svg(document,"defs"),clip=svg(document,"clipPath",{id:`${id}-clip`,clipPathUnits:"userSpaceOnUse"});
-    clip.append(svg(document,"rect",{x:crop.x,y:crop.y,width:crop.width,height:crop.height}));defs.append(clip);
+    clip.append(frame.clipPolygon?svg(document,"polygon",{points:frame.clipPolygon}):svg(document,"rect",{x:crop.x,y:crop.y,width:crop.width,height:crop.height}));defs.append(clip);
     const group=svg(document,"g",{"clip-path":`url(#${id}-clip)`});group.append(bitmap);
     root.append(defs,group);return root;
   }
