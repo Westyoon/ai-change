@@ -400,8 +400,8 @@
         "width": 253,
         "height": 236
       },
-      "tileWidth": 128,
-      "tileHeight": 128
+      "tileWidth": 96,
+      "tileHeight": 96
     },
     "floor-stone-ref": {
       "src": "./assets/maps/interior/campus-greenhouse.png",
