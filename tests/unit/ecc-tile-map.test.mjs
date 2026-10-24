@@ -65,9 +65,13 @@ test("all indoor maps use the campus art set while preserving independent placem
   assert.equal(student.layout.items.filter(i=>i.kind==="table-chair").length,8);
   assert.ok(student.layout.floors.every(f=>f.asset==="student-grey"));
   assert.equal(skin.frames["wall-study-desk"].preserveAspectRatio,"xMaxYMax meet","wall desks keep their native proportions and attach to the wall");
-  const sofas=student.layout.items.filter(i=>i.kind.startsWith("lounge-sofa-"));
-  assert.equal(sofas.length,6);
-  assert.ok(sofas.every(i=>i.x+i.width<544*Math.sqrt(.75)),"continuous seating stays in the left rest lounge");
+  assert.equal(student.layout.items.filter(i=>i.kind.startsWith("lounge-sofa-")).length,0,"no repeated sofa slices remain");
+  const sofas=student.layout.items.filter(i=>i.kind==="continuous-lounge-sofa");
+  assert.equal(sofas.length,1,"the L-shaped sofa is rendered as one complete object");
+  assert.equal(sofas[0].repeat,undefined);
+  const s=Math.sqrt(.75),mask=manager.mask(student.id);
+  for(const [x,y]of [[160,224],[376,224],[160,660]])assert.equal(mask.allows({x:x*s-6,y:y*s-8,width:12,height:8}),false,"both sofa arms block movement");
+  assert.ok(mask.allows({x:224*s-6,y:400*s-8,width:12,height:8}),"inside of the L remains walkable");
   assert.ok(greenhouse.world.width<=1340&&greenhouse.world.height<=1120);
   assert.ok(greenhouse.layout.items.filter(i=>i.kind.startsWith("planter-")).length>=20,"greenhouse is furnished with individually placed planted beds");
   assert.equal(greenhouse.layout.items.filter(i=>i.kind==="potting-bench").length,2);

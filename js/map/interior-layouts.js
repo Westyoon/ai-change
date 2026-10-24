@@ -37,8 +37,10 @@ export function createStudentCenterTileMap(definition) {
   b.enclosure();
   // Left: continuous, shallow low-backed seating; no rugs or dining chairs.
   wall(544,192,24,640,"glass");
-  for(const x of [184,328])item("lounge-sofa-h",x,208,144,40,box(x,224,144,24));
-  for(const y of [240,384,528,672])item("lounge-sofa-v",144,y,40,144,box(144,y,40,144));
+  // One complete L-shaped sprite, not short sofa slices joined together.
+  item("continuous-lounge-sofa",144,208,256,480,null,{collisionPolygon:[
+    [144,208],[400,208],[400,262],[188,262],[188,688],[144,688],
+  ]});
   for(const y of [384,672])item("round-table",272,y,48,36,box(278,y+18,36,16));
   plant(448,256);plant(448,480,true);plant(448,736);
   for(const y of [352,720])b.checkpoints.push({id:"rest-"+y,x:352,y});

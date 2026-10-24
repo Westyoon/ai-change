@@ -854,6 +854,19 @@
       },
       "single": true,
       "preserveAspectRatio": "none"
+    },
+    "continuous-lounge-sofa": {
+      "src": "./assets/maps/interior/student-continuous-sofa.png",
+      "width": 949,
+      "height": 1658,
+      "crop": {
+        "x": 76,
+        "y": 107,
+        "width": 815,
+        "height": 1460
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
     }
   }
 }
