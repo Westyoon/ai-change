@@ -41,10 +41,11 @@
   appearance:none; border:0; border-radius:0; background:transparent; box-shadow:none;
   cursor:pointer; touch-action:manipulation;
 }
-.campus-student .character-actor__sprite { filter:brightness(0) invert(.32); }
+.campus-student-palette { position:absolute; pointer-events:none; }
+.campus-student .character-actor__sprite { filter:var(--student-silhouette-filter,brightness(0) invert(.12)); }
 .campus-student:hover .character-actor__sprite,
 .campus-student:focus-visible .character-actor__sprite,
-.campus-student[data-near="true"] .character-actor__sprite { filter:brightness(0) invert(.42) drop-shadow(0 0 1px #fff5cc); }
+.campus-student[data-near="true"] .character-actor__sprite { filter:var(--student-silhouette-filter,brightness(0) invert(.16)) drop-shadow(0 0 1px #fff5cc); }
 .campus-student:focus-visible { outline:1px solid #fff5cc; outline-offset:2px; }
 .campus-marker { position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center; gap: 2px; z-index: 2000; pointer-events: none; }
 .campus-marker__icon { display: grid; place-items: center; width: 13px; height: 16px; font-size: 11px; color: #fff5cc; background: #502a47; border: 1px solid #ffdf71; }

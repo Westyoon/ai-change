@@ -11,13 +11,15 @@ import { INPUT_ACTIONS } from "../core/input-manager.js";
 import { createElement, createButton, showToast } from "./scene-utils.js";
 import { createCampusLayers } from "../map/campus-layers.js";
 import { updateTileDoors, updateTileCanopies } from "../map/tile-map-renderer.js";
+import { getGuardianInventory } from "../core/guardian-inventory.js";
 
 const STORAGE_PREFIX = "ai-change:campus-position:";
 const FOOT = { width: 12, height: 8 };
 const ACTOR_SIZE = { width: 25.6, height: 38.4 };
+let studentPaletteSequence = 0;
 
 export function createCampusScene(context, { mode = "before" } = {}) {
-  let loop, joystick, unsubscribeInput, unsubscribeRealtime, resizeObserver, remoteView;
+  let loop, joystick, unsubscribeInput, unsubscribeRealtime, unsubscribeStudentProgress, resizeObserver, remoteView;
   let savePosition = () => {};
   return {
     async mount(root, _params, { signal } = {}) {
@@ -57,8 +59,15 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const points = map.interactions.filter(point => point.kind==="portal" || (mode === "before"
         ? ["npc", "final"].includes(point.kind) : ["boss", "field", "engineering"].includes(point.kind)));
       const markers = new Map();
+      const students = new Map();
+      const paletteId = `campus-student-palette-${++studentPaletteSequence}`;
+      const svgNode = name => document.createElementNS("http://www.w3.org/2000/svg", name);
+      const palette = svgNode("svg"), paletteDefs = svgNode("defs");
+      palette.setAttribute("width","0");palette.setAttribute("height","0");palette.setAttribute("aria-hidden","true");
+      palette.classList.add("campus-student-palette");palette.append(paletteDefs);
       for (const point of points) {
         if (point.kind === "npc") {
+          const npc=context.content.maps.find(m=>m.id===context.config.mainMapId)?.npcs?.find(n=>n.id===point.id);
           const student = createElement("button", {
             className: "campus-student", type: "button", dataset: { npcId: point.id },
             attributes: { "aria-label": `학생 ${point.studentNumber}과 대화하기` },
@@ -73,6 +82,12 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           });
           figure.classList.remove("character-actor--local");
           figure.removeAttribute("role");figure.removeAttribute("aria-label");figure.setAttribute("aria-hidden","true");
+          const filter=svgNode("filter"),flood=svgNode("feFlood"),clip=svgNode("feComposite");
+          const filterId=`${paletteId}-${point.id}`;
+          filter.setAttribute("id",filterId);filter.setAttribute("color-interpolation-filters","sRGB");
+          clip.setAttribute("in2","SourceAlpha");clip.setAttribute("operator","in");
+          filter.append(flood,clip);paletteDefs.append(filter);
+          students.set(point.id,{element:student,guardianEggId:npc?.guardianEggId,flood,filterId,number:point.studentNumber});
           student.append(figure);world.append(student);markers.set(point.id,student);
           continue;
         }
@@ -84,6 +99,23 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         marker.style.top = `${point.y}px`;
         world.append(marker);
         markers.set(point.id, marker);
+      }
+      if(students.size) {
+        world.append(palette);
+        const refreshStudents=()=>{
+          const inventory=new Map(getGuardianInventory(context).map(egg=>[egg.id,egg]));
+          for(const {element,guardianEggId,flood,filterId,number}of students.values()) {
+            const egg=inventory.get(guardianEggId),resolved=egg?.acquired===true;
+            element.dataset.resolved=String(resolved);
+            if(resolved) {
+              flood.setAttribute("flood-color",egg.color);
+              element.style.setProperty("--student-silhouette-filter",`url(#${filterId})`);
+            } else element.style.removeProperty("--student-silhouette-filter");
+            element.setAttribute("aria-label",resolved?`${egg.departmentName} 학생과 대화하기 · 해결 완료`:`학생 ${number}과 대화하기`);
+          }
+        };
+        refreshStudents();
+        unsubscribeStudentProgress=context.services.account?.subscribe?.(refreshStudents);
       }
       const debug = new URLSearchParams(globalThis.location?.search ?? "").has("campusDebug");
       if (debug) {
@@ -236,7 +268,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
     },
     unmount() {
       savePosition();
-      loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); remoteView?.destroy();
+      loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); unsubscribeStudentProgress?.(); remoteView?.destroy();
     },
   };
 }
