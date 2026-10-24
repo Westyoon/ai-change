@@ -248,6 +248,15 @@ test("InputManager releases lost keys when the document becomes hidden", () => {
   input.destroy();
 });
 
+test("save subscribers observe a reset immediately and audio settings survive",()=>{
+  const values=new Map();const save=new SaveManager({appId:"reset-test",storageChannel:"test",miniGameIds:["game"],storage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v)}});
+  save.load();save.updateSettings({bgmVolume:.25,muted:true});save.markStorySeen("festival-open");save.applyResult("game",{status:"CLEAR"});
+  const seen=[];const stop=save.subscribe(state=>seen.push(state));save.resetProgress();
+  assert.equal(seen.length,2);assert.deepEqual(seen[1].story.seenStoryIds,[]);assert.equal(seen[1].minigames.game.completed,false);
+  assert.equal(seen[1].settings.bgmVolume,.25);assert.equal(seen[1].settings.muted,true);
+  stop();save.markStorySeen("new");assert.equal(seen.length,2);
+});
+
 test("SaveManager persists game and NPC completion in one write and keeps QUIT as no-op", () => {
   const values = new Map();
   let writes = 0;

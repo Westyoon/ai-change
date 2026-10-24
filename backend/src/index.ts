@@ -851,6 +851,19 @@ async function importCompletedProgress(
   });
 }
 
+async function resetStoryProgress(request: Request, env: Env, origin: string): Promise<Response> {
+  requireMethod(request,"POST");
+  requireMutationRequest(request,origin);
+  const session=await requireSession(request,env);
+  const body=await readJsonObject(request);
+  if(Object.keys(body).length)throw new HttpError(400,"Invalid progress reset");
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM story_progress WHERE user_id = ?").bind(session.user_id),
+    env.DB.prepare("DELETE FROM game_results WHERE user_id = ?").bind(session.user_id),
+  ]);
+  return authenticatedAccountResponse(env,session);
+}
+
 async function recordResult(request: Request, env: Env, origin: string): Promise<Response> {
   requireMethod(request, "POST");
   requireMutationRequest(request, origin);
@@ -1066,6 +1079,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/postgame/results") return recordPostgameResult(request, env, origin);
   if (url.pathname === "/api/stats/allocate") return allocateStat(request, env, origin);
   if (url.pathname === "/api/campus/engineering-walk") return claimEngineeringWalk(request, env, origin);
+  if (url.pathname === "/api/progress/reset") return resetStoryProgress(request, env, origin);
   if (url.pathname === "/api/postgame/socket") return connectPostgame(request, env, origin);
 
   // Legacy endpoints intentionally stay unavailable: /api/users, /api/stats/:id,

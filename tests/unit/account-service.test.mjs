@@ -858,6 +858,41 @@ test("a late import response cannot restore authentication after logout", async 
   assert.deepEqual(service.getState().completedGameIds, []);
 });
 
+test("account progress reset waits for an in-flight import and skips queued stale imports",async()=>{
+  const pending=deferredResponse();
+  const mock=queuedFetch([
+    jsonResponse({authenticated:true,user:{name:"초기화"},stats:{hp:300},seenStoryIds:["festival-open"]}),
+    pending.promise,
+    jsonResponse({authenticated:true,user:{name:"초기화"},stats:{hp:300},completedGameIds:[],seenStoryIds:[]}),
+  ]);
+  const service=new AccountService({fetchImpl:mock.fetchImpl});await service.refreshSession();
+  const importing=service.importCompletedGameIds(["computer-code-heart"]);await Promise.resolve();
+  const resetting=service.resetProgress();assert.equal(service.resetProgress(),resetting);
+  const staleImport=service.importCompletedGameIds(["computer-code-heart"]);
+  await Promise.resolve();assert.equal(mock.calls.length,2,"reset waits for the old write");
+  pending.resolve(jsonResponse({stats:{hp:300},completedGameIds:["computer-code-heart"]}));
+  await Promise.all([importing,resetting,staleImport]);
+  assert.equal(mock.calls.length,3);assert.equal(mock.calls[2][0],"/api/progress/reset");
+  assert.deepEqual(service.getState().seenStoryIds,[]);assert.deepEqual(service.getState().completedGameIds,[]);assert.equal(service.getState().stats.hp,300);
+});
+
+test("a late session response cannot restore progress after reset",async()=>{
+  const reset=deferredResponse(),refresh=deferredResponse();
+  const original={authenticated:true,user:{name:"초기화"},stats:{hp:200},seenStoryIds:["festival-open"]};
+  const mock=queuedFetch([jsonResponse(original),reset.promise,refresh.promise]);
+  const service=new AccountService({fetchImpl:mock.fetchImpl});await service.refreshSession();
+  const resetting=service.resetProgress();await Promise.resolve();await Promise.resolve();
+  const refreshing=service.refreshSession();await Promise.resolve();
+  reset.resolve(jsonResponse({...original,completedGameIds:[],seenStoryIds:[]}));await resetting;
+  refresh.resolve(jsonResponse(original));await refreshing;
+  assert.deepEqual(service.getState().seenStoryIds,[]);
+});
+
+test("guest progress reset does not call an authenticated mutation endpoint",async()=>{
+  const mock=queuedFetch([jsonResponse({authenticated:false})]);const service=new AccountService({fetchImpl:mock.fetchImpl});
+  await service.refreshSession();await service.resetProgress();assert.equal(mock.calls.length,1);
+});
+
 test("campus walk bonus refreshes server stats and rejects guests", async () => {
   const mock=queuedFetch([
     jsonResponse({authenticated:true,user:{name:"산책자"},stats:{hp:100}}),

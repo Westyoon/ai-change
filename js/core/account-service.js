@@ -188,6 +188,8 @@ export class AccountService {
   #importPromise = null;
   #storyImportPromise = null;
   #authGeneration = 0;
+  #resetPromise = null;
+  #pendingProgressWrites = new Set();
 
   constructor({ fetchImpl = globalThis.fetch, apiBase = "/api" } = {}) {
     if (typeof fetchImpl !== "function") {
@@ -253,6 +255,28 @@ export class AccountService {
     }
   }
 
+  resetProgress() {
+    if(this.#resetPromise)return this.#resetPromise;
+    const initialGeneration=this.#authGeneration;
+    const run=Promise.resolve().then(async()=>{
+      await Promise.allSettled([this.#refreshPromise,this.#importPromise,this.#storyImportPromise,...this.#pendingProgressWrites].filter(Boolean));
+      if(initialGeneration!==this.#authGeneration)throw new AccountServiceError("로그인 상태가 바뀌었습니다. 다시 시도해 주세요.");
+      if(this.#state.status==="idle"||!this.#state.available)await this.refreshSession();
+      if(!this.#state.available)throw new AccountServiceError("계정 진행을 초기화하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      if(!this.#state.authenticated)return this.#state;
+      const generation=++this.#authGeneration;
+      const payload=await this.#request("/progress/reset",{method:"POST",body:{}});
+      if(generation!==this.#authGeneration)throw new AccountServiceError("로그인 상태가 바뀌었습니다. 다시 시도해 주세요.");
+      // Discard session reads started before/during the reset as well.
+      this.#authGeneration++;
+      this.#setState(sessionState(payload));
+      return this.#state;
+    });
+    const tracked=run.finally(()=>{if(this.#resetPromise===tracked)this.#resetPromise=null;});
+    this.#resetPromise=tracked;
+    return tracked;
+  }
+
   async getRanking(criteria = "boss-clears", { signal, bossId = null } = {}) {
     if (!RANKING_CRITERIA.has(criteria)) {
       throw new RangeError(`지원하지 않는 랭킹 기준입니다: ${criteria}`);
@@ -288,6 +312,7 @@ export class AccountService {
   }
 
   async importCompletedGameIds(candidate = []) {
+    if(this.#resetPromise){await this.#resetPromise;return Object.freeze({submitted:false,reason:"progress-reset",importedGameIds:EMPTY_GAME_IDS});}
     const requestedGameIds = freezeCompletedGameIds(candidate);
     if (requestedGameIds.length === 0) {
       return Object.freeze({ submitted: false, reason: "empty", importedGameIds: EMPTY_GAME_IDS });
@@ -321,7 +346,7 @@ export class AccountService {
     }
 
     const authGeneration = this.#authGeneration;
-    const payload = await this.#request("/progress/import", {
+    const payload = await this.#requestProgress("/progress/import", {
       method: "POST",
       body: { completedGameIds: missingGameIds },
     });
@@ -344,15 +369,18 @@ export class AccountService {
       throw new TypeError("클리어 기록에는 attemptId와 gameId가 필요합니다.");
     }
 
+    if(this.#resetPromise){await this.#resetPromise;return Object.freeze({submitted:false,reason:"progress-reset"});}
+    const entryGeneration=this.#authGeneration;
+
     if (this.#state.status === "idle" || this.#state.status === "loading") {
       await this.refreshSession();
     }
-    if (!this.#state.authenticated) {
+    if (entryGeneration!==this.#authGeneration || !this.#state.authenticated) {
       return Object.freeze({ submitted: false, reason: "guest" });
     }
 
     const authGeneration = this.#authGeneration;
-    const payload = await this.#request("/results", {
+    const payload = await this.#requestProgress("/results", {
       method: "POST",
       body: {
         attemptId,
@@ -439,6 +467,7 @@ export class AccountService {
   }
 
   async importSeenStoryIds(candidate = []) {
+    if(this.#resetPromise){await this.#resetPromise;return Object.freeze({submitted:false,reason:"progress-reset",seenStoryIds:EMPTY_STORY_IDS});}
     const requestedStoryIds = freezeSeenStoryIds(candidate);
     if (requestedStoryIds.length === 0) {
       return Object.freeze({ submitted: false, reason: "empty", seenStoryIds: EMPTY_STORY_IDS });
@@ -482,7 +511,7 @@ export class AccountService {
     }
 
     const authGeneration = this.#authGeneration;
-    const payload = await this.#request("/story-progress", {
+    const payload = await this.#requestProgress("/story-progress", {
       method: "POST",
       body: { seenStoryIds: missing },
     });
@@ -608,6 +637,13 @@ export class AccountService {
       return;
     }
     await this.refreshSession();
+  }
+
+  async #requestProgress(path,options) {
+    const pending=this.#request(path,options);
+    this.#pendingProgressWrites.add(pending);
+    try { return await pending; }
+    finally { this.#pendingProgressWrites.delete(pending); }
   }
 
   async #request(

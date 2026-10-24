@@ -97,7 +97,9 @@ export function resolveBattleMenuAccess(
 export function createMainMenuScene(context) {
   let mounted = false;
   let unsubscribeAccount = null;
+  let unsubscribeSave = null;
   let festivalDecorated = false;
+  let festivalLights = null, festivalCampus = null;
   const soundtrack = new StorySoundtrack(context.services.audio);
 
   return {
@@ -140,9 +142,18 @@ export function createMainMenuScene(context) {
         if (festivalOpen && !festivalDecorated) {
           festivalDecorated = true;
           scene.classList.add("festival-menu");
-          scene.prepend(createFestivalLights());
-          scene.append(createElement("div", { className: "festival-menu__campus" }, [createEiaiArt({ wandering: true })]));
+          festivalLights=createFestivalLights();
+          festivalCampus=createElement("div", { className: "festival-menu__campus" }, [createEiaiArt({ wandering: true })]);
+          scene.prepend(festivalLights);
+          scene.append(festivalCampus);
           soundtrack.play("festival");
+        }
+        if (!festivalOpen && festivalDecorated) {
+          festivalDecorated=false;
+          scene.classList.remove("festival-menu");
+          festivalLights?.remove();festivalCampus?.remove();
+          festivalLights=null;festivalCampus=null;
+          soundtrack.stop();
         }
         const publishedBattles = context.config.features?.battleContent === true
           ? getPublishedBattles(context.content.battles)
@@ -185,11 +196,13 @@ export function createMainMenuScene(context) {
       };
 
       unsubscribeAccount = context.services.account.subscribe(renderCards);
+      unsubscribeSave=context.services.save?.subscribe?.(()=>renderCards(context.services.account.getState()),{emitCurrent:false});
     },
     unmount() {
       mounted = false;
       unsubscribeAccount?.();
       unsubscribeAccount = null;
+      unsubscribeSave?.();unsubscribeSave=null;
       soundtrack.destroy();
     },
   };

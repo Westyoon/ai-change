@@ -79,6 +79,7 @@ export class SaveManager {
   #storage = null;
   #readOnly = false;
   #persistedRevision = 0;
+  #listeners = new Set();
 
   constructor({
     appId,
@@ -198,6 +199,13 @@ export class SaveManager {
     return clone(this.#state);
   }
 
+  subscribe(listener,{emitCurrent=true}={}) {
+    if(typeof listener!=="function")throw new TypeError("Save subscriber must be a function.");
+    this.#listeners.add(listener);
+    if(emitCurrent)listener(this.getState());
+    return ()=>this.#listeners.delete(listener);
+  }
+
   getCompletedMiniGameIds() {
     return Object.freeze(
       this.#miniGameIds.filter((id) => this.#state.minigames[id]?.completed === true),
@@ -209,6 +217,16 @@ export class SaveManager {
   }
 
   save() {
+    try { return this.#persist(); }
+    finally {
+      for(const listener of this.#listeners) {
+        try { listener(this.getState()); }
+        catch(error) { console.error("Save subscriber failed",error); }
+      }
+    }
+  }
+
+  #persist() {
     this.lastError = null;
     if (!this.#storage || this.#readOnly) {
       return false;

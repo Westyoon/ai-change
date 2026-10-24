@@ -19,7 +19,7 @@ const ACTOR_SIZE = { width: 25.6, height: 38.4 };
 let studentPaletteSequence = 0;
 
 export function createCampusScene(context, { mode = "before" } = {}) {
-  let loop, joystick, unsubscribeInput, unsubscribeRealtime, unsubscribeStudentProgress, resizeObserver, remoteView;
+  let loop, joystick, unsubscribeInput, unsubscribeRealtime, unsubscribeStudentProgress, unsubscribeStudentSave, resizeObserver, remoteView;
   let savePosition = () => {};
   return {
     async mount(root, _params, { signal } = {}) {
@@ -116,6 +116,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         };
         refreshStudents();
         unsubscribeStudentProgress=context.services.account?.subscribe?.(refreshStudents);
+        unsubscribeStudentSave=context.services.save?.subscribe?.(refreshStudents,{emitCurrent:false});
       }
       const debug = new URLSearchParams(globalThis.location?.search ?? "").has("campusDebug");
       if (debug) {
@@ -268,7 +269,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
     },
     unmount() {
       savePosition();
-      loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); unsubscribeStudentProgress?.(); remoteView?.destroy();
+      loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); unsubscribeStudentProgress?.(); unsubscribeStudentSave?.(); remoteView?.destroy();
     },
   };
 }
