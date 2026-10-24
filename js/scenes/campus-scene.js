@@ -127,7 +127,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           const dialog=document.createElement("dialog");
           dialog.className="campus-confirm";
           const message=createElement("p",{text:"공대로 올라갈까요?"});
-          const detail=createElement("p",{text:"체력 스탯이 1 올라갑니다. 계정당 최대 3회 받을 수 있어요."});
+          const detail=createElement("p",{text:"체력 스탯이 1 올라갑니다."});
           dialog.append(message,detail);
           const requestId=crypto.randomUUID();
           let submitting=false;
@@ -138,8 +138,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
             try {
               const result=await context.services.account.claimCampusWalkBonus(requestId);
               message.textContent=result.awarded?"체력 스탯이 1 올랐어요!":result.remainingClaims===0
-                ?"이 계정은 공대 산책 보상을 3회 모두 받았어요.":"이미 이번 산책 보상을 받았어요.";
-              detail.textContent=`공대 산책 ${result.claimsUsed}/3회 · 남은 횟수 ${result.remainingClaims}회`;
+                ?"... 더 이상 힘들어서 올라갈 수가 없다.":"이미 이번 산책 보상을 받았어요.";
+              detail.remove();
               cancel.textContent="확인";accept.remove();cancel.focus();
             } catch(error) {showToast(context,error.message);submitting=false;accept.disabled=false;}
           },"primary");
