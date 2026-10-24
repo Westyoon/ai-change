@@ -8,7 +8,7 @@ function svg(document,name,attrs={}) {
 // An atlas supplies independent sprites. Each placement clips only its own frame.
 export function createAtlasSprite(document,frame,{repeat=false,width,height,tileWidth,tileHeight,id}) {
   const crop=frame.crop;
-  const root=svg(document,"svg",{width:"100%",height:"100%","aria-hidden":"true",preserveAspectRatio:repeat?"none":"xMidYMax meet"});
+  const root=svg(document,"svg",{width:"100%",height:"100%","aria-hidden":"true",preserveAspectRatio:repeat?"none":frame.preserveAspectRatio??"xMidYMax meet"});
   const bitmap=svg(document,"image",{href:frame.src,width:frame.width,height:frame.height});
   if(frame.src.includes("/interior/")) {
     // Gently neutralize warm pigments at render time; preserve source sprites,

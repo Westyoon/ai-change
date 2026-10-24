@@ -621,6 +621,75 @@
         "width": 348,
         "height": 492
       }
+    },
+    "lounge-sofa-h": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 64,
+        "y": 194,
+        "width": 622,
+        "height": 158
+      },
+      "preserveAspectRatio": "none"
+    },
+    "lounge-sofa-v": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 796,
+        "y": 88,
+        "width": 152,
+        "height": 304
+      },
+      "preserveAspectRatio": "none"
+    },
+    "study-chair": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 1238,
+        "y": 171,
+        "width": 170,
+        "height": 234
+      }
+    },
+    "wall-study-desk": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 211,
+        "y": 542,
+        "width": 97,
+        "height": 296
+      },
+      "preserveAspectRatio": "none"
+    },
+    "security-office": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 470,
+        "y": 557,
+        "width": 600,
+        "height": 351
+      }
+    },
+    "elevator": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 1147,
+        "y": 541,
+        "width": 338,
+        "height": 377
+      }
     }
   }
 }

@@ -45,8 +45,21 @@ test("all indoor maps use the campus art set while preserving independent placem
   assert.equal(skin.frames["floor-stone"].src,"./assets/maps/tiles/paving.png");
   const student=manager.get("student_center_interior"),greenhouse=manager.get("greenhouse_interior");
   assert.ok(student.world.width<=1400&&student.world.height<=900,"student center is rebuilt as a compact room, not the old empty hall");
-  assert.equal(student.layout.items.filter(i=>i.kind==="study-table").length,4);
-  assert.ok(student.layout.items.some(i=>i.kind==="chair-back")&&student.layout.items.some(i=>i.kind==="chair-side"),"chairs face their tables");
+  assert.equal(student.layout.items.filter(i=>i.kind==="study-table").length,0,"no freestanding dining-table groups remain");
+  assert.equal(student.layout.floors.filter(i=>i.asset==="rug").length,0,"student center has no carpet");
+  const desks=student.layout.items.filter(i=>i.kind==="wall-study-desk"),chairs=student.layout.items.filter(i=>i.kind==="study-chair");
+  assert.equal(desks.length,8);assert.equal(chairs.length,8);
+  const rightWall=student.layout.items.find(i=>i.kind==="wall"&&Math.abs(i.x-1440*Math.sqrt(.75))<.01&&i.height>i.width);
+  for(const desk of desks) {
+    assert.ok(Math.abs(desk.x+desk.width-rightWall.x)<.01,"each desk is flush to the right wall");
+    const chair=chairs.find(c=>c.stationY===desk.stationY);
+    assert.ok(chair.x+chair.width<desk.x,"chairs exist only on the open front side of the wall desks");
+    assert.equal(Boolean(chair.flipX),false);
+  }
+  assert.ok(student.layout.items.some(i=>i.kind==="security-office")&&student.layout.items.some(i=>i.kind==="elevator"));
+  const sofas=student.layout.items.filter(i=>i.kind.startsWith("lounge-sofa-"));
+  assert.equal(sofas.length,6);
+  assert.ok(sofas.every(i=>i.x+i.width<544*Math.sqrt(.75)),"continuous seating stays in the left rest lounge");
   assert.ok(greenhouse.world.width<=1340&&greenhouse.world.height<=1120);
   assert.ok(greenhouse.layout.items.filter(i=>i.kind.startsWith("planter-")).length>=20,"greenhouse is furnished with individually placed planted beds");
   assert.equal(greenhouse.layout.items.filter(i=>i.kind==="potting-bench").length,2);

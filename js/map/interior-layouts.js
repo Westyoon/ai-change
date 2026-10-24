@@ -16,12 +16,6 @@ function builder(definition,width,height) {
   };
   const plant=(x,y,flowers=false)=>item(flowers?"flowers":"plant",x,y,32,flowers?40:48,box(x+8,y+(flowers?28:36),16,12));
   const bench=(x,y)=>item("bench",x,y,80,40,box(x+4,y+24,72,16));
-  const chair=(x,y,facing="front")=>item(facing==="front"?"chair":facing==="back"?"chair-back":"chair-side",x,y,24,28,box(x+3,y+16,18,12),{flipX:facing==="left"});
-  const table=(x,y)=>{
-    item("study-table",x,y,80,64,box(x+4,y+12,72,40),{footY:y+52});
-    chair(x+28,y-28);chair(x+28,y+60,"back");
-    chair(x-28,y+18,"right");chair(x+84,y+18,"left");
-  };
   const enclosure=(glass=false)=>{
     floor("floor-stone",64,64,width-128,height-160);
     horizontal(64,64,width-128,null,glass?"glass-h":"wall");
@@ -35,40 +29,35 @@ function builder(definition,width,height) {
       obstacles:items.filter(i=>i.collision).map(i=>i.collision),blockedPolygons:items.filter(i=>i.collisionPolygon).map(i=>i.collisionPolygon)},
     interactions:[{id:"exit-"+definition.id,kind:"portal",label:"캠퍼스로",x:width/2,y:height-112,targetMap:"campus",spawn:definition.outdoorReturn}],
   });
-  return {floor,item,wall,door,horizontal,plant,bench,chair,table,enclosure,finish,checkpoints};
+  return {floor,item,wall,door,horizontal,plant,bench,enclosure,finish,checkpoints};
 }
 
 export function createStudentCenterTileMap(definition) {
-  const b=builder(definition,1600,1024),{floor,item,wall,horizontal,plant,bench,chair,table}=b;
+  const b=builder(definition,1600,1024),{floor,item,wall,horizontal,plant,bench}=b;
   b.enclosure();
-  // Two compact lounge nooks; a single clear central aisle connects the exit.
+  // Left: continuous, shallow low-backed seating; no rugs or dining chairs.
   wall(544,192,24,640,"glass");
-  for(const y of [224,560]) {
-    floor("rug",128,y-16,368,288);
-    item("sofa-h",160,y,144,76,box(164,y+32,136,36));
-    item("sofa-v",144,y+80,64,112,box(152,y+88,48,96));
-    item("round-table",272,y+128,64,48,box(278,y+148,52,24));
-    chair(376,y+144,"left");
-    plant(448,y+16);plant(432,y+224,true);
-    b.checkpoints.push({id:"lounge-"+y,x:400,y:y+192});
+  for(const x of [184,328])item("lounge-sofa-h",x,208,144,40,box(x,224,144,24));
+  for(const y of [240,384,528,672])item("lounge-sofa-v",144,y,40,144,box(144,y,40,144));
+  for(const y of [384,672])item("round-table",272,y,48,36,box(278,y+18,36,16));
+  plant(448,256);plant(448,480,true);plant(448,736);
+  for(const y of [352,720])b.checkpoints.push({id:"rest-"+y,x:352,y});
+  // Center: security office and elevator, with an unobstructed north/south aisle.
+  item("security-office",624,352,144,96,box(628,408,136,40));
+  item("elevator",800,176,96,112,box(804,244,88,44));
+  bench(816,544);plant(624,528);plant(928,192);
+  // Right: every desk touches the right wall; chairs exist only in front (left).
+  floor("floor-wood",1088,224,352,544);
+  horizontal(1056,192,416);wall(1056,224,32,544);wall(1440,224,32,544);
+  horizontal(1056,768,416,1216);
+  for(let y=256;y<=704;y+=64) {
+    item("wall-study-desk",1400,y,40,64,box(1400,y+8,40,56),{stationY:y});
+    item("study-chair",1364,y+20,24,28,box(1367,y+36,18,12),{stationY:y});
   }
-  // A reception/book corner gives the lobby a purpose without blocking the aisle.
-  item("bookshelf",608,176,112,72,box(612,216,104,32));
-  plant(752,192);
-  item("round-table",656,448,64,48,box(662,468,52,24));
-  chair(676,416);chair(676,500,"back");
-  bench(624,752);plant(752,768,true);
-  // Short study room with four appropriately sized tables and facing chairs.
-  floor("floor-wood",896,224,544,544);
-  horizontal(864,192,608);wall(864,224,32,544);wall(1440,224,32,544);
-  horizontal(864,768,608,1136);
-  for(const x of [960,1248])for(const y of [352,544])table(x,y);
-  item("counter",960,240,192,48,box(964,260,184,28));
-  item("bookshelf",1248,240,112,64,box(1252,272,104,32));
-  for(const x of [912,1392])plant(x,688);
-  bench(1120,832);
+  item("bookshelf",1184,240,112,64,box(1188,272,104,32));
+  plant(1104,256);plant(1104,688);
   for(const x of [112,1456])for(const y of [128,816])plant(x,y);
-  for(const [id,x,y]of [["lobby",800,672],["study-door",1168,816],["study-center",1168,480],["study-right",1392,672]])
+  for(const [id,x,y]of [["lobby",800,672],["elevator-front",848,320],["security-front",696,480],["study-door",1248,816],["study-center",1248,480],["study-right",1328,672]])
     b.checkpoints.push({id,x,y});
   return b.finish();
 }
