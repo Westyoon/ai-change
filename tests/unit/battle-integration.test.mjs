@@ -18,10 +18,12 @@ import {
 } from "../../js/scenes/battle-scene.js";
 
 const MINI_GAME_IDS = ["ds", "cs", "cse", "ai", "aids"];
-test("engineering walk adds 0.1 health stat and ten actual maximum HP",()=>{
-  const player=createStatBossPlayer({authenticated:true,stats:{hp:110}});
-  assert.equal(player.healthStat,1.1);
-  assert.equal(calcMaxHp(player.healthStat),110);
+test("three engineering walks add three health stat points and 300 actual maximum HP",()=>{
+  for(let claims=1;claims<=3;claims++) {
+    const player=createStatBossPlayer({authenticated:true,stats:{hp:100+100*claims}});
+    assert.equal(player.healthStat,1+claims);
+    assert.equal(calcMaxHp(player.healthStat),100+100*claims);
+  }
 });
 const DEFINITION = Object.freeze({
   unlockCondition: Object.freeze({

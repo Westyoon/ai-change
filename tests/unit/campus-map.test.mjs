@@ -34,6 +34,8 @@ test("original campus map keeps every gameplay destination reachable with the fu
   const config = JSON.parse(await readFile(new URL("../../data/maps/campus.json", import.meta.url), "utf8"));
   const manager = new CampusMapManager(config);
   const map = manager.get("campus"), mask = manager.mask("campus");
+  const engineering=map.interactions.find(point=>point.kind==="engineering");
+  assert.ok(engineering.x>map.world.width*.9&&engineering.y<map.world.height*.15,"engineering walk is in the upper right");
   const allows = (x,y) => mask.allows({ x: x-6, y: y-8, width: 12, height: 8 });
   const step = 4, columns = Math.ceil(map.world.width / step);
   const start = [Math.round(map.spawn.x/step), Math.round(map.spawn.y/step)];

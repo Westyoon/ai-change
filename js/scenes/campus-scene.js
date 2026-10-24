@@ -126,20 +126,25 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           loop?.pause();
           const dialog=document.createElement("dialog");
           dialog.className="campus-confirm";
-          dialog.append(createElement("p",{text:"공대로 올라가시겠습니까? 체력이 조금 좋아집니다."}));
+          const message=createElement("p",{text:"공대로 올라갈까요?"});
+          const detail=createElement("p",{text:"체력 스탯이 1 올라갑니다. 계정당 최대 3회 받을 수 있어요."});
+          dialog.append(message,detail);
+          const requestId=crypto.randomUUID();
           let submitting=false;
           const cancel=createButton("취소",()=>dialog.close());
           const accept=createButton("올라가기",async()=>{
             if(submitting)return;
             submitting=true;accept.disabled=true;
             try {
-              const result=await context.services.account.claimCampusWalkBonus();
-              showToast(context,result.awarded?"체력 스탯이 0.1 올랐어요!":"이미 공대 산책 보너스를 받았어요.");
-              dialog.close();
+              const result=await context.services.account.claimCampusWalkBonus(requestId);
+              message.textContent=result.awarded?"체력 스탯이 1 올랐어요!":result.remainingClaims===0
+                ?"이 계정은 공대 산책 보상을 3회 모두 받았어요.":"이미 이번 산책 보상을 받았어요.";
+              detail.textContent=`공대 산책 ${result.claimsUsed}/3회 · 남은 횟수 ${result.remainingClaims}회`;
+              cancel.textContent="확인";accept.remove();cancel.focus();
             } catch(error) {showToast(context,error.message);submitting=false;accept.disabled=false;}
           },"primary");
           dialog.append(createElement("div",{className:"button-row"},[cancel,accept]));
-          dialog.addEventListener("close",()=>{dialogOpen=false;dialog.remove();if(!signal?.aborted&&!leaving)loop?.resume();},{once:true});
+          dialog.addEventListener("close",()=>{dialogOpen=false;dialog.remove();if(!signal?.aborted&&!leaving){loop?.resume();viewport.focus({preventScroll:true});}},{once:true});
           signal?.addEventListener("abort",()=>dialog.remove(),{once:true});
           page.append(dialog);dialog.showModal();return;
         }

@@ -964,15 +964,20 @@ async function claimEngineeringWalk(request: Request, env: Env, origin: string):
   requireMethod(request,"POST");
   requireMutationRequest(request,origin);
   const session=await requireSession(request,env);
-  // D1 batches are transactional. Both retries and concurrent clicks award once.
-  const results=await env.DB.batch([
-    env.DB.prepare(`UPDATE stats SET hp = hp + 10, updated_at = CURRENT_TIMESTAMP
-      WHERE user_id = ? AND NOT EXISTS (SELECT 1 FROM campus_walk_claims WHERE user_id = ?)`)
-      .bind(session.user_id,session.user_id),
-    env.DB.prepare(`INSERT OR IGNORE INTO campus_walk_claims (user_id) SELECT user_id FROM stats WHERE user_id = ?`)
-      .bind(session.user_id),
-  ]);
-  return json({awarded:Number(results[0]?.meta?.changes)>0,stats:statPayload(await fetchStats(env,session.user_id))});
+  const body=await readJsonObject(request);
+  if(Object.keys(body).length!==1||!isWishId(body.requestId))throw new HttpError(400,"Invalid walk request");
+  // One SQLite statement allocates a bounded claim; its trigger awards HP in the
+  // same transaction. Account/request uniqueness also makes retries idempotent.
+  const award=await env.DB.prepare(`INSERT INTO campus_walk_awards (user_id, claim_number, request_id)
+    SELECT user_id, (SELECT COUNT(*) FROM campus_walk_awards WHERE user_id = ?) + 1, ?
+      FROM stats WHERE user_id = ? AND (SELECT COUNT(*) FROM campus_walk_awards WHERE user_id = ?) < 3
+    ON CONFLICT DO NOTHING RETURNING claim_number`)
+    .bind(session.user_id,body.requestId,session.user_id,session.user_id).first<{claim_number:number}>();
+  const count=await env.DB.prepare("SELECT COUNT(*) AS used FROM campus_walk_awards WHERE user_id = ?")
+    .bind(session.user_id).first<{used:number}>();
+  const claimsUsed=Number(count?.used??0);
+  return json({awarded:Boolean(award),claimsUsed,remainingClaims:Math.max(0,3-claimsUsed),
+    stats:statPayload(await fetchStats(env,session.user_id))});
 }
 
 async function allocateStat(request: Request, env: Env, origin: string): Promise<Response> {

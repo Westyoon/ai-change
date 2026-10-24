@@ -409,12 +409,13 @@ export class AccountService {
     });
   }
 
-  async claimCampusWalkBonus() {
+  async claimCampusWalkBonus(requestId=crypto.randomUUID()) {
     if(!this.#state.authenticated) throw new AccountServiceError("공대 산책 보너스를 받으려면 로그인해 주세요.",{status:401,code:"AUTH_REQUIRED"});
     const authGeneration=this.#authGeneration;
-    const payload=await this.#request("/campus/engineering-walk",{method:"POST",body:{}});
+    const payload=await this.#request("/campus/engineering-walk",{method:"POST",body:{requestId}});
     await this.#applyStatsOrRefresh(payload,{authGeneration});
-    return {awarded:payload.awarded===true,stats:this.#state.stats};
+    return {awarded:payload.awarded===true,claimsUsed:integer(payload.claimsUsed),
+      remainingClaims:integer(payload.remainingClaims),stats:this.#state.stats};
   }
 
   async allocateStat(stat) {

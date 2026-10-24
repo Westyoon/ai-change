@@ -861,15 +861,19 @@ test("a late import response cannot restore authentication after logout", async 
 test("campus walk bonus refreshes server stats and rejects guests", async () => {
   const mock=queuedFetch([
     jsonResponse({authenticated:true,user:{name:"산책자"},stats:{hp:100}}),
-    jsonResponse({awarded:true,stats:{hp:110}}),
-    jsonResponse({awarded:false,stats:{hp:110}}),
+    jsonResponse({awarded:true,claimsUsed:1,remainingClaims:2,stats:{hp:200}}),
+    jsonResponse({awarded:false,claimsUsed:1,remainingClaims:2,stats:{hp:200}}),
   ]);
   const service=new AccountService({fetchImpl:mock.fetchImpl});
   await assert.rejects(()=>service.claimCampusWalkBonus(),/로그인/u);
   await service.refreshSession();
-  assert.equal((await service.claimCampusWalkBonus()).awarded,true);
-  assert.equal(service.getState().stats.hp,110);
-  assert.equal((await service.claimCampusWalkBonus()).awarded,false);
+  const requestId=crypto.randomUUID();
+  const result=await service.claimCampusWalkBonus(requestId);
+  assert.equal(result.awarded,true);assert.equal(result.remainingClaims,2);assert.equal(result.claimsUsed,1);
+  assert.equal(service.getState().stats.hp,200);
+  assert.equal((await service.claimCampusWalkBonus(requestId)).awarded,false);
+  assert.deepEqual(JSON.parse(mock.calls[1][1].body),{requestId});
+  assert.equal(mock.calls[1][1].body,mock.calls[2][1].body,"a retry retains the same request id");
   assert.equal(mock.calls[1][0],"/api/campus/engineering-walk");
 });
 
