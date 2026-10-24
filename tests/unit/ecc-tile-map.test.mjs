@@ -72,6 +72,10 @@ test("all indoor maps use the campus art set while preserving independent placem
   assert.ok(greenhouse.layout.items.filter(i=>i.kind.startsWith("planter-")).length>=20,"greenhouse is furnished with individually placed planted beds");
   assert.equal(greenhouse.layout.items.filter(i=>i.kind==="potting-bench").length,2);
   assert.equal(greenhouse.layout.items.filter(i=>i.kind==="hanging-basket").length,4);
+  assert.equal(greenhouse.layout.items.filter(i=>i.kind==="white-cafe-table").length,2);
+  assert.equal(greenhouse.layout.items.filter(i=>i.kind==="cafe-chair").length,8);
+  const terrace=greenhouse.layout.floors.find(f=>f.asset==="conservatory-landing");
+  assert.ok(terrace.width*terrace.height>320*208*.75*1.7,"terrace has substantially more usable floor area");
   assert.ok(greenhouse.layout.floors.every(f=>!["floor-wood","stairs"].includes(f.asset)),"greenhouse pavilion uses stone rather than the old repeated wooden stage");
   assert.equal(skin.frames["conservatory-stairs"].single,true,"the entire stair flight renders once, not as repeated stair tiles");
   assert.ok(greenhouse.layout.items.some(i=>i.kind==="conservatory-canopy"&&i.canopy.insideOpacity<i.canopy.opacity),"pavilion roof clears the view for a player underneath");

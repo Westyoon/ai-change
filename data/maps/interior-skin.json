@@ -715,27 +715,27 @@
       "preserveAspectRatio": "none"
     },
     "conservatory-stairs": {
-      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
-      "width": 1536,
-      "height": 1024,
+      "src": "./assets/maps/ecc/terrace-steps-low.svg",
+      "width": 256,
+      "height": 64,
       "crop": {
-        "x": 944,
-        "y": 168,
-        "width": 568,
-        "height": 320
+        "x": 0,
+        "y": 0,
+        "width": 256,
+        "height": 64
       },
       "single": true,
       "preserveAspectRatio": "none"
     },
     "conservatory-landing": {
-      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
-      "width": 1536,
-      "height": 1024,
+      "src": "./assets/maps/ecc/terrace-low.svg",
+      "width": 448,
+      "height": 256,
       "crop": {
-        "x": 32,
-        "y": 672,
-        "width": 592,
-        "height": 248
+        "x": 0,
+        "y": 0,
+        "width": 448,
+        "height": 256
       },
       "single": true,
       "preserveAspectRatio": "none"
@@ -802,6 +802,58 @@
       },
       "tileWidth": 64,
       "tileHeight": 56
+    },
+    "white-cafe-table": {
+      "src": "./assets/maps/ecc/white-cafe-table.svg",
+      "width": 64,
+      "height": 48,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 48
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
+    },
+    "white-chair": {
+      "src": "./assets/maps/ecc/white-chair.svg",
+      "width": 24,
+      "height": 28,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 28
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
+    },
+    "white-chair-back": {
+      "src": "./assets/maps/ecc/white-chair-back.svg",
+      "width": 24,
+      "height": 28,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 28
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
+    },
+    "white-chair-side": {
+      "src": "./assets/maps/ecc/white-chair-side.svg",
+      "width": 24,
+      "height": 28,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 28
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
     }
   }
 }

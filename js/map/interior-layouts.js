@@ -91,20 +91,25 @@ export function createGreenhouseTileMap(definition) {
   item("potting-bench",1200,848,112,88,box(1206,904,100,28));
   for(const x of [320,480,1024,1184])item("hanging-basket",x,96,32,64,null,{footY:144});
   for(const x of [624,808])item("planter-flowers",x,544,104,72,box(x+6,592,92,20));
-  // A pale stone landing and one complete seven-tread flight replace the stage.
-  floor("conservatory-landing",608,176,320,208);
-  // The upper tread overlaps the landing fascia, so the stairs reach its top.
-  floor("conservatory-stairs",656,328,224,112);
-  for(const x of [616,904])for(const y of [144,240])
+  // A broader low terrace, with only three shallow steps and a thin fascia.
+  floor("conservatory-landing",544,160,448,256);
+  floor("conservatory-stairs",640,408,256,64);
+  for(const x of [552,968])for(const y of [144,272])
     item("conservatory-post",x,y,16,128,box(x+4,y+116,8,12));
-  item("conservatory-canopy",600,80,336,192,null,{footY:400,
-    canopy:{x:608,y:176,width:320,height:224,opacity:.94,insideOpacity:.2}});
+  item("conservatory-canopy",536,80,464,224,null,{footY:416,
+    canopy:{x:544,y:160,width:448,height:256,opacity:.94,insideOpacity:.2}});
   // Light upper eaves make the glass atrium ceiling visible without hiding play.
   item("conservatory-ceiling",96,64,1344,112,null,{repeat:true,tileWidth:192,tileHeight:112,footY:2048,
     canopy:{x:96,y:64,width:1344,height:112,opacity:.62,insideOpacity:.16}});
-  for(const x of [608,888])item("conservatory-stair-planter",x,328,40,112,box(x+4,344,32,96));
-  bench(704,272);
-  plant(576,352,true);plant(928,352,true);
+  for(const x of [592,904])item("conservatory-stair-planter",x,400,40,80,box(x+4,416,32,64));
+  // Small white steel cafe furniture leaves the middle aisle free.
+  for(const x of [608,864]) {
+    const y=272;
+    item("white-cafe-table",x,y,64,48,box(x+5,y+14,54,24));
+    for(const [dx,dy,asset,flipX]of [[20,-28,"white-chair",false],[20,48,"white-chair-back",false],[-28,10,"white-chair-side",false],[68,10,"white-chair-side",true]])
+      item("cafe-chair",x+dx,y+dy,24,28,box(x+dx+3,y+dy+16,18,12),{asset,flipX});
+  }
+  plant(544,368,true);plant(960,368,true);
   const cx=768,cy=768;
   const shape=Array.from({length:40},(_,i)=>[cx+58*Math.cos(i*Math.PI/20),cy+32*Math.sin(i*Math.PI/20)]);
   item("fountain",704,704,128,112,null,{collisionPolygon:shape,footY:800});
@@ -119,7 +124,7 @@ export function createGreenhouseTileMap(definition) {
     plant(x+24,992,true);
   }
   for(const x of [112,1392])for(const y of [480,880])plant(x,y,true);
-  for(const [id,x,y]of [["below-fountain",768,944],["left-aisle",496,768],["right-aisle",1040,768],["stairs",768,416],["pavilion",768,272]])
+  for(const [id,x,y]of [["below-fountain",768,944],["left-aisle",496,768],["right-aisle",1040,768],["stairs",768,448],["pavilion",768,272]])
     b.checkpoints.push({id,x,y});
   return b.finish();
 }
