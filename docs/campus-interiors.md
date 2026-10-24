@@ -1,10 +1,10 @@
 # 캠퍼스 내부맵 구현
 
-2026-10-24 야외와 ECC·학생문화관·온실 내부를 함께 운영 배포했다. 2026-10-25 최신 학생 색상 수정 코드 기준은 `feature/ecc-tile-map`의 `4e477a2`이며 운영 Worker 버전은 `cafe4438-fa16-42fe-a1c6-e0f6c421a0f5`이다. 운영 주소는 https://ai-change.ai-change-backend.workers.dev 이다. 직전 문구 수정은 `59059232-2c98-4d93-8822-e1c1d9fa5bdb`, 공대 산책 배포는 `21632c61-4abd-4401-86bb-a7ec93518f89`, 학생 실루엣 배포는 `a4813b08-146c-4ff6-9d53-c493615ab61c`, 최초 내부맵 배포는 `db478276-76b3-43e4-873e-61c9929a14ad`, 초기 야외 배포는 `5a3fb871-5b6b-4703-a21e-88040e618b5e`로 기록한다.
+2026-10-24 야외와 ECC·학생문화관·온실 내부를 함께 운영 배포했다. 2026-10-25 최신 진행 초기화 수정 코드 기준은 `feature/ecc-tile-map`의 `679636d`이며 운영 Worker 버전은 `89df226d-db75-487d-a66f-871a3a3b2fa1`이다. 운영 주소는 https://ai-change.ai-change-backend.workers.dev 이다. 직전 학생 색상 수정은 `cafe4438-fa16-42fe-a1c6-e0f6c421a0f5`, 문구 수정은 `59059232-2c98-4d93-8822-e1c1d9fa5bdb`, 공대 산책 배포는 `21632c61-4abd-4401-86bb-a7ec93518f89`, 학생 실루엣 배포는 `a4813b08-146c-4ff6-9d53-c493615ab61c`, 최초 내부맵 배포는 `db478276-76b3-43e4-873e-61c9929a14ad`, 초기 야외 배포는 `5a3fb871-5b6b-4703-a21e-88040e618b5e`로 기록한다.
 
 맵 상단의 공간 이름과 사전·사후 전환/캠퍼스로/돌아가기 툴바를 제거했다. 이동은 기존 건물 출입구의 상호작용으로 연결하며, 확보한 세로 공간을 맵 뷰포트가 사용한다. 캐릭터 추적 카메라와 이동·충돌은 유지한다.
 
-전체 검사 통과: 테스트 522개, 소스 HTTP 검사 80개, 빌드 HTTP 검사 93개, 백엔드 TypeScript 검사. 공대 산책 3회 제한을 위해 운영 D1에 `0016_campus_walk_three_claims.sql`을 적용했다. 배포에는 기존 계정 API·D1·Durable Object binding을 가진 통합 Worker를 사용했다.
+전체 검사 통과: 테스트 528개, 소스 HTTP 검사 80개, 빌드 HTTP 검사 93개, 백엔드 TypeScript 검사. 공대 산책 3회 제한을 위해 운영 D1에 `0016_campus_walk_three_claims.sql`을 적용했으며 진행 초기화 수정에는 추가 migration이 없다. 배포에는 기존 계정 API·D1·Durable Object binding을 가진 통합 Worker를 사용했다.
 
 배포 후 주요 JS·CSS·설정·새 에셋 7개를 운영 응답과 로컬 dist의 SHA-256으로 대조했고 API health는 `ok`였다. 실제 운영 앱에서 PC 1280px·모바일 390px 모두 Story 메뉴 → 캠퍼스 → 세 건물 입장 → 출입구로 캠퍼스 복귀를 확인했다. 모바일 조이스틱과 툴바 제거도 확인했으며 브라우저 오류는 없었다. `campusMap` 쿼리는 기존대로 localhost 전용 미리보기다.
 
