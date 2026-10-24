@@ -40,13 +40,6 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         try { sessionStorage.setItem(key, JSON.stringify(position)); } catch { /* Movement remains usable. */ }
       };
       const page = createElement("section", { className: "campus-scene", dataset: { mode, mapId: map.id } });
-      const header = createElement("header", { className: "campus-toolbar" }, [
-        createElement("strong", { text: map.label ?? (mode === "before" ? "수호알을 찾아서" : "캠퍼스 축제") }),
-        createElement("div", { className: "button-row" }, [
-          createButton(map.id==="campus"?(mode === "before" ? "사후게임" : "사전게임"):"캠퍼스로", () => map.id==="campus"?go(mode === "before" ? "battle" : "map"):go(mode==="before"?"map":"battle",{campusMapId:"campus",campusSpawn:map.outdoorReturn})),
-          createButton("돌아가기", () => go("main-menu")),
-        ]),
-      ]);
       const viewport = createElement("div", {
         className: "campus-viewport",
         attributes: { tabindex: "0", role: "region", "aria-label": "길을 따라 이동하는 캠퍼스", "aria-describedby": "campus-controls" },
@@ -94,7 +87,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       joystick = new VirtualJoystick({ element: joystickElement, knob, onChange: value => { virtual = value; } });
       viewport.append(world, prompt, joystickElement);
       const controls = createElement("p", { className: "campus-controls", attributes: { id: "campus-controls" }, text: "방향키 / WASD 또는 조이스틱으로 이동 · 가까이서 E키 / 입장 버튼" });
-      page.append(header, viewport, controls);
+      page.append(viewport, controls);
       root.append(page);
 
       async function go(sceneId, params = {}) {
