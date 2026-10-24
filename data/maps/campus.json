@@ -1,5 +1,5 @@
 {
-  "version": "campus-glass-garden-6",
+  "version": "campus-ecc-students-7",
   "maps": [
     {
       "id": "campus",
@@ -594,41 +594,6 @@
         ]
       },
       "interactions": [
-        {
-          "id": "npc-ai",
-          "kind": "npc",
-          "x": 175,
-          "y": 596,
-          "label": "인공지능"
-        },
-        {
-          "id": "npc-ds",
-          "kind": "npc",
-          "x": 345,
-          "y": 596,
-          "label": "데이터사이언스"
-        },
-        {
-          "id": "npc-cse",
-          "kind": "npc",
-          "x": 175,
-          "y": 684,
-          "label": "컴퓨터공학"
-        },
-        {
-          "id": "npc-cs",
-          "kind": "npc",
-          "x": 345,
-          "y": 684,
-          "label": "사이버보안"
-        },
-        {
-          "id": "npc-aids",
-          "kind": "npc",
-          "x": 175,
-          "y": 773,
-          "label": "인공지능·데이터사이언스"
-        },
         {
           "id": "final",
           "kind": "final",

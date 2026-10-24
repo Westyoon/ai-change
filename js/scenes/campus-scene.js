@@ -1,4 +1,4 @@
-import { CampusMapManager } from "../map/map-manager.js";
+import { CampusMapManager, CAMPUS_MAP_IDS } from "../map/map-manager.js";
 import { followCamera } from "../map/camera.js";
 import { resolveContinuousMovement } from "../map/collision.js";
 import { CharacterView, RemoteCharacterView, VirtualJoystick, createCharacterActorElement } from "../battle/character/index.js";
@@ -24,7 +24,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const response = await fetch("./data/maps/campus.json", { signal });
       if (!response.ok) throw new Error("캠퍼스 지도를 불러오지 못했습니다.");
       const manager = new CampusMapManager(await response.json());
-      const map = manager.get(_params?.campusMapId ?? "campus");
+      const map = manager.get(_params?.campusMapId ?? (mode === "before" ? CAMPUS_MAP_IDS.ECC : CAMPUS_MAP_IDS.CAMPUS));
       // Use the outdoor reference scale indoors too; retain the same foot anchor.
       const actorSize = ACTOR_SIZE;
       const mask = manager.mask(map.id,{mode});
@@ -58,6 +58,24 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         ? ["npc", "final"].includes(point.kind) : ["boss", "field", "engineering"].includes(point.kind)));
       const markers = new Map();
       for (const point of points) {
+        if (point.kind === "npc") {
+          const student = createElement("button", {
+            className: "campus-student", type: "button", dataset: { npcId: point.id },
+            attributes: { "aria-label": `학생 ${point.studentNumber}과 대화하기` },
+            on: { click: () => void interact(point) },
+          });
+          student.style.left = `${point.x-16}px`; student.style.top = `${point.y-48}px`;
+          student.style.zIndex = String(1000+Math.round(point.y));
+          const figure = createCharacterActorElement({ local: true });
+          new CharacterView({ element: figure, worldSize: { width:32, height:48 } }).render({
+            appearance:createPlayerAppearance("purple",""),x:3.2,y:9.6,...actorSize,
+            footY:48,direction:"down",state:"idle",currentHealth:1,maxHealth:1,
+          });
+          figure.classList.remove("character-actor--local");
+          figure.removeAttribute("role");figure.removeAttribute("aria-label");figure.setAttribute("aria-hidden","true");
+          student.append(figure);world.append(student);markers.set(point.id,student);
+          continue;
+        }
         const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } }, [
           createElement("span", { className: "campus-marker__icon", text: point.kind === "npc" ? "!" : point.kind === "field" ? "X" : "◆", attributes: { "aria-hidden": "true" } }),
           createElement("span", { className: "campus-marker__label", text: point.label }),
@@ -86,7 +104,9 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const joystickElement = createElement("div", { className: "character-joystick campus-joystick", attributes: { "aria-label": "이동 조이스틱" } }, [knob]);
       joystick = new VirtualJoystick({ element: joystickElement, knob, onChange: value => { virtual = value; } });
       viewport.append(world, prompt, joystickElement);
-      const controls = createElement("p", { className: "campus-controls", attributes: { id: "campus-controls" }, text: "방향키 / WASD 또는 조이스틱으로 이동 · 가까이서 E키 / 입장 버튼" });
+      const controls = createElement("p", { className: "campus-controls", attributes: { id: "campus-controls" }, text: mode === "before"
+        ? "방향키 / WASD 또는 조이스틱으로 이동 · 학생을 클릭해 대화 · 가까이서 E / 스페이스바"
+        : "방향키 / WASD 또는 조이스틱으로 이동 · 가까이서 E / 스페이스바 / 입장 버튼" });
       page.append(viewport, controls);
       root.append(page);
 
@@ -98,10 +118,10 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         const accepted = await context.router.navigate(sceneId, params);
         if (accepted === false && !signal?.aborted) { leaving = false; loop?.resume(); }
       }
-      async function interact() {
-        if (!target || leaving || dialogOpen) return;
-        if(target.kind==="portal")return go(mode==="before"?"map":"battle",{campusMapId:target.targetMap,campusSpawn:target.spawn});
-        if(target.kind==="engineering") {
+      async function interact(point = target) {
+        if (!point || leaving || dialogOpen) return;
+        if(point.kind==="portal")return go(mode==="before"?"map":"battle",{campusMapId:point.targetMap,campusSpawn:point.spawn});
+        if(point.kind==="engineering") {
           dialogOpen=true;
           loop?.pause();
           const dialog=document.createElement("dialog");
@@ -123,15 +143,15 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           signal?.addEventListener("abort",()=>dialog.remove(),{once:true});
           page.append(dialog);dialog.showModal();return;
         }
-        if (target.kind === "npc") {
-          const npc = context.content.maps.find(item => item.id === context.config.mainMapId)?.npcs.find(item => item.id === target.id);
+        if (point.kind === "npc") {
+          const npc = context.content.maps.find(item => item.id === context.config.mainMapId)?.npcs.find(item => item.id === point.id);
           if (npc) {
-            const destination = getMiniGameStoryDestination(context, npc.miniGameId);
+            const destination = getMiniGameStoryDestination(context, npc.miniGameId, { conversation:true });
             return go(destination.sceneId, destination.params);
           }
           return;
         }
-        const battleId = target.kind === "final" ? FINAL_BATTLE_ID : target.id;
+        const battleId = point.kind === "final" ? FINAL_BATTLE_ID : point.id;
         const battle = getPublishedBattles(context.content.battles).find(item => item.id === battleId);
         if (!battle) return;
         const unlock = getBattleUnlockStatus(battle, context.services.save?.getState?.() ?? {}, context.services.account.getState());
@@ -139,7 +159,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           showToast(context, "수호알을 모두 모으면 입장할 수 있어요.");
           return;
         }
-        if (target.kind === "boss") return go("battle", { legacyWorld: true, openBossId: battleId });
+        if (point.kind === "boss") return go("battle", { legacyWorld: true, openBossId: battleId });
         return go("battle", { battleId });
       }
       const realtime = mode === "after" && account.authenticated ? context.services.postgameRealtime : null;
@@ -161,7 +181,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         realtime.connect();
       }
       unsubscribeInput = context.services.input.onAction(event => {
-        if (event.phase === "press" && event.action === INPUT_ACTIONS.INTERACT) void interact();
+        if (event.phase === "press" && (event.action === INPUT_ACTIONS.INTERACT
+          || (event.action === INPUT_ACTIONS.CONFIRM && event.originalEvent?.code === "Space"))) void interact();
       });
       let viewportSize = { width: 1, height: 1 }, publishMs = 0;
       const resize = () => {

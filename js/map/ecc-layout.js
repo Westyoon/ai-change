@@ -108,6 +108,10 @@ export function createEccTileMap(definition) {
     collision:{cellSize:4,paths:floors.filter(f=>["floor-wood-dark","lounge-stairs"].includes(f.asset)).map(polygon),obstacles:items.filter(i=>i.collision).map(i=>i.collision)},
     checkpoints,
     interactions:[
+      ...[
+        ["npc-ai",704,1456],["npc-ds",2368,1376],["npc-cse",704,832],
+        ["npc-cs",2368,832],["npc-aids",1536,672],
+      ].map(([id,x,y],index)=>({id,kind:"npc",label:"학생",studentNumber:index+1,x:x*scale,y:y*scale})),
       {id:"exit-ecc-left",kind:"portal",label:"캠퍼스로",x:720*scale,y:1936*scale,targetMap:"campus",spawn:definition.outdoorReturn},
       {id:"exit-ecc-right",kind:"portal",label:"캠퍼스로",x:2352*scale,y:1936*scale,targetMap:"campus",spawn:definition.outdoorReturn},
     ],

@@ -106,7 +106,7 @@ export function getMapCardDestination(
       });
 }
 
-export function getMiniGameStoryDestination(context, miniGameId, { replay = false } = {}) {
+export function getMiniGameStoryDestination(context, miniGameId, { replay = false, conversation = false } = {}) {
   if (typeof miniGameId !== "string" || miniGameId.length === 0) {
     throw new TypeError("Mini-game story routing requires a miniGameId.");
   }
@@ -119,7 +119,14 @@ export function getMiniGameStoryDestination(context, miniGameId, { replay = fals
     context.services?.account?.getState?.()?.completedGameIds ?? [],
   );
   const state = storyNpcState(context, npc, accountCompleted);
-  return getMapCardDestination(npc, { replay, ...state });
+  const destination = getMapCardDestination(npc, { replay, ...state });
+  if (conversation && destination.sceneId !== "dialogue") {
+    return Object.freeze({
+      sceneId: "dialogue",
+      params: Object.freeze({ npcId: npc.id, scriptId: npc.revisitScript ?? npc.firstScript }),
+    });
+  }
+  return destination;
 }
 
 export function getFinalBattleDestination(battle) {

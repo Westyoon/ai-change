@@ -179,6 +179,10 @@ test("a seen department story opens game instructions and remains explicitly rep
     sceneId: "dialogue",
     params: { npcId: npc.id, scriptId: npc.firstScript },
   });
+  assert.deepEqual(getMiniGameStoryDestination(context, npc.miniGameId, { conversation: true }), {
+    sceneId: "dialogue",
+    params: { npcId: npc.id, scriptId: npc.revisitScript },
+  }, "clicking an encountered student opens their revisit dialogue before the game");
 });
 
 test("the game-method screen starts the selected mini-game without replaying its story", async () => {

@@ -83,11 +83,22 @@ test("indoor entrances, rooms and exits are reachable without crossing furniture
       assert.ok(queue.some(([x,y])=>Math.hypot(x*step-point.x,y*step-point.y)<10),`${map.id} point ${point.x},${point.y} connected`);
     }
     for(const obstacle of map.collision.obstacles) assert.equal(allows(obstacle.x+obstacle.width/2,obstacle.y+obstacle.height/2),false);
-    for(const exit of map.interactions) {
+    for(const exit of map.interactions.filter(point=>point.kind==="portal")) {
       const outside=manager.mask(exit.targetMap);
       assert.ok(outside.allows({x:exit.spawn.x-6,y:exit.spawn.y-8,width:12,height:8}),"return position is safe");
     }
   }
   const fountain=manager.get("greenhouse_interior").layout.items.find(i=>i.kind==="fountain");
   assert.equal(manager.mask("greenhouse_interior").allows({x:fountain.x+fountain.width/2-6,y:(768*Math.sqrt(.75))-8,width:12,height:8}),false,"fountain blocks movement");
+});
+
+test("the five department encounters are dispersed inside ECC rather than at outdoor stalls",async()=>{
+  const config=JSON.parse(await readFile(new URL("../../data/maps/campus.json",import.meta.url),"utf8"));
+  const stories=JSON.parse(await readFile(new URL("../../data/map-data.json",import.meta.url),"utf8"));
+  const manager=new CampusMapManager(config),students=manager.get("ecc_interior").interactions.filter(p=>p.kind==="npc");
+  assert.equal(manager.get("campus").interactions.filter(p=>p.kind==="npc").length,0);
+  assert.deepEqual(new Set(students.map(p=>p.id)),new Set(stories.maps[0].npcs.map(p=>p.id)));
+  assert.ok(students.every(p=>p.label==="학생"));
+  assert.ok(Math.max(...students.map(p=>p.x))-Math.min(...students.map(p=>p.x))>1000);
+  assert.ok(Math.max(...students.map(p=>p.y))-Math.min(...students.map(p=>p.y))>500);
 });
