@@ -667,7 +667,7 @@
         "width": 97,
         "height": 296
       },
-      "preserveAspectRatio": "none"
+      "preserveAspectRatio": "xMaxYMax meet"
     },
     "security-office": {
       "src": "./assets/maps/interior/student-lounge-v3.png",
@@ -763,6 +763,45 @@
         "width": 204,
         "height": 444
       }
+    },
+    "grey-sofa-v": {
+      "src": "./assets/maps/interior/student-lounge-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 796,
+        "y": 88,
+        "width": 152,
+        "height": 304
+      },
+      "preserveAspectRatio": "none",
+      "tone": "grey"
+    },
+    "student-grey": {
+      "src": "./assets/maps/ecc/student-grey.svg",
+      "width": 64,
+      "height": 64,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "tileWidth": 64,
+      "tileHeight": 64
+    },
+    "square-table": {
+      "src": "./assets/maps/ecc/square-table.svg",
+      "width": 64,
+      "height": 56,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "width": 64,
+        "height": 56
+      },
+      "tileWidth": 64,
+      "tileHeight": 56
     }
   }
 }

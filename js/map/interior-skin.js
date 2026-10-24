@@ -10,7 +10,12 @@ export function createAtlasSprite(document,frame,{repeat=false,width,height,tile
   const crop=frame.crop;
   const root=svg(document,"svg",{width:"100%",height:"100%","aria-hidden":"true",preserveAspectRatio:repeat?"none":frame.preserveAspectRatio??"xMidYMax meet"});
   const bitmap=svg(document,"image",{href:frame.src,width:frame.width,height:frame.height});
-  if(frame.src.includes("/interior/")) {
+  if(frame.tone==="grey") {
+    const defs=svg(document,"defs"),filter=svg(document,"filter",{id:`${id}-grey`,"color-interpolation-filters":"sRGB"});
+    filter.append(svg(document,"feColorMatrix",{type:"matrix",values:".2126 .7152 .0722 0 0 .2126 .7152 .0722 0 .008 .2126 .7152 .0722 0 .012 0 0 0 1 0"}));
+    defs.append(filter);root.append(defs);bitmap.setAttribute("filter",`url(#${id}-grey)`);
+  }
+  else if(frame.src.includes("/interior/")) {
     // Gently neutralize warm pigments at render time; preserve source sprites,
     // transparency and neutral whites. Outdoor paving/benches keep their colors.
     const defs=svg(document,"defs");

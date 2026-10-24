@@ -56,7 +56,15 @@ test("all indoor maps use the campus art set while preserving independent placem
     assert.ok(chair.x+chair.width<desk.x,"chairs exist only on the open front side of the wall desks");
     assert.equal(Boolean(chair.flipX),false);
   }
-  assert.ok(student.layout.items.some(i=>i.kind==="security-office")&&student.layout.items.some(i=>i.kind==="elevator"));
+  const office=student.layout.items.find(i=>i.kind==="security-office");
+  assert.equal(office.y,96*Math.sqrt(.75),"security office meets the north wall");
+  assert.ok(student.layout.items.every(i=>!["elevator","bench"].includes(i.kind)));
+  assert.equal(student.layout.items.filter(i=>i.plazaEntrance).length,2,"two study doors face the plaza");
+  assert.equal(student.layout.items.filter(i=>i.kind==="grey-sofa-v").length,2);
+  assert.equal(student.layout.items.filter(i=>i.kind==="square-table").length,2);
+  assert.equal(student.layout.items.filter(i=>i.kind==="table-chair").length,8);
+  assert.ok(student.layout.floors.every(f=>f.asset==="student-grey"));
+  assert.equal(skin.frames["wall-study-desk"].preserveAspectRatio,"xMaxYMax meet","wall desks keep their native proportions and attach to the wall");
   const sofas=student.layout.items.filter(i=>i.kind.startsWith("lounge-sofa-"));
   assert.equal(sofas.length,6);
   assert.ok(sofas.every(i=>i.x+i.width<544*Math.sqrt(.75)),"continuous seating stays in the left rest lounge");

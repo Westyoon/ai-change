@@ -17,7 +17,7 @@ function builder(definition,width,height) {
   const plant=(x,y,flowers=false)=>item(flowers?"flowers":"plant",x,y,32,flowers?40:48,box(x+8,y+(flowers?28:36),16,12));
   const bench=(x,y)=>item("bench",x,y,80,40,box(x+4,y+24,72,16));
   const enclosure=(glass=false)=>{
-    floor("floor-stone",64,64,width-128,height-160);
+    floor(definition.id==="student_center_interior"?"student-grey":"floor-stone",64,64,width-128,height-160);
     horizontal(64,64,width-128,null,glass?"glass-h":"wall");
     horizontal(64,height-128,width-128,width/2-32,glass?"glass-h":"wall");
     wall(64,96,32,height-224,glass?"glass":"wall");wall(width-96,96,32,height-224,glass?"glass":"wall");
@@ -25,7 +25,7 @@ function builder(definition,width,height) {
   const finish=()=>({...definition,background:null,world:{width,height},assetRoot:"./assets/maps/ecc/",
     assets:{...Object.fromEntries(NEW_ASSETS.map(name=>[name,"./assets/maps/interior/"+name+".svg"])),"chair-back":"./assets/maps/ecc/chair.svg","chair-side":"./assets/maps/ecc/chair.svg","broadleaf":"./assets/maps/interior/palm.svg"},
     layout:{floors,items},checkpoints,
-    collision:{cellSize:4,paths:floors.filter(f=>["floor-stone","floor-wood","stairs","rug","conservatory-landing","conservatory-stairs"].includes(f.asset)).map(polygon),
+    collision:{cellSize:4,paths:floors.filter(f=>["floor-stone","floor-wood","student-grey","stairs","rug","conservatory-landing","conservatory-stairs"].includes(f.asset)).map(polygon),
       obstacles:items.filter(i=>i.collision).map(i=>i.collision),blockedPolygons:items.filter(i=>i.collisionPolygon).map(i=>i.collisionPolygon)},
     interactions:[{id:"exit-"+definition.id,kind:"portal",label:"캠퍼스로",x:width/2,y:height-112,targetMap:"campus",spawn:definition.outdoorReturn}],
   });
@@ -42,22 +42,30 @@ export function createStudentCenterTileMap(definition) {
   for(const y of [384,672])item("round-table",272,y,48,36,box(278,y+18,36,16));
   plant(448,256);plant(448,480,true);plant(448,736);
   for(const y of [352,720])b.checkpoints.push({id:"rest-"+y,x:352,y});
-  // Center: security office and elevator, with an unobstructed north/south aisle.
-  item("security-office",624,352,144,96,box(628,408,136,40));
-  item("elevator",800,176,96,112,box(804,244,88,44));
-  bench(816,544);plant(624,528);plant(928,192);
+  // Security office sits against the north wall; the plaza stays open.
+  item("security-office",656,96,160,96,box(660,152,152,40));
+  plant(624,128);plant(848,128);
+  for(const y of [240,624])item("grey-sofa-v",944,y,40,128,box(944,y,40,128));
   // Right: every desk touches the right wall; chairs exist only in front (left).
-  floor("floor-wood",1088,224,352,544);
-  horizontal(1056,192,416);wall(1056,224,32,544);wall(1440,224,32,544);
-  horizontal(1056,768,416,1216);
+  floor("student-grey",1088,224,352,544);
+  horizontal(1056,192,416);wall(1440,224,32,544);
+  // Two west-facing doors open directly into the plaza, not the south wall.
+  for(const [y,height]of [[224,96],[384,224],[672,96]])wall(1056,y,32,height);
+  for(const y of [320,608])item("door",1056,y,32,64,null,{door:true,center:{x:1072,y:y+32},openAsset:"door-open",plazaEntrance:true});
+  horizontal(1056,768,416);
   for(let y=256;y<=704;y+=64) {
-    item("wall-study-desk",1400,y,40,64,box(1400,y+8,40,56),{stationY:y});
-    item("study-chair",1364,y+20,24,28,box(1367,y+36,18,12),{stationY:y});
+    item("wall-study-desk",1408,y,32,64,box(1416,y+8,24,56),{stationY:y});
+    item("study-chair",1380,y+20,24,28,box(1383,y+36,18,12),{stationY:y});
+  }
+  for(const y of [368,592]) {
+    item("square-table",1200,y,64,56,box(1204,y+10,56,34));
+    for(const [dx,dy,asset,flipX]of [[20,-28,"chair",false],[20,56,"chair-back",false],[-28,14,"study-chair",false],[68,14,"study-chair",true]])
+      item("table-chair",1200+dx,y+dy,24,28,box(1203+dx,y+dy+16,18,12),{asset,flipX});
   }
   item("bookshelf",1184,240,112,64,box(1188,272,104,32));
   plant(1104,256);plant(1104,688);
   for(const x of [112,1456])for(const y of [128,816])plant(x,y);
-  for(const [id,x,y]of [["lobby",800,672],["elevator-front",848,320],["security-front",696,480],["study-door",1248,816],["study-center",1248,480],["study-right",1328,672]])
+  for(const [id,x,y]of [["lobby",800,672],["security-front",736,224],["study-door-north",1072,352],["study-door-south",1072,640],["study-center",1296,480],["study-right",1328,672]])
     b.checkpoints.push({id,x,y});
   return b.finish();
 }
