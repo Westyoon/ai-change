@@ -690,6 +690,79 @@
         "width": 338,
         "height": 377
       }
+    },
+    "conservatory-canopy": {
+      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 32,
+        "y": 152,
+        "width": 676,
+        "height": 284
+      }
+    },
+    "conservatory-post": {
+      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 720,
+        "y": 48,
+        "width": 158,
+        "height": 452
+      },
+      "preserveAspectRatio": "none"
+    },
+    "conservatory-stairs": {
+      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 944,
+        "y": 168,
+        "width": 568,
+        "height": 320
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
+    },
+    "conservatory-landing": {
+      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 32,
+        "y": 672,
+        "width": 592,
+        "height": 248
+      },
+      "single": true,
+      "preserveAspectRatio": "none"
+    },
+    "conservatory-ceiling": {
+      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 664,
+        "y": 648,
+        "width": 548,
+        "height": 240
+      },
+      "tileWidth": 384,
+      "tileHeight": 112
+    },
+    "conservatory-stair-planter": {
+      "src": "./assets/maps/interior/conservatory-architecture-v3.png",
+      "width": 1536,
+      "height": 1024,
+      "crop": {
+        "x": 1300,
+        "y": 540,
+        "width": 204,
+        "height": 444
+      }
     }
   }
 }

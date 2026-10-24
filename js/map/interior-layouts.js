@@ -25,7 +25,7 @@ function builder(definition,width,height) {
   const finish=()=>({...definition,background:null,world:{width,height},assetRoot:"./assets/maps/ecc/",
     assets:{...Object.fromEntries(NEW_ASSETS.map(name=>[name,"./assets/maps/interior/"+name+".svg"])),"chair-back":"./assets/maps/ecc/chair.svg","chair-side":"./assets/maps/ecc/chair.svg","broadleaf":"./assets/maps/interior/palm.svg"},
     layout:{floors,items},checkpoints,
-    collision:{cellSize:4,paths:floors.filter(f=>["floor-stone","floor-wood","stairs","rug"].includes(f.asset)).map(polygon),
+    collision:{cellSize:4,paths:floors.filter(f=>["floor-stone","floor-wood","stairs","rug","conservatory-landing","conservatory-stairs"].includes(f.asset)).map(polygon),
       obstacles:items.filter(i=>i.collision).map(i=>i.collision),blockedPolygons:items.filter(i=>i.collisionPolygon).map(i=>i.collisionPolygon)},
     interactions:[{id:"exit-"+definition.id,kind:"portal",label:"캠퍼스로",x:width/2,y:height-112,targetMap:"campus",spawn:definition.outdoorReturn}],
   });
@@ -83,13 +83,19 @@ export function createGreenhouseTileMap(definition) {
   item("potting-bench",1200,848,112,88,box(1206,904,100,28));
   for(const x of [320,480,1024,1184])item("hanging-basket",x,96,32,64,null,{footY:144});
   for(const x of [624,808])item("planter-flowers",x,544,104,72,box(x+6,592,92,20));
-  // Pavilion sits at the end of the central promenade, with lower seating nearby.
-  floor("floor-wood",608,176,320,208);
-  floor("stairs",656,384,224,112);
-  for(const x of [624,888])for(const y of [208,304])
-    item("pavilion-column",x,y,24,80,box(x+4,y+70,16,10));
-  item("pavilion-roof",640,64,256,212,null,{footY:256});
-  bench(704,304);
+  // A pale stone landing and one complete seven-tread flight replace the stage.
+  floor("conservatory-landing",608,176,320,208);
+  // The upper tread overlaps the landing fascia, so the stairs reach its top.
+  floor("conservatory-stairs",656,328,224,112);
+  for(const x of [616,904])for(const y of [144,240])
+    item("conservatory-post",x,y,16,128,box(x+4,y+116,8,12));
+  item("conservatory-canopy",600,80,336,192,null,{footY:400,
+    canopy:{x:608,y:176,width:320,height:224,opacity:.94,insideOpacity:.2}});
+  // Light upper eaves make the glass atrium ceiling visible without hiding play.
+  item("conservatory-ceiling",96,64,1344,112,null,{repeat:true,tileWidth:192,tileHeight:112,footY:2048,
+    canopy:{x:96,y:64,width:1344,height:112,opacity:.62,insideOpacity:.16}});
+  for(const x of [608,888])item("conservatory-stair-planter",x,328,40,112,box(x+4,344,32,96));
+  bench(704,272);
   plant(576,352,true);plant(928,352,true);
   const cx=768,cy=768;
   const shape=Array.from({length:40},(_,i)=>[cx+58*Math.cos(i*Math.PI/20),cy+32*Math.sin(i*Math.PI/20)]);
@@ -105,7 +111,7 @@ export function createGreenhouseTileMap(definition) {
     plant(x+24,992,true);
   }
   for(const x of [112,1392])for(const y of [480,880])plant(x,y,true);
-  for(const [id,x,y]of [["below-fountain",768,944],["left-aisle",496,768],["right-aisle",1040,768],["stairs",768,464],["pavilion",768,272]])
+  for(const [id,x,y]of [["below-fountain",768,944],["left-aisle",496,768],["right-aisle",1040,768],["stairs",768,416],["pavilion",768,272]])
     b.checkpoints.push({id,x,y});
   return b.finish();
 }

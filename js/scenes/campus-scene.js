@@ -10,7 +10,7 @@ import { GameLoop } from "../core/game-loop.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
 import { createElement, createButton, showToast } from "./scene-utils.js";
 import { createCampusLayers } from "../map/campus-layers.js";
-import { updateTileDoors } from "../map/tile-map-renderer.js";
+import { updateTileDoors, updateTileCanopies } from "../map/tile-map-renderer.js";
 
 const STORAGE_PREFIX = "ai-change:campus-position:";
 const FOOT = { width: 12, height: 8 };
@@ -176,7 +176,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         render();
       };
       function render() {
-        if(map.layout)updateTileDoors(world,position);
+        if(map.layout){updateTileDoors(world,position);updateTileCanopies(world,position);}
         const indoor=map.id!=="campus";
         const requestedZoom=indoor
           ? Math.max(map.camera?.minZoom??1.25,viewportSize.width/(map.camera?.viewWidth??1040),viewportSize.height/(map.camera?.viewHeight??640))

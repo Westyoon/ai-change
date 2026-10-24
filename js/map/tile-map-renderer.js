@@ -35,6 +35,11 @@ export async function createTileMapLayers({document,map,signal}) {
     node.dataset.kind=item.kind;
     Object.assign(node.style,{left:`${item.x}px`,top:`${item.y}px`,width:`${item.width}px`,height:`${item.height}px`,zIndex:String(depthAtFoot(item.footY))});
     if(item.flipX)node.style.transform="scaleX(-1)";
+    if(item.canopy) {
+      node.dataset.canopy="true";node.canopyBounds=item.canopy;
+      node.style.opacity=String(item.canopy.opacity);
+      node.style.transition="opacity 180ms ease";
+    }
     if(frame)node.append(createAtlasSprite(document,frame,{...item,id:`${map.id}-tile-${serial++}`}));
     else if(item.repeat)Object.assign(node.style,{backgroundImage:`url("${source(item.asset)}")`,backgroundSize:`${item.tileWidth}px ${item.tileHeight}px`});
     else{node.src=source(item.asset);node.alt="";node.draggable=false;}
@@ -53,5 +58,15 @@ export function updateTileDoors(root,position) {
     node.dataset.open=String(open);
     if(node.doorFrames)replaceAtlasFrame(node.querySelector("svg"),open?node.doorFrames.open:node.doorFrames.closed);
     else node.src=open?node.dataset.openSrc:node.dataset.closedSrc;
+  }
+}
+
+export function updateTileCanopies(root,position) {
+  for(const node of root.querySelectorAll("[data-canopy]")) {
+    const bounds=node.canopyBounds;
+    const under=position.x>=bounds.x&&position.x<=bounds.x+bounds.width&&position.y>=bounds.y&&position.y<=bounds.y+bounds.height;
+    if(node.dataset.underCanopy===String(under))continue;
+    node.dataset.underCanopy=String(under);
+    node.style.opacity=String(under?bounds.insideOpacity:bounds.opacity);
   }
 }

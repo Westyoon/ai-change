@@ -64,6 +64,10 @@ test("all indoor maps use the campus art set while preserving independent placem
   assert.ok(greenhouse.layout.items.filter(i=>i.kind.startsWith("planter-")).length>=20,"greenhouse is furnished with individually placed planted beds");
   assert.equal(greenhouse.layout.items.filter(i=>i.kind==="potting-bench").length,2);
   assert.equal(greenhouse.layout.items.filter(i=>i.kind==="hanging-basket").length,4);
+  assert.ok(greenhouse.layout.floors.every(f=>!["floor-wood","stairs"].includes(f.asset)),"greenhouse pavilion uses stone rather than the old repeated wooden stage");
+  assert.equal(skin.frames["conservatory-stairs"].single,true,"the entire stair flight renders once, not as repeated stair tiles");
+  assert.ok(greenhouse.layout.items.some(i=>i.kind==="conservatory-canopy"&&i.canopy.insideOpacity<i.canopy.opacity),"pavilion roof clears the view for a player underneath");
+  assert.ok(greenhouse.layout.items.some(i=>i.kind==="conservatory-ceiling"));
   for(const name of ["cushion-green","cushion-blue","ottoman-blue","sofa-h","sofa-v","chair","chair-back","chair-side"])
     assert.equal(skin.frames[name].src,"./assets/maps/interior/campus-furniture-v2.png","shared furniture has a consistent detailed art source");
   for(const frame of Object.values(skin.frames)) {
