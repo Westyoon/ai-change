@@ -52,6 +52,26 @@
 .campus-marker__label { padding: 2px 4px; font-size: 6px; white-space: nowrap; background: #fff7e6; color: #392235; border: 1px solid #694232; }
 .campus-marker[data-near="true"] .campus-marker__icon { background: #c72d72; }
 .campus-marker[data-kind="field"] .campus-marker__icon { border-radius: 40%; color: white; background: #231b3b; }
+.campus-hud {
+  position: absolute; z-index: 3500; top: 14px; left: 14px; right: 14px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start; gap: 12px; pointer-events: none;
+  color: #392235; font-size: .85rem; line-height: 1.5;
+}
+.campus-hud__objective, .campus-hud__status {
+  margin: 0; padding: 9px 14px; border: 2px solid #694232;
+  border-radius: 6px; background: #fff7e6ed; box-shadow: 0 3px 0 #39223538;
+}
+.campus-hud__objective { grid-column: 2; text-align: center; }
+.campus-hud__status { grid-column: 3; justify-self: end; display: grid; gap: 2px; }
+.campus-hud__location { font-weight: bold; }
+.campus-hud__eggs { font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 760px) {
+  .campus-hud { top: 10px; left: 10px; right: 10px; grid-template-columns: minmax(0, 1fr); gap: 8px; font-size: .75rem; }
+  .campus-hud__status { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 12px; padding: 6px 10px; }
+  .campus-hud__eggs { font-size: .7rem; }
+  .campus-hud__objective { grid-column: 1; grid-row: 2; justify-self: center; max-width: 100%; padding: 7px 10px; }
+}
 .campus-prompt { position: absolute; z-index: 4000; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: calc(100% - 28px); min-width: 0; font-size: .9rem; padding: 10px 18px; }
 .campus-prompt[hidden] { display: none; }
 .campus-joystick { position: absolute; left: 16px; bottom: 20px; z-index: 4001; opacity: .8; }

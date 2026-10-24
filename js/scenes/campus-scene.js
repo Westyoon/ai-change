@@ -12,6 +12,7 @@ import { createElement, createButton, showToast } from "./scene-utils.js";
 import { createCampusLayers } from "../map/campus-layers.js";
 import { updateTileDoors, updateTileCanopies } from "../map/tile-map-renderer.js";
 import { getGuardianInventory } from "../core/guardian-inventory.js";
+import { isFestivalOpen } from "../core/story-progress.js";
 
 const STORAGE_PREFIX = "ai-change:campus-position:";
 const FOOT = { width: 12, height: 8 };
@@ -19,7 +20,7 @@ const ACTOR_SIZE = { width: 25.6, height: 38.4 };
 let studentPaletteSequence = 0;
 
 export function createCampusScene(context, { mode = "before" } = {}) {
-  let loop, joystick, unsubscribeInput, unsubscribeRealtime, unsubscribeStudentProgress, unsubscribeStudentSave, resizeObserver, remoteView;
+  let loop, joystick, unsubscribeInput, unsubscribeRealtime, unsubscribeProgress, unsubscribeSave, resizeObserver, remoteView;
   let savePosition = () => {};
   return {
     async mount(root, _params, { signal } = {}) {
@@ -47,6 +48,21 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         attributes: { tabindex: "0", role: "region", "aria-label": "길을 따라 이동하는 캠퍼스", "aria-describedby": "campus-controls" },
       });
       const world = createElement("div", { className: "campus-world" });
+      const objective = createElement("p", {
+        className: "campus-hud__objective",
+        attributes: { role: "status", "aria-live": "polite", "aria-atomic": "true" },
+      });
+      const eggCount = createElement("span", {
+        className: "campus-hud__eggs",
+        attributes: { role: "status", "aria-live": "polite", "aria-atomic": "true" },
+      });
+      const hud = createElement("div", { className: "campus-hud" }, [
+        objective,
+        createElement("div", { className: "campus-hud__status" }, [
+          createElement("span", { className: "campus-hud__location", text: map.label || "캠퍼스", attributes: { "aria-label": `현재 장소: ${map.label || "캠퍼스"}` } }),
+          eggCount,
+        ]),
+      ]);
       world.style.width = `${map.world.width}px`;
       world.style.height = `${map.world.height}px`;
       const layers = await createCampusLayers({ document, map, mask, signal, mode });
@@ -100,10 +116,17 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         world.append(marker);
         markers.set(point.id, marker);
       }
-      if(students.size) {
-        world.append(palette);
-        const refreshStudents=()=>{
-          const inventory=new Map(getGuardianInventory(context).map(egg=>[egg.id,egg]));
+      if(students.size) world.append(palette);
+      const refreshProgress=()=>{
+          const eggs=getGuardianInventory(context);
+          const inventory=new Map(eggs.map(egg=>[egg.id,egg]));
+          const acquired=eggs.filter(egg=>egg.acquired).length;
+          const countText=`수호알 ${acquired} / ${eggs.length}개`;
+          const objectiveText=mode==="after" || isFestivalOpen(context)
+            ? "캠퍼스 축제를 즐겨보자!"
+            : acquired===eggs.length ? "이아이를 찾아가보자!" : "각 학과의 수호알을 모아보자!";
+          if(eggCount.textContent!==countText) eggCount.textContent=countText;
+          if(objective.textContent!==objectiveText) objective.textContent=objectiveText;
           for(const {element,guardianEggId,flood,filterId,number}of students.values()) {
             const egg=inventory.get(guardianEggId),resolved=egg?.acquired===true;
             element.dataset.resolved=String(resolved);
@@ -113,11 +136,10 @@ export function createCampusScene(context, { mode = "before" } = {}) {
             } else element.style.removeProperty("--student-silhouette-filter");
             element.setAttribute("aria-label",resolved?`${egg.departmentName} 학생과 대화하기 · 해결 완료`:`학생 ${number}과 대화하기`);
           }
-        };
-        refreshStudents();
-        unsubscribeStudentProgress=context.services.account?.subscribe?.(refreshStudents);
-        unsubscribeStudentSave=context.services.save?.subscribe?.(refreshStudents,{emitCurrent:false});
-      }
+      };
+      refreshProgress();
+      unsubscribeProgress=context.services.account?.subscribe?.(refreshProgress);
+      unsubscribeSave=context.services.save?.subscribe?.(refreshProgress,{emitCurrent:false});
       const debug = new URLSearchParams(globalThis.location?.search ?? "").has("campusDebug");
       if (debug) {
         const canvas = document.createElement("canvas");
@@ -136,7 +158,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       const knob = createElement("span", { className: "character-joystick__knob" });
       const joystickElement = createElement("div", { className: "character-joystick campus-joystick", attributes: { "aria-label": "이동 조이스틱" } }, [knob]);
       joystick = new VirtualJoystick({ element: joystickElement, knob, onChange: value => { virtual = value; } });
-      viewport.append(world, prompt, joystickElement);
+      viewport.append(world, hud, prompt, joystickElement);
       const controls = createElement("p", { className: "campus-controls", attributes: { id: "campus-controls" }, text: mode === "before"
         ? "방향키 / WASD 또는 조이스틱으로 이동 · 학생을 클릭해 대화 · 가까이서 E / 스페이스바"
         : "방향키 / WASD 또는 조이스틱으로 이동 · 가까이서 E / 스페이스바 / 입장 버튼" });
@@ -269,7 +291,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
     },
     unmount() {
       savePosition();
-      loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); unsubscribeStudentProgress?.(); unsubscribeStudentSave?.(); remoteView?.destroy();
+      loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); unsubscribeProgress?.(); unsubscribeSave?.(); remoteView?.destroy();
     },
   };
 }
