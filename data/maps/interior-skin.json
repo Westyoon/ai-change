@@ -715,17 +715,17 @@
       "preserveAspectRatio": "none"
     },
     "conservatory-stairs": {
-      "src": "./assets/maps/ecc/terrace-steps-low.svg",
-      "width": 256,
-      "height": 64,
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
       "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 256,
-        "height": 64
+        "x": 1029,
+        "y": 822,
+        "width": 390,
+        "height": 189
       },
-      "single": true,
-      "preserveAspectRatio": "none"
+      "preserveAspectRatio": "none",
+      "single": true
     },
     "conservatory-landing": {
       "src": "./assets/maps/ecc/terrace-low.svg",
@@ -765,17 +765,16 @@
       }
     },
     "grey-sofa-v": {
-      "src": "./assets/maps/interior/student-lounge-v3.png",
-      "width": 1536,
-      "height": 1024,
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
       "crop": {
-        "x": 796,
-        "y": 88,
-        "width": 152,
-        "height": 304
+        "x": 92,
+        "y": 368,
+        "width": 120,
+        "height": 390
       },
-      "preserveAspectRatio": "none",
-      "tone": "grey"
+      "preserveAspectRatio": "none"
     },
     "student-grey": {
       "src": "./assets/maps/ecc/student-grey.svg",
@@ -804,56 +803,48 @@
       "tileHeight": 56
     },
     "white-cafe-table": {
-      "src": "./assets/maps/ecc/white-cafe-table.svg",
-      "width": 64,
-      "height": 48,
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
       "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 64,
-        "height": 48
-      },
-      "single": true,
-      "preserveAspectRatio": "none"
+        "x": 397,
+        "y": 453,
+        "width": 224,
+        "height": 222
+      }
     },
     "white-chair": {
-      "src": "./assets/maps/ecc/white-chair.svg",
-      "width": 24,
-      "height": 28,
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
       "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 24,
-        "height": 28
-      },
-      "single": true,
-      "preserveAspectRatio": "none"
+        "x": 819,
+        "y": 467,
+        "width": 129,
+        "height": 225
+      }
     },
     "white-chair-back": {
-      "src": "./assets/maps/ecc/white-chair-back.svg",
-      "width": 24,
-      "height": 28,
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
       "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 24,
-        "height": 28
-      },
-      "single": true,
-      "preserveAspectRatio": "none"
+        "x": 1178,
+        "y": 475,
+        "width": 131,
+        "height": 209
+      }
     },
     "white-chair-side": {
-      "src": "./assets/maps/ecc/white-chair-side.svg",
-      "width": 24,
-      "height": 28,
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
       "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 24,
-        "height": 28
-      },
-      "single": true,
-      "preserveAspectRatio": "none"
+        "x": 87,
+        "y": 805,
+        "width": 146,
+        "height": 226
+      }
     },
     "continuous-lounge-sofa": {
       "src": "./assets/maps/interior/student-continuous-sofa.png",
@@ -866,6 +857,80 @@
         "height": 1460
       },
       "single": true,
+      "preserveAspectRatio": "none"
+    },
+    "lounge-glass-v": {
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 92,
+        "y": 39,
+        "width": 112,
+        "height": 313
+      },
+      "tileWidth": 32,
+      "tileHeight": 96
+    },
+    "lounge-glass-h": {
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 303,
+        "y": 131,
+        "width": 457,
+        "height": 153
+      },
+      "tileWidth": 128,
+      "tileHeight": 32
+    },
+    "lounge-glass-door": {
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 841,
+        "y": 48,
+        "width": 144,
+        "height": 286
+      },
+      "preserveAspectRatio": "none"
+    },
+    "lounge-glass-door-open": {
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 1162,
+        "y": 52,
+        "width": 182,
+        "height": 310
+      },
+      "preserveAspectRatio": "none"
+    },
+    "conservatory-fern-h": {
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 272,
+        "y": 800,
+        "width": 504,
+        "height": 204
+      },
+      "preserveAspectRatio": "none"
+    },
+    "conservatory-fern-v": {
+      "src": "./assets/maps/interior/glass-garden-v5.png",
+      "width": 1448,
+      "height": 1086,
+      "crop": {
+        "x": 821,
+        "y": 735,
+        "width": 146,
+        "height": 318
+      },
       "preserveAspectRatio": "none"
     }
   }

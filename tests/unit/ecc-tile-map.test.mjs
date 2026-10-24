@@ -49,7 +49,7 @@ test("all indoor maps use the campus art set while preserving independent placem
   assert.equal(student.layout.floors.filter(i=>i.asset==="rug").length,0,"student center has no carpet");
   const desks=student.layout.items.filter(i=>i.kind==="wall-study-desk"),chairs=student.layout.items.filter(i=>i.kind==="study-chair");
   assert.equal(desks.length,8);assert.equal(chairs.length,8);
-  const rightWall=student.layout.items.find(i=>i.kind==="wall"&&Math.abs(i.x-1440*Math.sqrt(.75))<.01&&i.height>i.width);
+  const rightWall=student.layout.items.find(i=>i.kind==="lounge-glass-v"&&Math.abs(i.x-1440*Math.sqrt(.75))<.01&&i.height>i.width);
   for(const desk of desks) {
     assert.ok(Math.abs(desk.x+desk.width-rightWall.x)<.01,"each desk is flush to the right wall");
     const chair=chairs.find(c=>c.stationY===desk.stationY);
@@ -61,6 +61,12 @@ test("all indoor maps use the campus art set while preserving independent placem
   assert.ok(student.layout.items.every(i=>!["elevator","bench"].includes(i.kind)));
   assert.equal(student.layout.items.filter(i=>i.plazaEntrance).length,2,"two study doors face the plaza");
   assert.equal(student.layout.items.filter(i=>i.kind==="grey-sofa-v").length,2);
+  for(const sofa of student.layout.items.filter(i=>i.kind==="grey-sofa-v")) {
+    assert.ok(Math.abs(sofa.x+sofa.width-1056*Math.sqrt(.75))<.01,"sofa backrests meet the lounge partition");
+    for(const doorway of student.layout.items.filter(i=>i.plazaEntrance))
+      assert.ok(sofa.y+sofa.height<=doorway.y||sofa.y>=doorway.y+doorway.height,"sofas leave both doorway approaches clear");
+  }
+  assert.ok(student.layout.items.filter(i=>i.plazaEntrance).every(i=>i.asset==="lounge-glass-door"),"plaza-facing doors match the new glass partition");
   assert.equal(student.layout.items.filter(i=>i.kind==="square-table").length,2);
   assert.equal(student.layout.items.filter(i=>i.kind==="table-chair").length,8);
   assert.ok(student.layout.floors.every(f=>f.asset==="student-grey"));
