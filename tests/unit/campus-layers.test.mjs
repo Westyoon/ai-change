@@ -9,7 +9,7 @@ test("flowerbeds preserve source proportions and fit their own footprints",()=>{
     assert.ok(fit.width<=bed.width+1e-8&&fit.height<=bed.height+1e-8);
     assert.ok(Math.abs(fit.width/fit.height-crop.width/crop.height)<1e-8);
   }
-  assert.ok(new Set(CAMPUS_FLOWERBEDS.map(bed=>bed.type)).size===6);
+  assert.deepEqual([...new Set(CAMPUS_FLOWERBEDS.map(bed=>bed.type))].sort(),[0,1,2,4,5]);
 });
 import { CampusMapManager } from "../../js/map/map-manager.js";
 import { WalkMask } from "../../js/map/walk-mask.js";

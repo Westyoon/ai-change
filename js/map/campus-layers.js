@@ -25,8 +25,6 @@ export const CAMPUS_FLOWERBEDS = Object.freeze([
   { type:4, x:872, y:712, width:118, height:42 },
   { type:2, x:710, y:797, width:48, height:48 },
   { type:2, x:914, y:797, width:48, height:48 },
-  { type:3, x:689, y:535, width:44, height:44 },
-  { type:3, x:939, y:535, width:44, height:44, mirror:true },
   { type:0, x:592, y:344, width:135, height:28 },
   { type:0, x:945, y:344, width:135, height:28 },
   { type:5, x:103, y:442, width:24, height:28 },
