@@ -1,5 +1,5 @@
 import { CAMPUS_MAP_IDS } from "../map/map-manager.js";
-import { campusLoader, scheduleCampusWarmup } from "../map/campus-loader.js";
+import { CAMPUS_STUDENT_SPRITE, campusLoader, scheduleCampusWarmup } from "../map/campus-loader.js";
 import { campusResources } from "../map/resource-cache.js";
 import { followCamera } from "../map/camera.js";
 import { resolveContinuousMovement } from "../map/collision.js";
@@ -32,7 +32,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
     const [layers] = await Promise.all([
       createCampusLayers({ document, map, mask, signal, mode }),
       mode === "before" && map.interactions.some(point=>point.kind==="npc")
-        ? campusResources.image("./assets/maps/npcs/college-student-bob-v1.png",{signal}) : null,
+        ? campusResources.image(CAMPUS_STUDENT_SPRITE,{signal}) : null,
       campusResources.image("./assets/images/character-hair-colors.png",{signal}),
     ]);
     if(signal?.aborted) throw signal.reason ?? new DOMException("Map preparation aborted.","AbortError");
@@ -107,7 +107,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           student.style.zIndex = String(1000+Math.round(point.y));
           const figure = createElement("img", {
             className: "campus-student__sprite",
-            attributes: { src: "./assets/maps/npcs/college-student-bob-v1.png", alt: "", draggable: "false", "aria-hidden": "true" },
+            attributes: { src: CAMPUS_STUDENT_SPRITE, alt: "", draggable: "false", "aria-hidden": "true" },
           });
           const filter=svgNode("filter"),alpha=svgNode("feComponentTransfer"),cutoff=svgNode("feFuncA"),flood=svgNode("feFlood"),clip=svgNode("feComposite");
           const filterId=`${paletteId}-${point.id}`;

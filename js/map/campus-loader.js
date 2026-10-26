@@ -2,6 +2,8 @@ import { CampusMapManager } from "./map-manager.js";
 import { campusResources, waitForResource } from "./resource-cache.js";
 import { preloadCampusMap } from "./campus-layers.js";
 
+export const CAMPUS_STUDENT_SPRITE = "./assets/maps/npcs/college-student-casual-v2.png";
+
 export function createCampusLoader({ resources = campusResources } = {}) {
   let managerPromise;
   return {
@@ -30,7 +32,7 @@ export function warmCampusMaps({ mode = "before", firstMapId = "ecc_interior" } 
       await preloadCampusMap(manager.get(id));
       manager.mask(id, { mode });
       if(mode === "before" && manager.get(id).interactions.some(point=>point.kind==="npc")) {
-        await campusResources.image("./assets/maps/npcs/college-student-bob-v1.png");
+        await campusResources.image(CAMPUS_STUDENT_SPRITE);
       }
       await new Promise(resolve => setTimeout(resolve, 0));
     }

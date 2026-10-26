@@ -1,5 +1,21 @@
 # 학생 NPC 전용 도트
 
+## 2026-10-27 대학생 캐주얼 외형으로 교체
+
+짧은 치마와 단발이 교복 차림처럼 보이던 윤곽을 제거했다. 묶은 머리, 맨투맨, 긴 와이드 청바지, 운동화, 책이 든 에코백 차림의 새 NPC를 사용한다. 단색으로 채운 실루엣에서도 두 바짓단과 가방을 구분하도록 제작했다.
+
+현재 에셋은 [college-student-casual-v2.png](../assets/maps/npcs/college-student-casual-v2.png)이며 투명 RGBA PNG, 1024×1536, 1,142,411바이트다. `campus-loader.js`의 `CAMPUS_STUDENT_SPRITE`를 미리 로딩·입장 준비·화면 렌더링에서 함께 사용한다. 표시 크기 28×42, 기존 단색 알파 필터, 다섯 학과 색상, 대화·다시 하기·진행 초기화 동작은 유지한다. 이전 v1 파일은 제작 이력으로 보관한다.
+
+`imagegen` 스킬의 내장 `image_gen` 도구로 기존 NPC를 다시 제작했다. 기존 플레이어 시트는 스타일·크기 참고용으로만 제공했다. 생성된 PNG의 알파를 수정하지 않고 작업 저장소로 복사했으며, 런타임의 기존 0.5 알파 임계값으로 반투명 가장자리를 제거한다.
+
+최종 프롬프트:
+
+```text
+Use case: precise-object-edit / pixel game sprite redesign. Image 1 is the NPC to redesign; image 2 is STYLE AND SCALE REFERENCE ONLY for the existing campus game's characters. Redraw the single female NPC so her outline clearly reads as an adult university student wearing relaxed everyday campus clothes. Replace the childlike large bob haircut and short schoolgirl skirt completely. Give her dark brown hair tied in a small loose bun at the back/top with a couple of short side strands, a simple loose oatmeal crewneck sweatshirt with full sleeves, full-length straight/wide-leg blue jeans, low white sneakers, and a clearly visible rectangular canvas shoulder tote at one hip with a book peeking out. The full-length trouser legs must be separate with a clear transparent gap, with a small gap between relaxed arms and torso. No skirt, no bare knees, no school uniform, no sailor collar, no tie, no blazer, no ribbon, no pigtails, no huge round schoolchild head. Adult but cute compact RPG proportions close to image 2: approximately 3 heads tall, head including bun at most one third of total character height, shoulders visibly wider than head, casual relaxed stance facing forward. One full-body idle sprite only, centered, shoes on one baseline, both feet fully visible. Match the existing game's moderately detailed square-pixel outlines and 2-3 tone clothing shading. Construct on a consistent logical 48x72 pixel grid with crisp stepped edges and limited palette, enlarged with nearest-neighbor blocks, not a smooth illustration. Critical: runtime recolors the entire opaque silhouette, so the adult bun + loose sweatshirt + tote + two long trouser legs must be clearly readable as an outline even when filled with a single flat color. Use a 2:3 portrait canvas, character occupies about 90% canvas height and 68% canvas width with balanced transparent padding. Preserve genuinely transparent alpha outside the sprite and between limbs. Fully opaque body clusters, no semitransparent fringe, NO glow, NO shadow, NO haze, NO ground ellipse, NO background, NO text, NO UI, NO sheet or additional poses. Keep the existing player sheet unmodified; output only the redesigned new NPC.
+```
+
+## 이전 버전 제작 이력
+
 2026-10-26 플레이어 스프라이트를 학생에게 재사용하던 방식을 제거했다. 전용 여대생 도트는 단발머리, 가디건, 치마, 에코백, 운동화 차림이다. 플레이어의 긴 머리·과잠·청바지와 다른 윤곽으로 구분한다.
 
 운영 배포: 코드 `0955e10`, Worker `11d39b4a-3c94-4184-94d3-7f8aa6e01ebf`, https://ai-change.ai-change-backend.workers.dev . 전체 검사 528개·소스 HTTP 80개·빌드 HTTP 93개·백엔드 타입 검사를 통과했다. 최종 이미지 속성 적용 후 로컬·운영 1280px/390px에서 전용 이미지 로드, 미완료/후속 대화 대기, 로컬·계정 기록 합집합, 다섯 학과 색상, 늦은 동기화·초기화·구독 해제를 검증했다. 로컬의 학생 첫 대화·재방문/클리어 대화와 Space 대화/건물 출입 검사도 통과했다. 운영 JS·CSS·PNG는 dist와 SHA-256이 같고 API health는 `ok`다. 검증용 진행 상태는 브라우저 모의 상태이며 실제 계정 진행은 변경하지 않았다.
