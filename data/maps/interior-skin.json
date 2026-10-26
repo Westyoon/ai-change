@@ -860,6 +860,7 @@
       "preserveAspectRatio": "none"
     },
     "lounge-glass-v": {
+      "repeatAxis": "y",
       "src": "./assets/maps/interior/glass-garden-v5.png",
       "width": 1448,
       "height": 1086,
@@ -873,6 +874,7 @@
       "tileHeight": 96
     },
     "lounge-glass-h": {
+      "repeatAxis": "x",
       "src": "./assets/maps/interior/glass-garden-v5.png",
       "width": 1448,
       "height": 1086,

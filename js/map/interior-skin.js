@@ -23,19 +23,30 @@ export function createAtlasSprite(document,frame,{repeat=false,width,height,tile
     filter.append(svg(document,"feColorMatrix",{type:"matrix",values:"0.98 0 0.02 0 0  -0.015 1 0.015 0 0  0.12 0 0.88 0 0  0 0 0 1 0"}));
     defs.append(filter);root.append(defs);bitmap.setAttribute("filter",`url(#${id}-tone)`);
   }
+  // Clip every source, including repeating tiles, to its own atlas cell.
+  const defs=svg(document,"defs"),clip=svg(document,"clipPath",{id:`${id}-clip`,clipPathUnits:"userSpaceOnUse"});
+  clip.append(frame.clipPolygon?svg(document,"polygon",{points:frame.clipPolygon}):svg(document,"rect",{x:crop.x,y:crop.y,width:crop.width,height:crop.height}));defs.append(clip);
+  const group=svg(document,"g",{"clip-path":`url(#${id}-clip)`});group.append(bitmap);
   if(!repeat) {
     root.setAttribute("viewBox",`${crop.x} ${crop.y} ${crop.width} ${crop.height}`);
-    // Letterboxing must never reveal a neighboring atlas cell.
-    const defs=svg(document,"defs"),clip=svg(document,"clipPath",{id:`${id}-clip`,clipPathUnits:"userSpaceOnUse"});
-    clip.append(frame.clipPolygon?svg(document,"polygon",{points:frame.clipPolygon}):svg(document,"rect",{x:crop.x,y:crop.y,width:crop.width,height:crop.height}));defs.append(clip);
-    const group=svg(document,"g",{"clip-path":`url(#${id}-clip)`});group.append(bitmap);
     root.append(defs,group);return root;
   }
   root.setAttribute("viewBox",`0 0 ${width} ${height}`);
-  const defs=svg(document,"defs");
-  const pattern=svg(document,"pattern",{id,width:frame.tileWidth??tileWidth,height:frame.tileHeight??tileHeight,
-    patternUnits:"userSpaceOnUse",viewBox:`${crop.x} ${crop.y} ${crop.width} ${crop.height}`,preserveAspectRatio:"none"});
-  pattern.append(bitmap);defs.append(pattern);
+  let repeatWidth=frame.tileWidth??tileWidth,repeatHeight=frame.tileHeight??tileHeight;
+  // Structural panels fill the wall thickness and end on complete modules.
+  // Respect the layout's tile scale after the indoor map is compacted.
+  if(frame.repeatAxis==="y") {
+    repeatWidth=width;
+    const targetHeight=repeatHeight*tileWidth/(frame.tileWidth??tileWidth);
+    repeatHeight=height/Math.max(1,Math.round(height/targetHeight));
+  } else if(frame.repeatAxis==="x") {
+    repeatHeight=height;
+    const targetWidth=repeatWidth*tileHeight/(frame.tileHeight??tileHeight);
+    repeatWidth=width/Math.max(1,Math.round(width/targetWidth));
+  }
+  const pattern=svg(document,"pattern",{id,width:repeatWidth,height:repeatHeight,
+    patternUnits:"userSpaceOnUse",viewBox:`${crop.x} ${crop.y} ${crop.width} ${crop.height}`,preserveAspectRatio:"none",overflow:"hidden"});
+  pattern.append(group);defs.append(pattern);
   root.append(defs,svg(document,"rect",{width,height,fill:`url(#${id})`}));return root;
 }
 
