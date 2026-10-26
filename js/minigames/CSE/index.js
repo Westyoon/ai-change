@@ -338,8 +338,8 @@ export function createMiniGame(context = {}) {
 
     const header = createElement(documentRef, 'header', { className: 'ch-header' });
     const title = createElement(documentRef, 'span', {
-      className: 'ch-title',
-      text: `💖 ${config.title ?? 'Code Heart: Unlock!'}`,
+      className: 'ch-title game-title',
+      text: config.title ?? 'Code Heart: Unlock!',
     });
     const timer = createElement(documentRef, 'span', { className: 'ch-timer', text: '남은 시간: --초' });
     header.append(title, timer);

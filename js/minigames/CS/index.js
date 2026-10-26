@@ -164,6 +164,7 @@ function buildUi(uiRoot) {
   introCloseButton.setAttribute("aria-label", "게임 설명 닫기");
   introCloseButton.disabled = true;
   const introTitle = documentRef.createElement("h2");
+  introTitle.className = "game-title";
   introTitle.id = "ctp-intro-title";
   introTitle.textContent = "CLICK to PURIFY";
   const coreRule = documentRef.createElement("p");

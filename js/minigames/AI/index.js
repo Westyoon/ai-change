@@ -112,6 +112,7 @@ function buildUi(uiRoot, config) {
   rulesOverlay.setAttribute("aria-modal", "true");
   rulesOverlay.setAttribute("aria-labelledby", "ai-ball-rules-title");
   const rulesTitle = documentRef.createElement("h2");
+  rulesTitle.className = "game-title";
   rulesTitle.id = "ai-ball-rules-title";
   rulesTitle.textContent = config?.uiText?.title ?? "벚꽃 찾기";
   const rulesText = documentRef.createElement("p");

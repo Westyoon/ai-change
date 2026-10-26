@@ -1655,7 +1655,7 @@ function createBattlePlayScene(context, battle) {
       const arena = config?.arena ?? DEFAULT_ARENA;
 
       const frame = createElement("section", { className: "scene minigame-frame battle-frame" });
-      const title = createElement("strong", { text: battle.id === "stat-boss" ? "스탯보스" : battle.id === "control-boss" ? "컨트롤 보스" : "" });
+      const title = createElement("h1", { className: "game-title", text: battle.title });
       const partyRoster = Array.isArray(party?.roster)
         ? party.roster.slice(0, 5)
         : [];

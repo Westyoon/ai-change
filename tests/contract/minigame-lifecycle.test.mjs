@@ -147,7 +147,7 @@ test("the pre-game host result screen returns to navigation without an in-place 
   assert.match(overlayOptions, /\bonMenu\s*:/u);
 });
 
-test("the live pre-game toolbar hides department and game names", async () => {
+test("the live pre-game toolbar uses a common game title without a department label", async () => {
   const source = await readFile(new URL("../../js/scenes/minigame-scene.js", import.meta.url), "utf8");
   const toolbar = source.match(
     /const\s+toolbar\s*=\s*createElement\("header",(?<toolbar>[\s\S]*?)const\s+stage/u,
@@ -155,7 +155,8 @@ test("the live pre-game toolbar hides department and game names", async () => {
 
   assert.ok(toolbar, "mini-game toolbar source");
   assert.match(toolbar, /"aria-label":\s*"미니게임 조작"/u);
-  assert.doesNotMatch(toolbar, /game\.(?:departmentCode|department|title)/u);
+  assert.match(toolbar, /className:\s*"game-title",\s*text:\s*game\.title/u);
+  assert.doesNotMatch(toolbar, /game\.(?:departmentCode|department)\b/u);
 });
 
 test("the independent Battle registry exposes every published post-game through static loaders", async () => {

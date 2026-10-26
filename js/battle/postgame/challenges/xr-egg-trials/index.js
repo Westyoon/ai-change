@@ -197,7 +197,7 @@ export function createBattle({ root, input = null, onComplete = null, random = M
     const meta = TRIAL_META[trialId];
     content.append(
       createElement(documentRef, "p", { className: "xr-trials__eyebrow", text: meta.eyebrow }),
-      createElement(documentRef, "h2", { className: "xr-trials__title", text: meta.title }),
+      createElement(documentRef, "h2", { className: "xr-trials__title game-title", text: meta.title }),
       createElement(documentRef, "p", { className: "xr-trials__instruction", text: instruction }),
     );
   }

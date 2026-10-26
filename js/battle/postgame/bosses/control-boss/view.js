@@ -301,7 +301,7 @@ export class ControlBossView {
     this.shieldText = shield.output;
     this.phaseBadge = element("output", { className: "control-boss-phase", text: "Phase 1" });
     const header = element("header", { className: "control-boss-header" }, [
-      element("strong", { className: "control-boss-title", text: `⚡ ${this.config.title}` }),
+      element("strong", { className: "control-boss-title game-title", text: this.config.title }),
       this.phaseBadge,
     ]);
     const bossHud = element("section", { className: "control-boss-hud", attributes: { "aria-label": "보스 상태" } }, [

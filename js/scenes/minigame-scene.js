@@ -181,7 +181,7 @@ export function createMiniGameScene(context) {
         className: "minigame-toolbar",
         attributes: { "aria-label": "미니게임 조작" },
       }, [
-        createElement("span", { attributes: { "aria-hidden": "true" } }),
+        createElement("h1", { className: "game-title", text: game.title }),
         createElement("div", { className: "button-row" }, [pauseButton, quitButton]),
       ]);
       const stage = createElement("div", { className: "minigame-stage" });

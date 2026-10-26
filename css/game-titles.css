@@ -1,0 +1,44 @@
+/* Shared treatment for game names; outcome messages and question text keep
+ * their own hierarchy. Loaded after each game's local skin. */
+#app .game-title {
+  display: inline-block;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 12px;
+  border: 2px solid var(--game-ink);
+  border-radius: 2px;
+  color: var(--game-paper);
+  background: var(--game-purple);
+  box-shadow: 0 3px 0 var(--game-shadow);
+  font-family: var(--font-display);
+  font-size: clamp(.9rem, 1.8vw, 1.15rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-align: left;
+  text-shadow: none;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+#app .minigame-toolbar { gap: 10px 14px; }
+#app .minigame-toolbar > .button-row { flex: 0 0 auto; margin-left: auto; }
+#app .battle-toolbar__title-group { max-width: 100%; }
+
+/* The host supplies one title for the whole game. Keep the existing timers
+ * and phase HUDs in place without showing a second name inside the board. */
+#app .minigame-frame .code-heart-game .ch-title,
+#app .battle-frame .control-boss-title { display: none; }
+#app .minigame-frame .code-heart-game .ch-header { justify-content: flex-end; }
+#app .battle-frame .control-boss-header { justify-content: flex-end; }
+
+@media (max-width: 680px) {
+  #app .minigame-toolbar { align-items: center; }
+  #app .minigame-toolbar > .game-title,
+  #app .minigame-toolbar > .battle-toolbar__title-group { flex-basis: 100%; }
+  #app .minigame-toolbar > .button-row .button { flex: 0 0 auto; }
+}
