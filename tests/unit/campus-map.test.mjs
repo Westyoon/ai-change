@@ -35,7 +35,11 @@ test("original campus map keeps every gameplay destination reachable with the fu
   const manager = new CampusMapManager(config);
   const map = manager.get("campus"), mask = manager.mask("campus");
   const engineering=map.interactions.find(point=>point.kind==="engineering");
-  assert.ok(engineering.x<map.world.width*.1&&engineering.y<map.world.height*.15,"engineering walk is in the upper left");
+  assert.ok(engineering.x<map.world.width*.25&&engineering.y<map.world.height*.1,"engineering walk is in the upper left");
+  const northExits=map.collision.paths.filter(path=>path.some(([,y])=>y===0));
+  assert.ok(northExits.some(path=>new WalkMask({...map.world,cellSize:4,paths:[path]}).allows({
+    x:engineering.x-6,y:engineering.y-8,width:12,height:8,
+  })),"engineering walk is on the upward exit path, not the horizontal road beside it");
   const allows = (x,y) => mask.allows({ x: x-6, y: y-8, width: 12, height: 8 });
   const step = 4, columns = Math.ceil(map.world.width / step);
   const start = [Math.round(map.spawn.x/step), Math.round(map.spawn.y/step)];
