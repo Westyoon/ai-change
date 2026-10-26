@@ -2140,19 +2140,34 @@ function createBattleLoginRequiredScene(context) {
 
 export function createBattleScene(context) {
   let activeScene = null;
+  let preparedCampus = null;
+  let sessionPrepared = false;
+  async function prepareSession(params) {
+    if (requiresAuthenticatedBattleSession(params.battleId, {
+      guestBattleTesting: context.config.features?.guestBattleTesting === true,
+    })) {
+      try { await context.services.account.refreshSession(); }
+      catch { /* Keep the existing account error for the login screen. */ }
+    }
+    sessionPrepared = true;
+  }
   return {
+    async prepare(params = {}, lifecycle) {
+      await prepareSession(params);
+      if(lifecycle?.signal?.aborted) return;
+      if (!params.battleId && !params.legacyWorld && context.config.features?.campusMap === true
+        && publishedBattles(context).length > 0
+        && (context.services.account.getState().authenticated || context.config.features?.guestBattleTesting === true)) {
+        preparedCampus = createCampusScene(context, { mode: "after" });
+        await preparedCampus.prepare(params,lifecycle);
+      }
+    },
     async mount(root, params = {}, lifecycle) {
       const guestBattleTesting = context.config.features?.guestBattleTesting === true;
       const loginRequired = requiresAuthenticatedBattleSession(params.battleId, {
         guestBattleTesting,
       });
-      if (loginRequired) {
-        try {
-          await context.services.account.refreshSession();
-        } catch {
-          // AccountService keeps the actionable state/error for the login screen.
-        }
-      }
+      if (!sessionPrepared) await prepareSession(params);
       if (lifecycle?.signal?.aborted) return;
       if (loginRequired && !context.services.account.getState().authenticated) {
         context.services.postgameRealtime?.disconnect?.();
@@ -2164,7 +2179,7 @@ export function createBattleScene(context) {
         activeScene = createBattleComingSoonScene(context);
       } else if (!params.battleId) {
         activeScene = context.config.features?.campusMap === true && !params.legacyWorld
-          ? createCampusScene(context, { mode: "after" })
+          ? preparedCampus ?? createCampusScene(context, { mode: "after" })
           : createBattleEntryScene(context);
       } else {
         const battle = findBattle(context, params.battleId);

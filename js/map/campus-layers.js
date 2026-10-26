@@ -1,5 +1,6 @@
 const SVG = "http://www.w3.org/2000/svg";
 import { WalkMask } from "./walk-mask.js";
+import { campusResources } from "./resource-cache.js";
 export const CAMPUS_BUILDINGS = Object.freeze([
   { id: "hall", src: "./assets/maps/buildings/hall.png", x: 568, y: 48, width: 535, height: 326, footY: 340 },
   { id: "student-center", src: "./assets/maps/buildings/student-center.png", x: 22, y: 136, width: 448, height: 342, footY: 416 },
@@ -138,31 +139,39 @@ export function campusProps(map, mask, {mode="after"}={}) {
     || !benches.some(bench=>Math.abs(prop.x-bench.x)<60&&Math.abs(prop.y-bench.y)<55));
 }
 
+export async function preloadCampusMap(map, { signal } = {}) {
+  if(map.layout) return (await import("./tile-map-renderer.js")).preloadTileMap(map,{signal});
+  const sourceOnly = new URLSearchParams(globalThis.location?.search??"").has("campusOriginal");
+  if(map.id!=="campus"||sourceOnly) return campusResources.image(map.background,{signal});
+  const [crops] = await Promise.all([
+    campusResources.json("./data/maps/flowerbeds.json",{signal}),
+    ...["./assets/maps/props/campus-props.png","./assets/maps/props/flowerbeds.png",
+      map.terrain?.grass?.src??"./assets/maps/tiles/grass.svg",
+      map.terrain?.paving?.src??"./assets/maps/tiles/paving.svg","./assets/maps/tiles/stairs.svg",
+      ...CAMPUS_BUILDINGS.map(building=>building.src)].map(src=>campusResources.image(src,{signal})),
+  ]);
+  return crops;
+}
+
 export async function createCampusLayers({ document, map, mask, signal, mode="after" }) {
   if(map.layout)return (await import("./tile-map-renderer.js")).createTileMapLayers({document,map,signal});
   if(map.id!=="campus") {
     const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";
     image.style.width=`${map.world.width}px`;image.style.height=`${map.world.height}px`;
     if(map.rendering) image.style.imageRendering=map.rendering;
-    await image.decode();return signal?.aborted?[]:[image];
+    await campusResources.image(map.background,{signal});return signal?.aborted?[]:[image];
   }
   const sourceOnly = new URLSearchParams(globalThis.location?.search??"").has("campusOriginal");
   if(sourceOnly) {
-    const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";await image.decode();return [image];
+    const image=document.createElement("img");image.className="campus-background";image.src=map.background;image.alt="";await campusResources.image(map.background,{signal});return [image];
   }
   const nodes=[createCampusTerrain(document,map)];
-  const atlas=new Image();atlas.src="./assets/maps/props/campus-props.png";
-  await atlas.decode();
-  const beds=new Image();beds.src="./assets/maps/props/flowerbeds.png";
-  const cropResponse=await fetch("./data/maps/flowerbeds.json",{signal});
-  if(!cropResponse.ok)throw new Error("화단 에셋 정보를 불러오지 못했습니다.");
-  const crops=await cropResponse.json();
-  await beds.decode();
+  const crops=await preloadCampusMap(map,{signal});
   for(const building of CAMPUS_BUILDINGS) {
     const node=document.createElement("img");node.className="campus-building";node.src=building.src;node.alt="";
     node.dataset.building=building.id;
     Object.assign(node.style,{left:`${building.x}px`,top:`${building.y}px`,width:`${building.width}px`,height:`${building.height}px`,zIndex:String(building.ground ? 1 : depthAtFoot(building.footY))});
-    await node.decode();nodes.push(node);
+    nodes.push(node);
   }
   if(signal?.aborted)return [];
   nodes.push(...campusProps(map,mask,{mode}).map(prop=>createCampusProp(document,prop)));

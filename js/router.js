@@ -12,6 +12,7 @@ export class SceneRouter {
     this.pendingRoute = null;
     this.generation = 0;
     this.controller = null;
+    this.preparingController = null;
   }
 
   async start(sceneId, params = {}) {
@@ -25,6 +26,7 @@ export class SceneRouter {
 
     if (this.transitioning) {
       this.pendingRoute = { sceneId, params, options };
+      this.preparingController?.abort();
       return false;
     }
 
@@ -32,10 +34,20 @@ export class SceneRouter {
     this.context.state.transitioning = true;
     this.context.services?.input?.clear?.();
     const generation = ++this.generation;
-    this.controller?.abort();
-    this.controller = new AbortController();
+    const controller = new AbortController();
+    this.preparingController = controller;
 
     try {
+      const previousScene = this.current?.id ?? null;
+      const sceneFactory = this.routes.get(sceneId);
+      const scene = sceneFactory(this.context);
+      this.root.setAttribute?.("aria-busy", "true");
+      // Resource-heavy scenes prepare detached layers while the old view remains visible.
+      await scene.prepare?.(params, { signal: controller.signal, replace: Boolean(options.replace) });
+      if (generation !== this.generation || controller.signal.aborted) return false;
+      this.controller?.abort();
+      this.controller = controller;
+      this.preparingController = null;
       if (this.current?.scene?.unmount) {
         await this.current.scene.unmount();
       }
@@ -43,10 +55,6 @@ export class SceneRouter {
       if (generation !== this.generation) {
         return false;
       }
-
-      const previousScene = this.current?.id ?? null;
-      const sceneFactory = this.routes.get(sceneId);
-      const scene = sceneFactory(this.context);
 
       this.root.replaceChildren();
       this.root.removeAttribute("aria-busy");
@@ -58,7 +66,7 @@ export class SceneRouter {
       this.current = { id: sceneId, scene, params };
 
       await scene.mount(this.root, params, {
-        signal: this.controller.signal,
+        signal: controller.signal,
         replace: Boolean(options.replace),
       });
 
@@ -103,6 +111,8 @@ export class SceneRouter {
       return false;
     } finally {
       if (generation === this.generation) {
+        this.root.removeAttribute("aria-busy");
+        this.preparingController = null;
         this.transitioning = false;
         this.context.state.transitioning = false;
       }
@@ -116,6 +126,7 @@ export class SceneRouter {
   }
 
   destroy() {
+    this.preparingController?.abort();
     this.controller?.abort();
     this.generation += 1;
     this.pendingRoute = null;

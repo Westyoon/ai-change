@@ -1,4 +1,6 @@
-import { CampusMapManager, CAMPUS_MAP_IDS } from "../map/map-manager.js";
+import { CAMPUS_MAP_IDS } from "../map/map-manager.js";
+import { campusLoader, scheduleCampusWarmup } from "../map/campus-loader.js";
+import { campusResources } from "../map/resource-cache.js";
 import { followCamera } from "../map/camera.js";
 import { resolveContinuousMovement } from "../map/collision.js";
 import { CharacterView, RemoteCharacterView, VirtualJoystick, createCharacterActorElement } from "../battle/character/index.js";
@@ -22,15 +24,28 @@ let studentPaletteSequence = 0;
 export function createCampusScene(context, { mode = "before" } = {}) {
   let loop, joystick, unsubscribeInput, unsubscribeRealtime, unsubscribeProgress, unsubscribeSave, resizeObserver, remoteView;
   let savePosition = () => {};
+  let prepared = null, cancelWarmup;
+  async function prepare(params, { signal } = {}) {
+    const manager = await campusLoader.getManager({ signal });
+    const map = manager.get(params?.campusMapId ?? (mode === "before" ? CAMPUS_MAP_IDS.ECC : CAMPUS_MAP_IDS.CAMPUS));
+    const mask = manager.mask(map.id,{mode});
+    const [layers] = await Promise.all([
+      createCampusLayers({ document, map, mask, signal, mode }),
+      mode === "before" && map.interactions.some(point=>point.kind==="npc")
+        ? campusResources.image("./assets/maps/npcs/college-student-bob-v1.png",{signal}) : null,
+      campusResources.image("./assets/images/character-hair-colors.png",{signal}),
+    ]);
+    if(signal?.aborted) throw signal.reason ?? new DOMException("Map preparation aborted.","AbortError");
+    prepared = { manager, map, mask, layers };
+  }
   return {
+    prepare,
     async mount(root, _params, { signal } = {}) {
-      const response = await fetch("./data/maps/campus.json", { signal });
-      if (!response.ok) throw new Error("캠퍼스 지도를 불러오지 못했습니다.");
-      const manager = new CampusMapManager(await response.json());
-      const map = manager.get(_params?.campusMapId ?? (mode === "before" ? CAMPUS_MAP_IDS.ECC : CAMPUS_MAP_IDS.CAMPUS));
+      if(!prepared) await prepare(_params,{signal});
+      const { manager, map, mask, layers } = prepared;
+      prepared = null;
       // Use the outdoor reference scale indoors too; retain the same foot anchor.
       const actorSize = ACTOR_SIZE;
-      const mask = manager.mask(map.id,{mode});
       const account = context.services.account?.getState?.() ?? {};
       const key = STORAGE_PREFIX + mode + (map.id==="campus"?"":`:${map.id}`);
       let saved = null;
@@ -65,7 +80,6 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       ]);
       world.style.width = `${map.world.width}px`;
       world.style.height = `${map.world.height}px`;
-      const layers = await createCampusLayers({ document, map, mask, signal, mode });
       if (signal?.aborted) return;
       world.append(...layers);
       const actor = createCharacterActorElement({ local: true });
@@ -300,8 +314,10 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       signal?.addEventListener("abort", () => { loop?.stop(); }, { once: true });
       loop.start();
       viewport.focus({ preventScroll: true });
+      cancelWarmup = scheduleCampusWarmup({mode,firstMapId:map.id});
     },
     unmount() {
+      cancelWarmup?.();
       savePosition();
       loop?.stop(); joystick?.destroy(); resizeObserver?.disconnect(); unsubscribeInput?.(); unsubscribeRealtime?.(); unsubscribeProgress?.(); unsubscribeSave?.(); remoteView?.destroy();
     },

@@ -1,22 +1,25 @@
 import { depthAtFoot } from "./campus-layers.js";
 import { createAtlasSprite,replaceAtlasFrame } from "./interior-skin.js";
+import { campusResources } from "./resource-cache.js";
 
-export async function createTileMapLayers({document,map,signal}) {
+export async function preloadTileMap(map, { signal } = {}) {
   const source=name=>map.assets?.[name]??`${map.assetRoot}${name}.svg`;
   let skin=null;
   if(map.skin==="campus") {
-    const response=await fetch("./data/maps/interior-skin.json",{signal});
-    if(!response.ok)throw new Error("실내 공통 에셋 정보를 불러오지 못했습니다.");
-    skin=await response.json();
+    skin=await campusResources.json("./data/maps/interior-skin.json",{signal});
   }
-  const frameFor=item=>skin?.frames[item.asset==="wall"&&item.height>item.width?"wall-v":item.asset];
   const assets=new Set(map.layout.floors.map(f=>f.asset));
   for(const item of map.layout.items){assets.add(item.asset);if(item.openAsset)assets.add(item.openAsset);}
   const sources=new Set([...assets].map(name=>skin?.frames[name]?.src??source(name)));
   if(skin?.frames["wall-v"])sources.add(skin.frames["wall-v"].src);
-  await Promise.all([...sources].map(async src=>{
-    const image=new Image();image.src=src;await image.decode();
-  }));
+  await Promise.all([...sources].map(src=>campusResources.image(src,{signal})));
+  return skin;
+}
+
+export async function createTileMapLayers({document,map,signal}) {
+  const source=name=>map.assets?.[name]??`${map.assetRoot}${name}.svg`;
+  const skin=await preloadTileMap(map,{signal});
+  const frameFor=item=>skin?.frames[item.asset==="wall"&&item.height>item.width?"wall-v":item.asset];
   if(signal?.aborted)return [];
   const nodes=[];
   let serial=0;

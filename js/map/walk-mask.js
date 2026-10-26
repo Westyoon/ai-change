@@ -17,17 +17,30 @@ export class WalkMask {
     this.columns = Math.ceil(width / cellSize);
     this.rows = Math.ceil(height / cellSize);
     this.cells = new Uint8Array(this.columns * this.rows);
-    for (let row = 0; row < this.rows; row++) {
-      for (let column = 0; column < this.columns; column++) {
-        const x = (column + 0.5) * cellSize;
-        const y = (row + 0.5) * cellSize;
-        this.cells[row * this.columns + column] = Number(
-          paths.some(polygon => insidePolygon(x, y, polygon))
-          && !obstacles.some(rect => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height)
-          && !blockedPolygons.some(polygon=>insidePolygon(x,y,polygon)),
-        );
+    const bounds = (left, top, right, bottom) => ({
+      left: Math.max(0, Math.floor(left / cellSize)),
+      top: Math.max(0, Math.floor(top / cellSize)),
+      right: Math.min(this.columns, Math.ceil(right / cellSize) + 1),
+      bottom: Math.min(this.rows, Math.ceil(bottom / cellSize) + 1),
+    });
+    const paintPolygon = (polygon, value) => {
+      const area = bounds(Math.min(...polygon.map(p=>p[0])), Math.min(...polygon.map(p=>p[1])),
+        Math.max(...polygon.map(p=>p[0])), Math.max(...polygon.map(p=>p[1])));
+      for(let row=area.top;row<area.bottom;row++) for(let column=area.left;column<area.right;column++) {
+        if(insidePolygon((column+.5)*cellSize,(row+.5)*cellSize,polygon)) this.cells[row*this.columns+column]=value;
+      }
+    };
+    // Rasterize the union, then subtract obstacles. Visit each shape's bounds,
+    // preserving the original cell-center test without scanning every obstacle per cell.
+    for(const polygon of paths) paintPolygon(polygon,1);
+    for(const rect of obstacles) {
+      const area=bounds(rect.x,rect.y,rect.x+rect.width,rect.y+rect.height);
+      for(let row=area.top;row<area.bottom;row++) for(let column=area.left;column<area.right;column++) {
+        const x=(column+.5)*cellSize,y=(row+.5)*cellSize;
+        if(x>=rect.x&&x<rect.x+rect.width&&y>=rect.y&&y<rect.y+rect.height) this.cells[row*this.columns+column]=0;
       }
     }
+    for(const polygon of blockedPolygons) paintPolygon(polygon,0);
   }
 
   allows(rect) {
