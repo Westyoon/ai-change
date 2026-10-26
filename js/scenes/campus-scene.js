@@ -152,7 +152,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           const countText=`수호알 ${acquired} / ${eggs.length}개`;
           const objectiveText=mode==="after" || isFestivalOpen(context)
             ? "캠퍼스 축제를 즐겨보자!"
-            : acquired===eggs.length ? "이아이를 찾아가보자!" : "고민에 빠진 벗들을 만나, 각 학과의 수호알을 모아보자!";
+            : acquired===eggs.length ? "대강당에 있는 이아이를 찾아가보자!" : "고민에 빠진 벗들을 만나, 각 학과의 수호알을 모아보자!";
           if(eggCount.textContent!==countText) eggCount.textContent=countText;
           if(objective.textContent!==objectiveText) objective.textContent=objectiveText;
           for(const student of students.values()) {
