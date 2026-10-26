@@ -107,12 +107,24 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           student.append(figure);world.append(student);markers.set(point.id,student);
           continue;
         }
-        const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } }, [
-          createElement("span", { className: "campus-marker__icon", text: point.kind === "npc" ? "!" : point.kind === "field" ? "X" : "◆", attributes: { "aria-hidden": "true" } }),
+        const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } });
+        if(point.kind==="portal") {
+          marker.setAttribute("aria-hidden","true");
+          marker.dataset.direction=point.targetMap===CAMPUS_MAP_IDS.CAMPUS?"out":"in";
+          const arrow=svgNode("svg"),ground=svgNode("ellipse"),chevrons=svgNode("path");
+          arrow.setAttribute("viewBox","0 0 24 18");
+          ground.setAttribute("cx","12");ground.setAttribute("cy","9");
+          ground.setAttribute("rx","12");ground.setAttribute("ry","8");
+          chevrons.setAttribute("d","M6 9 L12 4 L18 9 M6 15 L12 10 L18 15");
+          arrow.append(ground,chevrons);marker.append(arrow);
+        } else marker.append(
+          createElement("span", { className: "campus-marker__icon", text: point.kind === "field" ? "X" : "◆", attributes: { "aria-hidden": "true" } }),
           createElement("span", { className: "campus-marker__label", text: point.label }),
-        ]);
+        );
         marker.style.left = `${point.x}px`;
-        marker.style.top = `${point.y}px`;
+        // Place the floor cue on the approach side, clear of the door and player.
+        const approachOffset=point.kind==="portal"?(point.targetMap===CAMPUS_MAP_IDS.CAMPUS?-48:48):0;
+        marker.style.top = `${point.y+approachOffset}px`;
         world.append(marker);
         markers.set(point.id, marker);
       }
@@ -281,7 +293,9 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         if(target?.kind==="engineering"&&!engineeringEntered) {engineeringEntered=true;void interact();}
         if(target?.kind!=="engineering")engineeringEntered=false;
         prompt.hidden = !target;
-        prompt.textContent = target ? `${target.label} · ${target.kind === "npc" ? "말 걸기" : "입장하기"}` : "";
+        prompt.textContent = !target ? "" : target.kind==="portal"
+          ? target.targetMap===CAMPUS_MAP_IDS.CAMPUS ? "캠퍼스로 나가기" : target.label
+          : `${target.label} · ${target.kind === "npc" ? "말 걸기" : "입장하기"}`;
         publishMs += deltaMs;
         if (publishMs >= 90) { publishMs = 0; publish(); }
       }, render });
