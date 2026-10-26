@@ -73,7 +73,7 @@
   margin: 0; padding: 9px 14px; border: 2px solid #694232;
   border-radius: 6px; background: #fff7e6ed; box-shadow: 0 3px 0 #39223538;
 }
-.campus-hud__objective { grid-column: 2; text-align: center; }
+.campus-hud__objective { grid-column: 2; text-align: center; word-break: keep-all; }
 .campus-hud__status { grid-column: 3; justify-self: end; display: grid; gap: 2px; }
 .campus-hud__location { font-weight: bold; }
 .campus-hud__eggs { font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
