@@ -1,6 +1,7 @@
 import { validateAccountNickname } from "../core/account-service.js";
 import { formatCombatValue } from "../battle/combat-display.js";
 import { createHairColorChoices } from "../ui/hair-color-picker.js";
+import { isFestivalOpen } from "../core/story-progress.js";
 import { createButton, createElement, showToast } from "./scene-utils.js";
 
 export const ACCOUNT_ORIGIN = "https://ai-change.ai-change-backend.workers.dev";
@@ -126,6 +127,7 @@ function notice(text, tone = "info") {
 export function createAccountScene(context) {
   let mounted = false;
   let unsubscribe = null;
+  let unsubscribeSave = null;
   let busyAction = null;
   let actionError = null;
   let progressSyncing = false;
@@ -506,11 +508,11 @@ export function createAccountScene(context) {
             createElement("h3", { text: `${state.user?.name ?? "플레이어"} 님` }),
           ]),
           nicknameForm,
-          createElement("section", { className: "account-hair-color" }, [
+          ...(isFestivalOpen(context) ? [createElement("section", { className: "account-hair-color" }, [
             createElement("h3", { text: "머리색" }),
             createHairColorChoices({ selected: state.user?.hairColor ?? "purple", disabled: Boolean(busyAction) || progressSyncing,
               onSelect: async (hairColor) => {
-                if (busyAction) return;
+                if (busyAction || !isFestivalOpen(context)) return;
                 busyAction = "hair-color";
                 actionError = null;
                 render(service.getState());
@@ -519,7 +521,7 @@ export function createAccountScene(context) {
                 finally { busyAction = null; if (mounted) render(service.getState()); }
               },
             }),
-          ]),
+          ])] : []),
           recordGrid,
           createElement("div", { className: "account-section-heading" }, [
             createElement("h3", { text: "기본 전투 스탯" }),
@@ -579,6 +581,7 @@ export function createAccountScene(context) {
         void syncLocalProgress(state);
         scheduleReconnect(state);
       });
+      unsubscribeSave = context.services.save?.subscribe?.(() => render(service.getState()), { emitCurrent: false });
       if (params.authCallback === "success" && !service.getState().authenticated) {
         void recoverSessionAfterAuth(service, { signal })
           .catch((error) => {
@@ -606,6 +609,8 @@ export function createAccountScene(context) {
       removeReconnectListeners = null;
       unsubscribe?.();
       unsubscribe = null;
+      unsubscribeSave?.();
+      unsubscribeSave = null;
     },
   };
 }

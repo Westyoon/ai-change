@@ -126,21 +126,21 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } });
         if(point.kind==="portal") {
           marker.setAttribute("aria-hidden","true");
-          marker.dataset.direction=point.targetMap===CAMPUS_MAP_IDS.CAMPUS?"out":"in";
-          const arrow=svgNode("svg"),ground=svgNode("ellipse"),chevrons=svgNode("path");
-          arrow.setAttribute("viewBox","0 0 24 18");
-          ground.setAttribute("cx","12");ground.setAttribute("cy","9");
-          ground.setAttribute("rx","12");ground.setAttribute("ry","8");
-          chevrons.setAttribute("d","M6 9 L12 4 L18 9 M6 15 L12 10 L18 15");
-          arrow.append(ground,chevrons);marker.append(arrow);
+          // Indoor cues use the placed door's bounds, including the compact map
+          // scale. Outdoor entrances are part of their building image.
+          const bounds=map.layout?.items.find(item=>item.door
+            &&Math.hypot(item.center.x-point.x,item.center.y-point.y)<1)??point.highlight;
+          if(!bounds)continue;
+          Object.assign(marker.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`,
+            zIndex:String(1001+Math.round(bounds.footY??bounds.y+bounds.height))});
+          world.append(marker);markers.set(point.id,marker);
+          continue;
         } else marker.append(
           createElement("span", { className: "campus-marker__icon", text: point.kind === "field" ? "X" : "◆", attributes: { "aria-hidden": "true" } }),
           createElement("span", { className: "campus-marker__label", text: point.label }),
         );
         marker.style.left = `${point.x}px`;
-        // Place the floor cue on the approach side, clear of the door and player.
-        const approachOffset=point.kind==="portal"?(point.targetMap===CAMPUS_MAP_IDS.CAMPUS?-48:48):0;
-        marker.style.top = `${point.y+approachOffset}px`;
+        marker.style.top = `${point.y}px`;
         world.append(marker);
         markers.set(point.id, marker);
       }

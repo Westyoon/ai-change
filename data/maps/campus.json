@@ -638,6 +638,7 @@
         },
         {
           "id": "enter-ecc",
+          "highlight": { "x": 1374, "y": 782, "width": 72, "height": 44 },
           "kind": "portal",
           "label": "ECC 들어가기",
           "x": 1410,
@@ -650,6 +651,7 @@
         },
         {
           "id": "enter-student",
+          "highlight": { "x": 190, "y": 398, "width": 130, "height": 28 },
           "kind": "portal",
           "label": "학생문화관 들어가기",
           "x": 250,
@@ -662,6 +664,7 @@
         },
         {
           "id": "enter-greenhouse",
+          "highlight": { "x": 815, "y": 649, "width": 42, "height": 54 },
           "kind": "portal",
           "label": "온실 들어가기",
           "x": 836,
