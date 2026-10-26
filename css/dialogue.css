@@ -269,6 +269,7 @@
 .scene.guardian-reward-scene .guardian-reward__copy h1 {
   color: #fff8f2;
   font-size: clamp(0.98rem, 2.45vw, 2.058rem);
+  font-weight: 400;
   line-height: 1.1;
   text-wrap: balance;
 }
@@ -276,7 +277,7 @@
 .guardian-reward__department {
   color: color-mix(in srgb, var(--guardian-color) 72%, white);
   font-size: clamp(1rem, 2.2vw, 1.35rem);
-  font-weight: 900;
+  font-weight: 400;
 }
 
 .guardian-reward__description {
