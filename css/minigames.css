@@ -525,8 +525,8 @@
   
   /* 4. 작업대 슬롯 (git add) */
   .code-heart-game .ch-workspace {
-    background: #e8f5e9;
-    border: 2px solid #81c784;
+    background: #e7e9ed;
+    border: 2px solid #9aa0aa;
     border-radius: 16px;
     padding: 10px 14px;
     flex-shrink: 0;
@@ -537,7 +537,7 @@
     justify-content: space-between;
     font-size: 12px;
     font-weight: bold;
-    color: #2e7d32;
+    color: #474c56;
     margin-bottom: 8px;
   }
   
@@ -559,7 +559,7 @@
   
   .code-heart-game .ch-slot-tile {
     background: #ffffff;
-    border: 1.5px dashed #a5d6a7;
+    border: 1.5px dashed #b5bbc4;
     border-radius: 12px;
     padding: 10px 4px;
     text-align: center;
