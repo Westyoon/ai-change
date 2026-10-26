@@ -10,7 +10,7 @@ import { getBattleUnlockStatus } from "../battle/unlock.js";
 import { getMiniGameStoryDestination } from "./map-scene.js";
 import { GameLoop } from "../core/game-loop.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
-import { createElement, createButton, showToast } from "./scene-utils.js";
+import { createElement, createButton, findMiniGame, showToast } from "./scene-utils.js";
 import { createCampusLayers } from "../map/campus-layers.js";
 import { updateTileDoors, updateTileCanopies } from "../map/tile-map-renderer.js";
 import { getGuardianInventory } from "../core/guardian-inventory.js";
@@ -117,7 +117,9 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           cutoff.setAttribute("type","discrete");cutoff.setAttribute("tableValues","0 1");alpha.append(cutoff);
           clip.setAttribute("in2","student-alpha");clip.setAttribute("operator","in");
           filter.append(alpha,flood,clip);paletteDefs.append(filter);
-          students.set(point.id,{element:student,guardianEggId:npc?.guardianEggId,flood,filterId,number:point.studentNumber});
+          students.set(point.id,{element:student,guardianEggId:npc?.guardianEggId,
+            gameTitle:findMiniGame(context,npc?.miniGameId)?.title ?? "게임",
+            talkLabel:`${point.label} · 말 걸기`,resolved:false,actionLabel:"",flood,filterId,number:point.studentNumber});
           student.append(figure);world.append(student);markers.set(point.id,student);
           continue;
         }
@@ -153,12 +155,15 @@ export function createCampusScene(context, { mode = "before" } = {}) {
             : acquired===eggs.length ? "이아이를 찾아가보자!" : "고민에 빠진 벗들을 만나, 각 학과의 수호알을 모아보자!";
           if(eggCount.textContent!==countText) eggCount.textContent=countText;
           if(objective.textContent!==objectiveText) objective.textContent=objectiveText;
-          for(const {element,guardianEggId,flood,filterId,number}of students.values()) {
+          for(const student of students.values()) {
+            const {element,guardianEggId,gameTitle,flood,filterId,number}=student;
             const egg=inventory.get(guardianEggId),resolved=egg?.acquired===true;
+            student.resolved=resolved;
+            student.actionLabel=resolved?`${gameTitle} 다시 하기`:student.talkLabel;
             element.dataset.resolved=String(resolved);
             flood.setAttribute("flood-color",resolved?egg.color:"#1f1f1f");
             element.style.setProperty("--student-silhouette-filter",`url(#${filterId})`);
-            element.setAttribute("aria-label",resolved?`${egg.departmentName} 학생과 대화하기 · 해결 완료`:`학생 ${number}과 대화하기`);
+            element.setAttribute("aria-label",resolved?student.actionLabel:`학생 ${number}과 대화하기`);
           }
       };
       refreshProgress();
@@ -230,6 +235,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         if (point.kind === "npc") {
           const npc = context.content.maps.find(item => item.id === context.config.mainMapId)?.npcs.find(item => item.id === point.id);
           if (npc) {
+            if(students.get(point.id)?.resolved) return go("minigame-intro",{miniGameId:npc.miniGameId});
             const destination = getMiniGameStoryDestination(context, npc.miniGameId, { conversation:true });
             return go(destination.sceneId, destination.params);
           }
@@ -307,7 +313,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         prompt.hidden = !target;
         prompt.textContent = !target ? "" : target.kind==="portal"
           ? target.targetMap===CAMPUS_MAP_IDS.CAMPUS ? "캠퍼스로 나가기" : target.label
-          : `${target.label} · ${target.kind === "npc" ? "말 걸기" : "입장하기"}`;
+          : target.kind==="npc" ? students.get(target.id)?.actionLabel ?? "학생 · 말 걸기"
+          : `${target.label} · 입장하기`;
         publishMs += deltaMs;
         if (publishMs >= 90) { publishMs = 0; publish(); }
       }, render });
