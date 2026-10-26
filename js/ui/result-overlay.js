@@ -113,6 +113,21 @@ function interpolateResultText(template, result) {
   });
 }
 
+function fitResultLine(element) {
+  if (!element.isConnected) return;
+  // Reset to the stylesheet size so widening the dialog restores the type scale.
+  element.style.removeProperty("font-size");
+  const style = getComputedStyle(element);
+  const available = element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  if (available <= 0) return;
+  const range = element.ownerDocument.createRange();
+  range.selectNodeContents(element);
+  const width = range.getBoundingClientRect().width;
+  if (width > available) {
+    element.style.fontSize = `${Math.floor(parseFloat(style.fontSize) * available / width * 100) / 100}px`;
+  }
+}
+
 export function resolveResultPresentation({ result, outroText, presentation } = {}) {
   const statusKey = result?.status === "CLEAR" ? "clear" : "fail";
   const statusPresentation = presentation?.[statusKey] ?? {};
@@ -267,7 +282,32 @@ export function createResultOverlay({
   if (noticeElement) card.append(noticeElement);
   card.append(actions);
   backdrop.append(card);
-  const focusFrame = requestAnimationFrame(() => (primaryButton ?? retryButton ?? mapButton ?? menuButton)?.focus());
+  const fitLines = () => {
+    if (disposed || !card.isConnected) return;
+    for (const element of [title, ...actions.querySelectorAll("button")]) fitResultLine(element);
+  };
+  let fitFrame = null;
+  const scheduleFit = () => {
+    if (disposed || fitFrame !== null) return;
+    fitFrame = requestAnimationFrame(() => {
+      fitFrame = null;
+      fitLines();
+    });
+  };
+  let lastWidth = null;
+  const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(([entry]) => {
+    if (entry.contentRect.width === lastWidth) return;
+    lastWidth = entry.contentRect.width;
+    // Changing type size during ResizeObserver delivery can trigger a loop error.
+    scheduleFit();
+  }) : null;
+  resizeObserver?.observe(card);
+  // Font metrics can change after the first layout, including emoji fallbacks.
+  document.fonts?.ready.then(scheduleFit);
+  const focusFrame = requestAnimationFrame(() => {
+    if (typeof getComputedStyle === "function") fitLines();
+    (primaryButton ?? retryButton ?? mapButton ?? menuButton)?.focus();
+  });
 
   return {
     element: backdrop,
@@ -279,6 +319,8 @@ export function createResultOverlay({
     destroy() {
       disposed = true;
       cancelAnimationFrame(focusFrame);
+      if (fitFrame !== null) cancelAnimationFrame(fitFrame);
+      resizeObserver?.disconnect();
       backdrop.removeEventListener("keydown", handleKeyDown);
       backdrop.remove();
       for (const { element, inert, ariaHidden } of backgroundState) {

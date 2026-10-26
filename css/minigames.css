@@ -163,6 +163,30 @@
   border-color: var(--danger);
 }
 
+/* Short result headings and action labels stay intact; the overlay fits their
+ * font size to the available width after layout and font loading. */
+.result-card h2 {
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.result-card .button {
+  min-width: min(132px, 100%);
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.result-card .button-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.result-card p {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 .result-card__illustration {
   display: block;
   width: clamp(124px, 28vw, 176px);
