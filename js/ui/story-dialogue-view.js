@@ -1,4 +1,5 @@
 import { createElement } from "../scenes/scene-utils.js";
+import { EIAI_IMAGE_SRC } from "./festival-art.js";
 
 const ADVANCE_KEYS = new Set(["Enter", " ", "ArrowRight"]);
 
@@ -7,6 +8,7 @@ export function createStoryDialogueView({
   lines,
   onComplete,
   speakerForLine = (line) => line?.speaker ?? "",
+  showEiaiPortrait = true,
 } = {}) {
   if (!root || !Array.isArray(lines) || lines.length === 0) {
     throw new TypeError("Story dialogue requires a root and at least one line.");
@@ -30,6 +32,10 @@ export function createStoryDialogueView({
     text: "스토리 대화",
   });
   const shell = createElement("div", { className: "dialogue-shell" });
+  const eiaiPortrait = createElement("img", {
+    className: "story-dialogue__eiai", hidden: true,
+    attributes: { src: EIAI_IMAGE_SRC, alt: "", width: "256", height: "256", draggable: "false", "aria-hidden": "true" },
+  });
   const copy = createElement("div", { className: "dialogue-copy" });
   const speaker = createElement("p", { className: "dialogue-speaker" });
   const text = createElement("p", {
@@ -52,6 +58,7 @@ export function createStoryDialogueView({
   const render = () => {
     const line = lines[index] ?? {};
     const speakerName = String(speakerForLine(line, index) ?? "").trim();
+    eiaiPortrait.hidden = !showEiaiPortrait || speakerName !== "이아이";
     speaker.textContent = speakerName;
     speaker.hidden = speakerName.length === 0;
     text.textContent = line.text ?? "";
@@ -99,7 +106,7 @@ export function createStoryDialogueView({
   root.addEventListener("blur", handleBlur);
   copy.append(speaker, text, progress, advanceCue);
   shell.append(copy);
-  scene.append(accessibleTitle, shell);
+  scene.append(accessibleTitle, eiaiPortrait, shell);
   root.dataset.sceneLayout = "story-dialogue";
   root.append(scene);
   render();

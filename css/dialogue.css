@@ -31,6 +31,13 @@
   pointer-events: none;
 }
 
+.story-dialogue__eiai {
+  position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
+  width: clamp(96px, 20vw, 192px); height: auto; max-height: 32%;
+  object-fit: contain; image-rendering: pixelated; pointer-events: none;
+}
+.story-dialogue__eiai[hidden] { display: none; }
+
 .dialogue-shell {
   position: relative;
   display: grid;

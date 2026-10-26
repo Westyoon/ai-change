@@ -238,11 +238,6 @@
   background: var(--game-paper);
   box-shadow: inset -4px -4px 0 var(--game-paper-shade);
 }
-#app .word-breaker-eiai__face {
-  border-radius: 2px;
-  background: var(--game-purple);
-  box-shadow: inset -4px -4px 0 var(--game-shadow), 0 4px 0 var(--game-shadow);
-}
 #app .code-heart-game button:disabled { transform: none; filter: none; }
 
 /* Life icons stay above finale dimming and do not inherit meter borders. */

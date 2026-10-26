@@ -2,6 +2,7 @@ import {
   CharacterView,
   createCharacterActorElement,
 } from "../../../character/character-view.js";
+import { EIAI_IMAGE_SRC } from "../../../../ui/festival-art.js";
 
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -588,7 +589,7 @@ export class WordBreakerView {
       dataset: { burstText: "" },
       attributes: { "aria-hidden": "true" },
     }, [
-      element("span", { className: "word-breaker-eiai__face", text: "AI" }),
+      element("img", { className: "word-breaker-eiai__face", attributes: { src: EIAI_IMAGE_SRC, alt: "", width: "256", height: "256", draggable: "false" } }),
       element("strong", { text: "이아이" }),
     ]);
     this.phraseLayer = element("div", { className: "word-breaker-phrases", attributes: { "aria-hidden": "true" } });
@@ -622,7 +623,7 @@ export class WordBreakerView {
       "div",
       { className: "word-breaker-finale__guardians", attributes: { "aria-hidden": "true" } },
       [...this.finaleGuardianElements, element("div", { className: "word-breaker-finale__eiai" }, [
-        element("span", { className: "word-breaker-eiai__face", text: "AI" }),
+        element("img", { className: "word-breaker-eiai__face", attributes: { src: EIAI_IMAGE_SRC, alt: "", width: "256", height: "256", draggable: "false" } }),
         element("strong", { text: "이아이" }),
       ])],
     );

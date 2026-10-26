@@ -15,6 +15,7 @@ import { createCampusLayers } from "../map/campus-layers.js";
 import { updateTileDoors, updateTileCanopies } from "../map/tile-map-renderer.js";
 import { getGuardianInventory } from "../core/guardian-inventory.js";
 import { isFestivalOpen } from "../core/story-progress.js";
+import { EIAI_IMAGE_SRC } from "../ui/festival-art.js";
 
 const STORAGE_PREFIX = "ai-change:campus-position:";
 const FOOT = { width: 12, height: 8 };
@@ -34,6 +35,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       mode === "before" && map.interactions.some(point=>point.kind==="npc")
         ? campusResources.image(CAMPUS_STUDENT_SPRITE,{signal}) : null,
       campusResources.image("./assets/images/character-hair-colors.png",{signal}),
+      mode === "before" && map.interactions.some(point=>point.kind==="final")
+        ? campusResources.image(EIAI_IMAGE_SRC,{signal}) : null,
     ]);
     if(signal?.aborted) throw signal.reason ?? new DOMException("Map preparation aborted.","AbortError");
     prepared = { manager, map, mask, layers };
@@ -96,6 +99,15 @@ export function createCampusScene(context, { mode = "before" } = {}) {
       palette.setAttribute("width","0");palette.setAttribute("height","0");palette.setAttribute("aria-hidden","true");
       palette.classList.add("campus-student-palette");palette.append(paletteDefs);
       for (const point of points) {
+        if(point.kind==="final") {
+          const marker=createElement("button",{className:"campus-eiai",type:"button",dataset:{id:point.id,kind:"final"},
+            attributes:{"aria-label":"이아이와 이야기하기"},on:{click:()=>void interact(point)}},[
+            createElement("img",{attributes:{src:EIAI_IMAGE_SRC,alt:"",width:"256",height:"256",draggable:"false"}}),
+            createElement("span",{text:"이아이"}),
+          ]);
+          Object.assign(marker.style,{left:`${point.x}px`,top:`${point.y}px`,zIndex:String(1000+Math.round(point.y))});
+          world.append(marker);markers.set(point.id,marker);continue;
+        }
         if (point.kind === "npc") {
           const npc=context.content.maps.find(m=>m.id===context.config.mainMapId)?.npcs?.find(n=>n.id===point.id);
           const student = createElement("button", {

@@ -78,7 +78,7 @@ export function createStoryEndingScene(context) {
       const speak = (lines, next) => {
         if (!mounted) return;
         dialogue?.destroy(); content.replaceChildren();
-        dialogue = createStoryDialogueView({ root: content, lines, onComplete: () => {
+        dialogue = createStoryDialogueView({ root: content, lines, showEiaiPortrait: false, onComplete: () => {
           dialogue?.destroy(); dialogue?.scene.remove(); dialogue = null; if (mounted) next();
         }, speakerForLine: (line) => line.speaker === "독백" ? "" : line.speaker });
       };
