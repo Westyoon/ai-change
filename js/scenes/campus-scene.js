@@ -1,5 +1,6 @@
 import { CAMPUS_MAP_IDS } from "../map/map-manager.js";
-import { CAMPUS_STUDENT_SPRITE, campusLoader, scheduleCampusWarmup } from "../map/campus-loader.js";
+import { campusLoader, scheduleCampusWarmup } from "../map/campus-loader.js";
+import { campusStudentSpriteSources, getCampusStudentSprite } from "../map/student-sprites.js";
 import { campusResources } from "../map/resource-cache.js";
 import { followCamera } from "../map/camera.js";
 import { resolveContinuousMovement } from "../map/collision.js";
@@ -32,8 +33,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
     const mask = manager.mask(map.id,{mode});
     const [layers] = await Promise.all([
       createCampusLayers({ document, map, mask, signal, mode }),
-      mode === "before" && map.interactions.some(point=>point.kind==="npc")
-        ? campusResources.image(CAMPUS_STUDENT_SPRITE,{signal}) : null,
+      mode === "before"
+        ? Promise.all(campusStudentSpriteSources(map).map(src=>campusResources.image(src,{signal}))) : null,
       campusResources.image("./assets/images/character-hair-colors.png",{signal}),
       mode === "before" && map.interactions.some(point=>point.kind==="final")
         ? campusResources.image(EIAI_IMAGE_SRC,{signal}) : null,
@@ -119,7 +120,7 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           student.style.zIndex = String(1000+Math.round(point.y));
           const figure = createElement("img", {
             className: "campus-student__sprite",
-            attributes: { src: CAMPUS_STUDENT_SPRITE, alt: "", draggable: "false", "aria-hidden": "true" },
+            attributes: { src: getCampusStudentSprite(point.id), alt: "", draggable: "false", "aria-hidden": "true" },
           });
           const filter=svgNode("filter"),alpha=svgNode("feComponentTransfer"),cutoff=svgNode("feFuncA"),flood=svgNode("feFlood"),clip=svgNode("feComposite");
           const filterId=`${paletteId}-${point.id}`;
