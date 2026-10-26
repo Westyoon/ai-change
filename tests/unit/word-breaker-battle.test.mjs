@@ -206,6 +206,33 @@ function relativePercent(value, total) {
   return `${(value / total) * 100}%`;
 }
 
+test("Eiai sprites recover a failed image request once without a large placeholder", () => {
+  const frames = installFrameHarness();
+  try {
+    const view = new WordBreakerView({ config, document: frames.document });
+    const sprites = view.element.querySelectorAll(".word-breaker-eiai__sprite");
+    assert.equal(sprites.length, 2, "battle and finale both use the supplied art");
+    for (const sprite of sprites) {
+      const original = sprite.getAttribute("src");
+      assert.equal(new URL(original).pathname.endsWith("/assets/images/eiai-pixel.png"), true);
+      assert.equal(sprite.getAttribute("width"), "56");
+      assert.equal(sprite.getAttribute("height"), "56");
+      assert.equal(sprite.dataset.ready, "false");
+      sprite.dispatchEvent({ type: "error" });
+      const retry = sprite.getAttribute("src");
+      assert.notEqual(retry, original);
+      assert.equal(new URL(retry).searchParams.get("retry"), "1");
+      sprite.dispatchEvent({ type: "error" });
+      assert.equal(sprite.getAttribute("src"), retry, "persistent failures cannot cause a retry loop");
+      sprite.dispatchEvent({ type: "load" });
+      assert.equal(sprite.dataset.ready, "true");
+    }
+    view.destroy();
+  } finally {
+    frames.restore();
+  }
+});
+
 test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery flow", () => {
   const frames = installFrameHarness();
   try {

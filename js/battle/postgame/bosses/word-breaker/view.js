@@ -95,6 +95,24 @@ export class WordBreakerView {
     parent.append(this.element);
   }
 
+  #createEiaiSprite() {
+    const image = this.createElement("img", {
+      className: "word-breaker-eiai__sprite",
+      attributes: { alt: "", width: "56", height: "56", draggable: "false" },
+      dataset: { ready: "false" },
+    });
+    image.addEventListener("load", () => { image.dataset.ready = "true"; });
+    image.addEventListener("error", () => {
+      if (image.dataset.retried === "true") return;
+      image.dataset.retried = "true";
+      const retry = new URL(EIAI_IMAGE_SRC);
+      retry.searchParams.set("retry", "1");
+      image.setAttribute("src", retry.href);
+    });
+    image.setAttribute("src", EIAI_IMAGE_SRC);
+    return image;
+  }
+
   render(snapshot = {}, characterSnapshot = null) {
     if (!this.element) return;
     const guardians = this.guardians;
@@ -589,7 +607,7 @@ export class WordBreakerView {
       dataset: { burstText: "" },
       attributes: { "aria-hidden": "true" },
     }, [
-      element("img", { className: "word-breaker-eiai__face", attributes: { src: EIAI_IMAGE_SRC, alt: "", width: "256", height: "256", draggable: "false" } }),
+      this.#createEiaiSprite(),
       element("strong", { text: "이아이" }),
     ]);
     this.phraseLayer = element("div", { className: "word-breaker-phrases", attributes: { "aria-hidden": "true" } });
@@ -623,7 +641,7 @@ export class WordBreakerView {
       "div",
       { className: "word-breaker-finale__guardians", attributes: { "aria-hidden": "true" } },
       [...this.finaleGuardianElements, element("div", { className: "word-breaker-finale__eiai" }, [
-        element("img", { className: "word-breaker-eiai__face", attributes: { src: EIAI_IMAGE_SRC, alt: "", width: "256", height: "256", draggable: "false" } }),
+        this.#createEiaiSprite(),
         element("strong", { text: "이아이" }),
       ])],
     );

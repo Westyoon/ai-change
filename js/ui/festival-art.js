@@ -1,6 +1,7 @@
 import { createElement } from "../scenes/scene-utils.js";
 
-export const EIAI_IMAGE_SRC = "./assets/images/eiai-pixel.png";
+// Resolve from this module so a nested page URL cannot change the image path.
+export const EIAI_IMAGE_SRC = new URL("../../assets/images/eiai-pixel.png", import.meta.url).href;
 
 export function createEiaiArt({ wandering = false } = {}) {
   const body = createElement("img", { className: "eiai-art__image", attributes: {

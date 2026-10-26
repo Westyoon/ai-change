@@ -1220,7 +1220,7 @@ async function validateIndexReferences(projectRoot, html, errors) {
   }
 
   for (const expectedStyle of REQUIRED_FILES.filter((file) => file.startsWith("css/"))) {
-    if (!styleReferences.some((reference) => reference.replace(/^\.\//u, "") === expectedStyle)) {
+    if (!styleReferences.some((reference) => reference.split(/[?#]/u, 1)[0].replace(/^\.\//u, "") === expectedStyle)) {
       addError(errors, `index.html is missing stylesheet reference: ${expectedStyle}`);
     }
   }

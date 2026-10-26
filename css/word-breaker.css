@@ -432,7 +432,7 @@
   text-shadow: 0 2px 0 #140a22;
 }
 
-.word-breaker-eiai__face {
+.word-breaker-eiai__sprite {
   display: block;
   width: clamp(44px, 72%, 76px);
   height: auto;
@@ -440,6 +440,7 @@
   object-fit: contain;
   image-rendering: pixelated;
 }
+.word-breaker-eiai__sprite[data-ready="false"] { visibility: hidden; }
 
 .word-breaker-eiai::after {
   position: absolute;
@@ -1116,7 +1117,7 @@
   transform: translate(-50%, -50%);
   font-size: .6rem;
 }
-.word-breaker-finale__eiai .word-breaker-eiai__face {
+.word-breaker-finale__eiai .word-breaker-eiai__sprite {
   position: static;
   width: 36px;
   height: 36px;
