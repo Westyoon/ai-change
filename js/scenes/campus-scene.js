@@ -139,13 +139,19 @@ export function createCampusScene(context, { mode = "before" } = {}) {
         const marker = createElement("div", { className: "campus-marker", dataset: { kind: point.kind, id: point.id } });
         if(point.kind==="portal") {
           marker.setAttribute("aria-hidden","true");
-          // Indoor cues use the placed door's bounds, including the compact map
-          // scale. Outdoor entrances are part of their building image.
+          // Anchor a small pixel arrow above the actual doorway, rather than
+          // stretching a cue over the whole stair or door image.
           const bounds=map.layout?.items.find(item=>item.door
             &&Math.hypot(item.center.x-point.x,item.center.y-point.y)<1)??point.highlight;
-          if(!bounds)continue;
-          Object.assign(marker.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`,
-            zIndex:String(1001+Math.round(bounds.footY??bounds.y+bounds.height))});
+          const arrow=svgNode("svg"),outline=svgNode("path"),fill=svgNode("path");
+          arrow.classList.add("campus-portal-arrow");
+          arrow.setAttribute("viewBox","0 0 16 18");arrow.setAttribute("width","16");arrow.setAttribute("height","18");
+          arrow.setAttribute("focusable","false");arrow.setAttribute("shape-rendering","crispEdges");
+          outline.setAttribute("d","M5 0H11V8H16V11H14V13H12V15H10V17H9V18H7V17H6V15H4V13H2V11H0V8H5Z");
+          outline.setAttribute("fill","#392235");
+          fill.setAttribute("d","M6 1H10V9H14V10H12V12H10V14H9V16H7V14H6V12H4V10H2V9H6Z");
+          fill.setAttribute("fill","#fff5cc");arrow.append(outline,fill);marker.append(arrow);
+          Object.assign(marker.style,{left:`${bounds?bounds.x+bounds.width/2:point.x}px`,top:`${bounds?bounds.y-(map.layout?30:5):point.y-12}px`,zIndex:"3000"});
           world.append(marker);markers.set(point.id,marker);
           continue;
         } else marker.append(
