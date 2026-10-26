@@ -91,18 +91,18 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           });
           student.style.left = `${point.x-16}px`; student.style.top = `${point.y-48}px`;
           student.style.zIndex = String(1000+Math.round(point.y));
-          const figure = createCharacterActorElement({ local: true });
-          new CharacterView({ element: figure, worldSize: { width:32, height:48 } }).render({
-            appearance:createPlayerAppearance("purple",""),x:3.2,y:9.6,...actorSize,
-            footY:48,direction:"down",state:"idle",currentHealth:1,maxHealth:1,
+          const figure = createElement("img", {
+            className: "campus-student__sprite",
+            attributes: { src: "./assets/maps/npcs/college-student-bob-v1.png", alt: "", draggable: "false", "aria-hidden": "true" },
           });
-          figure.classList.remove("character-actor--local");
-          figure.removeAttribute("role");figure.removeAttribute("aria-label");figure.setAttribute("aria-hidden","true");
-          const filter=svgNode("filter"),flood=svgNode("feFlood"),clip=svgNode("feComposite");
+          const filter=svgNode("filter"),alpha=svgNode("feComponentTransfer"),cutoff=svgNode("feFuncA"),flood=svgNode("feFlood"),clip=svgNode("feComposite");
           const filterId=`${paletteId}-${point.id}`;
           filter.setAttribute("id",filterId);filter.setAttribute("color-interpolation-filters","sRGB");
-          clip.setAttribute("in2","SourceAlpha");clip.setAttribute("operator","in");
-          filter.append(flood,clip);paletteDefs.append(filter);
+          // A hard alpha cutoff keeps the generated sprite's soft fringe out of the silhouette.
+          alpha.setAttribute("in","SourceAlpha");alpha.setAttribute("result","student-alpha");
+          cutoff.setAttribute("type","discrete");cutoff.setAttribute("tableValues","0 1");alpha.append(cutoff);
+          clip.setAttribute("in2","student-alpha");clip.setAttribute("operator","in");
+          filter.append(alpha,flood,clip);paletteDefs.append(filter);
           students.set(point.id,{element:student,guardianEggId:npc?.guardianEggId,flood,filterId,number:point.studentNumber});
           student.append(figure);world.append(student);markers.set(point.id,student);
           continue;
@@ -142,10 +142,8 @@ export function createCampusScene(context, { mode = "before" } = {}) {
           for(const {element,guardianEggId,flood,filterId,number}of students.values()) {
             const egg=inventory.get(guardianEggId),resolved=egg?.acquired===true;
             element.dataset.resolved=String(resolved);
-            if(resolved) {
-              flood.setAttribute("flood-color",egg.color);
-              element.style.setProperty("--student-silhouette-filter",`url(#${filterId})`);
-            } else element.style.removeProperty("--student-silhouette-filter");
+            flood.setAttribute("flood-color",resolved?egg.color:"#1f1f1f");
+            element.style.setProperty("--student-silhouette-filter",`url(#${filterId})`);
             element.setAttribute("aria-label",resolved?`${egg.departmentName} 학생과 대화하기 · 해결 완료`:`학생 ${number}과 대화하기`);
           }
       };
