@@ -367,7 +367,7 @@ test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery
     assert.ok(root.querySelector(".word-breaker-joystick"));
     assert.equal(root.querySelectorAll(".word-breaker-guardian-chip").length, 5);
     const guardianArt = root.querySelectorAll(".word-breaker-guardian-art");
-    assert.equal(guardianArt.length, 15, "HUD, revival, and finale each render all five egg images");
+    assert.equal(guardianArt.length, 20, "HUD, revival, finale, and the final encouragement each render all five egg images");
     assert.deepEqual(
       [...new Set(guardianArt.map((image) => image.getAttribute("src")))],
       ["ds", "cs", "cse", "ai", "aids"]
@@ -707,12 +707,26 @@ test("Word Breaker adapter keeps pause, stagger, next-round, and terminal locks 
     assert.equal(player.dataset.knockedOut, "false");
     assert.equal(player.dataset.controlLocked, "true");
 
+    const story = root.querySelector(".guardian-story");
+    const continueButton = root.querySelector(".guardian-story__continue");
+    assert.equal(story.dataset.visible, "true");
+    assert.equal(root.querySelector(".guardian-story__voice").textContent, `“${configSource.rounds[0].recoveryMessage}”`);
+    const readingState = battle.getState();
+    frames.step(frameTime + 1_000);
+    assert.deepEqual(battle.getState(), readingState, "reading advances neither combat nor its timers");
+    frameTime += 1_000;
+
     assert.equal(battle.pause("MANUAL"), true);
     assert.equal(battle.getState().state, WORD_BREAKER_STATES.PAUSED);
     assert.equal(player.dataset.controlLocked, "true");
+    continueButton.dispatchEvent({ type: "click" });
+    assert.equal(story.dataset.visible, "true", "the story cannot resume combat through a host pause");
     assert.equal(battle.resume(), true);
     assert.equal(battle.getState().state, WORD_BREAKER_STATES.RUNNING);
     assert.equal(player.dataset.controlLocked, "true", "resuming does not clear the stagger lock");
+    assert.equal(story.dataset.visible, "true", "pause/resume preserves the unread encouragement");
+    continueButton.dispatchEvent({ type: "click" });
+    assert.equal(story.dataset.visible, "false");
 
     let transitionFrameTime = frameTime;
     for (let index = 0; index < 20 && battle.getState().roundIndex === 0; index += 1) {
@@ -737,6 +751,7 @@ test("Word Breaker adapter keeps pause, stagger, next-round, and terminal locks 
     assert.notEqual(root.firstElementChild, firstStage);
     assert.equal(firstStage.parentNode, null);
     assert.equal(root.querySelectorAll(".word-breaker-guardian-chip").length, 5);
+    assert.equal(root.querySelector(".guardian-story").dataset.visible, "false");
 
     battle.destroy();
     battle.destroy();
@@ -750,7 +765,61 @@ test("Word Breaker adapter keeps pause, stagger, next-round, and terminal locks 
   }
 });
 
-test("Word Breaker runtime delegates shared loop/input and contains no private modal or unsafe DOM path", async () => {
+test("all five guardian stories wait for confirmation and lead to the same final result", async () => {
+  const frames = installFrameHarness();
+  const root = frames.document.createElement("div");
+  const completions = [];
+  const battle = createBattle({ root, input: new FakeInput(), events: new EventBus(), onComplete: (...args) => completions.push(args) });
+  try {
+    await battle.init({
+      ...configSource, roundDurationMs: 20, omenDurationMs: 2, overloadGraceMs: 3,
+      overloadAttackLeadMs: 1, collapseImpactMs: 100, guardianRevealMs: 100,
+      recoveryHoldMs: 5, finaleDurationMs: 100, simulationStepMs: 1, random: () => .5,
+      rounds: configSource.rounds.map(round => ({ ...round, gimmick: {
+        ...round.gimmick, telegraphMs: 1, forceAtMs: 8, spawnIntervalMs: 1_000,
+        glyphSpeed: 5_000, breakableSurgeCount: 0,
+      } })),
+    });
+    battle.start({ attemptId: "guardian-story:five" });
+    let time = 0;
+    const step = () => frames.step(time += 16);
+    const story = root.querySelector(".guardian-story");
+    for (const [index, round] of configSource.rounds.entries()) {
+      for (let framesLeft = 500; story.dataset.visible !== "true" && framesLeft > 0; framesLeft--) step();
+      assert.equal(story.dataset.visible, "true", `${round.guardian.code} has its own story`);
+      assert.equal(root.querySelector(".guardian-story__egg").getAttribute("src"), round.guardian.imageSrc);
+      assert.equal(root.querySelector(".guardian-story__voice").textContent, `“${round.recoveryMessage}”`);
+      assert.equal(root.querySelector(".guardian-story__progress").textContent, `수호알 ${index + 1} / 5`);
+      assert.equal(story.dataset.final, String(index === 4));
+      const frozen = battle.getState();
+      for (let wait = 0; wait < 40; wait++) step();
+      assert.deepEqual(battle.getState(), frozen, "reading cannot cost lives or skip a scene");
+      root.querySelector(".guardian-story__continue").dispatchEvent({ type: "click" });
+      assert.equal(story.dataset.visible, "false");
+    }
+    for (let framesLeft = 500; !completions.length && framesLeft > 0; framesLeft--) step();
+    assert.equal(completions.length, 1);
+    assert.equal(battle.getState().metrics.guardiansCollected, 5);
+    assert.equal(battle.getState().state, WORD_BREAKER_STATES.COMPLETED);
+    battle.restart({ attemptId: "guardian-story:restart" });
+    for (let framesLeft = 500; root.querySelector(".guardian-story").dataset.visible !== "true" && framesLeft > 0; framesLeft--) step();
+    assert.equal(root.querySelector(".guardian-story").dataset.visible, "true");
+    const detachedContinue = root.querySelector(".guardian-story__continue");
+    battle.restart({ attemptId: "guardian-story:reset-unread" });
+    assert.equal(root.querySelector(".guardian-story").dataset.visible, "false");
+    assert.equal(battle.getState().roundIndex, 0);
+    for (let framesLeft = 500; root.querySelector(".guardian-story").dataset.visible !== "true" && framesLeft > 0; framesLeft--) step();
+    detachedContinue.dispatchEvent({ type: "click" });
+    assert.equal(root.querySelector(".guardian-story").dataset.visible, "true", "a detached story button cannot advance a new attempt");
+  } finally {
+    battle.destroy();
+    assert.equal(root.children.length, 0);
+    assert.equal(frames.callbacks.size, 0);
+    frames.restore();
+  }
+});
+
+test("Word Breaker runtime delegates shared loop/input and contains no private result modal or unsafe DOM path", async () => {
   const [battleSource, encounterSource, viewSource, cssSource] = await Promise.all([
     readFile(new URL("js/battle/postgame/bosses/word-breaker/battle.js", projectRoot), "utf8"),
     readFile(new URL("js/battle/postgame/bosses/word-breaker/encounter.js", projectRoot), "utf8"),

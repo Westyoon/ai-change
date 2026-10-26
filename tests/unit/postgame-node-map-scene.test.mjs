@@ -838,10 +838,10 @@ test("Story finale waits without simulation until explicitly started, including 
     start.dispatchEvent({ type: "click" });
     assert.equal(root.querySelector(".battle-start-guide"), null);
     assert.equal(game.hidden, false);
-    assert.equal(game.dataset.state, "READY", "the three opening lines must finish before combat starts");
+    assert.equal(game.dataset.state, "READY", "the opening dialogue must finish before combat starts");
     const intro = root.querySelector(".eiai-battle-intro").querySelector(".story-dialogue-scene");
     assert.ok(intro);
-    for (let line = 0; line < 3; line++) intro.dispatchEvent({ type: "click", detail: 1 });
+    for (let line = 0; line < 4; line++) intro.dispatchEvent({ type: "click", detail: 1 });
     assert.equal(game.dataset.state, "RUNNING");
     assert.equal(environment.scheduledFrameCount(), 1);
     start.dispatchEvent({ type: "click" });

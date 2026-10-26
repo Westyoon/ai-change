@@ -2003,6 +2003,7 @@ function createBattlePlayScene(context, battle) {
         }, [
           createElement("h2", { text: "게임 방법" }),
           createElement("p", { text: "이아이의 말 사이를 움직이며, 노란색으로 표시된 말을 부숴 주세요." }),
+          createElement("p", { text: "수호알이 깨어나면 전투가 잠시 멈춰요. 벗의 응원을 읽고 버튼이나 스페이스바로 이어가 주세요." }),
           createElement("ol", {}, [
             createElement("li", { text: "PC는 WASD·방향키, 휴대폰은 왼쪽 아래 조이스틱으로 이동합니다." }),
             createElement("li", { text: "빛은 위쪽으로 자동 발사됩니다. 노란색 글자 아래로 이동해 여러 번 맞히세요." }),

@@ -1646,3 +1646,78 @@
   word-break: keep-all;
   overflow-wrap: break-word;
 }
+
+/* Reading a guardian's encouragement is a quiet scene between combat beats. */
+.guardian-story {
+  --guardian-color: #fcb5dd;
+  position: absolute;
+  z-index: 6000;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 12px;
+  overflow: auto;
+  background: rgb(16 9 29 / 94%);
+  color: #fff8f2;
+  text-align: center;
+}
+.guardian-story[data-visible="true"] { display: grid; }
+.guardian-story__panel {
+  width: min(100%, 560px);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(14px, 2.5vw, 26px);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  border: 3px solid var(--guardian-color);
+  background: #21132f;
+  box-shadow: 0 5px 0 #10091d, inset 0 0 30px #ffffff05;
+}
+.guardian-story__panel p, .guardian-story__panel h2, .guardian-story__panel blockquote { margin: 0; }
+.guardian-story__progress { color: var(--guardian-color); font-size: .8rem; }
+.guardian-story__light {
+  display: grid;
+  place-items: center;
+  width: clamp(100px, 17vh, 142px);
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--guardian-color) 40%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--guardian-color) 24%, transparent), transparent 72%);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--guardian-color) 16%, transparent);
+}
+.guardian-story__egg { width: 82%; height: 82%; object-fit: contain; image-rendering: pixelated; }
+.guardian-story__department { color: #d7c5d6; font-size: .8rem; word-break: keep-all; }
+.guardian-story .guardian-story__title { font-family: var(--font-display); font-size: clamp(1rem, 2.3vw, 1.35rem); font-weight: 400; line-height: 1.5; word-break: keep-all; }
+.guardian-story__memory, .guardian-story__bridge { font-size: clamp(.8rem, 1.6vw, .95rem); line-height: 1.7; word-break: keep-all; overflow-wrap: break-word; }
+.guardian-story__memory { color: #d7c5d6; }
+.guardian-story__voice {
+  width: 100%;
+  padding: 14px 12px;
+  border-top: 1px solid var(--guardian-color);
+  border-bottom: 1px solid var(--guardian-color);
+  color: #fff5cc;
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: 400;
+  line-height: 1.7;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.guardian-story__all { display: none; gap: 10px; }
+.guardian-story[data-final="true"] .guardian-story__all { display: flex; }
+.guardian-story__all img { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; }
+.guardian-story__continue { max-width: 100%; font-size: .9rem; white-space: normal; word-break: keep-all; }
+.guardian-story__hint { color: #baa4bd; font-size: .65rem; }
+.guardian-story[data-visible="true"] .guardian-story__egg { animation: guardian-story-arrive 700ms ease-out both; }
+@keyframes guardian-story-arrive {
+  from { opacity: 0; transform: translateY(18px) scale(.75); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 480px) {
+  .guardian-story__panel { gap: 10px; }
+  .guardian-story__continue { font-size: .8rem; padding: 10px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guardian-story[data-visible="true"] .guardian-story__egg { animation: none; }
+}

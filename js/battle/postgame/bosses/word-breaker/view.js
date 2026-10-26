@@ -3,6 +3,7 @@ import {
   createCharacterActorElement,
 } from "../../../character/character-view.js";
 import { EIAI_IMAGE_SRC } from "../../../../ui/festival-art.js";
+import { guardianSupportStory } from "./guardian-story.js";
 
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -69,12 +70,13 @@ function statusText(status) {
 }
 
 export class WordBreakerView {
-  constructor({ config, localPlayerId = "player-1", document: documentRef = globalThis.document } = {}) {
+  constructor({ config, localPlayerId = "player-1", document: documentRef = globalThis.document, onGuardianContinue = () => {} } = {}) {
     if (!config?.arena) throw new Error("WordBreakerView requires normalized config.");
     this.config = config;
     this.arena = config.arena;
     this.guardians = config.rounds.map(({ guardian }) => guardian);
     this.localPlayerId = localPlayerId;
+    this.onGuardianContinue = onGuardianContinue;
     this.document = documentRef;
     this.createElement = createElementFactory(documentRef);
     this.phraseGlyphElements = new Map();
@@ -93,6 +95,36 @@ export class WordBreakerView {
   mount(parent) {
     if (!parent?.append) throw new Error("WordBreakerView.mount(parent) requires a DOM parent.");
     parent.append(this.element);
+  }
+
+  showGuardianStory(round, progress) {
+    const story = guardianSupportStory(round, progress);
+    this.storyPreviousFocus = this.document.activeElement;
+    this.guardianStory.dataset.visible = "true";
+    this.guardianStory.dataset.final = String(story.final);
+    this.guardianStory.setAttribute("aria-hidden", "false");
+    this.guardianStory.style.setProperty("--guardian-color", story.guardian.color);
+    this.guardianStoryProgress.textContent = story.progress;
+    this.guardianStoryImage.setAttribute("src", story.guardian.imageSrc);
+    this.guardianStoryTitle.textContent = `${story.guardian.label}이 깨어났어!`;
+    this.guardianStoryDepartment.textContent = story.department;
+    this.guardianStoryMemory.textContent = story.memory;
+    this.guardianStoryVoice.textContent = `“${story.voice}”`;
+    this.guardianStoryBridge.textContent = story.bridge;
+    this.guardianStoryContinue.textContent = story.continueLabel;
+    this.guardianStory.scrollTop = 0;
+    this.guardianStory.querySelector(".guardian-story__panel").scrollTop = 0;
+    this.showEiaiCaption("");
+    this.guardianStoryContinue.focus?.({ preventScroll: true });
+  }
+
+  hideGuardianStory() {
+    this.guardianStory.dataset.visible = "false";
+    this.guardianStory.setAttribute("aria-hidden", "true");
+    this.storyPreviousFocus?.isConnected
+      ? this.storyPreviousFocus.focus?.({ preventScroll: true })
+      : this.world.focus?.({ preventScroll: true });
+    this.storyPreviousFocus = null;
   }
 
   #createEiaiSprite() {
@@ -356,6 +388,8 @@ export class WordBreakerView {
   }
 
   destroy() {
+    this.onGuardianContinue = () => {};
+    this.storyPreviousFocus = null;
     this.hitAnimation?.cancel?.();
     this.element?.remove();
     this.element = null;
@@ -673,7 +707,7 @@ export class WordBreakerView {
     this.characterView = new CharacterView({ element: this.playerActor, worldSize: this.arena });
     this.world = element("div", {
       className: "word-breaker-world",
-      attributes: { role: "application", "aria-label": "마음의 말 깨부수기 전투 필드" },
+      attributes: { role: "application", tabindex: "-1", "aria-label": "마음의 말 깨부수기 전투 필드" },
     }, [
       grid,
       this.eiai,
@@ -697,11 +731,46 @@ export class WordBreakerView {
       attributes: { "aria-label": "모바일 조작" },
     }, [this.joystickBase]);
 
+    this.guardianStoryProgress = element("p", { className: "guardian-story__progress" });
+    this.guardianStoryImage = element("img", { className: "guardian-story__egg", attributes: { alt: "", width: "1254", height: "1254", draggable: "false" } });
+    this.guardianStoryTitle = element("h2", { className: "guardian-story__title" });
+    this.guardianStoryDepartment = element("p", { className: "guardian-story__department" });
+    this.guardianStoryMemory = element("p", { className: "guardian-story__memory" });
+    this.guardianStoryVoice = element("blockquote", { className: "guardian-story__voice" });
+    this.guardianStoryBridge = element("p", { className: "guardian-story__bridge" });
+    this.guardianStoryContinue = element("button", { className: "button button--primary guardian-story__continue", attributes: { type: "button" } });
+    this.guardianStoryContinue.addEventListener("click", () => this.onGuardianContinue());
+    this.guardianStory = element("section", {
+      className: "guardian-story", dataset: { visible: "false", final: "false" },
+      attributes: { role: "dialog", "aria-modal": "true", "aria-label": "수호알이 전하는 응원", "aria-hidden": "true" },
+    }, [element("div", { className: "guardian-story__panel" }, [
+      this.guardianStoryProgress,
+      element("div", { className: "guardian-story__light", attributes: { "aria-hidden": "true" } }, [this.guardianStoryImage]),
+      this.guardianStoryDepartment, this.guardianStoryTitle, this.guardianStoryMemory,
+      this.guardianStoryVoice, this.guardianStoryBridge,
+      element("div", { className: "guardian-story__all", attributes: { "aria-hidden": "true" } }, guardians.map(guardian => createGuardianArt(element, guardian))),
+      this.guardianStoryContinue,
+      element("p", { className: "guardian-story__hint", text: "클릭·터치 또는 Enter·스페이스바로 계속" }),
+    ])]);
+    this.guardianStory.addEventListener("keydown", event => {
+      if (this.guardianStory.dataset.visible !== "true") return;
+      if (["Escape", "KeyP"].includes(event.code)) return;
+      // Keep movement/confirmation keys out of the battle input while reading.
+      event.stopPropagation();
+      if (["Space", "Enter", "KeyE"].includes(event.code)) {
+        event.preventDefault();
+        if (!event.repeat) this.onGuardianContinue();
+      } else if (event.key === "Tab") {
+        event.preventDefault(); this.guardianStoryContinue.focus?.();
+      }
+    });
+
     return element("section", { className: "word-breaker-stage character-stage" }, [
       this.vitality,
       header,
       this.world,
       touchControls,
+      this.guardianStory,
     ]);
   }
 }

@@ -64,6 +64,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   let lastState = Object.freeze({ state: WORD_BREAKER_STATES.CREATED, disposed: false });
   let simulationRemainderMs = 0;
   let captions = null;
+  let guardianStoryActive = false;
   const soundtrack = new StorySoundtrack(audio);
 
   function render() {
@@ -74,7 +75,16 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   }
 
   function handleEncounterEvent(event) {
-    if (event.type === "round-start") {
+    if (event.type === "guardian-awakened" || event.type === "guardian-collected") {
+      guardianStoryActive = true;
+      simulationRemainderMs = 0;
+      system?.setControlLocked(true, "word-breaker-story");
+      system?.setJoystickVector({ x: 0, y: 0 });
+      input?.clear?.();
+      view?.showGuardianStory(config.rounds[event.roundIndex], { collectedCount: event.collectedCount, total: config.rounds.length });
+      soundtrack.play("ending"); soundtrack.chime();
+      if (event.type === "guardian-collected") system?.setControlLocked(true, "word-breaker-transition");
+    } else if (event.type === "round-start") {
       system?.setControlLocked(false, "word-breaker-transition");
       system?.setControlLocked(false, "word-breaker-stagger");
     } else if (event.type === "player-staggered") {
@@ -83,8 +93,6 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       system?.setControlLocked(true, "word-breaker-knockout");
     } else if (event.type === "recovery-start") {
       system?.setControlLocked(false, "word-breaker-knockout");
-    } else if (event.type === "guardian-collected") {
-      system?.setControlLocked(true, "word-breaker-transition");
     } else if (event.type === "finale") {
       captions?.stop();
       system?.setControlLocked(false, "word-breaker-transition");
@@ -98,6 +106,9 @@ export function createBattle({ root, input = null, events = null, onComplete = n
 
   function tick(deltaMs) {
     if (!encounter || !system) return;
+    // The player decides when to leave the story. Reading consumes no combat
+    // time, and a large frame cannot skip across multiple guardian scenes.
+    if (guardianStoryActive) { render(); return; }
     const simulationStepMs = config.simulationStepMs;
     const incomingMs = Math.max(0, Number.isFinite(deltaMs) ? deltaMs : 0);
     const accumulatedMs = simulationRemainderMs + incomingMs;
@@ -108,12 +119,13 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       const character = system.update(simulationStepMs);
       encounter.setPlayerBounds(character);
       const snapshot = encounter.tick(simulationStepMs);
+      if (guardianStoryActive) { simulationRemainderMs = 0; break; }
       if (snapshot.state !== WORD_BREAKER_STATES.RUNNING) {
         simulationRemainderMs = 0;
         break;
       }
     }
-    captions?.update(incomingMs);
+    if (!guardianStoryActive) captions?.update(incomingMs);
     render();
   }
 
@@ -130,6 +142,16 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       config,
       localPlayerId,
       document: root.ownerDocument ?? globalThis.document,
+      onGuardianContinue: () => {
+        if (!guardianStoryActive || encounter?.getSnapshot().state !== WORD_BREAKER_STATES.RUNNING) return;
+        guardianStoryActive = false;
+        simulationRemainderMs = 0;
+        input?.clear?.();
+        system?.setJoystickVector({ x: 0, y: 0 });
+        system?.setControlLocked(false, "word-breaker-story");
+        view?.hideGuardianStory();
+        soundtrack.play("battle");
+      },
     });
     view.mount(root);
     captions = new BattleCaptionDeck({ random: source?.captionRandom ?? Math.random, onCaption: (text) => view?.showEiaiCaption(text) });
@@ -175,6 +197,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
   }
 
   function teardownRuntime() {
+    guardianStoryActive = false;
     captions?.stop(); captions = null; soundtrack.stop();
     loop?.destroy();
     joystick?.destroy();
@@ -252,7 +275,7 @@ export function createBattle({ root, input = null, events = null, onComplete = n
       if (!encounter?.resume()) return false;
       system?.setControlLocked(false, "word-breaker-pause");
       loop?.resume();
-      soundtrack.play("battle");
+      soundtrack.play(guardianStoryActive ? "ending" : "battle");
       render();
       return true;
     },

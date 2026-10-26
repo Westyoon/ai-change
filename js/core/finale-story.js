@@ -2,6 +2,7 @@ export const EIAI_BATTLE_INTRO = Object.freeze([
   { speaker: "이아이", text: "여기까지 왜 왔어. 너희도 충분히 힘들잖아." },
   { speaker: "플레이어", text: "이번엔 네 이야기를 들으러 왔어." },
   { speaker: "이아이", text: "괜찮은 척하는 것도… 이제 너무 지쳐." },
+  { speaker: "플레이어", text: "우리가 만난 벗들의 마음이 수호알에 담겨 있어. 이번엔 그 응원을 너에게 전해 줄게." },
 ]);
 
 export const EIAI_RECOVERY = Object.freeze([

@@ -96,8 +96,8 @@ test("runtime config validator accepts the checked-in runtime data graph", async
   assert.equal(wordBreakerConfig.recoveryHoldMs, 1500);
   assert.equal(wordBreakerConfig.finaleDurationMs, 3200);
   assert.equal(wordBreakerConfig.guardian.speed, 300);
-  assert.equal(wordBreakerConfig.controls.pc.length, 4);
-  assert.equal(wordBreakerConfig.controls.mobile.length, 3);
+  assert.equal(wordBreakerConfig.controls.pc.length, 5);
+  assert.equal(wordBreakerConfig.controls.mobile.length, 4);
   assert.equal(wordBreakerConfig.resultPresentation.clear.title, "마음의 말 정화 완료");
   assert.deepEqual(wordBreakerConfig.rounds.map(({ phrases }) => phrases.length), [11, 11, 11, 11, 11]);
   assert.equal(roundPhrases.length, 55);
