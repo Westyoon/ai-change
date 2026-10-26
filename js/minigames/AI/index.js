@@ -16,6 +16,7 @@ const PROTOTYPE_CANVAS_WIDTH = 480;
 const PROTOTYPE_CANVAS_HEIGHT = 460;
 const FRAME_GAMEPLAY_TOP_FRACTION = 3 / 32;
 const FRAME_GAMEPLAY_HEIGHT_FRACTION = 23 / 32;
+const FLOWER_DISPLAY_SCALE = 1.35;
 
 export const hasInternalStartGate = true;
 
@@ -741,9 +742,11 @@ export function createMiniGame(context = {}) {
       canvasContext.save();
       canvasContext.imageSmoothingEnabled = false;
       if (canDrawImage(ball.image) && flowerSourceRect(ball.image, ball.isTarget)) {
+        // Enlarge the artwork upward from the track without changing capture timing.
+        const displaySize = ball.radius * 2 * FLOWER_DISPLAY_SCALE;
         drawImageIntoRect(canvasContext, ball.image, flowerSourceRect(ball.image, ball.isTarget), {
-          x: ball.x - ball.radius, y: ball.y - ball.radius,
-          width: ball.radius * 2, height: ball.radius * 2,
+          x: ball.x - displaySize / 2, y: ball.y + ball.radius - displaySize,
+          width: displaySize, height: displaySize,
         });
       }
       canvasContext.restore();
