@@ -1721,3 +1721,35 @@
 @media (prefers-reduced-motion: reduce) {
   .guardian-story[data-visible="true"] .guardian-story__egg { animation: none; }
 }
+
+/* On laptops the inventory can sit beside the portrait field, leaving the
+ * full available height for play at the same uniform world scale. */
+@media (min-width: 960px) and (min-height: 600px) {
+  .word-breaker-stage {
+    grid-template-areas: ". world hud";
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    padding: 10px 16px;
+    gap: 16px;
+  }
+  .word-breaker-hud {
+    align-self: end;
+    justify-self: end;
+    flex-direction: column;
+    align-items: flex-end;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0;
+    gap: 12px;
+  }
+  .word-breaker-hud .word-breaker-guardian-list {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .word-breaker-lock, .word-breaker-hud .word-breaker-guardian-chip { width: 44px; height: 44px; }
+  .word-breaker-touch-controls { grid-area: auto; position: absolute; }
+  .word-breaker-eiai { font-size: .8rem; }
+  .word-breaker-eiai > strong { white-space: nowrap; }
+}
