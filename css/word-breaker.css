@@ -1635,7 +1635,7 @@
 .word-breaker-stage > .word-breaker-vitality { z-index: 500; }
 
 /* Keep the inventory out of the opening dialogue, reserving its bottom row. */
-.battle-stage[data-showing-dialogue="true"] .word-breaker-hud {
+.battle-stage[data-showing-dialogue="true"] :is(.word-breaker-hud, .word-breaker-touch-controls) {
   visibility: hidden;
   pointer-events: none;
 }
