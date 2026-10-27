@@ -423,6 +423,7 @@ export class WordBreakerView {
   #renderPhrases(phrases = []) {
     const activeGlyphs = new Set();
     const activeReframes = new Set();
+    const reframeRows = [];
     for (const phrase of Array.isArray(phrases) ? phrases : []) {
       const tone = String(phrase.tone ?? "negative");
       for (const glyph of Array.isArray(phrase.glyphs) ? phrase.glyphs : []) {
@@ -453,14 +454,27 @@ export class WordBreakerView {
           reframe = this.createElement("p", {
             className: "word-breaker-reframe",
             attributes: { "aria-hidden": "true" },
-          });
-          this.phraseLayer.append(reframe);
+          }, [this.createElement("span", { className: "word-breaker-reframe__text" })]);
+          this.reframeLayer.append(reframe);
           this.phraseReframeElements.set(phrase.id, reframe);
         }
-        reframe.textContent = String(phrase.reframe ?? "");
-        positionRect(reframe, phrase, this.arena);
+        reframe.firstElementChild.textContent = String(phrase.reframe ?? "");
+        // A reply is a whole, non-collidable sentence. Its width must not be
+        // inherited from the moving attack or its individual target glyphs.
+        const centerY = finite(phrase.y) + finite(phrase.height) / 2 - finite(this.arena.y);
+        reframeRows.push({ element: reframe, centerY });
       }
     }
+    // Keep simultaneous replies apart without measuring layout on every frame.
+    // The combat itself still uses the untouched phrase and glyph rectangles.
+    let previousTop = null;
+    reframeRows.sort((a, b) => a.centerY - b.centerY).forEach(({ element, centerY }, index) => {
+      const lower = previousTop ? `calc(${previousTop} + 64px)` : "32px";
+      const bottomSpace = 32 + (reframeRows.length - index - 1) * 64;
+      const top = `clamp(${lower}, ${percent(centerY, this.arena.height)}, calc(100% - ${bottomSpace}px))`;
+      element.style.setProperty("--reframe-top", top);
+      previousTop = top;
+    });
     for (const [id, node] of this.phraseGlyphElements) {
       if (activeGlyphs.has(id)) continue;
       node.remove();
@@ -645,6 +659,7 @@ export class WordBreakerView {
       element("strong", { text: "X알 · 이아이" }),
     ]);
     this.phraseLayer = element("div", { className: "word-breaker-phrases", attributes: { "aria-hidden": "true" } });
+    this.reframeLayer = element("div", { className: "word-breaker-reframes", attributes: { "aria-hidden": "true" } });
     this.overloadLayer = element("div", {
       className: "word-breaker-overload-glyphs",
       attributes: { "aria-hidden": "true" },
@@ -718,6 +733,7 @@ export class WordBreakerView {
       this.phraseLayer,
       this.overloadLayer,
       this.shotLayer,
+      this.reframeLayer,
       this.revivalGuardians,
       this.finaleOverlay,
       this.playerActor,

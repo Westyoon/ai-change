@@ -254,6 +254,27 @@ test("Eiai's voice uses a separate caption track and yields to guardian stories"
   } finally { frames.restore(); }
 });
 
+test("purified replies keep one whole sentence without changing combat rectangles", () => {
+  const frames = installFrameHarness();
+  try {
+    const view = new WordBreakerView({ config, document: frames.document });
+    const phrase = { id: "purified", tone: "reframed", x: 350, y: 790, width: 65, height: 28, hp: 0, reframe: "분포부터 보고 하나씩 정리하면 돼.", glyphs: [] };
+    const before = JSON.stringify(phrase);
+    view.render({ phase: "PLAY", phrases: [phrase] });
+    const reply = view.reframeLayer.querySelector(".word-breaker-reframe");
+    assert.ok(reply);
+    assert.equal(reply.firstElementChild.textContent, phrase.reframe);
+    assert.equal(reply.parentNode, view.reframeLayer);
+    assert.notEqual(reply.parentNode, view.phraseLayer, "the whole reply is separate from attack glyphs");
+    assert.equal(JSON.stringify(phrase), before, "presentation does not rewrite the gameplay bounds");
+    view.render({ phase: "PLAY", phrases: [phrase] });
+    assert.equal(view.reframeLayer.querySelector(".word-breaker-reframe"), reply, "repeated snapshots keep one stable sentence node");
+    view.render({ phase: "PLAY", phrases: [] });
+    assert.equal(view.reframeLayer.children.length, 0);
+    view.destroy();
+  } finally { frames.restore(); }
+});
+
 test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery flow", () => {
   const frames = installFrameHarness();
   try {
