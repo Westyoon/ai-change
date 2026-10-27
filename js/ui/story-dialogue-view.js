@@ -9,6 +9,7 @@ export function createStoryDialogueView({
   onComplete,
   speakerForLine = (line) => line?.speaker ?? "",
   showEiaiPortrait = true,
+  eiaiPortraitSrc = EIAI_IMAGE_SRC,
 } = {}) {
   if (!root || !Array.isArray(lines) || lines.length === 0) {
     throw new TypeError("Story dialogue requires a root and at least one line.");
@@ -34,7 +35,7 @@ export function createStoryDialogueView({
   const shell = createElement("div", { className: "dialogue-shell" });
   const eiaiPortrait = createElement("img", {
     className: "story-dialogue__eiai", hidden: true,
-    attributes: { src: EIAI_IMAGE_SRC, alt: "", width: "256", height: "256", draggable: "false", "aria-hidden": "true" },
+    attributes: { src: eiaiPortraitSrc, alt: "", width: "256", height: "256", draggable: "false", "aria-hidden": "true" },
   });
   const copy = createElement("div", { className: "dialogue-copy" });
   const speaker = createElement("p", { className: "dialogue-speaker" });

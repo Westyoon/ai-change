@@ -34,6 +34,7 @@ import { GameLoop } from "../core/game-loop.js";
 import { INPUT_ACTIONS } from "../core/input-manager.js";
 import { OUTRO_STORY_ID, isFestivalOpen, markStorySeen } from "../core/story-progress.js";
 import { EIAI_BATTLE_INTRO } from "../core/finale-story.js";
+import { EIAI_X_EGG_SRC } from "../ui/festival-art.js";
 import { createStoryDialogueView } from "../ui/story-dialogue-view.js";
 import { rectsOverlap } from "../map/collision.js";
 import { createResultOverlay } from "../ui/result-overlay.js";
@@ -2002,6 +2003,7 @@ function createBattlePlayScene(context, battle) {
           attributes: { "aria-label": "마음의 말 부수기 게임 방법" },
         }, [
           createElement("h2", { text: "게임 방법" }),
+          createElement("p", { text: "대강당 안, 걱정에 사로잡혀 X알로 변한 이아이와 마주했어요." }),
           createElement("p", { text: "이아이의 말 사이를 움직이며, 노란색으로 표시된 말을 부숴 주세요." }),
           createElement("p", { text: "수호알이 깨어나면 전투가 잠시 멈춰요. 벗의 응원을 읽고 버튼이나 스페이스바로 이어가 주세요." }),
           createElement("ol", {}, [
@@ -2018,7 +2020,7 @@ function createBattlePlayScene(context, battle) {
           gameView.hidden = false;
           const introRoot = createElement("div", { className: "eiai-battle-intro" });
           stage.append(introRoot);
-          introDialogue = createStoryDialogueView({ root: introRoot, lines: EIAI_BATTLE_INTRO, onComplete: () => {
+          introDialogue = createStoryDialogueView({ root: introRoot, lines: EIAI_BATTLE_INTRO, eiaiPortraitSrc: EIAI_X_EGG_SRC, onComplete: () => {
             introDialogue?.destroy(); introDialogue = null; introRoot.remove();
             if (destroyed || signal.aborted) return;
             delete stage.dataset.showingDialogue;

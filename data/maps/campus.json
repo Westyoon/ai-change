@@ -597,9 +597,10 @@
         {
           "id": "final",
           "kind": "final",
+          "highlight": { "x": 817, "y": 286, "width": 36, "height": 48 },
           "x": 835,
           "y": 365,
-          "label": "이아이의 이야기"
+          "label": "대강당 들어가기"
         },
         {
           "id": "data-sphinx",

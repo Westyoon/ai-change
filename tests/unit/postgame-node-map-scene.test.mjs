@@ -841,6 +841,7 @@ test("Story finale waits without simulation until explicitly started, including 
     assert.equal(game.dataset.state, "READY", "the opening dialogue must finish before combat starts");
     const intro = root.querySelector(".eiai-battle-intro").querySelector(".story-dialogue-scene");
     assert.ok(intro);
+    assert.ok(intro.querySelector(".story-dialogue__eiai").getAttribute("src").endsWith("/assets/images/story-eggs/xr-egg.png"), "inside the auditorium Eiai is still the dark X egg");
     for (let line = 0; line < 4; line++) intro.dispatchEvent({ type: "click", detail: 1 });
     assert.equal(game.dataset.state, "RUNNING");
     assert.equal(environment.scheduledFrameCount(), 1);

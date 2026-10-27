@@ -2,7 +2,7 @@ import {
   CharacterView,
   createCharacterActorElement,
 } from "../../../character/character-view.js";
-import { EIAI_IMAGE_SRC } from "../../../../ui/festival-art.js";
+import { EIAI_X_EGG_SRC } from "../../../../ui/festival-art.js";
 import { guardianSupportStory } from "./guardian-story.js";
 
 function finite(value, fallback = 0) {
@@ -137,11 +137,11 @@ export class WordBreakerView {
     image.addEventListener("error", () => {
       if (image.dataset.retried === "true") return;
       image.dataset.retried = "true";
-      const retry = new URL(EIAI_IMAGE_SRC);
+      const retry = new URL(EIAI_X_EGG_SRC);
       retry.searchParams.set("retry", "1");
       image.setAttribute("src", retry.href);
     });
-    image.setAttribute("src", EIAI_IMAGE_SRC);
+    image.setAttribute("src", EIAI_X_EGG_SRC);
     return image;
   }
 
@@ -642,7 +642,7 @@ export class WordBreakerView {
       attributes: { "aria-hidden": "true" },
     }, [
       this.#createEiaiSprite(),
-      element("strong", { text: "이아이" }),
+      element("strong", { text: "X알 · 이아이" }),
     ]);
     this.phraseLayer = element("div", { className: "word-breaker-phrases", attributes: { "aria-hidden": "true" } });
     this.overloadLayer = element("div", {

@@ -185,6 +185,7 @@
   position: static; inset: auto; display: block; flex: none; width: 56px;
 }
 .story-ending__companions .eiai-art { position: static; inset: auto; flex: none; }
+.story-ending:is([data-phase="recovery"], [data-phase="unlocking"]) .story-ending__companions .eiai-art { visibility: hidden; }
 .story-ending__content { margin-top: clamp(12px, 3vh, 32px); align-self: end; }
 .story-ending__content[data-scene-layout="story-dialogue"] {
   margin-top: 0;

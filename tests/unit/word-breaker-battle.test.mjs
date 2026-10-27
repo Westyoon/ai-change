@@ -211,10 +211,10 @@ test("Eiai sprites recover a failed image request once without a large placehold
   try {
     const view = new WordBreakerView({ config, document: frames.document });
     const sprites = view.element.querySelectorAll(".word-breaker-eiai__sprite");
-    assert.equal(sprites.length, 2, "battle and finale both use the supplied art");
+    assert.equal(sprites.length, 2, "battle and finale both keep Eiai in X-egg form");
     for (const sprite of sprites) {
       const original = sprite.getAttribute("src");
-      assert.equal(new URL(original).pathname.endsWith("/assets/images/eiai-pixel.png"), true);
+      assert.equal(new URL(original).pathname.endsWith("/assets/images/story-eggs/xr-egg.png"), true);
       assert.equal(sprite.getAttribute("width"), "56");
       assert.equal(sprite.getAttribute("height"), "56");
       assert.equal(sprite.dataset.ready, "false");

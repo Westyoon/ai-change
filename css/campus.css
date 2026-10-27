@@ -52,29 +52,21 @@
 .campus-student:focus-visible .campus-student__sprite,
 .campus-student[data-near="true"] .campus-student__sprite { filter:var(--student-silhouette-filter,brightness(0) invert(.12)) drop-shadow(0 0 1px #fff5cc); }
 .campus-student:focus-visible { outline:1px solid #fff5cc; outline-offset:2px; }
-.campus-eiai {
-  position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center;
-  width: 42px; min-width: 0; min-height: 0; padding: 0; border: 0;
-  background: transparent; box-shadow: none; cursor: pointer; touch-action: manipulation;
-}
-.campus-eiai img { display: block; width: 42px; height: 42px; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
-.campus-eiai span { font-size: 6px; color: #fff8f2; text-shadow: 1px 1px #201c18; }
-.campus-eiai[data-near="true"] img, .campus-eiai:focus-visible img { filter: drop-shadow(0 0 1px #fff5cc); }
 .campus-marker { position: absolute; transform: translate(-50%, -100%); display: grid; justify-items: center; gap: 2px; z-index: 2000; pointer-events: none; }
 .campus-marker__icon { display: grid; place-items: center; width: 13px; height: 16px; font-size: 11px; color: #fff5cc; background: #502a47; border: 1px solid #ffdf71; }
 .campus-marker__label { padding: 2px 4px; font-size: 6px; white-space: nowrap; background: #fff7e6; color: #392235; border: 1px solid #694232; }
 .campus-marker[data-near="true"] .campus-marker__icon { background: #c72d72; }
 .campus-marker[data-kind="field"] .campus-marker__icon { border-radius: 40%; color: white; background: #231b3b; }
-.campus-marker[data-kind="portal"] {
+.campus-entry-marker {
   display: block; width: 16px; height: 18px; visibility: hidden;
   border: 0; outline: 0; box-shadow: none;
 }
-.campus-marker[data-kind="portal"][data-near="true"] { visibility: visible; }
+.campus-entry-marker[data-near="true"] { visibility: visible; }
 .campus-portal-arrow { display: block; width: 16px; height: 18px; image-rendering: pixelated; }
-.campus-marker[data-kind="portal"][data-near="true"] .campus-portal-arrow { animation: campus-entry-arrow 900ms steps(2, end) infinite; }
+.campus-entry-marker[data-near="true"] .campus-portal-arrow { animation: campus-entry-arrow 900ms steps(2, end) infinite; }
 @keyframes campus-entry-arrow { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
-  .campus-marker[data-kind="portal"][data-near="true"] .campus-portal-arrow { animation: none; }
+  .campus-entry-marker[data-near="true"] .campus-portal-arrow { animation: none; }
 }
 .campus-hud {
   position: absolute; z-index: 3500; top: 14px; left: 14px; right: 14px;
