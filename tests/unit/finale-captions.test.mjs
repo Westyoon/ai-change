@@ -4,14 +4,14 @@ import { BattleCaptionDeck, EIAI_BATTLE_CAPTIONS } from "../../js/core/finale-st
 import { resolveBattleMenuAccess } from "../../js/scenes/main-menu-scene.js";
 import { isFestivalOpen } from "../../js/core/story-progress.js";
 
-test("combat captions show every 8–12 seconds, disappear after five seconds, and never repeat", () => {
+test("combat captions allow 6.5 seconds to read, appear every 8–12 seconds, and never repeat", () => {
   const captions = [];
   const deck = new BattleCaptionDeck({ random: () => .5, onCaption: (text) => captions.push(text) });
   deck.update(9999); assert.deepEqual(captions, []);
   for (let i = 0; i < 10; i++) {
-    deck.update(i === 0 ? 1 : 5000);
+    deck.update(i === 0 ? 1 : 3500);
     assert.ok(captions.at(-1));
-    deck.update(4999); assert.ok(captions.at(-1));
+    deck.update(6499); assert.ok(captions.at(-1));
     deck.update(1); assert.equal(captions.at(-1), "");
   }
   const spoken = captions.filter(Boolean);

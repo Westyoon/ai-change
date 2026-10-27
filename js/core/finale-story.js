@@ -49,7 +49,7 @@ export class BattleCaptionDeck {
     if (this.remaining.length && this.elapsed >= this.nextAt) {
       const index = Math.min(this.remaining.length - 1, Math.floor(this.random() * this.remaining.length));
       this.onCaption(this.remaining.splice(index, 1)[0]);
-      this.hideAt = this.elapsed + 5000;
+      this.hideAt = this.elapsed + 6500;
       this.nextAt = this.elapsed + 8000 + this.random() * 4000;
     }
   }

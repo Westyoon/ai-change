@@ -441,6 +441,7 @@
   image-rendering: pixelated;
 }
 .word-breaker-eiai__sprite[data-ready="false"] { visibility: hidden; }
+.word-breaker-eiai > strong { white-space: nowrap; }
 
 .word-breaker-eiai::after {
   position: absolute;
@@ -1726,7 +1727,7 @@
  * full available height for play at the same uniform world scale. */
 @media (min-width: 960px) and (min-height: 600px) {
   .word-breaker-stage {
-    grid-template-areas: ". world hud";
+    grid-template-areas: "caption world hud";
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     padding: 10px 16px;
@@ -1751,5 +1752,81 @@
   .word-breaker-lock, .word-breaker-hud .word-breaker-guardian-chip { width: 44px; height: 44px; }
   .word-breaker-touch-controls { grid-area: auto; position: absolute; }
   .word-breaker-eiai { font-size: .8rem; }
-  .word-breaker-eiai > strong { white-space: nowrap; }
+}
+
+/* The voice belongs to its own dialogue track, outside the attack field. */
+.eiai-battle-caption {
+  grid-area: hud;
+  position: relative;
+  z-index: 25;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-rows: 32px auto;
+  gap: 8px 10px;
+  align-content: center;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: 2px solid #f3a8cd;
+  border-radius: 2px;
+  background: #241a35;
+  color: #fff8f2;
+  box-shadow: 0 3px 0 #10091d;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(5px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 220ms ease, visibility 0s linear 220ms;
+}
+.eiai-battle-caption[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+.eiai-caption__portrait { display: block; width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; }
+.eiai-caption__portrait[data-ready="false"] { visibility: hidden; }
+.eiai-battle-caption .eiai-caption__speaker { align-self: center; margin: 0; color: #f3a8cd; font-size: .8rem; }
+.eiai-battle-caption .eiai-caption__text {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: clamp(.85rem, 1.5vw, 1rem);
+  font-weight: 400;
+  line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+@media (max-width: 959px), (max-height: 599px) {
+  .word-breaker-stage { grid-template-rows: minmax(0, 1fr) 120px auto; }
+  .word-breaker-touch-controls { position: absolute; bottom: 138px; }
+  .word-breaker-hud { align-self: center; transition: visibility 0s linear 220ms; }
+  .word-breaker-stage[data-eiai-speaking="true"] .word-breaker-hud { visibility: hidden; transition-delay: 0s; }
+}
+@media (max-width: 360px) {
+  .word-breaker-stage { grid-template-rows: minmax(0, 1fr) 144px auto; }
+  .word-breaker-touch-controls { bottom: 162px; }
+}
+@media (min-width: 960px) and (min-height: 600px) {
+  .eiai-battle-caption { grid-area: caption; align-self: center; justify-self: center; width: min(320px, 100%); padding: 16px; }
+  .word-breaker-touch-controls { right: auto; left: 16px; bottom: 16px; min-height: 0; padding: 0; border: 0; background: transparent; }
+}
+@media (min-width: 700px) and (max-height: 599px) {
+  .word-breaker-stage {
+    grid-template-areas: ". world hud";
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 16px;
+  }
+  .word-breaker-world { min-height: 0; }
+  .eiai-battle-caption { align-self: center; }
+  .word-breaker-hud { align-self: end; flex-direction: column; align-items: flex-end; min-width: 0; max-width: 100%; }
+  .word-breaker-hud .word-breaker-guardian-list { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; gap: 8px; }
+  .word-breaker-lock, .word-breaker-hud .word-breaker-guardian-chip { width: 34px; height: 34px; }
+  .word-breaker-touch-controls { grid-area: auto; right: auto; left: 16px; bottom: 16px; min-height: 0; padding: 0; border: 0; background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eiai-battle-caption { transition: none; transform: none; }
 }

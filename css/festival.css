@@ -137,7 +137,6 @@
 .eiai-battle-intro__egg { width: min(120px, 70%); height: 140px; object-fit: contain; filter: drop-shadow(0 0 22px #160e22); image-rendering: pixelated; }
 .eiai-battle-intro__locks { display: flex; justify-content: center; gap: 8px; }
 .eiai-battle-intro__locks img { width: 24px; height: 30px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 7px #ffe8a4); }
-.eiai-battle-caption { position: absolute; z-index: 24; top: 18%; right: 4%; max-width: 76%; margin: 0; padding: 10px 12px; border-radius: 12px; background: #201527d9; color: #fff7e9; font-size: clamp(.65rem, 1.8vw, .88rem); line-height: 1.6; pointer-events: none; }
 @keyframes embryo-float { 50% { transform: translateY(-9px); } }
 @keyframes embryo-glow { to { opacity: .55; transform: scale(.93); } }
 @keyframes flower-lock-open { 55% { filter: brightness(2) drop-shadow(0 0 16px #ffe7a6); } to { opacity: 0; filter: brightness(3); } }

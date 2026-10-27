@@ -233,6 +233,27 @@ test("Eiai sprites recover a failed image request once without a large placehold
   }
 });
 
+test("Eiai's voice uses a separate caption track and yields to guardian stories", () => {
+  const frames = installFrameHarness();
+  try {
+    const view = new WordBreakerView({ config, document: frames.document });
+    assert.equal(view.eiaiCaption.parentNode, view.element, "speech is outside the attack field");
+    assert.notEqual(view.eiaiCaption.parentNode, view.world);
+    view.showEiaiCaption("누워 있어도 내일 해야 할 일만 생각나.");
+    assert.equal(view.eiaiCaptionText.textContent, "누워 있어도 내일 해야 할 일만 생각나.");
+    assert.equal(view.eiaiCaption.dataset.visible, "true");
+    assert.equal(view.eiaiCaption.getAttribute("aria-hidden"), "false");
+    assert.equal(view.element.dataset.eiaiSpeaking, "true");
+    view.showGuardianStory(config.rounds[0], { collectedCount: 1, total: 5 });
+    assert.equal(view.eiaiCaption.dataset.visible, "false");
+    assert.equal(view.eiaiCaption.getAttribute("aria-hidden"), "true");
+    assert.equal(view.element.dataset.eiaiSpeaking, "false");
+    assert.equal(view.eiaiCaptionText.textContent, "누워 있어도 내일 해야 할 일만 생각나.", "outgoing text survives its fade");
+    view.destroy();
+    assert.doesNotThrow(() => view.showEiaiCaption(""));
+  } finally { frames.restore(); }
+});
+
 test("Word Breaker view renders glyph AABBs and an uninterrupted visual recovery flow", () => {
   const frames = installFrameHarness();
   try {

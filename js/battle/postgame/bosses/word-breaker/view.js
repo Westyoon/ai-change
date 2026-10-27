@@ -127,9 +127,9 @@ export class WordBreakerView {
     this.storyPreviousFocus = null;
   }
 
-  #createEiaiSprite() {
+  #createEiaiSprite(className = "word-breaker-eiai__sprite") {
     const image = this.createElement("img", {
-      className: "word-breaker-eiai__sprite",
+      className,
       attributes: { alt: "", width: "56", height: "56", draggable: "false" },
       dataset: { ready: "false" },
     });
@@ -402,14 +402,14 @@ export class WordBreakerView {
   }
 
   showEiaiCaption(text) {
-    if (!this.eiaiCaption) return;
-    this.eiaiCaption.textContent = text ? `이아이: ${text}` : "";
-    this.eiaiCaption.hidden = !text;
-    if (text) this.eiai?.animate?.([
-      { filter: "drop-shadow(0 0 0px #342038)" },
-      { filter: "drop-shadow(0 0 24px #251129)" },
-      { filter: "drop-shadow(0 0 0px #342038)" },
-    ], { duration: 950, easing: "ease-out" });
+    if (!this.eiaiCaption || !this.element) return;
+    const visible = Boolean(text);
+    // Keep the outgoing sentence until its fade finishes; this never shares
+    // a layer with attack glyphs or changes the logical combat coordinates.
+    if (visible) this.eiaiCaptionText.textContent = text;
+    this.eiaiCaption.dataset.visible = String(visible);
+    this.eiaiCaption.setAttribute("aria-hidden", String(!visible));
+    this.element.dataset.eiaiSpeaking = String(visible);
   }
 
   #createPhraseGlyphNode(glyph) {
@@ -701,8 +701,12 @@ export class WordBreakerView {
       this.finaleReframe,
     ]);
     this.playerActor = createCharacterActorElement({ document: this.document, local: true });
-    this.eiaiCaption = element("p", { className: "eiai-battle-caption", attributes: { role: "status", "aria-live": "polite" } });
-    this.eiaiCaption.hidden = true;
+    this.eiaiCaptionText = element("p", { className: "eiai-caption__text" });
+    this.eiaiCaption = element("aside", {
+      className: "eiai-battle-caption", dataset: { visible: "false" },
+      attributes: { role: "status", "aria-label": "이아이의 목소리", "aria-live": "polite", "aria-atomic": "true", "aria-hidden": "true" },
+    }, [this.#createEiaiSprite("eiai-caption__portrait"),
+      element("p", { className: "eiai-caption__speaker", text: "이아이" }), this.eiaiCaptionText]);
     this.playerActor.dataset.characterId = this.localPlayerId;
     this.characterView = new CharacterView({ element: this.playerActor, worldSize: this.arena });
     this.world = element("div", {
@@ -711,7 +715,6 @@ export class WordBreakerView {
     }, [
       grid,
       this.eiai,
-      this.eiaiCaption,
       this.phraseLayer,
       this.overloadLayer,
       this.shotLayer,
@@ -765,10 +768,11 @@ export class WordBreakerView {
       }
     });
 
-    return element("section", { className: "word-breaker-stage character-stage" }, [
+    return element("section", { className: "word-breaker-stage character-stage", dataset: { eiaiSpeaking: "false" } }, [
       this.vitality,
       header,
       this.world,
+      this.eiaiCaption,
       touchControls,
       this.guardianStory,
     ]);
